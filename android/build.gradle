@@ -1,0 +1,63 @@
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.2'
+        // Kotlin 2.2 storage runtime needs this D8 metadata support.
+        classpath 'com.android.tools:r8:8.10.21'
+    }
+}
+apply plugin: 'com.android.application'
+def config = new groovy.json.JsonSlurper().parse(file('../windows/src-tauri/tauri.conf.json'))
+def components = config.version.tokenize('.').collect { it as int }
+def storageTools = file('../../encryption-tools')
+layout.buildDirectory = file('gradle-build')
+android {
+    namespace 'com.coucou.workspace'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+    defaultConfig {
+        applicationId 'com.coucou.workspace'
+        minSdk 26
+        targetSdk 35
+        versionCode components[0] * 1000000 + components[1] * 1000 + components[2]
+        versionName config.version
+    }
+    sourceSets { main {
+        manifest.srcFile 'gradle-input/AndroidManifest.xml'
+        java.srcDirs = ['java']
+        res.srcDirs = ['res']
+        assets.srcDirs = ['build/assets']
+        jniLibs.srcDirs = [new File(storageTools,'sqlcipher/jni')]
+    } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    buildTypes { release { minifyEnabled false } }
+    packaging { resources { excludes += ['META-INF/DEPENDENCIES'] } }
+}
+configurations.configureEach {
+    exclude group: 'org.jetbrains.kotlin'
+    exclude group: 'androidx.annotation'
+}
+dependencies {
+    implementation files(new File(storageTools,'sqlcipher/classes.jar'),new File(storageTools,'sqlite-android/classes.jar'),new File(storageTools,'kotlin.jar'),new File(storageTools,'annotation.jar'))
+    implementation 'androidx.media3:media3-exoplayer:1.6.1'
+    implementation 'androidx.media3:media3-session:1.6.1'
+}
+tasks.register('prepareCoucouManifest') {
+    inputs.file 'AndroidManifest.xml'
+    outputs.file 'gradle-input/AndroidManifest.xml'
+    doLast {
+        def destination=file('gradle-input/AndroidManifest.xml');destination.parentFile.mkdirs()
+        destination.setText(file('AndroidManifest.xml').getText('UTF-8').replaceFirst(/\s+package="[^"]+"/,''),'UTF-8')
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'prepareCoucouManifest' }
+
+// Record only the runtime artifacts actually resolved for the shipped app.
+tasks.register('audioRuntimeInventory') {
+    doLast {
+        def entries=configurations.releaseRuntimeClasspath.resolvedConfiguration.resolvedArtifacts.collect {
+            [group:it.moduleVersion.id.group,name:it.name,version:it.moduleVersion.id.version,file:it.file.absolutePath]
+        }.sort { a,b -> (a.group+':'+a.name) <=> (b.group+':'+b.name) }
+        file('gradle-build/audio-runtime.json').setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(entries)), 'UTF-8')
+    }
+}

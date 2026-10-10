@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Coucou",
+  "version": "0.1.18",
+  "identifier": "fr.louisraille.coucou",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420"
+    },
+    "windows": [
+      {
+        "label": "island",
+        "create": false,
+        "title": "Coucou",
+        "url": "index.html",
+        "width": 240,
+        "height": 6,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": true,
+        "center": false,
+        "maximizable": false,
+        "minimizable": false,
+        "closable": false,
+        "dragDropEnabled": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../target/release/coucou-hook.exe": "coucou-hook.exe",
+      "../local-ai/*.dll": "local-ai/",
+      "../local-ai/llama-server.exe": "local-ai/llama-server.exe",
+      "../local-ai/model.gguf": "local-ai/model.gguf",
+      "../local-ai/model-fast.gguf": "local-ai/model-fast.gguf",
+      "../local-ai/*.rten": "local-ai/",
+      "../local-ai/*LICENSE*": "local-ai/",
+      "../local-ai/NOTICE.txt": "local-ai/NOTICE.txt",
+      "../THIRD-PARTY-EDITOR-LICENSES.txt": "THIRD-PARTY-EDITOR-LICENSES.txt",
+      "../THIRD-PARTY-STORAGE-LICENSES.txt": "THIRD-PARTY-STORAGE-LICENSES.txt",
+      "../media/ffmpeg.exe": "media/ffmpeg.exe",
+      "../THIRD-PARTY-AUDIO-LICENSES.txt": "THIRD-PARTY-AUDIO-LICENSES.txt",
+      "../media/*LICENSE*": "media/",
+      "../media/SOURCES.txt": "media/SOURCES.txt"
+    },
+    "copyright": "\u00a9 Louis Raille",
+    "category": "DeveloperTool",
+    "shortDescription": "Mochi lives at the top of your screen",
+    "longDescription": "Coucou puts Mochi at the top of your screen: it shows your Claude Code sessions and a few integrations, and lets you approve, answer, chat and drop files without leaving what you are doing.",
+    "windows": {
+      "nsis": {
+        "compression": "zlib",
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "French"
+        ],
+        "installerHooks": "nsis/hooks.nsh"
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const context={module:{exports:{}},TextEncoder,crypto:require('node:crypto').webcrypto};vm.runInNewContext(fs.readFileSync(process.argv[2],'utf8'),context);
+const {newSyncId,toWire,fromWire}=context.module.exports;
+const wire={id:'a'.repeat(64),name:'A conversation',title:'My essay',question:'Explain this',draft:'Draft',history:[{role:'user',content:[{text:'Hello'}]},{role:'assistant',content:[{text:'Answer'}]}],sources:[{name:'Book',text:'Full chapter',pages:[{number:4,text:'Full chapter',ocr:false}],path:null}],memory:'My preferences',model:'balanced'};
+const snapshot={project:wire,revision:'b'.repeat(64)};
+const mobile=fromWire(snapshot,undefined,true,()=> 'mobile');assert.deepEqual(JSON.parse(JSON.stringify(toWire(mobile,true))),wire);
+assert.equal(mobile.sync.documents,snapshot.revision);assert.equal(mobile.notes[0].role,'You');
+mobile.pendingReply='Unfinished text';mobile.replyPlacement='append';
+const noDocs=fromWire({...snapshot,project:{...wire,sources:[]}},mobile,false,()=> 'unused');assert.equal(noDocs.sources[0].text,'Full chapter');assert.equal(noDocs.pendingReply,'Unfinished text');assert.equal(noDocs.replyPlacement,'append');assert.equal(toWire(noDocs,false).sources.length,0);
+assert.throws(()=>toWire({...mobile,prompt:'🙂'.repeat(2600)},true),/10,000/);assert.throws(()=>toWire({...mobile,draft:'🙂'.repeat(60000)},true),/limits/);
+assert.throws(()=>fromWire({...snapshot,revision:'invalid'},undefined,true,()=> 'id'));
+assert.match(newSyncId(),/^[0-9a-f]{64}$/);assert.notEqual(newSyncId(),newSyncId());
+console.log('Sync conversion passed: Windows round-trip, page citations, local pending replies, document opt-out, byte limits and stable identities.');
+
+const annotatedWire={...wire,sources:[{...wire.sources[0],reading:{offset:0,bookmarks:[0],annotations:[{id:'one',start:0,end:4,quote:'Full',color:'pink',note:'Reading note'}]}}]};
+const annotatedMobile=fromWire({...snapshot,project:annotatedWire},undefined,true,()=> 'mobile');
+assert.equal(toWire(annotatedMobile,true).sources[0].reading.annotations[0].note,'Reading note');
+assert.equal(toWire(annotatedMobile,false).sources.length,0);
+assert.equal(fromWire({...snapshot,project:{...wire,sources:[]}},annotatedMobile,false,()=> 'mobile').sources[0].reading.annotations[0].note,'Reading note');
+console.log('Reading-note sync checks passed: metadata round trip and document opt-out.');

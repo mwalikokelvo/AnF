@@ -1,0 +1,9 @@
+node_modules/
+build/
+*.jks
+*.keystore
+password.txt
+.gradle/
+gradle-build/
+gradle-input/
+local.properties

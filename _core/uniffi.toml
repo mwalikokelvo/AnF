@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.thingsbook.core"
+cdylib_name = "thingsbook"
+
+[bindings.swift]
+module_name = "ThingsBookCore"
+
+[bindings.python]
+cdylib_name = "thingsbook"

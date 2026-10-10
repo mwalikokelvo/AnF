@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {wav,peaks,level,durationText}=require(process.argv[2]);
+const {workflowPrompt}=require(process.argv[3]);
+const mono=new Float32Array([-1,-.5,0,.5,1,Infinity,NaN]);
+const bytes=wav([mono],32000),view=new DataView(bytes);
+assert.equal(Buffer.from(bytes).toString('ascii',0,4),'RIFF');assert.equal(view.getUint32(40,true),14);assert.equal(view.getUint32(24,true),32000);assert.equal(view.getInt16(44,true),-32768);assert.equal(view.getInt16(52,true),32767);assert.equal(view.getInt16(54,true),0);
+assert.throws(()=>wav([],32000));assert.throws(()=>wav([mono,new Float32Array(1)],32000));assert.throws(()=>wav([mono],96000));assert.throws(()=>wav([new Float32Array(16000000)],32000));
+assert.deepEqual([...peaks([new Float32Array([0,.5,-1,0])],2)],[.5,1]);assert.equal(level([new Float32Array([.5,-.5])]).rms,.5);assert.equal(level([new Float32Array(8)]).peak,0);assert.equal(durationText(125),'2:05');
+assert.throws(()=>workflowPrompt('highlights',[],''));assert.throws(()=>workflowPrompt('compare',[],''));assert.throws(()=>workflowPrompt('polish',[],''));assert.equal(workflowPrompt('actions',[],'Call the library').scope,'draft');
+const sources=[{name:'Book',text:'Quote',reading:{offset:0,bookmarks:[],annotations:[{quote:'Quote',note:'An idea'}]}}];const p=workflowPrompt('highlights',sources,'');assert.ok(p.text.includes('Quote'));assert.equal(p.scope,'none');assert.ok(new TextEncoder().encode(p.text).length<10000);
+const rate=32000,signal=new Float32Array(rate*3);for(let i=0;i<signal.length;i++)signal[i]=.2*Math.sin(i*2*Math.PI*440/rate)+.03*Math.sin(i*2*Math.PI*60/rate);fs.writeFileSync(process.argv[4],Buffer.from(wav([signal],rate)));
+console.log('Audio PCM, clipping, bounds, waveform, levels and workflow-context tests passed. Three-second test tone generated.');
