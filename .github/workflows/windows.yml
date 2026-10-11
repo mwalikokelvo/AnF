@@ -69,7 +69,15 @@ jobs:
       # `npm run build` (run by tauri as beforeBuildCommand) builds coucou-hook
       # first, which tauri.conf.json then bundles as a resource. `pack` then
       # copies the installer out of target/ under its shipping name.
-      - name: Ensure Local AI Resource Directory & Placeholder
+      - name: Ensure Local AI Resource Directory & Placeholders
+        shell: pwsh
+        run: |
+          $paths = @("local-ai", "windows/local-ai", "windows/src-tauri/local-ai")
+          foreach ($p in $paths) {
+            New-Item -ItemType Directory -Force -Path $p
+            New-Item -ItemType File -Force -Path "$p/model-fast.gguf"
+            New-Item -ItemType File -Force -Path "$p/dummy.dll"
+          }
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "local-ai"
