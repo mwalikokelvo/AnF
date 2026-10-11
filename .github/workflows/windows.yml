@@ -85,9 +85,10 @@ jobs:
       - name: Build and pack the installer
         shell: pwsh
         run: |
-          # (rest of your build command continues here)
-          shell: pwsh
-          run: |
+          cd windows
+          npm run build
+          cargo tauri build
+          Get-ChildItem release | Format-Table Name, Length
           npm run pack
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
