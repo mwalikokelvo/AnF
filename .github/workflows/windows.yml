@@ -72,24 +72,22 @@ jobs:
       - name: Ensure Local AI Resource Directory & Placeholders
         shell: pwsh
         run: |
+      - name: Ensure Local AI Resource Directory & Placeholders
+        shell: pwsh
+        run: |
           $paths = @("local-ai", "windows/local-ai", "windows/src-tauri/local-ai")
           foreach ($p in $paths) {
             New-Item -ItemType Directory -Force -Path $p
             New-Item -ItemType File -Force -Path "$p/model-fast.gguf"
             New-Item -ItemType File -Force -Path "$p/dummy.dll"
           }
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "local-ai"
-          New-Item -ItemType File -Force -Path "local-ai/model-fast.gguf"
-          if (Test-Path "windows") {
-            New-Item -ItemType Directory -Force -Path "windows/local-ai"
-            New-Item -ItemType File -Force -Path "windows/local-ai/model-fast.gguf"
-          }
+
       - name: Build and pack the installer
-        id: pack
         shell: pwsh
         run: |
+          # (rest of your build command continues here)
+          shell: pwsh
+          run: |
           npm run pack
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
