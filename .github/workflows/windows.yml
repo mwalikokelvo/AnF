@@ -1,10 +1,4 @@
-- name: Ensure Local AI Resource Directory & Placeholder
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "local-ai"
-          if (-not (Test-Path "local-ai/model-fast.gguf")) {
-            New-Item -ItemType File -Force -Path "local-ai/model-fast.gguf"}
-          name: Windows
+name: Windows
 
 # Builds the Windows app and publishes the installer.
 # Triggered by tags like `windows-v0.1.0`; the macOS workflows are untouched.
@@ -75,6 +69,15 @@ jobs:
       # `npm run build` (run by tauri as beforeBuildCommand) builds coucou-hook
       # first, which tauri.conf.json then bundles as a resource. `pack` then
       # copies the installer out of target/ under its shipping name.
+      - name: Ensure Local AI Resource Directory & Placeholder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "local-ai"
+          New-Item -ItemType File -Force -Path "local-ai/model-fast.gguf"
+          if (Test-Path "windows") {
+            New-Item -ItemType Directory -Force -Path "windows/local-ai"
+            New-Item -ItemType File -Force -Path "windows/local-ai/model-fast.gguf"
+          }
       - name: Build and pack the installer
         id: pack
         shell: pwsh
