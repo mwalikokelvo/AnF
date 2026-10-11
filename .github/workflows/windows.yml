@@ -1,4 +1,10 @@
-name: Windows
+- name: Ensure Local AI Resource Directory & Placeholder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "local-ai"
+          if (-not (Test-Path "local-ai/model-fast.gguf")) {
+            New-Item -ItemType File -Force -Path "local-ai/model-fast.gguf"}
+          name: Windows
 
 # Builds the Windows app and publishes the installer.
 # Triggered by tags like `windows-v0.1.0`; the macOS workflows are untouched.
