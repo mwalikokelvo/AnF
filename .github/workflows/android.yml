@@ -2,11 +2,17 @@ name: Android packages
 
 on:
   workflow_dispatch:
+    inputs:
+      baseline_run:
+        description: 'Optional previous Coucou-Android artifact run for installation upgrade QA'
+        required: false
+        type: string
   pull_request:
     paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', '.github/workflows/android.yml']
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -46,6 +52,44 @@ jobs:
         run: node scripts/build-android.mjs
       - name: Regression checks
         run: node scripts/check-release.mjs
+      - name: Build installed-release instrumentation tests
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        working-directory: android
+        run: gradle --no-daemon assembleReleaseAndroidTest
+      - name: Download previous Android package
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: Coucou-Android
+          run-id: ${{ inputs.baseline_run }}
+          github-token: ${{ github.token }}
+          path: previous-android
+      - name: Enable emulator hardware acceleration
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify installed Android release and saved-data retention
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim
+          script: python3 scripts/app-qa/android-upgrade.py --baseline previous-android/Coucou-Android-0.1.18-unsigned.apk --candidate releases/Coucou-Android-0.1.19-unsigned.apk --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --keystore "$HOME/.android/debug.keystore" --output "$RUNNER_TEMP/anf-android-qa"
+      - name: Retain installed Android test evidence
+        uses: actions/upload-artifact@v4
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        with:
+          name: Coucou-Android-installation-tests
+          path: |
+            ${{ runner.temp }}/anf-android-qa/*.txt
+            ${{ runner.temp }}/anf-android-qa/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Verify debug signature and package versions
         run: |
           version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
