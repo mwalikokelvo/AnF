@@ -1,5 +1,6 @@
 import {unzipSync,strFromU8} from 'fflate';
-import {getDocument,GlobalWorkerOptions} from 'pdfjs-dist';
+// Android devices and emulator images can retain older system WebView versions.
+import {getDocument,GlobalWorkerOptions} from 'pdfjs-dist/legacy/build/pdf.mjs';
 GlobalWorkerOptions.workerSrc='/pdf.worker.mjs';
 const LIMIT=2_000_000;
 function xml(text:string){const d=new DOMParser().parseFromString(text,'application/xml');if(d.querySelector('parsererror')||d.doctype)throw Error('Invalid or unsupported document XML.');return d;}
@@ -11,7 +12,7 @@ export async function readDocument(file:File,progress:(s:string)=>void):Promise<
   const data=new Uint8Array(await file.arrayBuffer());
   if(ext==='pdf'){
     const loading=getDocument({data,isEvalSupported:false,disableFontFace:true,cMapUrl:'/cmaps/',cMapPacked:true,standardFontDataUrl:'/standard_fonts/',wasmUrl:'/wasm/'});const pdf=await loading.promise;
-    try{if(pdf.numPages>600)throw Error('PDFs support up to 600 pages.');let out='';for(let i=1;i<=pdf.numPages;i++){progress(`Reading page ${i} of ${pdf.numPages}…`);const page=await pdf.getPage(i);const content=await page.getTextContent();out+=`\n[Page ${i}]\n`+content.items.map((x:any)=>x.str||'').join(' ')+'\n';page.cleanup();if(out.length>LIMIT)throw Error('Extracted text exceeds 2 MB. Split the document.');}if(out.replace(/\[Page \d+\]/g,'').trim().length<20)throw Error('This PDF needs OCR. This first Android edition reads selectable PDF text.');return out;}finally{await pdf.destroy();}
+    try{if(pdf.numPages>600)throw Error('PDFs support up to 600 pages.');let out='';for(let i=1;i<=pdf.numPages;i++){progress(`Reading page ${i} of ${pdf.numPages}…`);const page=await pdf.getPage(i);const content=await page.getTextContent();out+=`\n[Page ${i}]\n`+content.items.map((x:any)=>x.str||'').join(' ')+'\n';page.cleanup();if(out.length>LIMIT)throw Error('Extracted text exceeds 2 MB. Split the document.');}if(!out.replace(/\[Page \d+\]/g,'').trim())throw Error('This PDF needs OCR. This first Android edition reads selectable PDF text.');return out;}finally{await pdf.destroy();}
   }
   if(ext==='docx'||ext==='epub'){
     let total=0;const files=unzipSync(data,{filter:e=>{if(!/\.(xml|opf|xhtml|html|htm)$/i.test(e.name))return false;total+=e.originalSize;if(e.originalSize>LIMIT||total>16_000_000)throw Error('This archive expands beyond the document limit.');return true;}});

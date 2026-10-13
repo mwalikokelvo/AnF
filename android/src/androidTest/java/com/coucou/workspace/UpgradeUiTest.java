@@ -44,7 +44,7 @@ public class UpgradeUiTest {
       if("true".equals(evaluate(expression)))return;SystemClock.sleep(150);
     }
     fail("UI condition did not complete: "+expression+"; document: "+
-      evaluate("JSON.stringify({url:location.href,title:document.title,ready:document.readyState})"));
+      evaluate("JSON.stringify({url:location.href,title:document.title,ready:document.readyState,status:document.querySelector('.status')?.textContent})"));
   }
   private void clickView(String name)throws Exception {
     evaluate("document.querySelector('[data-view=\""+name+"\"]').click()");
@@ -136,7 +136,7 @@ public class UpgradeUiTest {
     clickView("documents");
     evaluate("(()=>{const d=new DataTransfer();d.items.add(new File(['A document read after the update.'],'after-update.txt',{type:'text/plain'}));const e=document.querySelector('[aria-label=\"Choose a document\"]');e.files=d.files;e.dispatchEvent(new Event('change',{bubbles:true}));})()");
     until("document.body.textContent.includes('after-update.txt') && document.body.textContent.includes('Document added.')");
-    byte[] pdf;try(InputStream input=instrumentation.getContext().getAssets().open("simple.pdf")){pdf=new byte[input.available()];int offset=0;while(offset<pdf.length){int read=input.read(pdf,offset,pdf.length-offset);if(read<0)break;offset+=read;}assertEquals(pdf.length,offset);}
+    byte[] pdf;try(InputStream input=instrumentation.getContext().getAssets().open("short.pdf")){pdf=new byte[input.available()];int offset=0;while(offset<pdf.length){int read=input.read(pdf,offset,pdf.length-offset);if(read<0)break;offset+=read;}assertEquals(pdf.length,offset);}
     String encoded=android.util.Base64.encodeToString(pdf,android.util.Base64.NO_WRAP);
     evaluate("(()=>{const d=new DataTransfer();d.items.add(new File([Uint8Array.from(atob("+JSONObject.quote(encoded)+"),c=>c.charCodeAt(0))],'qa-pdf.pdf',{type:'application/pdf'}));const e=document.querySelector('[aria-label=\"Choose a document\"]');e.files=d.files;e.dispatchEvent(new Event('change',{bubbles:true}));})()");
     until("document.body.textContent.includes('qa-pdf.pdf') && document.body.textContent.includes('Document added.')");

@@ -23,7 +23,7 @@ await build({
 });
 await copyFile(path.join(android, 'web/index.html'), path.join(assets, 'index.html'));
 const pdf = path.join(android, 'node_modules/pdfjs-dist');
-await copyFile(path.join(pdf, 'build/pdf.worker.min.mjs'), path.join(assets, 'pdf.worker.mjs'));
+await copyFile(path.join(pdf, 'legacy/build/pdf.worker.min.mjs'), path.join(assets, 'pdf.worker.mjs'));
 for (const directory of ['cmaps', 'standard_fonts', 'wasm']) {
   await cp(path.join(pdf, directory), path.join(assets, directory), { recursive: true });
 }
