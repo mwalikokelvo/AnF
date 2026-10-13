@@ -57,6 +57,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Reserve disk space for offline packages
+        run: |
+          # These preinstalled SDKs are unused by the Linux Rust/Node build.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h .
+
       # webkit2gtk, gtk-layer-shell and appindicator to build against; patchelf
       # and the GStreamer plugins for the AppImage, which carries its own
       # GStreamer so the sounds play (WAV needs wavparse, in -good).
