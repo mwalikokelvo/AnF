@@ -13,6 +13,10 @@ on:
         description: 'Run containing the previous Coucou-Windows-setup artifact for installation upgrade QA'
         required: false
         type: string
+      candidate_run:
+        description: 'Optional completed build run to test without rebuilding'
+        required: false
+        type: string
   pull_request:
     paths: ['windows/**', '.github/workflows/windows.yml']
 
@@ -33,6 +37,7 @@ env:
 
 jobs:
   build:
+    if: inputs.candidate_run == ''
     runs-on: windows-latest
     env:
       CARGO_BUILD_JOBS: 2
@@ -150,7 +155,8 @@ jobs:
           npm ci --prefix scripts/app-qa --ignore-scripts
           if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
           $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
-          $candidate = (Get-ChildItem windows/release -Filter '*setup.exe').FullName
+          $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $candidate = (Resolve-Path "windows/release/Coucou-Windows-$version-setup.exe").Path
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
 
       - name: Retain installed application test evidence
@@ -179,4 +185,41 @@ jobs:
           name: Coucou-Windows-portable
           path: windows/release/Coucou-Windows-${{ steps.pack.outputs.version }}-portable/
           if-no-files-found: error
+          retention-days: 7
+
+  installation:
+    if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != ''
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: Coucou-Windows-setup
+          run-id: ${{ inputs.baseline_run }}
+          github-token: ${{ github.token }}
+          path: previous-installer
+      - uses: actions/download-artifact@v4
+        with:
+          name: Coucou-Windows-setup
+          run-id: ${{ inputs.candidate_run }}
+          github-token: ${{ github.token }}
+          path: candidate-installer
+      - name: Verify installed application and preserve existing data
+        shell: pwsh
+        run: |
+          npm ci --prefix scripts/app-qa --ignore-scripts
+          if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
+          $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
+          $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $candidate = (Resolve-Path "candidate-installer/Coucou-Windows-$version-setup.exe").Path
+          ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Coucou-Windows-installation-tests
+          path: ${{ runner.temp }}/anf-app-upgrade/results/
+          if-no-files-found: ignore
           retention-days: 7
