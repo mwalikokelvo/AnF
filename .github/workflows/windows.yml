@@ -17,6 +17,14 @@ on:
         description: 'Optional completed build run to test without rebuilding'
         required: false
         type: string
+      downloads_run:
+        description: 'Completed AnF Windows build run to upload to a private draft download release'
+        required: false
+        type: string
+      android_download_branch:
+        description: 'Branch containing only signed Android downloads (no signing keys)'
+        required: false
+        type: string
   pull_request:
     paths: ['windows/**', '.github/workflows/windows.yml']
 
@@ -37,7 +45,7 @@ env:
 
 jobs:
   build:
-    if: inputs.candidate_run == ''
+    if: inputs.candidate_run == '' && inputs.downloads_run == ''
     runs-on: windows-latest
     env:
       CARGO_BUILD_JOBS: 2
@@ -188,7 +196,7 @@ jobs:
           retention-days: 7
 
   installation:
-    if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != ''
+    if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != '' && inputs.downloads_run == ''
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -223,3 +231,55 @@ jobs:
           path: ${{ runner.temp }}/anf-app-upgrade/results/
           if-no-files-found: ignore
           retention-days: 7
+
+  private-downloads:
+    if: github.event_name == 'workflow_dispatch' && inputs.downloads_run != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require a signed APK download branch
+        env:
+          DOWNLOAD_BRANCH: ${{ inputs.android_download_branch }}
+        run: test -n "$DOWNLOAD_BRANCH"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.android_download_branch }}
+          path: android-downloads
+      - uses: actions/download-artifact@v4
+        with:
+          name: AnF-Windows-setup
+          run-id: ${{ inputs.downloads_run }}
+          github-token: ${{ github.token }}
+          path: windows-downloads
+      - name: Verify files and create private draft download assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
+          tag="anf-v$version-downloads"
+          (cd android-downloads && sha256sum -c SHA256SUMS-Android)
+          (cd windows-downloads && sha256sum -c SHA256SUMS-Windows)
+          cat > download-notes.md <<'EOF'
+          AnF for Android and Windows. Download the APK or standalone Windows installer from Assets below.
+
+          Install Android over your existing app. The main APK uses your original release key; the alternate uses your supplied original debug key. Keep the existing app installed if Android rejects an update. These keys cannot update the earlier temporary CI debug APK from chat.
+
+          Quit the Windows app from its tray menu before updating. The AnF installer retains the previous installation folder and data. This Windows installer is unsigned; the repository records an unresolved Defender detection. Do not disable antivirus if it blocks installation. Public Windows publication remains paused.
+
+          Light, dark and device themes, new navigation and AnF icons are included. Android AI uses a paired Windows PC or optional browser services. Original signing keys and passwords are not included in downloads or CI.
+          EOF
+          if gh release view "$tag" --json isDraft > draft-status.json 2>/dev/null; then
+            node -e "if (!require('./draft-status.json').isDraft) process.exit(1)"
+          else
+            gh release create "$tag" --draft --target "$GITHUB_SHA" --title "AnF $version — Android and Windows downloads" --notes-file download-notes.md
+          fi
+          gh release upload "$tag" --clobber \
+            "android-downloads/AnF-Android-$version.apk" \
+            "android-downloads/AnF-Android-$version-debug-key-update.apk" \
+            android-downloads/SHA256SUMS-Android \
+            "windows-downloads/AnF-Windows-$version-setup.exe" \
+            windows-downloads/SHA256SUMS-Windows
