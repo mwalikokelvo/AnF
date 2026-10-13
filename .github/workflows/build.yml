@@ -1,10 +1,14 @@
 name: Build
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -48,6 +52,22 @@ jobs:
             -project NotchBuddy/NotchBuddy.xcodeproj \
             -scheme NotchBuddy \
             -configuration Release \
+            -derivedDataPath NotchBuddy/build/DerivedData \
             build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned macOS build
+        run: |
+          mkdir -p releases
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' NotchBuddy/Resources/Info.plist)
+          ditto -c -k --sequesterRsrc --keepParent NotchBuddy/build/DerivedData/Build/Products/Release/Coucou.app "releases/Coucou-macOS-$version-unsigned.zip"
+          cd releases
+          shasum -a 256 *.zip > SHA256SUMS-macOS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Coucou-macOS-unsigned
+          path: releases/
+          if-no-files-found: error
+          retention-days: 7

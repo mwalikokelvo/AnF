@@ -7,6 +7,12 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = fileURLToPath(new URL('../local-ai/', import.meta.url));
+const runtime = process.platform === 'linux'
+  ? {name:'llama-b11380-bin-ubuntu-x64.tar.gz', file:'runtime.tar.gz', sha256:'466b3378de0e510cc1656c86a75e7908fbf5d23695b9e6179f7303df2bad332d'}
+  : {name:'llama-b11380-bin-win-cpu-x64.zip', file:'runtime.zip', sha256:'14745434896a9ffc7acc21f0c11ac95eb7c3d33589def679c7ff1aca3a1dbd4c'};
+if (!['linux','win32'].includes(process.platform) || process.arch !== 'x64') {
+  throw Error('Offline release assets currently support Windows/Linux x64 only.');
+}
 await mkdir(root, {recursive:true});
 async function hash(file) {
   const h = createHash('sha256');
@@ -28,7 +34,7 @@ async function download(url, name, expected) {
   console.log(`${name}: download verified`);
 }
 await Promise.all([
-  download('https://github.com/ggml-org/llama.cpp/releases/download/b11380/llama-b11380-bin-win-cpu-x64.zip', 'runtime.zip','14745434896a9ffc7acc21f0c11ac95eb7c3d33589def679c7ff1aca3a1dbd4c'),
+  download(`https://github.com/ggml-org/llama.cpp/releases/download/b11380/${runtime.name}`, runtime.file,runtime.sha256),
   download('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf', 'model-source.gguf','061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a'),
   download('https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/Qwen3-0.6B-Q8_0.gguf', 'model-fast.gguf','9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031'),
   download('https://ocrs-models.s3-accelerate.amazonaws.com/text-detection.rten','ocr-detection.rten','f15cfb56bd02c4bf478a20343986504a1f01e1665c2b3a0ad66340f054b1b5ca'),
@@ -46,7 +52,8 @@ Balanced weights were MODIFIED: requantized Q8_0 to Q4_K_M with llama-quantize b
 Source SHA256: 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
 Derived model.gguf SHA256: 54c0f1203a724e9f33e76916beab3bdfaffef56cf7b42a93b1bc21319fc0bf97
 Fast SHA256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
-Runtime ZIP SHA256: 14745434896a9ffc7acc21f0c11ac95eb7c3d33589def679c7ff1aca3a1dbd4c
+Runtime archive: ${runtime.name}
+Runtime archive SHA256: ${runtime.sha256}
 OCR: Robert Knight / Ocrs pre-trained models, unmodified, CC-BY-SA 4.0.
 https://huggingface.co/robertknight/ocrs/tree/df0edd170279ab971b53e094c627255a87e1a503
 https://creativecommons.org/licenses/by-sa/4.0/
@@ -56,4 +63,4 @@ Detection SHA256: f15cfb56bd02c4bf478a20343986504a1f01e1665c2b3a0ad66340f054b1b5
 Recognition SHA256: e484866d4cce403175bd8d00b128feb08ab42e208de30e42cd9889d8f1735a6e
 Model usage has no recurring hosted quota, but finite context, RAM, speed and quality.
 `);
-console.log('Run prepare-offline.ps1 to extract the CPU runtime and quantize the Balanced model.');
+console.log('Run prepare-offline.ps1 on Windows or prepare-linux.mjs on Linux to extract the runtime and quantize the Balanced model.');
