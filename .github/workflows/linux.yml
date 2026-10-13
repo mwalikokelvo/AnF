@@ -25,6 +25,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Off until a first build has been checked by hand: run this workflow manually,
 # download the Coucou-Linux artifact, try it, then set this to 'true' and push a
 # linux-v* tag.
@@ -36,6 +40,8 @@ jobs:
     # The oldest supported Ubuntu: an AppImage only runs on systems whose glibc
     # is at least as new as the one it was built against.
     runs-on: ubuntu-22.04
+    env:
+      CARGO_BUILD_JOBS: 2
     outputs:
       version: ${{ steps.pack.outputs.version }}
       publish: ${{ steps.gate.outputs.publish }}

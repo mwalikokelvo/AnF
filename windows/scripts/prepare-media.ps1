@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 $url = 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.zip'
-$expected = '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba'
+$expected = 'db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec'
 $cache = Join-Path $PWD 'target/media-runtime'
 New-Item -ItemType Directory -Force $cache | Out-Null
 $archive = Join-Path $cache 'ffmpeg.zip'
