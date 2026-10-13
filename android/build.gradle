@@ -1,20 +1,17 @@
 buildscript {
     repositories { google(); mavenCentral() }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.9.2'
-        // Kotlin 2.2 storage runtime needs this D8 metadata support.
-        classpath 'com.android.tools:r8:8.10.21'
+        classpath 'com.android.tools.build:gradle:9.2.1'
     }
 }
 apply plugin: 'com.android.application'
 def config = new groovy.json.JsonSlurper().parse(file('../windows/src-tauri/tauri.conf.json'))
 def components = config.version.tokenize('.').collect { it as int }
-def storageTools = file('../../encryption-tools')
 layout.buildDirectory = file('gradle-build')
 android {
     namespace 'com.coucou.workspace'
-    compileSdk 35
-    buildToolsVersion '35.0.0'
+    compileSdk 37
+    buildToolsVersion '36.0.0'
     defaultConfig {
         applicationId 'com.coucou.workspace'
         minSdk 26
@@ -27,18 +24,14 @@ android {
         java.srcDirs = ['java']
         res.srcDirs = ['res']
         assets.srcDirs = ['build/assets']
-        jniLibs.srcDirs = [new File(storageTools,'sqlcipher/jni')]
     } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
     buildTypes { release { minifyEnabled false } }
     packaging { resources { excludes += ['META-INF/DEPENDENCIES'] } }
 }
-configurations.configureEach {
-    exclude group: 'org.jetbrains.kotlin'
-    exclude group: 'androidx.annotation'
-}
 dependencies {
-    implementation files(new File(storageTools,'sqlcipher/classes.jar'),new File(storageTools,'sqlite-android/classes.jar'),new File(storageTools,'kotlin.jar'),new File(storageTools,'annotation.jar'))
+    implementation 'net.zetetic:sqlcipher-android:4.19.0'
+    implementation 'androidx.sqlite:sqlite:2.7.0'
     implementation 'androidx.media3:media3-exoplayer:1.6.1'
     implementation 'androidx.media3:media3-session:1.6.1'
 }

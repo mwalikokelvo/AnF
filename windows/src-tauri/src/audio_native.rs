@@ -33,9 +33,18 @@ fn execute(exe:&Path,bytes:&[u8],format:&str,preset:&str,dir:&Path,cancel:&Atomi
  let _=std::fs::remove_file(&input);if result.is_err(){let _=std::fs::remove_file(&output);}result
 }
 fn executable(app:&tauri::AppHandle)->Result<PathBuf,String>{
+ #[cfg(target_os="linux")]
+ {
+  let _=app;
+  if Command::new("ffmpeg").arg("-version").output().map(|o|o.status.success()).unwrap_or(false){return Ok(PathBuf::from("ffmpeg"));}
+  return Err("Install the FFmpeg package to use audio conversion on Linux.".into());
+ }
+ #[cfg(not(target_os="linux"))]
+ {
  let bundled=app.path().resource_dir().map_err(|e|e.to_string())?.join("media/ffmpeg.exe");if bundled.is_file(){return Ok(bundled);}
  #[cfg(debug_assertions)]{let local=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../media/ffmpeg.exe");if local.is_file(){return Ok(local);}}
  Err("The native converter is missing. Install the full updated Windows package.".into())
+ }
 }
 #[tauri::command]pub fn audio_conversion_cancel(jobs:State<AudioJobs>,id:String){if let Ok(guard)=jobs.0.lock(){if let Some((active,cancel))=guard.as_ref(){if active==&id{cancel.store(true,Ordering::Relaxed);}}}}
 #[tauri::command]pub async fn audio_convert(app:tauri::AppHandle,jobs:State<'_,AudioJobs>,id:String,bytes:Vec<u8>,format:String,preset:String)->Result<String,String>{

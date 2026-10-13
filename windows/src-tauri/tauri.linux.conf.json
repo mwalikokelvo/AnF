@@ -8,7 +8,14 @@
     ],
     "resources": {
       "../target/release/coucou-hook.exe": null,
-      "../target/release/coucou-hook": "coucou-hook"
+      "../target/release/coucou-hook": "coucou-hook",
+      "../local-ai/*.dll": null,
+      "../local-ai/llama-server.exe": null,
+      "../local-ai/lib*.so*": "local-ai/",
+      "../local-ai/llama-server": "local-ai/llama-server",
+      "../media/ffmpeg.exe": null,
+      "../media/*LICENSE*": null,
+      "../media/SOURCES.txt": null
     },
     "linux": {
       "appimage": {
@@ -16,12 +23,14 @@
       },
       "deb": {
         "depends": [
-          "libgtk-layer-shell0 (>= 0.6)"
+          "libgtk-layer-shell0 (>= 0.6)",
+          "ffmpeg"
         ]
       },
       "rpm": {
         "depends": [
-          "gtk-layer-shell"
+          "gtk-layer-shell",
+          "ffmpeg"
         ]
       }
     }

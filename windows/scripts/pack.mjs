@@ -2,7 +2,7 @@
 // windows/release/, with the names they ship under. Used by `npm run pack` and
 // by the release workflows, so both produce exactly the same file names.
 
-import { readFileSync, mkdirSync, copyFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, mkdirSync, copyFileSync, readdirSync, statSync, cpSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -77,3 +77,24 @@ for (const f of written) {
   console.log(`  ${f}  (${mb} MB)`);
 }
 console.log();
+
+if (process.platform === 'win32') {
+  // A portable release needs the same offline resources as the installer.
+  const portable = join(outDir, `Coucou-Windows-${version}-portable`);
+  mkdirSync(portable, {recursive:true});
+  for (const binary of ['coucou.exe','coucou-hook.exe']) {
+    copyFileSync(join(root,'target/release',binary),join(portable,binary));
+  }
+  mkdirSync(join(portable,'local-ai'), {recursive:true});
+  const required = ['llama-server.exe','model.gguf','model-fast.gguf','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt'];
+  const dlls = readdirSync(join(root,'local-ai')).filter(name=>name.endsWith('.dll'));
+  if (!dlls.length) throw Error('Portable release has no native runtime DLLs.');
+  for(const name of new Set([...required,...dlls,...readdirSync(join(root,'local-ai')).filter(name=>name.includes('LICENSE'))])) {
+    copyFileSync(join(root,'local-ai',name),join(portable,'local-ai',name));
+  }
+  cpSync(join(root,'media'),join(portable,'media'),{recursive:true});
+  for(const name of ['THIRD-PARTY-LICENSES.txt','THIRD-PARTY-EDITOR-LICENSES.txt','THIRD-PARTY-STORAGE-LICENSES.txt','THIRD-PARTY-AUDIO-LICENSES.txt']) {
+    copyFileSync(join(root,name),join(portable,name));
+  }
+  console.log(`Portable release with offline resources: ${portable}`);
+}

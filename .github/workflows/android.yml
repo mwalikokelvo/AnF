@@ -1,0 +1,54 @@
+name: Android packages
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', '.github/workflows/android.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            windows/package-lock.json
+            android/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.4.1
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Install frontend dependencies
+        run: |
+          npm ci --prefix windows
+          npm ci --prefix android
+      - name: Build unsigned release and debug packages
+        run: node scripts/build-android.mjs
+      - name: Regression checks
+        run: node scripts/check-release.mjs
+      - name: Verify debug signature and package versions
+        run: |
+          version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "releases/Coucou-Android-$version-debug.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "releases/Coucou-Android-$version-unsigned.apk" > releases/android-package.txt
+          grep -F "versionName='$version'" releases/android-package.txt
+          cd releases
+          sha256sum *.apk > SHA256SUMS-Android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Coucou-Android
+          path: releases/
+          if-no-files-found: error
+          retention-days: 7
