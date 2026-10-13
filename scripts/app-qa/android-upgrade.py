@@ -24,7 +24,7 @@ serials=[line.split()[0] for line in devices if line.startswith('emulator-') and
 if len(serials)!=1:raise SystemExit('Exactly one isolated Android emulator is required')
 device=[adb,'-s',serials[0]]
 keystore=out/'ci-signing.jks'
-run(['keytool','-genkeypair','-keystore',str(keystore),'--storepass','android',
+run(['keytool','-genkeypair','-keystore',str(keystore),'-storepass','android',
      '-keypass','android','-alias','qa','-keyalg','RSA','-keysize','2048',
      '-validity','365','-dname','CN=Coucou installation test'])
 for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.test)]:
