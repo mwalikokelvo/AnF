@@ -28,6 +28,10 @@
         ]
       },
       "rpm": {
+        "compression": {
+          "type": "zstd",
+          "level": 3
+        },
         "depends": [
           "gtk-layer-shell",
           "ffmpeg"
