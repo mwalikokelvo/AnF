@@ -56,6 +56,28 @@ public class UpgradeUiTest {
       .put("notes",new org.json.JSONArray("[{\"role\":\"You\",\"text\":\"Retain this conversation.\"}]"))
       .put("sources",new org.json.JSONArray("[{\"name\":\"before-update.txt\",\"text\":\"Original document text.\"}]"));
   }
+  private void seedEncryptedStore()throws Exception {
+    VaultRepository old=new VaultRepository(instrumentation.getTargetContext());
+    try {old.request("begin","{}");}catch(Exception error) {
+      System.out.println("Baseline encryption initialization: "+error.getClass().getSimpleName()+": "+
+        String.valueOf(error.getMessage()).replaceAll("(?i)[0-9a-f]{64}","[redacted]"));
+    }
+    // Seed the prior version's real key wrapping and encrypted schema directly:
+    // its known connection-initialization bug cannot create the fixture itself.
+    java.lang.reflect.Method key=VaultRepository.class.getDeclaredMethod("key",boolean.class),
+      raw=VaultRepository.class.getDeclaredMethod("rawKey",byte[].class),
+      schema=VaultRepository.class.getDeclaredMethod("schema",net.zetetic.database.sqlcipher.SQLiteDatabase.class),
+      put=VaultRepository.class.getDeclaredMethod("put",net.zetetic.database.sqlcipher.SQLiteDatabase.class,org.json.JSONArray.class);
+    for(java.lang.reflect.Method method:new java.lang.reflect.Method[]{key,raw,schema,put})method.setAccessible(true);
+    java.lang.reflect.Field active=VaultRepository.class.getDeclaredField("active");active.setAccessible(true);
+    byte[] value=(byte[])key.invoke(old,true),encoded=(byte[])raw.invoke(old,(Object)value);
+    try(net.zetetic.database.sqlcipher.SQLiteDatabase db=net.zetetic.database.sqlcipher.SQLiteDatabase.openDatabase(
+      ((java.io.File)active.get(old)).getAbsolutePath(),encoded,null,
+      net.zetetic.database.sqlcipher.SQLiteDatabase.OPEN_READWRITE|net.zetetic.database.sqlcipher.SQLiteDatabase.CREATE_IF_NECESSARY,
+      (damaged,cause)->{throw cause;},null)) {
+      schema.invoke(old,db);put.invoke(old,db,new org.json.JSONArray().put(fixture("qa-encrypted-upgrade","Encrypted upgrade conversation")));
+    }finally{java.util.Arrays.fill(value,(byte)0);java.util.Arrays.fill(encoded,(byte)0);}
+  }
   private void nativeCall(String operation,String json)throws Exception {
     evaluate("window.__qaVaultResult=null;window.vaultResult=(id,value,error)=>window.__qaVaultResult=error?'ERROR:'+error:value;CoucouAndroid.vaultRequest('99001',"+JSONObject.quote(operation)+","+JSONObject.quote(json)+")");
     until("window.__qaVaultResult!==null");
@@ -67,6 +89,7 @@ public class UpgradeUiTest {
     Activity activity=instrumentation.startActivitySync(launch);
     instrumentation.runOnMainSync(()->web=findWebView(activity.getWindow().getDecorView()));assertNotNull(web);
     String phase=InstrumentationRegistry.getArguments().getString("phase","verify");
+    boolean encrypted=InstrumentationRegistry.getArguments().getString("storage","encrypted").equals("encrypted");
     if(phase.equals("seed")) {
       // The baseline's missing HTML produces a browser error document. Seed its
       // real old origin/store independently of that already-confirmed UI defect.
@@ -88,13 +111,12 @@ public class UpgradeUiTest {
       String legacy=fixture("qa-legacy-upgrade","Legacy upgrade conversation").toString();
       evaluate("window.__qaSeed=false;(()=>{const r=indexedDB.open('coucou-mobile',1);r.onupgradeneeded=()=>r.result.createObjectStore('projects',{keyPath:'id'});r.onsuccess=()=>{const t=r.result.transaction('projects','readwrite');t.objectStore('projects').put("+legacy+");t.oncomplete=()=>{r.result.close();window.__qaSeed=true;};};})()");
       until("window.__qaSeed===true");
-      nativeCall("begin","{}");
-      nativeCall("migration_put",new JSONObject().put("projects",new org.json.JSONArray().put(fixture("qa-encrypted-upgrade","Encrypted upgrade conversation"))).toString());
-      nativeCall("commit","{\"count\":1}");
+      if(encrypted)seedEncryptedStore();
       return;
     }
     // The old broken package never renders this form; the fixed release must.
-    until("document.querySelector('[aria-label=\"Conversation title\"]')?.value==='Encrypted upgrade conversation'");
+    until("document.querySelector('[aria-label=\"Conversation title\"]')?.value==='"+
+      (encrypted?"Encrypted":"Legacy")+" upgrade conversation'");
     clickView("writing");
     until("!!document.querySelector('[aria-label=\"Live Markdown writing\"]')");
     String expected=phase.equals("reopen")?AFTER:BEFORE;
@@ -102,6 +124,12 @@ public class UpgradeUiTest {
     evaluate("window.__qaLegacy=false;(()=>{const r=indexedDB.open('coucou-mobile',1);r.onsuccess=()=>{const q=r.result.transaction('projects').objectStore('projects').get('qa-legacy-upgrade');q.onsuccess=()=>{window.__qaLegacy=!!q.result && q.result.draft==="+JSONObject.quote(BEFORE)+";r.result.close();};};})()");
     until("window.__qaLegacy===true");
     if(phase.equals("reopen"))return;
+    if(!encrypted) {
+      clickView("settings");
+      evaluate("Array.from(document.querySelectorAll('summary')).find(e=>e.textContent==='Encrypted conversation storage').click()");
+      evaluate("Array.from(document.querySelectorAll('button')).find(e=>e.textContent==='Encrypt saved conversations').click()");
+      until("document.body.textContent.includes('Migration verified.')");
+    }
     for(String view:new String[]{"home","chat","documents","audio","settings","writing"})clickView(view);
     evaluate("(()=>{const e=document.querySelector('[aria-label=\"Live Markdown writing\"]');e.focus();const r=document.createRange();r.selectNodeContents(e);const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('insertText',false,"+JSONObject.quote(AFTER)+");})()");
     until("document.querySelector('[aria-label=\"Live Markdown writing\"]').textContent.includes("+JSONObject.quote(AFTER)+")");
