@@ -1,0 +1,27 @@
+{
+  "version": "0.1.20",
+  "source": "87d7dc3b048cc7899b369954036ee19728546d82",
+  "android": {
+    "local_release_build": "passed",
+    "apk_assets": "passed",
+    "original_signers_verified": true,
+    "installed_update_test": "blocked: GitHub Actions billing; previous 0.1.19 native update tests passed"
+  },
+  "rendering": {
+    "views": 72,
+    "platforms": [
+      "Windows",
+      "Android"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "saved_drafts_and_preferences": "retained"
+  },
+  "windows": {
+    "source_and_frontend": "built",
+    "native_installer": "blocked: GitHub Actions billing"
+  },
+  "regressions": 9
+}
