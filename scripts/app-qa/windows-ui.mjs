@@ -1,6 +1,6 @@
 import {chromium} from 'playwright-core';
 import assert from 'node:assert/strict';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
 const phase=process.argv[2];
@@ -9,6 +9,7 @@ const out=process.env.ANF_QA_OUTPUT||'results';
 await mkdir(out,{recursive:true});
 let browser,page;
 const errors=[];
+const connectionErrors=[];
 try {
   const deadline=Date.now()+90000;
   while(Date.now()<deadline&&!page) {
@@ -16,7 +17,7 @@ try {
       browser=await chromium.connectOverCDP('http://127.0.0.1:9223',{timeout:3000});
       page=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('workspace.html'));
       if(!page)await browser.close();
-    }catch{}
+    }catch(error){connectionErrors.push(String(error));}
     if(!page)await new Promise(r=>setTimeout(r,500));
   }
   assert(page,'Installed application did not open its workspace');
@@ -69,6 +70,10 @@ try {
   await page.screenshot({path:path.join(out,`windows-${phase}.png`),fullPage:true});
   console.log(`PASS: installed Windows app ${phase}; encrypted conversation, draft and document retained`);
 }catch(error){
+  await writeFile(path.join(out,`windows-${phase}-diagnostics.json`),JSON.stringify({
+    error:String(error),connectionErrors:connectionErrors.slice(-3),
+    pages:browser?.contexts().flatMap(c=>c.pages().map(p=>p.url()))||[],errors,
+  },null,2));
   if(page)await page.screenshot({path:path.join(out,`windows-${phase}-failure.png`),fullPage:true}).catch(()=>{});
   throw error;
 }finally{if(browser)await browser.close();}

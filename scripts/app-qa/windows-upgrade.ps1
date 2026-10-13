@@ -18,6 +18,11 @@ function Exercise-App([string]$phase) {
     node scripts/app-qa/windows-ui.mjs $phase
     if($LASTEXITCODE){throw "Installed application $phase test failed"}
   }finally {
+    $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
+    if(Test-Path $log){Copy-Item $log (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-startup.log")}
+    Get-Process coucou,msedgewebview2 -ErrorAction SilentlyContinue |
+      Select-Object Id,ProcessName,Path | ConvertTo-Json |
+      Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-processes.json")
     # Stop only the application process owned by this isolated test.
     if(!$process.HasExited){taskkill /PID $process.Id /T /F | Out-Null}
   }
