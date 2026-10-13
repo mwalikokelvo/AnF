@@ -50,7 +50,7 @@ try {
     await view('writing');
     assert.equal(await page.getByLabel('Live Markdown writing',{exact:true}).innerText(),phase==='reopen'?after:before);
     await view('documents');
-    await page.getByText('before-update.txt',{exact:true}).first().waitFor();
+    await page.locator('#panel-documents').getByText('before-update.txt',{exact:true}).first().waitFor();
     await view('settings');
     await page.getByText('Encrypted conversation storage',{exact:true}).click();
     await page.getByRole('button',{name:'Check storage',exact:true}).click();
@@ -60,7 +60,7 @@ try {
       await view('documents');
       await page.getByLabel('Choose up to four documents',{exact:true}).setInputFiles(path.resolve('windows/src-tauri/tests/data/simple.pdf'));
       await page.getByText('Sources loaded. Ask a question or use a task button.',{exact:true}).waitFor();
-      await page.getByText('simple.pdf',{exact:true}).first().waitFor();
+      await page.locator('#panel-documents').getByText('simple.pdf',{exact:true}).first().waitFor();
       await view('chat');
       await page.getByLabel('AI context',{exact:true}).selectOption('none');
       await page.getByLabel('Your question',{exact:true}).fill('Calculate 2 + 2. Reply with the number only.');

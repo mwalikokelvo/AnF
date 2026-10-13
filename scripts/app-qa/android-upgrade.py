@@ -43,5 +43,6 @@ for phase in ['seed','verify','reopen']:
     (out/(phase+'.png')).write_bytes(image.stdout)
     print(result)
     if 'OK (1 test)' not in result or any(s in result for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):
+        (out/(phase+'-logcat.txt')).write_text(run(device+['logcat','-d','-t','150','-s','chromium','AndroidRuntime','TestRunner']))
         raise SystemExit('Installed Android app failed phase: '+phase)
 print('PASS: Android release startup, encrypted and legacy saved data, writing, PDF/text import and restart')
