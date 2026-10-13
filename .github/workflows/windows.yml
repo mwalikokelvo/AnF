@@ -8,11 +8,17 @@ on:
     tags:
       - 'windows-v*'
   workflow_dispatch:
+    inputs:
+      baseline_run:
+        description: 'Run containing the previous Coucou-Windows-setup artifact for installation upgrade QA'
+        required: false
+        type: string
   pull_request:
     paths: ['windows/**', '.github/workflows/windows.yml']
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -127,6 +133,35 @@ jobs:
       # Upload review builds and manual runs without publishing a release.
       # The repo is public, so artifacts are downloadable by any signed-in GitHub
       # user; automatic tag uploads stay paused until explicitly enabled.
+      - name: Download previous installer for upgrade verification
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: Coucou-Windows-setup
+          run-id: ${{ inputs.baseline_run }}
+          github-token: ${{ github.token }}
+          path: previous-installer
+
+      - name: Verify installed application and preserve existing data
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        shell: pwsh
+        working-directory: .
+        run: |
+          npm ci --prefix scripts/app-qa --ignore-scripts
+          if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
+          $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
+          $candidate = (Get-ChildItem windows/release -Filter '*setup.exe').FullName
+          ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
+
+      - name: Retain installed application test evidence
+        uses: actions/upload-artifact@v4
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        with:
+          name: Coucou-Windows-installation-tests
+          path: ${{ runner.temp }}/anf-app-upgrade/results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
