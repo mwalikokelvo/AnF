@@ -26,7 +26,7 @@ async function files(dir) {
 }
 const extracted=await files(extract);
 for(const file of extracted.filter(f=>/^lib.*\.so(?:\..*)?$/.test(path.basename(f)) || path.basename(f)==='llama-server')) {
-  await cp(file,path.join(local,path.basename(file)),{dereference:false});
+  await cp(file,path.join(local,path.basename(file)),{dereference:false,verbatimSymlinks:true});
 }
 const quantizer=extracted.find(f=>path.basename(f)==='llama-quantize');
 if(!quantizer)throw Error('Verified runtime has no quantizer.');

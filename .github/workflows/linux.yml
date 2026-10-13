@@ -42,6 +42,9 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+      CARGO_INCREMENTAL: 0
     outputs:
       version: ${{ steps.pack.outputs.version }}
       publish: ${{ steps.gate.outputs.publish }}
@@ -120,6 +123,12 @@ jobs:
 
       # linuxdeploy is itself an AppImage; runners have no FUSE, so it unpacks
       # itself instead of mounting.
+      - name: Remove completed test outputs and build-only model inputs
+        run: |
+          rm -rf target/debug target/offline-runtime-linux
+          rm -f local-ai/model-source.gguf local-ai/runtime.tar.gz
+          df -h .
+
       - name: Build and pack
         id: pack
         env:

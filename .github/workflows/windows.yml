@@ -30,6 +30,9 @@ jobs:
     runs-on: windows-latest
     env:
       CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+      CARGO_INCREMENTAL: 0
     defaults:
       run:
         working-directory: windows
@@ -109,6 +112,8 @@ jobs:
         id: pack
         shell: pwsh
         run: |
+          Remove-Item target/debug,target/offline-runtime,target/media-runtime -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item local-ai/model-source.gguf,local-ai/runtime.zip -Force -ErrorAction SilentlyContinue
           npm run pack
           if ($LASTEXITCODE) { throw 'Packaging failed' }
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
