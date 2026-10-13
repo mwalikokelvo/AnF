@@ -28,7 +28,7 @@ android {
             assets.srcDirs = ['build/assets']
         }
         androidTest {
-            assets.srcDirs = ['../windows/src-tauri/tests/data']
+            assets.srcDirs = ['src/androidTest/assets', '../windows/src-tauri/tests/data']
         }
     }
     testBuildType 'release'
