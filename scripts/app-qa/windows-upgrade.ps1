@@ -1,9 +1,9 @@
 param([Parameter(Mandatory=$true)][string]$Baseline, [Parameter(Mandatory=$true)][string]$Candidate)
 $ErrorActionPreference='Stop'
 $testRoot=Join-Path $env:RUNNER_TEMP 'anf-app-upgrade'
-$install=Join-Path $testRoot 'app'
 $env:APPDATA=Join-Path $testRoot 'roaming'
 $env:LOCALAPPDATA=Join-Path $testRoot 'local'
+$install=Join-Path $env:LOCALAPPDATA 'Coucou'
 $env:ANF_QA_OUTPUT=Join-Path $testRoot 'results'
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
 # Apply the official WebView2 per-user override in this disposable runner too.
