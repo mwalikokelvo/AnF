@@ -6,6 +6,10 @@ $env:APPDATA=Join-Path $testRoot 'roaming'
 $env:LOCALAPPDATA=Join-Path $testRoot 'local'
 $env:ANF_QA_OUTPUT=Join-Path $testRoot 'results'
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
+# Apply the official WebView2 per-user override in this disposable runner too.
+$debugPolicy='HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+New-Item -Path $debugPolicy -Force | Out-Null
+New-ItemProperty -Path $debugPolicy -Name '*' -Value $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS -PropertyType String -Force | Out-Null
 New-Item -ItemType Directory -Force $install,$env:APPDATA,$env:LOCALAPPDATA,$env:ANF_QA_OUTPUT | Out-Null
 function Install-App([string]$installer) {
   $process=Start-Process -FilePath (Resolve-Path $installer) -ArgumentList @('/S',"/D=$install") -Wait -PassThru
@@ -23,6 +27,9 @@ function Exercise-App([string]$phase) {
     Get-Process coucou,msedgewebview2 -ErrorAction SilentlyContinue |
       Select-Object Id,ProcessName,Path | ConvertTo-Json |
       Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-processes.json")
+    Get-CimInstance Win32_Process -Filter "name='msedgewebview2.exe'" |
+      Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json |
+      Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-webview-arguments.json")
     # Stop only the application process owned by this isolated test.
     if(!$process.HasExited){taskkill /PID $process.Id /T /F | Out-Null}
   }
