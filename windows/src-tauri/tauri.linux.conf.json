@@ -29,8 +29,7 @@
       },
       "rpm": {
         "compression": {
-          "type": "zstd",
-          "level": 3
+          "type": "none"
         },
         "depends": [
           "gtk-layer-shell",

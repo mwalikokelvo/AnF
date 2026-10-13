@@ -54,6 +54,11 @@ exports and phone/tablet UI still require device validation before shipping.
 
 ## Linux
 
+RPM payloads are uncompressed. The RPM 0.16.0 library embedded in the pinned
+Tauri CLI hashes the entire remaining input on each partial compressor write,
+which stalls on bundled model files and can record an incorrect payload digest.
+The uncompressed writer accepts each buffer in full; all models remain bundled.
+
 The **Linux** workflow uses Ubuntu 22.04 for the existing glibc compatibility
 baseline. Install the prerequisites in `windows/README.md`, plus FFmpeg for audio
 conversion. Use Node 24 and Rust 1.99.0:
