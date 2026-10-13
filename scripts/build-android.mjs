@@ -1,5 +1,5 @@
 // Build the checked-in Android app without the historical external work/ tree.
-import { cp, copyFile, mkdir, readFile, stat } from 'node:fs/promises';
+import { cp, copyFile, mkdir, readFile, stat, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -10,7 +10,11 @@ const android = path.join(root, 'android');
 const require = createRequire(path.join(root, 'windows/package.json'));
 const { build } = require('esbuild');
 const { version } = JSON.parse(await readFile(path.join(root, 'windows/src-tauri/tauri.conf.json')));
-const assets = path.join(android, 'build/assets');
+// MainActivity serves /index.html from getAssets().open("web/index.html").
+// Keep the APK's physical asset directory aligned with that native route.
+const assetsRoot = path.join(android, 'build/assets');
+const assets = path.join(assetsRoot, 'web');
+await rm(assetsRoot, { recursive: true, force: true });
 await mkdir(assets, { recursive: true });
 await build({
   entryPoints: [path.join(android, 'web/main.ts')], bundle: true,
@@ -51,6 +55,10 @@ for (const [variant, suffix] of [
   }
   const source = path.join(directory, input.outputFile);
   if ((await stat(source)).size === 0) throw Error(`Empty APK: ${source}`);
+  const check = spawnSync(process.platform === 'win32' ? 'python' : 'python3',
+    [path.join(root, 'scripts/check-android-apk.py'), source], { stdio: 'inherit' });
+  if (check.error) throw check.error;
+  if (check.status !== 0) process.exit(check.status || 1);
   const dest = path.join(out, `Coucou-Android-${version}-${suffix}.apk`);
   await copyFile(source, dest);
   console.log(`Prepared ${dest}`);

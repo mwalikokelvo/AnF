@@ -18,18 +18,27 @@ android {
         targetSdk 35
         versionCode components[0] * 1000000 + components[1] * 1000 + components[2]
         versionName config.version
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
-    sourceSets { main {
-        manifest.srcFile 'gradle-input/AndroidManifest.xml'
-        java.srcDirs = ['java']
-        res.srcDirs = ['res']
-        assets.srcDirs = ['build/assets']
-    } }
+    sourceSets {
+        main {
+            manifest.srcFile 'gradle-input/AndroidManifest.xml'
+            java.srcDirs = ['java']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['build/assets']
+        }
+        androidTest {
+            assets.srcDirs = ['../windows/src-tauri/tests/data']
+        }
+    }
+    testBuildType 'release'
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
     buildTypes { release { minifyEnabled false } }
     packaging { resources { excludes += ['META-INF/DEPENDENCIES'] } }
 }
 dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'junit:junit:4.13.2'
     implementation 'net.zetetic:sqlcipher-android:4.19.0'
     implementation 'androidx.sqlite:sqlite:2.7.0'
     implementation 'androidx.media3:media3-exoplayer:1.6.1'
