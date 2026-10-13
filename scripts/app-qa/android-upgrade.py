@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 
 p=argparse.ArgumentParser()
-for name in ['baseline','candidate','test','keystore','output']:
+for name in ['baseline','candidate','test','output']:
     p.add_argument('--'+name,required=True)
 a=p.parse_args()
 out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
@@ -14,17 +14,23 @@ adb=str(sdk/'platform-tools/adb')
 signer=str(sdk/'build-tools/36.0.0/apksigner')
 
 def run(args,timeout=120):
-    result=subprocess.run(args,capture_output=True,text=True,timeout=timeout,check=True)
+    result=subprocess.run(args,capture_output=True,text=True,timeout=timeout)
+    if result.returncode:
+        raise RuntimeError(Path(args[0]).name+' failed:\n'+result.stdout+result.stderr)
     return result.stdout+result.stderr
 
 devices=run([adb,'devices']).splitlines()
 serials=[line.split()[0] for line in devices if line.startswith('emulator-') and line.endswith('\tdevice')]
 if len(serials)!=1:raise SystemExit('Exactly one isolated Android emulator is required')
 device=[adb,'-s',serials[0]]
+keystore=out/'ci-signing.jks'
+run(['keytool','-genkeypair','-keystore',str(keystore),'--storepass','android',
+     '-keypass','android','-alias','qa','-keyalg','RSA','-keysize','2048',
+     '-validity','365','-dname','CN=Coucou installation test'])
 for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.test)]:
     destination=out/(name+'.apk')
-    # This is the standard, disposable Gradle debug key, never a production key.
-    run([signer,'sign','--ks',a.keystore,'--ks-pass','pass:android','--key-pass','pass:android','--out',str(destination),source])
+    # A fresh disposable key signs all three APKs; production keys remain local.
+    run([signer,'sign','--ks',str(keystore),'--ks-pass','pass:android','--key-pass','pass:android','--out',str(destination),source])
     run([signer,'verify',str(destination)])
 run(device+['install','--no-incremental','-r',str(out/'baseline.apk')])
 run(device+['install','--no-incremental','-r',str(out/'test.apk')])
