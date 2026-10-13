@@ -32,7 +32,23 @@ function Install-App([string]$installer) {
   if($process.ExitCode -ne 0){throw "Installer failed with code $($process.ExitCode)"}
   if(!(Test-Path "$install/coucou.exe")){throw 'Installer did not produce the application'}
 }
+function Stop-TestProcesses {
+  # A WebView browser may outlive its host. Stop only this test's executable and
+  # browser profile, then wait for the profile's shared process to release it.
+  Get-Process coucou -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$install\coucou.exe"} |
+    ForEach-Object {taskkill /PID $_.Id /T /F | Out-Null}
+  $deadline=(Get-Date).AddSeconds(20)
+  do {
+    $browsers=@(Get-CimInstance Win32_Process -Filter "name='msedgewebview2.exe'" |
+      Where-Object {$_.CommandLine -and $_.CommandLine.Contains($env:LOCALAPPDATA)})
+    $browsers | ForEach-Object {Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue}
+    if(!$browsers.Count){break}
+    Start-Sleep -Milliseconds 500
+  }while((Get-Date) -lt $deadline)
+  Start-Sleep -Seconds 2
+}
 function Exercise-App([string]$phase) {
+  Stop-TestProcesses
   $binary=Join-Path $install 'coucou.exe'
   $backup=Join-Path $testRoot "original-$phase.exe"
   Copy-Item $binary $backup
@@ -50,6 +66,7 @@ function Exercise-App([string]$phase) {
     if(!$ready){throw 'Unmodified application did not complete workspace startup'}
     taskkill /PID $process.Id /T /F | Out-Null
     $process.WaitForExit()
+    Stop-TestProcesses
     # WebView2 ignores external argument overrides here. Change only the fixed
     # browser option in this test copy, retaining its exact size and all app code.
     # Autoplay is unused in these writing/document/AI checks. Restore immediately.
@@ -74,6 +91,7 @@ function Exercise-App([string]$phase) {
       Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-webview-arguments.json")
     # Stop only the application process owned by this isolated test.
     if(!$process.HasExited){taskkill /PID $process.Id /T /F | Out-Null}
+    Stop-TestProcesses
     Copy-Item $backup $binary -Force
   }
 }

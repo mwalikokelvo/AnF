@@ -69,7 +69,9 @@ public class UpgradeUiTest {
       instrumentation.runOnMainSync(()->web.loadDataWithBaseURL("https://coucou.local/",
         "<!doctype html><title>Upgrade storage fixture</title>","text/html","UTF-8",null));
     }
-    until("document.readyState==='complete' && location.hostname==='coucou.local'");
+    until(phase.equals("seed")?
+      "document.readyState==='complete' && document.title==='Upgrade storage fixture'":
+      "document.readyState==='complete' && location.hostname==='coucou.local'");
     if(phase.equals("seed")) {
       String legacy=fixture("qa-legacy-upgrade","Legacy upgrade conversation").toString();
       evaluate("window.__qaSeed=false;(()=>{const r=indexedDB.open('coucou-mobile',1);r.onupgradeneeded=()=>r.result.createObjectStore('projects',{keyPath:'id'});r.onsuccess=()=>{const t=r.result.transaction('projects','readwrite');t.objectStore('projects').put("+legacy+");t.oncomplete=()=>{r.result.close();window.__qaSeed=true;};};})()");
