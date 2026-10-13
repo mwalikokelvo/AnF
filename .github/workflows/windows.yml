@@ -283,3 +283,4 @@ jobs:
             android-downloads/SHA256SUMS-Android \
             "windows-downloads/AnF-Windows-$version-setup.exe" \
             windows-downloads/SHA256SUMS-Windows
+          gh release edit "$tag" --title "AnF $version — Android and Windows downloads" --notes-file download-notes.md
