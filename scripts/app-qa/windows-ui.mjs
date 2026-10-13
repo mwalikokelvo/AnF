@@ -1,6 +1,6 @@
 import {chromium} from 'playwright-core';
 import assert from 'node:assert/strict';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import path from 'node:path';
 
 const phase=process.argv[2];
@@ -14,7 +14,11 @@ try {
   const deadline=Date.now()+90000;
   while(Date.now()<deadline&&!page) {
     try {
-      browser=await chromium.connectOverCDP('http://127.0.0.1:9223',{timeout:3000});
+      let port=9223;
+      const activePort=path.join(process.env.LOCALAPPDATA,'Coucou/webview-v014/EBWebView/DevToolsActivePort');
+      const detected=Number((await readFile(activePort,'utf8').catch(()=>'' )).split('\n')[0]);
+      if(detected>0&&detected<65536)port=detected;
+      browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`,{timeout:3000});
       page=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('workspace.html'));
       if(!page)await browser.close();
     }catch(error){connectionErrors.push(String(error));}

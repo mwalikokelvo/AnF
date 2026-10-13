@@ -78,7 +78,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
           script: python3 scripts/app-qa/android-upgrade.py --baseline previous-android/Coucou-Android-0.1.18-unsigned.apk --candidate releases/Coucou-Android-0.1.19-unsigned.apk --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --keystore "$HOME/.android/debug.keystore" --output "$RUNNER_TEMP/anf-android-qa"
       - name: Retain installed Android test evidence
         uses: actions/upload-artifact@v4
