@@ -62,8 +62,14 @@ public class UpgradeUiTest {
     assertNotNull(launch);launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     Activity activity=instrumentation.startActivitySync(launch);
     instrumentation.runOnMainSync(()->web=findWebView(activity.getWindow().getDecorView()));assertNotNull(web);
-    until("document.readyState==='complete' && location.hostname==='coucou.local'");
     String phase=InstrumentationRegistry.getArguments().getString("phase","verify");
+    if(phase.equals("seed")) {
+      // The baseline's missing HTML produces a browser error document. Seed its
+      // real old origin/store independently of that already-confirmed UI defect.
+      instrumentation.runOnMainSync(()->web.loadDataWithBaseURL("https://coucou.local/",
+        "<!doctype html><title>Upgrade storage fixture</title>","text/html","UTF-8",null));
+    }
+    until("document.readyState==='complete' && location.hostname==='coucou.local'");
     if(phase.equals("seed")) {
       String legacy=fixture("qa-legacy-upgrade","Legacy upgrade conversation").toString();
       evaluate("window.__qaSeed=false;(()=>{const r=indexedDB.open('coucou-mobile',1);r.onupgradeneeded=()=>r.result.createObjectStore('projects',{keyPath:'id'});r.onsuccess=()=>{const t=r.result.transaction('projects','readwrite');t.objectStore('projects').put("+legacy+");t.oncomplete=()=>{r.result.close();window.__qaSeed=true;};};})()");
