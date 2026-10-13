@@ -70,6 +70,13 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Free unused native SDK toolchains for emulator storage
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        run: |
+          # This Java app ships prebuilt native libraries; its build is complete.
+          # These hosted-runner NDK installations are unused by the UI test.
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          df -h /
       - name: Verify installed Android release and saved-data retention
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         uses: reactivecircus/android-emulator-runner@v2
@@ -77,6 +84,7 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          disk-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
           script: python3 scripts/app-qa/android-upgrade.py --baseline previous-android/Coucou-Android-0.1.18-unsigned.apk --candidate releases/Coucou-Android-0.1.19-unsigned.apk --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --keystore "$HOME/.android/debug.keystore" --output "$RUNNER_TEMP/anf-android-qa"

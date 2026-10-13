@@ -57,7 +57,8 @@ function Exercise-App([string]$phase) {
     $before='--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required'
     $after='--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9223'
     $count=[AnfQaBrowserArguments]::Replace($bytes,$before,$after)
-    if($count -ne 1){throw "Expected one browser argument constant, found $count"}
+    # Native options and the embedded Tauri configuration each contain it.
+    if($count -ne 2){throw "Expected two browser argument constants, found $count"}
     [IO.File]::WriteAllBytes($binary,$bytes)
     $process=Start-Process -FilePath $binary -PassThru
     node scripts/app-qa/windows-ui.mjs $phase
