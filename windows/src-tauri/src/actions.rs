@@ -137,7 +137,7 @@ impl Plans {
                     return Err("Select between 1 and 30 documents.".into());
                 }
                 let parent = folder(&r.folder)?;
-                let d = parent.join(format!("Coucou-organized-{}", &random_key()?[..12]));
+                let d = parent.join(format!("AnF-organized-{}", &random_key()?[..12]));
                 let mut copies = Vec::new();
                 for raw in r.paths {
                     let src = safe_file(&raw)?;

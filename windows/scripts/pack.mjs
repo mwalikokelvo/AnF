@@ -22,17 +22,17 @@ const PACKAGES = {
     {
       dir: "nsis",
       suffix: "-setup.exe",
-      names: [`Coucou-Windows-${version}-setup.exe`, "Coucou-Windows-setup.exe"],
+      names: [`AnF-Windows-${version}-setup.exe`, "AnF-Windows-setup.exe"],
     },
   ],
   linux: [
     {
       dir: "appimage",
       suffix: ".AppImage",
-      names: [`Coucou-Linux-${version}-${arch}.AppImage`, `Coucou-Linux-${arch}.AppImage`],
+      names: [`AnF-Linux-${version}-${arch}.AppImage`, `AnF-Linux-${arch}.AppImage`],
     },
-    { dir: "deb", suffix: ".deb", names: [`Coucou-Linux-${version}-${debArch}.deb`] },
-    { dir: "rpm", suffix: ".rpm", names: [`Coucou-Linux-${version}-${arch}.rpm`] },
+    { dir: "deb", suffix: ".deb", names: [`AnF-Linux-${version}-${debArch}.deb`] },
+    { dir: "rpm", suffix: ".rpm", names: [`AnF-Linux-${version}-${arch}.rpm`] },
   ],
 };
 
@@ -80,9 +80,9 @@ console.log();
 
 if (process.platform === 'win32') {
   // A portable release needs the same offline resources as the installer.
-  const portable = join(outDir, `Coucou-Windows-${version}-portable`);
+  const portable = join(outDir, `AnF-Windows-${version}-portable`);
   mkdirSync(portable, {recursive:true});
-  for (const binary of ['coucou.exe','coucou-hook.exe']) {
+  for (const binary of ['AnF.exe','coucou-hook.exe']) {
     copyFileSync(join(root,'target/release',binary),join(portable,binary));
   }
   mkdirSync(join(portable,'local-ai'), {recursive:true});

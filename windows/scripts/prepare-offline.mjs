@@ -44,7 +44,7 @@ await Promise.all([
   download('https://raw.githubusercontent.com/ggml-org/llama.cpp/b11380/LICENSE','llama-LICENSE.txt'),
   download('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/LICENSE','Qwen-LICENSE.txt'),
 ]);
-await writeFile(path.join(root,'NOTICE.txt'), `Coucou offline components (0.1.4)
+await writeFile(path.join(root,'NOTICE.txt'), `AnF offline components (0.1.4)
 Runtime: llama.cpp b11380 (MIT), https://github.com/ggml-org/llama.cpp
 Fast: official Qwen3-0.6B Q8_0, unmodified (Apache-2.0), https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
 Balanced: Qwen3-1.7B (Apache-2.0), https://huggingface.co/Qwen/Qwen3-1.7B-GGUF

@@ -80,7 +80,7 @@ fn open() -> Result<Connection, String> {
         })
         .map_err(error)?;
     if version != "1" {
-        return Err("Unsupported vault schema. Update Coucou.".into());
+        return Err("Unsupported vault schema. Update AnF.".into());
     }
     Ok(db)
 }

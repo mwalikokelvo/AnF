@@ -293,9 +293,9 @@ pub async fn workspace_export_pack(text:String)->Result<String,String>{
  tokio::task::spawn_blocking(move||{
   if text.len()>14_000_000{return Err("Encrypted backup exceeds 14 MB.".into());}
   let value:serde_json::Value=serde_json::from_str(&text).map_err(|_|"Invalid encrypted backup.")?;
-  if value.get("kind").and_then(|v|v.as_str())!=Some("coucoupack"){return Err("Only encrypted Coucou packs can be saved here.".into());}
+  if value.get("kind").and_then(|v|v.as_str())!=Some("coucoupack"){return Err("Only encrypted AnF packs can be saved here.".into());}
   let dir=crate::settings::local_dir().join("documents");crate::platform::ensure_private_dir(&dir).map_err(|e|e.to_string())?;
-  let path=dir.join(format!("Coucou-{}.coucoupack",crate::local_ai::random_key()?));
+  let path=dir.join(format!("AnF-{}.anfpack",crate::local_ai::random_key()?));
   use std::io::Write;let mut file=std::fs::OpenOptions::new().create_new(true).write(true).open(&path).map_err(|e|e.to_string())?;
   file.write_all(text.as_bytes()).and_then(|_|file.sync_all()).map_err(|e|e.to_string())?;Ok(path.to_string_lossy().to_string())
  }).await.map_err(|_|"Backup export stopped.".to_string())?
@@ -311,7 +311,7 @@ pub async fn workspace_restore_pack(store:State<'_,projects::Store>,text:String)
 fn validated_restore(text:&str)->Result<Vec<projects::Project>,String>{
  if text.len()>10_000_000{return Err("Decrypted backup exceeds 10 MB.".into());}
   #[derive(serde::Deserialize)]struct Backup{kind:String,version:u32,projects:Vec<projects::Project>}
-  let mut backup:Backup=serde_json::from_str(&text).map_err(|_|"Choose a Coucou Windows backup.")?;
+  let mut backup:Backup=serde_json::from_str(&text).map_err(|_|"Choose a AnF Windows backup.")?;
   if backup.kind!="coucou-windows-backup"||backup.version!=1||backup.projects.len()>200{return Err("Unsupported Windows backup.".into());}
   for p in &mut backup.projects{p.id=crate::local_ai::random_key()?;for source in &mut p.sources{source.path=None;}projects::validate(p)?;}
  Ok(backup.projects)

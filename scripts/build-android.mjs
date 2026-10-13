@@ -59,7 +59,7 @@ for (const [variant, suffix] of [
     [path.join(root, 'scripts/check-android-apk.py'), source], { stdio: 'inherit' });
   if (check.error) throw check.error;
   if (check.status !== 0) process.exit(check.status || 1);
-  const dest = path.join(out, `Coucou-Android-${version}-${suffix}.apk`);
+  const dest = path.join(out, `AnF-Android-${version}-${suffix}.apk`);
   await copyFile(source, dest);
   console.log(`Prepared ${dest}`);
 }

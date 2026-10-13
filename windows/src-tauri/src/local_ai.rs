@@ -63,7 +63,7 @@ impl Engine {
             }
             current.take();
         }
-        let directory = self.directory().ok_or("Coucou could not locate its offline pack. Close Coucou from its tray menu, then run the full installer again to repair it. Your saved projects and settings are kept.")?;
+        let directory = self.directory().ok_or("AnF could not locate its offline pack. Close AnF from its tray menu, then run the full installer again to repair it. Your saved projects and settings are kept.")?;
         let exe = directory.join(if cfg!(windows) {
             "llama-server.exe"
         } else {
@@ -75,7 +75,7 @@ impl Engine {
             "model.gguf"
         });
         if !exe.is_file() || !model.is_file() {
-            return Err(format!("The offline pack in {} is incomplete: {} is missing. Run the full installer again to repair it, then reopen Coucou. Your saved projects and settings are kept.", directory.display(), if !exe.is_file() { "the local engine" } else { "the selected model" }));
+            return Err(format!("The offline pack in {} is incomplete: {} is missing. Run the full installer again to repair it, then reopen AnF. Your saved projects and settings are kept.", directory.display(), if !exe.is_file() { "the local engine" } else { "the selected model" }));
         }
         let key = random_key()?;
         let listener = std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;

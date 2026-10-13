@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       baseline_run:
-        description: 'Optional previous Coucou-Android artifact run for installation upgrade QA'
+        description: 'Optional previous AnF-Android artifact run for installation upgrade QA'
         required: false
         type: string
   pull_request:
@@ -87,12 +87,16 @@ jobs:
           disk-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
-          script: python3 scripts/app-qa/android-upgrade.py --baseline previous-android/Coucou-Android-0.1.18-unsigned.apk --candidate releases/Coucou-Android-0.1.19-unsigned.apk --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --output "$RUNNER_TEMP/anf-android-qa"
+          script: |
+            version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
+            baseline=(previous-android/*-unsigned.apk)
+            test "${#baseline[@]}" -eq 1
+            python3 scripts/app-qa/android-upgrade.py --baseline "${baseline[0]}" --candidate "releases/AnF-Android-$version-unsigned.apk" --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --output "$RUNNER_TEMP/anf-android-qa"
       - name: Retain installed Android test evidence
         uses: actions/upload-artifact@v4
         if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         with:
-          name: Coucou-Android-installation-tests
+          name: AnF-Android-installation-tests
           path: |
             ${{ runner.temp }}/anf-android-qa/*.txt
             ${{ runner.temp }}/anf-android-qa/*.png
@@ -101,14 +105,14 @@ jobs:
       - name: Verify debug signature and package versions
         run: |
           version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "releases/Coucou-Android-$version-debug.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "releases/Coucou-Android-$version-unsigned.apk" > releases/android-package.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "releases/AnF-Android-$version-debug.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "releases/AnF-Android-$version-unsigned.apk" > releases/android-package.txt
           grep -F "versionName='$version'" releases/android-package.txt
           cd releases
           sha256sum *.apk > SHA256SUMS-Android
       - uses: actions/upload-artifact@v4
         with:
-          name: Coucou-Android
+          name: AnF-Android
           path: releases/
           if-no-files-found: error
           retention-days: 7

@@ -1,3 +1,10 @@
+## 0.1.20 — AnF for Android and Windows
+
+- Rebrand app labels, windows, tray, shortcuts, icons and new downloads/exports to AnF.
+- Introduce coordinated light/dark themes, section icons, clearer navigation, modern cards and responsive mobile controls.
+- Follow the device theme by default while keeping saved appearance preferences.
+- Preserve existing app/data identities, encrypted-backup compatibility and Windows installation records during the rename.
+
 # Changelog
 
 ## 0.1.4 — October 3, 2026

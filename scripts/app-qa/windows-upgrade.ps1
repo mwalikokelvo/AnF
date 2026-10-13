@@ -27,15 +27,22 @@ public static class AnfQaBrowserArguments {
   }
 }
 '@
-function Install-App([string]$installer) {
-  $process=Start-Process -FilePath (Resolve-Path $installer) -ArgumentList @('/S',"/D=$install") -Wait -PassThru
+function Install-App([string]$installer, [bool]$upgrading=$false) {
+  $arguments=if($upgrading){@('/S')}else{@('/S',"/D=$install")}
+  $process=Start-Process -FilePath (Resolve-Path $installer) -ArgumentList $arguments -Wait -PassThru
   if($process.ExitCode -ne 0){throw "Installer failed with code $($process.ExitCode)"}
-  if(!(Test-Path "$install/coucou.exe")){throw 'Installer did not produce the application'}
+  if(!(Test-Path "$install/coucou.exe") -and !(Test-Path "$install/AnF.exe")){throw 'Installer did not produce the application'}
+  if($upgrading){
+    if(!(Test-Path "$install/AnF.exe")){throw 'Renamed installer did not find the existing installation'}
+    $record=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Coucou'
+    if($record.DisplayName -ne 'AnF'){throw 'Installed application is not branded AnF'}
+    if(Test-Path "$install/coucou.exe"){throw 'Upgrade left the old application executable behind'}
+  }
 }
 function Stop-TestProcesses {
   # A WebView browser may outlive its host. Stop only this test's executable and
   # browser profile, then wait for the profile's shared process to release it.
-  Get-Process coucou -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$install\coucou.exe"} |
+  Get-Process coucou,AnF -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$install\coucou.exe" -or $_.Path -eq "$install\AnF.exe"} |
     ForEach-Object {taskkill /PID $_.Id /T /F | Out-Null}
   $deadline=(Get-Date).AddSeconds(20)
   do {
@@ -49,7 +56,7 @@ function Stop-TestProcesses {
 }
 function Exercise-App([string]$phase) {
   Stop-TestProcesses
-  $binary=Join-Path $install 'coucou.exe'
+  $binary=if(Test-Path "$install/AnF.exe"){Join-Path $install 'AnF.exe'}else{Join-Path $install 'coucou.exe'}
   $backup=Join-Path $testRoot "original-$phase.exe"
   Copy-Item $binary $backup
   $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
@@ -83,7 +90,7 @@ function Exercise-App([string]$phase) {
   }finally {
     $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
     if(Test-Path $log){Copy-Item $log (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-startup.log")}
-    Get-Process coucou,msedgewebview2 -ErrorAction SilentlyContinue |
+    Get-Process coucou,AnF,msedgewebview2 -ErrorAction SilentlyContinue |
       Select-Object Id,ProcessName,Path | ConvertTo-Json |
       Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-processes.json")
     Get-CimInstance Win32_Process -Filter "name='msedgewebview2.exe'" |
@@ -97,7 +104,7 @@ function Exercise-App([string]$phase) {
 }
 Install-App $Baseline
 Exercise-App 'seed'
-Install-App $Candidate
+Install-App $Candidate $true
 Exercise-App 'verify'
 Exercise-App 'reopen'
-'PASS: Windows 0.1.18 to 0.1.19 installation, encryption, document import, offline AI and restart'
+'PASS: Coucou to AnF installation, encryption, document import, offline AI and restart'

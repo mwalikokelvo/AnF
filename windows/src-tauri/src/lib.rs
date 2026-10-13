@@ -1,4 +1,4 @@
-// Coucou for Windows — app wiring and the commands the island calls.
+// AnF for Windows — app wiring and the commands the island calls.
 
 mod actions;
 mod ai;
@@ -365,7 +365,7 @@ fn create_settings_window(app: &AppHandle) {
     match WebviewWindowBuilder::new(app, "settings", url)
         .additional_browser_args(BROWSER_ARGS)
         .data_directory(settings::local_dir().join("webview-v014"))
-        .title("Settings — Coucou")
+        .title("Settings — AnF")
         .inner_size(560.0, 680.0)
         .min_inner_size(460.0, 480.0)
         .resizable(true)
@@ -429,7 +429,7 @@ pub fn run() {
     let gate = Arc::new(PollGate::new());
 
     log::line(format!(
-        "--- Coucou {} preparing Windows workspace ---",
+        "--- AnF {} preparing Windows workspace ---",
         env!("CARGO_PKG_VERSION")
     ));
     let built = tauri::Builder::default()
@@ -528,7 +528,7 @@ pub fn run() {
             let win = WebviewWindowBuilder::new(&handle, "workspace", workspace_url)
                 .additional_browser_args(BROWSER_ARGS)
                 .data_directory(settings::local_dir().join("webview-v014"))
-                .title("Workspace — Coucou")
+                .title("Workspace — AnF")
                 .inner_size(820.0, 760.0)
                 .min_inner_size(600.0, 500.0)
                 .visible(true)
@@ -591,7 +591,7 @@ pub fn run() {
             }
 
             log::line(format!(
-                "--- Coucou {} started ---",
+                "--- AnF {} started ---",
                 env!("CARGO_PKG_VERSION")
             ));
             hooks::ensure_hook_exe(&handle);
@@ -611,7 +611,7 @@ pub fn run() {
 }
 
 fn startup_error(error: &str) {
-    let message=format!("Coucou could not start: {error}\n\nDetails: {}\nTry opening Coucou normally from File Explorer. If it still fails, close other Coucou windows and repair Microsoft Edge WebView2 Runtime.",settings::local_dir().join("coucou.log").display());
+    let message=format!("AnF could not start: {error}\n\nDetails: {}\nTry opening AnF normally from File Explorer. If it still fails, close other AnF windows and repair Microsoft Edge WebView2 Runtime.",settings::local_dir().join("coucou.log").display());
     log::line(&message);
     #[cfg(windows)]
     unsafe {
@@ -622,7 +622,7 @@ fn startup_error(error: &str) {
         MessageBoxW(
             None,
             &HSTRING::from(message),
-            &HSTRING::from("Coucou startup"),
+            &HSTRING::from("AnF startup"),
             MB_OK | MB_ICONERROR,
         );
     }

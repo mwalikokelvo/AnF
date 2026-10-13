@@ -106,7 +106,7 @@ public class MainActivity extends Activity {
       switch(id){case "chatgpt":url="https://chatgpt.com/";break;case "gemini":url="https://gemini.google.com/";break;case "claude":url="https://claude.ai/";break;case "notebooklm":url="https://notebooklm.google.com/";break;default:return;}
       try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(Exception e){notice("Install a browser to open this service.");}
     });}
-    @JavascriptInterface public void copy(String text){if(text.length()>200000)return;runOnUiThread(()->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Coucou",text));notice("Copied. Paste it into your chosen browser service when ready.");});}
+    @JavascriptInterface public void copy(String text){if(text.length()>200000)return;runOnUiThread(()->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(android.content.ClipData.newPlainText("AnF",text));notice("Copied. Paste it into your chosen browser service when ready.");});}
     @JavascriptInterface public void export(String name,String text,String mime){
       if(text.getBytes(StandardCharsets.UTF_8).length>16000000){notice("This export exceeds 16 MB. Export a smaller conversation.");return;}
       if(!Arrays.asList("text/plain","text/markdown","text/html","application/json","application/octet-stream").contains(mime))return;

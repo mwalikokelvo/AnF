@@ -1,6 +1,6 @@
-# Coucou — guide for AI coding agents
+# AnF — guide for AI coding agents
 
-Coucou is a native macOS app (`NotchBuddy/`); `windows/` is the Tauri version for Windows and Linux. Mochi, a small animated character living in the MacBook notch, shows AI coding agent sessions (Claude Code, Gemini CLI, Antigravity and more) and a few integrations, and lets the user approve, answer, chat and drop files from the notch.
+AnF includes an Android workspace (`android/`) and a Windows/Linux Tauri workspace (`windows/src/workspace/`). Their shared design is in `windows/src/workspace/anf-design.css`; visible branding is AnF, but legacy identifiers and storage/cryptographic names must stay stable for updates. The upstream Coucou companion is a native macOS app (`NotchBuddy/`); `windows/` is the Tauri version for Windows and Linux. Mochi, a small animated character living in the MacBook notch, shows AI coding agent sessions (Claude Code, Gemini CLI, Antigravity and more) and a few integrations, and lets the user approve, answer, chat and drop files from the notch.
 
 ## Where things are
 - `NotchBuddy/Sources/App/` — all Swift code. `NotchBuddy/Resources/sounds/` — the 28 WAV sounds. `NotchBuddy/project.yml` — XcodeGen project (never edit the `.xcodeproj` by hand).

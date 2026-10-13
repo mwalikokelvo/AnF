@@ -28,7 +28,7 @@ pub async fn search(query:&str,enabled:bool)->Result<Vec<Hit>,String>{
     if !enabled{return Err("Web search is off. Turn it on to search.".into());}
     let query=query.trim();if query.is_empty()||query.len()>1000{return Err("Enter public search terms under 1,000 bytes.".into());}
     let client=reqwest::Client::builder().timeout(std::time::Duration::from_secs(25)).redirect(reqwest::redirect::Policy::none()).build().map_err(|e|e.to_string())?;
-    let mut response=client.get("https://html.duckduckgo.com/html/").query(&[("q",query)]).header("User-Agent","Coucou/0.1.10 optional public search").send().await.map_err(|_|"Search could not connect. Try Open search in browser.")?;
+    let mut response=client.get("https://html.duckduckgo.com/html/").query(&[("q",query)]).header("User-Agent","AnF/0.1.10 optional public search").send().await.map_err(|_|"Search could not connect. Try Open search in browser.")?;
     if !response.status().is_success(){return Err("The search service is unavailable. Try Open search in browser.".into());}
     let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"Search download stopped.")?{if bytes.len()+chunk.len()>2_000_000{return Err("Search response exceeded the size limit.".into());}bytes.extend_from_slice(&chunk);}
     let hits=parse(&String::from_utf8_lossy(&bytes));if hits.is_empty(){return Err("No usable results returned. The service may require a browser check; use Open search in browser. No check is bypassed.".into());}Ok(hits)

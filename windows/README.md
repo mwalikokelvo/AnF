@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128.png" width="96" alt="Coucou icon">
+<img src="src-tauri/icons/128x128.png" width="96" alt="AnF icon">
 
-# Coucou for Windows
+# AnF for Windows
 
 **Mochi doesn't get a notch on a PC — so it lives at the top of your screen instead.**
 
@@ -33,12 +33,12 @@ installs for the current user only — no admin prompt.
 
 ### Personal Windows build: multiple AI providers and offline chat
 
-Settings > AI chat offers chat inside Coucou or a browser handoff to your existing
+Settings > AI chat offers chat inside AnF or a browser handoff to your existing
 Claude, ChatGPT, Gemini, and Gemini Notebook accounts. Browser mode copies the
 question and opens the website; you paste and send it there. Website answers and
 notebooks are not imported, and files must be attached on the website.
 
-Chat inside Coucou supports Anthropic Messages, OpenAI Responses, Gemini
+Chat inside AnF supports Anthropic Messages, OpenAI Responses, Gemini
 generateContent, and a bundled offline Qwen3 1.7B model. The three cloud providers
 need their own API keys, stored in Windows Credential Manager. The offline model
 needs no key, subscription, or internet and is the default for a new setup.
@@ -55,7 +55,7 @@ Website subscriptions and provider quotas remain subject to their own limits.
 For source builds on Windows, run `scripts/prepare-offline.ps1` before a normal
 Tauri build. It downloads pinned official llama.cpp and Qwen assets, verifies the
 binary/model SHA-256 values, and extracts the runtime. The full installer includes
-these components. Portable use requires `local-ai` beside `Coucou.exe`; copying
+these components. Portable use requires `local-ai` beside `AnF.exe`; copying
 only the small executable does not carry the model with it. The source archive
 contains the download recipe, not the model weights. See the included component
 licenses and notices.
@@ -87,13 +87,13 @@ your integrations sit in the coloured pills next to Mochi.
 Open **Settings… → Claude Code → Install hooks…**. You get the exact diff of what
 will change in `%USERPROFILE%\.claude\settings.json`, the path of the dated backup
 that will be taken, and nothing is written until you click. Your own hooks are
-never touched, and uninstalling removes only Coucou's entries.
+never touched, and uninstalling removes only AnF's entries.
 
 The relay is a tiny executable, `coucou-hook.exe`, copied to
-`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach Coucou and
+`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach AnF and
 exits cleanly if the app is closed, slow or crashed — **a Claude Code session is
-never blocked or slowed down by Coucou.** If nobody answers a permission request
-in time, Coucou stays quiet and Claude Code asks in the terminal as usual.
+never blocked or slowed down by AnF.** If nobody answers a permission request
+in time, AnF stays quiet and Claude Code asks in the terminal as usual.
 
 It works from any terminal — Windows Terminal, PowerShell, VS Code, Git Bash.
 
@@ -103,7 +103,7 @@ It works from any terminal — Windows Terminal, PowerShell, VS Code, Git Bash.
 Credential Manager**, never on disk and never in the interface — the island can
 only ask whether a key exists. Same for every integration key.
 
-No telemetry. The only network requests Coucou makes are to the services you
+No telemetry. The only network requests AnF makes are to the services you
 configure yourself.
 
 ## Build it yourself
@@ -128,8 +128,8 @@ otherwise needs a real drag from Explorer to see. Neither page ships in the app.
 workflow publishes:
 
 ```
-Coucou-Windows-X.Y.Z-setup.exe    the versioned installer
-Coucou-Windows-setup.exe          the same file under the rolling name
+AnF-Windows-X.Y.Z-setup.exe    the versioned installer
+AnF-Windows-setup.exe          the same file under the rolling name
 ```
 
 Installing is optional — `target/release/coucou.exe` runs on its own. There is no
@@ -162,7 +162,7 @@ windows/
 
 ### Log
 
-`%LOCALAPPDATA%\Coucou\coucou.log` — hook events, permission decisions, poller
+`%LOCALAPPDATA%\AnF\coucou.log` — hook events, permission decisions, poller
 problems. It stays on your machine.
 
 ## What's different from the Mac version
@@ -213,13 +213,13 @@ What changes on Linux:
 
 ## Key-free workspace (0.1.4)
 
-The workspace opens first on Windows. Settings and the island use the same WebView2 profile and browser options. A second launch reopens the workspace. Startup stages are logged in %LOCALAPPDATA%\Coucou\coucou.log; initialization errors display a native Windows error message. WebView2 Runtime is required. This release uses a new WebView2 profile and preserves older profiles and preferences.
+The workspace opens first on Windows. Settings and the island use the same WebView2 profile and browser options. A second launch reopens the workspace. Startup stages are logged in %LOCALAPPDATA%\AnF\coucou.log; initialization errors display a native Windows error message. WebView2 Runtime is required. This release uses a new WebView2 profile and preserves older profiles and preferences.
 
 The workspace always uses local AI, regardless of optional cloud settings. The full installer and portable folder contain two CPU models: Fast (official Qwen3 0.6B Q8_0, about 639 MB on disk) and Balanced (Qwen3 1.7B requantized from Q8_0 to Q4_K_M, about 1.11 GB on disk). Plan roughly 1–2 GB free RAM for Fast or 2–3 GB for Balanced; usage varies with context and runtime overhead. Only one model loads at a time. Model switching unloads the old model. Changing workspace models does not alter cloud credentials. There is no recurring hosted quota, but finite RAM, context, output length, CPU speed and model capability apply. Cloud and browser services retain their own limits.
 
-Projects autosave locally with complete conversation history, editable drafts, source text, model choice and editable memory. Reopen any saved project; the most recent one reopens at startup. Each successful save is a new atomic snapshot; the previous three versions are retained, and loading falls back to an earlier valid save if the newest is damaged. Project files live in %LOCALAPPDATA%\Coucou\projects and are private to the Windows account but not encrypted. No credential fields are stored in project snapshots. Limits: four sources, 1,000 conversation messages and 16 MB per project; start another project when full. Recent model context is bounded independently of the full saved history. Memory refreshes after every five exchanges; you can also summarize manually or edit it. Summaries may omit facts, so saved full history remains available. The workspace history sidebar lets you search saved project names and reopen full conversations.
+Projects autosave locally with complete conversation history, editable drafts, source text, model choice and editable memory. Reopen any saved project; the most recent one reopens at startup. Each successful save is a new atomic snapshot; the previous three versions are retained, and loading falls back to an earlier valid save if the newest is damaged. Project files live in %LOCALAPPDATA%\AnF\projects and are private to the Windows account but not encrypted. No credential fields are stored in project snapshots. Limits: four sources, 1,000 conversation messages and 16 MB per project; start another project when full. Recent model context is bounded independently of the full saved history. Memory refreshes after every five exchanges; you can also summarize manually or edit it. Summaries may omit facts, so saved full history remains available. The workspace history sidebar lets you search saved project names and reopen full conversations.
 
-Load PDFs, UTF-8 text, PNG or JPEG files (20 MB each, 2 MB extracted text per document, at most 600 PDF pages). Selectable PDF text is read page by page; pages with little or no embedded text are rendered using Windows Data.Pdf and processed by bundled Ocrs models. Clear English and Latin-alphabet text work best; OCR errors are possible. Ocrs cannot reliably recognize every language or handwriting. Source copies are retained under Coucou's sources folder so saved projects do not depend on the seven-day temporary inbox. There is no OCR download or cloud request at runtime.
+Load PDFs, UTF-8 text, PNG or JPEG files (20 MB each, 2 MB extracted text per document, at most 600 PDF pages). Selectable PDF text is read page by page; pages with little or no embedded text are rendered using Windows Data.Pdf and processed by bundled Ocrs models. Clear English and Latin-alphabet text work best; OCR errors are possible. Ocrs cannot reliably recognize every language or handwriting. Source copies are retained under AnF's sources folder so saved projects do not depend on the seven-day temporary inbox. There is no OCR download or cloud request at runtime.
 
 The floating chat can attach PDF, text, CSV, JSON, log, PNG or JPEG files up to 12 MB, including during an ongoing conversation. The workspace exports editable writing as Word, plain text, Markdown, HTML and RTF; use Print to PDF to create a PDF with Windows' print dialog. Read-aloud uses installed Windows voices. Audio tools filter low rumble and soften loudness dynamics in a selected recording before downloading a WAV copy; offline transcription and voice cloning require speech models that are not bundled. The clarity action improves readability while preserving meaning and does not promise to influence AI-detector results.
 
@@ -239,7 +239,7 @@ Native tests cover PDF extraction, page-aware retrieval, project recovery, previ
 
 ## Repair update (0.1.5)
 
-Install over the existing Coucou installation using the same folder; manual
+Install over the existing AnF installation using the same folder; manual
 uninstallation is unnecessary. The package keeps the existing application identity.
 Installer hooks check the installed app and local engine with Windows Restart
 Manager before replacement, and preserve user documents, projects, inbox and settings.
@@ -273,3 +273,12 @@ java_transport_interoperates test runs android/java-test/.../LinkCheck.java usin
 COUCOU_TEST_JAVA and COUCOU_TEST_CLASSES. Android sync-check.cjs tests conversion,
 metadata, byte bounds and document opt-out against a bundled web/sync.ts module.
 Physical phone/tablet network testing remains separate from these checks.
+
+
+### AnF branding and existing installations
+
+AnF 0.1.20 introduces a shared Android/Windows design with light, dark and system themes. New installers, shortcuts, exports and app icons use AnF. Internal package identifiers, database names, OS credential-store services, browser storage and encrypted-backup authentication remain stable so existing saved work is readable. Older `.coucoupack` backups remain supported; new encrypted exports use `.anfpack`.
+
+The Windows NSIS template is based on Tauri CLI 2.12.0 (MIT/Apache-2.0). It keeps the previous uninstall registry key and installation-location record, and retains the default `%LOCALAPPDATA%\Coucou` folder. The displayed product and executable are AnF; updates find the existing folder automatically. Keep these compatibility changes when updating the upstream installer template. Windows publication remains paused pending signing or Defender clearance.
+
+For rendered interface checks, build the Windows frontend and Android assets, then run `node scripts/app-qa/appearance.mjs` from the repository root with Chromium available. This checks real browser rendering and Android browser storage; native installed-app tests run separately in the release workflows.

@@ -1,4 +1,4 @@
-// Draws Mochi into the PNG/ICO set Tauri needs. No dependencies: the icons are
+// Draws the AnF monogram into the PNG/ICO set Tauri needs. No dependencies: the icons are
 // rasterised here and encoded with node:zlib, so the app icon stays "drawn in
 // code" like the character itself.
 //
@@ -11,101 +11,25 @@ import { fileURLToPath } from "node:url";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri", "icons");
 
-// ── Mochi ─────────────────────────────────────────────────────────────────────
-
-const BASE_TOP = [255, 250, 245]; // #FFFAF5
-const BASE_BOTTOM = [221, 204, 191]; // #DDCCBF
-const INK = [26, 20, 18]; // #1A1412
-const RIM = [0, 0, 0];
-
-const SS = 4; // supersampling factor
-
-/** Superellipse (exponent 2.7) test in body-local coordinates. */
-function insideBody(x, y, rx, ry) {
-  const n = 2.7;
-  return Math.pow(Math.abs(x / rx), n) + Math.pow(Math.abs(y / ry), n) <= 1;
-}
-
-function insidePill(x, y, w, h) {
-  const hw = w / 2;
-  const hh = h / 2;
-  const r = Math.min(hw, hh);
-  const cx = Math.max(-hw + r, Math.min(hw - r, x));
-  const cy = Math.max(-hh + r, Math.min(hh - r, y));
-  return (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
-}
-
-function renderMochi(size) {
-  const px = new Uint8Array(size * size * 4);
-  const R = size * 0.34;
-  const rx = R * 1.14;
-  const ry = R * 0.88;
-  const cx = size / 2;
-  const cy = size / 2 + R * 0.06;
-  const rim = R * 0.055; // dark outline so the tray icon reads on light themes
-
-  // Eyes — same geometry as BotEngine (yaw ±0.37, pitch −0.12)
-  const eyeYaw = 0.37;
-  const eyePitch = -0.12;
-  const cp = Math.cos(eyePitch);
-  const ex = Math.sin(eyeYaw) * cp * rx;
-  const ey = -Math.sin(eyePitch) * ry;
-  const fx = Math.max(0.18, Math.cos(eyeYaw));
-  const fy = Math.max(0.18, cp);
-  const ew = R * 0.25 * fx;
-  const eh = R * 0.27 * fy;
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let bodyHits = 0;
-      let rimHits = 0;
-      let eyeHits = 0;
-      for (let sy = 0; sy < SS; sy++) {
-        for (let sx = 0; sx < SS; sx++) {
-          const px0 = x + (sx + 0.5) / SS - cx;
-          const py0 = y + (sy + 0.5) / SS - cy;
-          if (!insideBody(px0, py0, rx + rim, ry + rim)) continue;
-          rimHits++;
-          if (!insideBody(px0, py0, rx, ry)) continue;
-          bodyHits++;
-          if (
-            insidePill(px0 + ex, py0 - ey, ew, eh) ||
-            insidePill(px0 - ex, py0 - ey, ew, eh)
-          ) {
-            eyeHits++;
-          }
-        }
-      }
-      if (rimHits === 0) continue;
-
-      const total = SS * SS;
-      const rimA = rimHits / total;
-      const bodyA = bodyHits / total;
-      const eyeA = eyeHits / total;
-
-      // Body gradient: top-right → bottom-left, like the Canvas gradient.
-      const t = Math.min(1, Math.max(0, ((x - cx) * -0.6 + (y - cy) * 0.8) / (2 * ry) + 0.5));
-      const body = [0, 1, 2].map((i) => BASE_TOP[i] + (BASE_BOTTOM[i] - BASE_TOP[i]) * t);
-
-      // rim under body, body over rim, eyes over body
-      let col = RIM.slice();
-      let alpha = rimA;
-      if (bodyA > 0) {
-        col = col.map((c, i) => c * (1 - bodyA / rimA) + body[i] * (bodyA / rimA));
-        alpha = rimA;
-      }
-      if (eyeA > 0) {
-        col = col.map((c, i) => c * (1 - eyeA) + INK[i] * eyeA);
-      }
-
-      const o = (y * size + x) * 4;
-      px[o] = Math.round(col[0]);
-      px[o + 1] = Math.round(col[1]);
-      px[o + 2] = Math.round(col[2]);
-      px[o + 3] = Math.round(Math.min(1, alpha) * 255);
+// The AF monogram is rasterised from simple geometry, with no font dependency.
+function renderAnF(size) {
+  const out=new Uint8Array(size*size*4),ss=4;
+  const polygons=[[[20,72],[36,27],[45,27],[61,72],[51,72],[40.5,40],[30,72]],[[30,57],[51,57],[54,65],[27,65]],[[63,27],[87,27],[87,36],[72,36],[72,46],[84,46],[84,55],[72,55],[72,72],[63,72]]];
+  function inside(x,y,points){let yes=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const [a,b]=points[i],[c,d]=points[j];if((b>y)!==(d>y)&&x<(c-a)*(y-b)/(d-b)+a)yes=!yes;}return yes;}
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    let covered=0,letter=0;
+    for(let j=0;j<ss;j++)for(let i=0;i<ss;i++){
+      const u=(x+(i+.5)/ss)/size*100,v=(y+(j+.5)/ss)/size*100;
+      const cx=Math.max(22,Math.min(78,u)),cy=Math.max(22,Math.min(78,v));
+      if((u-cx)**2+(v-cy)**2>18**2)continue;
+      covered++;if(polygons.some(p=>inside(u,v,p)))letter++;
     }
+    const o=(y*size+x)*4,t=covered?letter/covered:0;
+    const bg=[36,108,84],ink=[245,249,240];
+    for(let c=0;c<3;c++)out[o+c]=Math.round(bg[c]*(1-t)+ink[c]*t);
+    out[o+3]=Math.round(255*covered/(ss*ss));
   }
-  return px;
+  return out;
 }
 
 // ── PNG ───────────────────────────────────────────────────────────────────────
@@ -182,7 +106,7 @@ function encodeICO(entries) {
 
 mkdirSync(OUT, { recursive: true });
 
-const png = (size) => encodePNG(size, renderMochi(size));
+const png = (size) => encodePNG(size, renderAnF(size));
 
 const files = {
   "32x32.png": png(32),
