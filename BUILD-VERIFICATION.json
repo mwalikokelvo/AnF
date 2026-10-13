@@ -1,6 +1,6 @@
 {
   "version": "0.1.20",
-  "source": "87d7dc3b048cc7899b369954036ee19728546d82",
+  "source": "e3d762738ad12b0a75e470941767faae1fd57f5b",
   "android": {
     "local_release_build": "passed",
     "apk_assets": "passed",
@@ -23,5 +23,7 @@
     "source_and_frontend": "built",
     "native_installer": "blocked: GitHub Actions billing"
   },
-  "regressions": 9
+  "regressions": 9,
+  "encrypted_backup_compatibility": "passed: both directions with previous implementation",
+  "vault_migration_regressions": "passed"
 }
