@@ -130,7 +130,7 @@ jobs:
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
           Get-ChildItem release | Format-Table Name, Length
-          Get-ChildItem release -File -Filter '*.exe' | ForEach-Object {
+          Get-ChildItem release -File -Filter "Coucou-Windows-$version-setup.exe" | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content release/SHA256SUMS-Windows

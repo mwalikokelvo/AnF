@@ -7,6 +7,9 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import androidx.test.platform.app.InstrumentationRegistry;
 import org.json.JSONObject;
 import org.junit.Test;
@@ -40,7 +43,8 @@ public class UpgradeUiTest {
     while(SystemClock.elapsedRealtime()<deadline) {
       if("true".equals(evaluate(expression)))return;SystemClock.sleep(150);
     }
-    fail("UI condition did not complete: "+expression);
+    fail("UI condition did not complete: "+expression+"; document: "+
+      evaluate("JSON.stringify({url:location.href,title:document.title,ready:document.readyState})"));
   }
   private void clickView(String name)throws Exception {
     evaluate("document.querySelector('[data-view=\""+name+"\"]').click()");
@@ -66,8 +70,16 @@ public class UpgradeUiTest {
     if(phase.equals("seed")) {
       // The baseline's missing HTML produces a browser error document. Seed its
       // real old origin/store independently of that already-confirmed UI defect.
-      instrumentation.runOnMainSync(()->web.loadDataWithBaseURL("https://coucou.local/",
-        "<!doctype html><title>Upgrade storage fixture</title>","text/html","UTF-8",null));
+      instrumentation.runOnMainSync(()->{
+        web.stopLoading();
+        web.setWebViewClient(new WebViewClient(){
+          @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
+            return new WebResourceResponse("text/html","UTF-8",new java.io.ByteArrayInputStream(
+              "<!doctype html><html><head><title>Upgrade storage fixture</title></head><body>Storage fixture</body></html>".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+          }
+        });
+        web.loadUrl("https://coucou.local/");
+      });
     }
     until(phase.equals("seed")?
       "document.readyState==='complete' && document.title==='Upgrade storage fixture'":
