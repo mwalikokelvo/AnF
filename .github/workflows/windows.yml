@@ -130,7 +130,7 @@ jobs:
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
           Get-ChildItem release | Format-Table Name, Length
-          Get-ChildItem release -File -Filter "Coucou-Windows-$version-setup.exe" | ForEach-Object {
+          Get-ChildItem release -File -Filter "AnF-Windows-$version-setup.exe" | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content release/SHA256SUMS-Windows
@@ -156,14 +156,14 @@ jobs:
           if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
           $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          $candidate = (Resolve-Path "windows/release/Coucou-Windows-$version-setup.exe").Path
+          $candidate = (Resolve-Path "windows/release/AnF-Windows-$version-setup.exe").Path
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
 
       - name: Retain installed application test evidence
         uses: actions/upload-artifact@v4
         if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         with:
-          name: Coucou-Windows-installation-tests
+          name: AnF-Windows-installation-tests
           path: ${{ runner.temp }}/anf-app-upgrade/results/
           if-no-files-found: ignore
           retention-days: 7
@@ -171,9 +171,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
-          name: Coucou-Windows-setup
+          name: AnF-Windows-setup
           path: |
-            windows/release/Coucou-Windows-${{ steps.pack.outputs.version }}-setup.exe
+            windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-setup.exe
             windows/release/SHA256SUMS-Windows
           if-no-files-found: error
           retention-days: 7
@@ -182,8 +182,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
-          name: Coucou-Windows-portable
-          path: windows/release/Coucou-Windows-${{ steps.pack.outputs.version }}-portable/
+          name: AnF-Windows-portable
+          path: windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-portable/
           if-no-files-found: error
           retention-days: 7
 
@@ -203,7 +203,7 @@ jobs:
           path: previous-installer
       - uses: actions/download-artifact@v4
         with:
-          name: Coucou-Windows-setup
+          name: AnF-Windows-setup
           run-id: ${{ inputs.candidate_run }}
           github-token: ${{ github.token }}
           path: candidate-installer
@@ -214,12 +214,12 @@ jobs:
           if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
           $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          $candidate = (Resolve-Path "candidate-installer/Coucou-Windows-$version-setup.exe").Path
+          $candidate = (Resolve-Path "candidate-installer/AnF-Windows-$version-setup.exe").Path
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Coucou-Windows-installation-tests
+          name: AnF-Windows-installation-tests
           path: ${{ runner.temp }}/anf-app-upgrade/results/
           if-no-files-found: ignore
           retention-days: 7

@@ -1,4 +1,4 @@
-Coucou Android native media dependencies
+AnF Android native media dependencies
 Local SQLCipher/Kotlin dependencies are covered in the separate storage notices.
 The following artifacts were resolved for releaseRuntimeClasspath.
 

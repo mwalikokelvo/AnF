@@ -68,7 +68,7 @@ function claudeSection(status: HookStatus): HTMLElement {
       h("div", {
         class: "hint",
         text: status.installed
-          ? "Coucou is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there."
+          ? "AnF is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there."
           : "Install the hooks to see your Claude Code sessions in the island and approve permissions without leaving what you are doing.",
       }),
       h("div", { class: "row" },
@@ -85,7 +85,7 @@ function claudeSection(status: HookStatus): HTMLElement {
     if (!status.hookReady) {
       body.append(h("div", {
         class: "notice warn",
-        text: "coucou-hook.exe is not in place yet. Restart Coucou; if it still fails, build it with `cargo build -p coucou-hook`.",
+        text: "coucou-hook.exe is not in place yet. Restart AnF; if it still fails, build it with `cargo build -p coucou-hook`.",
       }));
     }
 
@@ -136,7 +136,7 @@ function claudeSection(status: HookStatus): HTMLElement {
         class: "hint",
         text: install
           ? "This is exactly what will change in your settings.json. Your own hooks are left untouched."
-          : "This removes Coucou's entries only. Your own hooks are left untouched.",
+          : "This removes AnF's entries only. Your own hooks are left untouched.",
       }),
       renderDiff(preview.diff),
       h("div", { class: "row" },
@@ -261,7 +261,7 @@ function apiSection(hasKey: boolean, provider: "claude" | "openai" | "gemini" = 
 
 function aiSection(): HTMLElement {
   const mode = h("select", { "aria-label": "Chat connection" },
-    h("option", { value: "api", text: "Chat inside Coucou" }),
+    h("option", { value: "api", text: "Chat inside AnF" }),
     h("option", { value: "browser", text: "My browser accounts" })) as HTMLSelectElement;
   mode.value = settings.chatMode;
   const provider = h("select", { "aria-label": "AI provider" }) as HTMLSelectElement;
@@ -277,7 +277,7 @@ function aiSection(): HTMLElement {
     hint.textContent = settings.chatMode === "api" && settings.chatProvider === "local"
       ? "The bundled model runs on this computer without internet, API keys, or subscription quotas. It is a small text model; long conversations are shortened to fit memory."
       : settings.chatMode === "api"
-      ? "Replies appear in Coucou. Add the provider's API key below. API usage is billed separately from website subscriptions. Changing provider or model starts a fresh chat."
+      ? "Replies appear in AnF. Add the provider's API key below. API usage is billed separately from website subscriptions. Changing provider or model starts a fresh chat."
       : "Send copies your question and opens your default browser. Paste it and send it there using your existing account. Attach files on the website; replies stay there. Gemini Notebook uses this mode.";
   }
   mode.addEventListener("change", () => { settings.chatMode = mode.value as Settings["chatMode"]; refresh(); void save(); });
@@ -489,7 +489,7 @@ async function main() {
 
   clear(root);
   root.append(
-    h("h1", {}, h("span", { text: "Coucou" }), h("span", { class: "version", text: version })),
+    h("h1", {}, h("span", { text: "AnF" }), h("span", { class: "version", text: version })),
     h("section", {}, h("h2", {text:"Key-free workspace"}), h("p", {class:"hint",text:"Start here: saved projects, local chat, scanned PDFs, source excerpts, Word drafts, and previewed file actions. No API key required."}), (()=>{ const b=h("button",{text:"Open workspace"}); b.addEventListener("click",()=>void Bridge.openWorkspaceWindow()); return b; })()),
     generalSection(),
     h("details", {},h("summary",{text:"Advanced · optional AI accounts, integrations, and coding hooks"}),

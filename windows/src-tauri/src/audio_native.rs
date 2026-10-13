@@ -17,7 +17,7 @@ pub fn encoder(format:&str,preset:&str)->Result<Vec<&'static str>,String>{
 fn execute(exe:&Path,bytes:&[u8],format:&str,preset:&str,dir:&Path,cancel:&AtomicBool)->Result<PathBuf,String>{
  let args=encoder(format,preset)?;if bytes.is_empty()||bytes.len()>16_000_000{return Err("Audio input must be between 1 byte and 16 MB.".into());}
  crate::platform::ensure_private_dir(dir).map_err(|e|e.to_string())?;
- let key=crate::local_ai::random_key()?;let input=dir.join(format!("{key}.input"));let output=dir.join(format!("Coucou-{key}.{format}"));
+ let key=crate::local_ai::random_key()?;let input=dir.join(format!("{key}.input"));let output=dir.join(format!("AnF-{key}.{format}"));
  std::fs::write(&input,bytes).map_err(|e|e.to_string())?;
  let result=(||{
   let mut command=Command::new(exe);

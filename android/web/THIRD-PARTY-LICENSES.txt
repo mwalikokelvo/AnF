@@ -198,7 +198,7 @@ SOFTWARE.
    END OF TERMS AND CONDITIONS
 
 
-Coucou live Markdown editor - third-party notices
+AnF live Markdown editor - third-party notices
 
 @codemirror/autocomplete 6.20.3
 MIT License

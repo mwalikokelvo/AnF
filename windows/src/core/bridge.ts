@@ -59,7 +59,7 @@ export const Bridge = {
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),
 
-  /** Writes to %LOCALAPPDATA%\Coucou\coucou.log, next to the Rust lines. */
+  /** Writes to %LOCALAPPDATA%\AnF\coucou.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
 
   // ── Claude Code hooks ─────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ export interface HookPreview {
 
 /** Same as `call`, but surfaces the error so the UI can show what went wrong. */
 async function callOrThrow<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!IS_TAURI) throw new Error("not running inside Coucou");
+  if (!IS_TAURI) throw new Error("not running inside AnF");
   return invoke<T>(cmd, args);
 }
 

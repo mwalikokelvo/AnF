@@ -72,7 +72,7 @@ pub fn read_file_with(
         let extracted = pdf_extract::extract_text_by_pages(path)
             .map_err(|_| "This PDF could not be read. It may be encrypted or damaged.")?;
         if extracted.len() > MAX_PDF_PAGES {
-            return Err(format!("This PDF has {} pages. Coucou can read up to {MAX_PDF_PAGES}; split this file into smaller parts first.", extracted.len()));
+            return Err(format!("This PDF has {} pages. AnF can read up to {MAX_PDF_PAGES}; split this file into smaller parts first.", extracted.len()));
         }
         let mut reader = None;
         let mut total = 0;
@@ -244,7 +244,7 @@ pub async fn read_web(url: &str) -> Result<Source, String> {
         .map_err(|e| e.to_string())?;
     let mut response = client
         .get(url.clone())
-        .header("User-Agent", "Coucou/0.1.3 webpage reader")
+        .header("User-Agent", "AnF/0.1.3 webpage reader")
         .send()
         .await
         .map_err(|_| "Could not read this website. Open it in your browser instead.")?;
@@ -496,7 +496,7 @@ pub fn save_document(title: &str, text: &str, format: &str) -> Result<String, St
         .unwrap()
         .as_nanos();
     let extension = match format { "docx" => "docx", "txt" => "txt", "md" => "md", "html" => "html", "rtf" => "rtf", _ => return Err("Choose Word, plain text, Markdown, HTML, or RTF. Use Print to PDF for a PDF copy.".into()) };
-    let path = dir.join(format!("Coucou-{stamp}.{extension}"));
+    let path = dir.join(format!("AnF-{stamp}.{extension}"));
     if format != "docx" {
         let content = match format {
             "txt" | "md" => text.to_string(),

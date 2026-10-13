@@ -1,4 +1,4 @@
-Coucou encrypted storage third-party notices
+AnF encrypted storage third-party notices
 
 SQLCipher Android 4.19.0
 Source: https://raw.githubusercontent.com/sqlcipher/sqlcipher-android/v4.19.0/LICENSE

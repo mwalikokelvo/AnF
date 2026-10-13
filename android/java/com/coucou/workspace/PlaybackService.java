@@ -37,7 +37,7 @@ public final class PlaybackService extends MediaSessionService {
             if(!file.getCanonicalPath().startsWith(folder)||!file.isFile())throw new SecurityException("Audio is outside this library");
           }
           return Futures.immediateFuture(items);
-        }catch(Exception e){return Futures.immediateFailedFuture(new IllegalArgumentException("Only imported Coucou audio can be played."));}
+        }catch(Exception e){return Futures.immediateFailedFuture(new IllegalArgumentException("Only imported AnF audio can be played."));}
       }
     }).build();
   }

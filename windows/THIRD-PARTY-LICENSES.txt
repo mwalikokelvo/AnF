@@ -1,4 +1,4 @@
-Coucou bundled Rust dependencies — license and attribution notices
+AnF bundled Rust dependencies — license and attribution notices
 
 
 ===== adler2-2.0.1 =====

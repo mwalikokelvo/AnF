@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="NotchBuddy/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="96" alt="Coucou icon">
+<img src="windows/src-tauri/icons/128x128.png" width="96" alt="AnF icon">
 
-# Coucou
+# AnF
 
-**A tiny friend that lives in your Mac's notch — or at the top of your screen on Windows and Linux — and keeps an eye on your AI coding agent sessions.**
+**A private workspace for your ideas, documents, writing and audio on Android and Windows.**
 
-Approve permissions, watch your agents work, drop a file, chat with Claude — all without leaving what you're doing.
+Read, write, work with local AI on Windows, and connect your devices over your own Wi-Fi. AnF preserves the existing Coucou installation and saved-data identities when you update. The macOS notch companion and historical documentation below come from the upstream project.
 
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
