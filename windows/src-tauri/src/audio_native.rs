@@ -1,6 +1,8 @@
 //! Bounded, local-only FFmpeg jobs. User paths and encoder arguments never enter a shell.
 use std::{path::{Path,PathBuf},sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},process::{Command,Stdio},time::{Duration,Instant}};
-use tauri::{Manager,State};
+use tauri::State;
+#[cfg(not(target_os="linux"))]
+use tauri::Manager;
 #[derive(Default)]pub struct AudioJobs(Mutex<Option<(String,Arc<AtomicBool>)>>);
 pub fn encoder(format:&str,preset:&str)->Result<Vec<&'static str>,String>{
  if !["quality","voice","compact"].contains(&preset){return Err("Unknown audio preset.".into());}
