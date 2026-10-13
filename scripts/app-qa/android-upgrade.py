@@ -32,17 +32,18 @@ for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.
     # A fresh disposable key signs all three APKs; production keys remain local.
     run([signer,'sign','--ks',str(keystore),'--ks-pass','pass:android','--key-pass','pass:android','--out',str(destination),source])
     run([signer,'verify',str(destination)])
-run(device+['install','--no-incremental','-r',str(out/'baseline.apk')])
 run(device+['install','--no-incremental','-r',str(out/'test.apk')])
-for phase in ['seed','verify','reopen']:
-    if phase=='verify':run(device+['install','--no-incremental','-r',str(out/'candidate.apk')])
-    run(device+['shell','am','force-stop','com.coucou.workspace'])
-    result=run(device+['shell','am','instrument','-w','-e','phase',phase,'com.coucou.workspace.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
-    (out/(phase+'.txt')).write_text(result)
-    image=subprocess.run(device+['exec-out','screencap','-p'],capture_output=True,check=True,timeout=30)
-    (out/(phase+'.png')).write_bytes(image.stdout)
-    print(result)
-    if 'OK (1 test)' not in result or any(s in result for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):
-        (out/(phase+'-logcat.txt')).write_text(run(device+['logcat','-d','-t','150','-s','chromium','AndroidRuntime','TestRunner']))
-        raise SystemExit('Installed Android app failed phase: '+phase)
+for storage in ['encrypted','legacy']:
+    if storage=='legacy':run(device+['uninstall','com.coucou.workspace'])
+    run(device+['install','--no-incremental','-r',str(out/'baseline.apk')])
+    for phase in ['seed','verify','reopen']:
+        if phase=='verify':run(device+['install','--no-incremental','-r',str(out/'candidate.apk')])
+        run(device+['shell','am','force-stop','com.coucou.workspace'])
+        label=storage+'-'+phase
+        result=run(device+['shell','am','instrument','-w','-e','phase',phase,'-e','storage',storage,'com.coucou.workspace.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
+        (out/(label+'.txt')).write_text(result)
+        print(result)
+        if 'OK (1 test)' not in result or any(s in result for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):
+            (out/(label+'-logcat.txt')).write_text(run(device+['logcat','-d','-s','chromium','AndroidRuntime','TestRunner']))
+            raise SystemExit('Installed Android app failed phase: '+label)
 print('PASS: Android release startup, encrypted and legacy saved data, writing, PDF/text import and restart')
