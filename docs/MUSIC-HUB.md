@@ -149,9 +149,14 @@ and performs no public publication. Restore Actions billing, then use the
 **Embedded Spotube review builds** workflow on `codex/release-builds`. Installed
 native QA must cover startup, music search/stream playback, returning to AnF,
 system controls, audio handoff, closing/reopening and upgrading saved data.
-Run `38605558017` was refused before any build steps: GitHub reports failed
+Run `38615163842` for the native-controls commit was refused before any build steps: GitHub reports failed
 account payments or the Actions spending limit. No Windows native build is
 claimed from that run.
+
+Draft review release `anf-v0.1.21-embedded-review` was created, but its assets
+remain empty: `uploads.github.com` returned HTTP 401 (Bad credentials).
+The signed APK and SHA-256 file remain saved under `releases/` in this workspace.
+Upload authorization must be restored before describing that draft as a download.
 
 This product includes software developed by Kingkor Roy Tirtho.
 The BSD-4-Clause notices are retained in `integrations/spotube/LICENSE` and in the
