@@ -67,8 +67,13 @@ The current review targets are ARM64 and x86-64. Unsupported 32-bit devices reta
 local Music Hub without offering the native control. `.MusicActivity` shares
 `audio_service`'s retained Flutter engine; Back returns to AnF without deliberately
 stopping its playback. A method-channel pause acknowledgement coordinates native
-Spotube with local music and Audio Studio. Native startup, streaming, Back,
-background controls and saved-data upgrades still require installed tests.
+Spotube with local music and Audio Studio. Both native AAR variants and the
+combined AnF release/debug APKs compile locally, including release lint. The
+review release APK is signed with the preserved original release certificate.
+Native startup, streaming, Back, background controls and saved-data upgrades
+still require installed tests. The isolated software-only API 35 emulator
+developed Settings and System UI hangs, so it provided no reliable installed
+verification. It was stopped after this attempt.
 
 ### Windows
 
@@ -121,11 +126,19 @@ these checks do not simulate a native Flutter runtime. The broader appearance
 suite covers 84 views, both themes, retained drafts/preferences and seven-section
 navigation. A native Rust test rejects invalid/overflowing view bounds.
 
+Saved local review package: `releases/AnF-Android-0.1.21-embedded-review.apk`.
+This is a signed review build, not a verified public release. The normal debug
+and unsigned output filenames also contain Spotube when built with
+`--with-spotube`; filenames alone do not establish the packaged runtime.
+
 `.github/workflows/spotube-native.yml` creates unsigned/private review artifacts
 and performs no public publication. Restore Actions billing, then use the
 **Embedded Spotube review builds** workflow on `codex/release-builds`. Installed
 native QA must cover startup, music search/stream playback, returning to AnF,
 system controls, audio handoff, closing/reopening and upgrading saved data.
+Run `38605558017` was refused before any build steps: GitHub reports failed
+account payments or the Actions spending limit. No Windows native build is
+claimed from that run.
 
 This product includes software developed by Kingkor Roy Tirtho.
 The BSD-4-Clause notices are retained in `integrations/spotube/LICENSE` and in the
