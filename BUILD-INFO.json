@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "a5fe51e1e32fc5bbe2244e4eaa0c6ece45872c27",
+  "sourceBranch": "codex/downloadable-releases",
+  "version": "0.1.21-music-preview",
+  "applicationId": "com.coucou.workspace.musicdev",
+  "architecture": "arm64-v8a",
+  "signing": "local development certificate; separate installation",
+  "flutterVersion": "3.35.2",
+  "flutterRevision": "05db9689081f091050f01aed79f04dce0c750154",
+  "spotubeRevision": "69a310c78f5ceaf4eab7dfee98f187d38211c9ba",
+  "androidNdk": "27.0.12077973",
+  "verification": {
+    "nativeBuild": "passed",
+    "releaseLint": "passed",
+    "signature": "passed",
+    "apkCrc": "passed",
+    "webPdfAssets": "passed",
+    "singleArchitecture": "passed",
+    "nativeElfAlignment": "at least 16 KB",
+    "zipAlignment": "passed",
+    "releaseRegressionChecks": 9,
+    "flutterHostTests": 2,
+    "musicBrowserChecks": "passed",
+    "nativeBridgeFixtures": "passed",
+    "installedDevice": "not performed",
+    "windowsNativeBuild": "blocked by GitHub Actions billing"
+  }
+}
