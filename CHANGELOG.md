@@ -1,3 +1,11 @@
+## 0.1.21 — Music Hub
+
+- Add a responsive charcoal/mint Music Hub with artwork, search, local imports, listening history, playlists and a persistent player.
+- Retain local listening state, shuffle/repeat modes and playlists; coordinate playback with the separate Audio Studio.
+- Allow local blob audio in Android's content security policy while retaining the external-media restriction.
+- Add pinned, opt-in native Spotube adapters and review-build workflows for Android and Windows. Native installed verification is pending; standard builds do not claim embedded Spotube.
+- Keep the existing app IDs, browser stores, vault identities and installation records.
+
 ## 0.1.20 — AnF for Android and Windows
 
 - Rebrand app labels, windows, tray, shortcuts, icons and new downloads/exports to AnF.

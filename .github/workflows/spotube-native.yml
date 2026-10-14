@@ -1,0 +1,102 @@
+name: Embedded Spotube review builds
+on:
+  pull_request:
+    paths: ['integrations/spotube/**', 'android/spotube-host/**', 'windows/src-tauri/src/music_native.rs', '.github/workflows/spotube-native.yml']
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Native runtime and AnF review package to build
+        type: choice
+        options: [both, android, windows]
+        default: both
+permissions:
+  contents: read
+concurrency:
+  group: spotube-${{ github.ref }}-${{ inputs.platform }}
+  cancel-in-progress: true
+jobs:
+  android:
+    if: inputs.platform != 'windows'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.4.1
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.2
+          channel: stable
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+      - name: Prepare pinned native music module
+        run: node integrations/spotube/prepare.mjs
+      - name: Build unsigned native music libraries
+        run: node integrations/spotube/build-android.mjs
+      - name: Build AnF with embedded music
+        run: |
+          sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+          npm ci --prefix windows
+          npm ci --prefix android
+          node scripts/build-android.mjs --with-spotube
+          node scripts/check-release.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AnF-Android-embedded-Spotube-review
+          path: releases/AnF-Android-*.apk
+          retention-days: 7
+          if-no-files-found: error
+  windows:
+    if: inputs.platform != 'android'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.2
+          channel: stable
+      - name: Prepare pinned embedded music
+        run: node integrations/spotube/prepare.mjs --windows
+      - name: Build native child view
+        working-directory: windows/spotube-native
+        run: flutter build windows --release
+      - name: Prepare the existing offline AnF resources
+        working-directory: windows
+        run: |
+          npm ci
+          ./scripts/prepare-offline.ps1
+          ./scripts/prepare-media.ps1
+      - name: Build the AnF review installer and portable package
+        working-directory: windows
+        run: |
+          cargo build --release --locked -p coucou-hook
+          npm exec tauri -- build --features embedded-music --config src-tauri/tauri.spotube.conf.json
+          node scripts/pack.mjs --with-spotube
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AnF-Windows-embedded-Spotube-review
+          path: windows/release/
+          retention-days: 7
+          if-no-files-found: error

@@ -1,3 +1,15 @@
 pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        if (providers.gradleProperty('spotubeRepository').isPresent()) {
+            maven { url uri(providers.gradleProperty('spotubeRepository').get()) }
+            def engine = maven { url 'https://storage.googleapis.com/download.flutter.io' }
+            exclusiveContent { forRepositories(engine); filter { includeGroup('io.flutter') } }
+            def newpipe = maven { url 'https://jitpack.io' }
+            exclusiveContent { forRepositories(newpipe); filter { includeGroup('com.github.teamnewpipe'); includeGroup('com.github.TeamNewPipe') } }
+        }
+        google(); mavenCentral()
+    }
+}
 rootProject.name = 'CoucouAndroid'

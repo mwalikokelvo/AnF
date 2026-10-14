@@ -33,7 +33,21 @@ for (const name of ['THIRD-PARTY-LICENSES.txt', 'THIRD-PARTY-NATIVE-MEDIA-LICENS
 await copyFile(path.join(root, 'windows/THIRD-PARTY-STORAGE-LICENSES.txt'), path.join(assets, 'THIRD-PARTY-STORAGE-LICENSES.txt'));
 if (process.argv.includes('--assets-only')) process.exit(0);
 const gradle = process.env.GRADLE_BIN || (process.platform === 'win32' ? 'gradle.bat' : 'gradle');
-const result = spawnSync(gradle, ['--no-daemon', 'assembleRelease', 'assembleDebug'], {
+const gradleArgs = ['--no-daemon', 'assembleRelease', 'assembleDebug'];
+if (process.argv.includes('--offline')) gradleArgs.push('--offline');
+if (process.argv.includes('--with-spotube')) {
+  const repository = process.env.SPOTUBE_REPOSITORY || path.join(android, 'spotube-module/build/host/outputs/repo');
+  // Fail before Gradle if the embedded runtime was not actually built.
+  await stat(path.join(repository, 'com/coucou/spotube/flutter_release/1.0/flutter_release-1.0.aar'));
+  await stat(path.join(repository, 'com/coucou/spotube/flutter_debug/1.0/flutter_debug-1.0.aar'));
+  gradleArgs.push(`-PspotubeRepository=${repository}`);
+  // Upstream native plugins still contain pre-AndroidX bytecode.
+  gradleArgs.push('-Pandroid.enableJetifier=true');
+  // Engine jars contain large native binaries and already use AndroidX.
+  gradleArgs.push('-Pandroid.jetifier.ignorelist=flutter_embedding.*,arm64_v8a.*,x86_64.*');
+  gradleArgs.push('-Dorg.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8');
+}
+const result = spawnSync(gradle, gradleArgs, {
   stdio: 'inherit', env: process.env, cwd: android, shell: process.platform === 'win32',
 });
 if (result.error) throw result.error;

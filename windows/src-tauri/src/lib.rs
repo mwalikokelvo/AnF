@@ -3,6 +3,7 @@
 mod actions;
 mod ai;
 mod audio_native;
+mod music_native;
 mod claude;
 mod local_ai;
 mod projects;
@@ -454,6 +455,7 @@ pub fn run() {
         .manage(audio_native::AudioJobs::default())
         .invoke_handler(tauri::generate_handler![
             audio_native::audio_convert,audio_native::audio_conversion_cancel,
+            music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,
             boot,
             save_settings,
             set_collapsed,
@@ -603,6 +605,7 @@ pub fn run() {
     match built {
         Ok(app) => app.run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                music_native::shutdown();
                 app.state::<Chat>().local.shutdown();
             }
         }),
