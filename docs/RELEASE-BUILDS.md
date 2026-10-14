@@ -1,8 +1,12 @@
 # Release builds
 
 The build workflows create review artifacts; they do not publish a GitHub release.
-Windows, Linux and Android currently use version 0.1.18. The separate native
+Windows, Linux and Android source currently uses version 0.1.20. The separate native
 macOS app retains version 0.1.4. No application data paths or identifiers change.
+
+See [RECOVERY.md](RECOVERY.md) for the recovered build state, verified download
+identities, and the pending native Spotube integration. A source version is not
+evidence that a matching native installer has been built.
 
 ## Windows
 
@@ -43,9 +47,9 @@ node scripts/check-release.mjs
 
 Outputs under `releases/`:
 
-- `Coucou-Android-0.1.18-unsigned.apk`: release build, requiring the original
+- `AnF-Android-0.1.20-unsigned.apk`: release build, requiring the original
   production certificate before distribution or compatible in-place updates.
-- `Coucou-Android-0.1.18-debug.apk`: debug-signed test build. It cannot replace
+- `AnF-Android-0.1.20-debug.apk`: debug-signed test build. It cannot replace
   an installation signed with a different certificate.
 
 The app has no sign-in requirement. APK signing is separate from account access.
