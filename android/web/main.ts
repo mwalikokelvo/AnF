@@ -1,9 +1,11 @@
+import {spotubeAvailable,spotubeRequest} from './spotube';
 import {nativeMediaPanel} from './native-media';
 import {snapshotPanel,type SavedVersion} from '../../windows/src/workspace/snapshot-panel';
 import {createRepository,vaultCall} from './native-vault';
 import {vaultPanel} from '../../windows/src/workspace/vault-panel';
 import {workflowButtons} from '../../windows/src/workspace/workflows';
 import {quickCapture} from '../../windows/src/workspace/quick-capture';
+import {createMusicHub} from '../../windows/src/workspace/music-hub';
 import {createAudioStudio} from '../../windows/src/workspace/audio-studio';
 import {backupTools} from '../../windows/src/workspace/backup-tools';
 import {createStudio} from '../../windows/src/workspace/studio';
@@ -24,7 +26,7 @@ import {readDocument} from './documents';
 import {paginatedResponse} from '../../windows/src/workspace/response-pages';
 import {followups,needsClarification,documentQuestion} from '../../windows/src/workspace/followups';
 import {restoreProjects,mergeReply,type Project} from './project-data';
-declare global {interface Window {CoucouAndroid?:{mediaRequest?(id:string,operation:string,json:string):void;vaultRequest?(id:string,operation:string,json:string):void;exportAudio?(name:string,base64:string):void;quickCaptureReady?():void;haptic?():void;linkRequest(id:string,code:string,path:string,json:string):void;openProvider(id:string):void;searchWeb(query:string,enabled:boolean):void;copy(text:string):void;export(name:string,text:string,mime:string):void;speak(text:string):void;stopSpeaking():void};linkResult:(id:string,value:string,error:string)=>void;nativeNotice:(s:string)=>void;nativeBack:()=>boolean;nativeKeyboard:(visible:boolean)=>void;}}
+declare global {interface Window {CoucouAndroid?:{spotubeAvailable?():boolean;spotubeRequest?(id:string,operation:string):void;mediaRequest?(id:string,operation:string,json:string):void;vaultRequest?(id:string,operation:string,json:string):void;exportAudio?(name:string,base64:string):void;quickCaptureReady?():void;haptic?():void;linkRequest(id:string,code:string,path:string,json:string):void;openProvider(id:string):void;searchWeb(query:string,enabled:boolean):void;copy(text:string):void;export(name:string,text:string,mime:string):void;speak(text:string):void;stopSpeaking():void};linkResult:(id:string,value:string,error:string)=>void;nativeNotice:(s:string)=>void;nativeBack:()=>boolean;nativeKeyboard:(visible:boolean)=>void;}}
 const native=window.CoucouAndroid;
 const root=document.getElementById('app')!;
 const status=h('p',{role:'status',class:'status',text:'Opening your workspace…'});
@@ -61,7 +63,7 @@ function renderSources(){reader.close();documentReview.replaceChildren();renderF
 let shownNotes=40;
 function renderNotes(){renderFollowups();notes.replaceChildren(...project.notes.slice(-shownNotes).map(n=>h('article',{class:'note'},h('h3',{text:n.role}),n.role==='You'?h('pre',{text:n.text}):paginatedResponse(n.text))));if(project.notes.length>shownNotes){const earlier=button('Show earlier messages',()=>{shownNotes+=40;renderNotes();});notes.prepend(earlier);}}
 function load(persisted=true){documentReview.replaceChildren();shownNotes=40;reply.value=project.pendingReply||'';responseLength.value=project.responseLength||'standard';replyPlacement.value=project.replyPlacement||'append';title.value=project.name;prompt.value=project.prompt;draft.value=project.draft;editor.refresh(project.id);renderSources();renderNotes();lastSaved=persisted?signature(collect()):undefined;notify('Opened saved conversation.');}
-function show(id:string){active=id;if(id==='home')void dashboard.refresh();for(const [key,panel]of panels)panel.hidden=key!==id;nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===id?'page':'false'));host.scrollTop=0;}
+function show(id:string){document.body.classList.toggle('music-view',id==='music');active=id;if(id==='home')void dashboard.refresh();for(const [key,panel]of panels)panel.hidden=key!==id;nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===id?'page':'false'));host.scrollTop=0;}
 function section(id:string,label:string,...children:Node[]){const p=h('section',{'aria-label':label,class:'panel'},...children);panels.set(id,p);host.append(p);const b=button(label,()=>show(id));b.replaceChildren(sectionIcon(id),h('span',{text:label}));b.dataset.view=id;nav.append(b);}
 const file=h('input',{type:'file',accept:'.pdf,.epub,.docx,.txt,.md,.csv,.json,.log','aria-label':'Choose a document'});
 file.addEventListener('change',()=>void run(async()=>{try{const selected=file.files?.[0];if(!selected)return;if(project.sources.length>=4)throw Error('Keep up to four documents per conversation.');notify('Reading '+selected.name+'…');const text=await readDocument(selected,notify);if(!text.trim())throw Error('No readable text found.');project.sources.push({name:selected.name,text});renderSources();await save();show('documents');notify('Document added. Read it here or use its text in Writing.');}finally{file.value='';}}));
@@ -90,9 +92,12 @@ const dashboard=createDashboard({current:()=>({...project,draft:draft.value,name
 section('home','Home',dashboard.root,button('Connect my devices',()=>show('settings')));
 section('documents','Documents',h('h1',{text:'Documents'}),h('p',{class:'muted',text:'PDF · EPUB · Word · Text. Up to four documents, 50 MB each; 600 PDF pages and 2 MB of extracted text. Protected books and scanned PDFs are not supported in this edition.'}),file,libraryControls(sourceList),sourceList,webResearch);
 let nativeMedia:ReturnType<typeof nativeMediaPanel>|undefined;
-const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{await nativeMedia?.suspend();});
-if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,()=>{audioStudio.stop();audioStudio.hideDock();},notify);audioStudio.root.append(nativeMedia.root);}
-section('audio','Audio',audioStudio.root);
+const musicHub=createMusicHub({notify,beforePlay:async()=>{audioStudio.stop();audioStudio.hideDock();await spotubeRequest('pause');await nativeMedia?.suspend();}});
+const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{musicHub.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();});
+if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,()=>{musicHub.pause();audioStudio.stop();audioStudio.hideDock();},notify);audioStudio.root.append(nativeMedia.root);}
+if(spotubeAvailable())musicHub.root.querySelector('.music-heading')!.append(button('Open Spotube',()=>void (async()=>{try{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMedia?.suspend();await spotubeRequest('open');}catch(e){notify(String(e));}})()));
+section('music','Music Hub',musicHub.root);
+section('audio','Audio Studio',audioStudio.root);
 section('writing','Writing',h('h1',{text:'Writing'}),h('p',{class:'muted',text:'Write freely. Preview your formatting and keep every draft local.'}),editor.root,h('div',{class:'row'},format,button('Export writing',()=>{if(!draft.value.trim()){notify('Write something first.');return;}const ext=format.value;let text=draft.value;const mime=ext==='html'?'text/html':ext==='md'?'text/markdown':'text/plain';if(ext==='html'){const preview=renderWriting(draft.value);text='<!doctype html><meta charset="utf-8"><title>'+escape(title.value)+'</title><body>'+ (preview?.innerHTML||'<pre>'+escape(text)+'</pre>')+'</body>';}exportText('AnF-writing.'+ext,text,mime);},'primary')),h('div',{class:'row'},button('Read aloud',()=>native?native.speak(draft.value):notify('Read-aloud is available in the Android app.')),button('Stop reading',()=>native?.stopSpeaking())));
 const askPC=button('Ask my Windows PC',()=>void run(async()=>{
   const query=prompt.value.trim();if(!query||needsClarification(query))throw Error('Describe the task, audience or purpose first.');
@@ -161,7 +166,7 @@ let gesture:{x:number;y:number}|undefined;
 host.addEventListener('touchstart',e=>{const target=e.target as HTMLElement;if(e.touches.length!==1||target.closest('input,textarea,select,button,[contenteditable=true]')){gesture=undefined;return;}gesture={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
 host.addEventListener('touchend',e=>{if(!gesture||busy)return;const start=gesture;gesture=undefined;const end=e.changedTouches[0],dx=end.clientX-start.x,dy=end.clientY-start.y;if(Math.abs(dx)>90&&Math.abs(dx)>Math.abs(dy)*2&&(start.x<32||start.x>window.innerWidth-32)){const views=['documents','writing','audio','chat'],index=views.indexOf(active);if(index>=0){show(views[Math.max(0,Math.min(views.length-1,index+(dx<0?1:-1)))]);native?.haptic?.();}}else if(dy>90&&Math.abs(dx)<35&&host.scrollTop===0&&start.y<110){void studio.open();native?.haptic?.();}},{passive:true});
 window.nativeKeyboard=visible=>document.documentElement.classList.toggle('keyboard-visible',visible);
-window.nativeBack=()=>{if(!reader.root.hidden){reader.close();return true;}if(busy){notify('Please wait for the current operation to finish.');return true;}if(!drawer.hidden){drawer.hidden=true;return true;}if(active!=='home'){show('home');return true;}return false;};document.addEventListener('visibilitychange',()=>{if(document.hidden&&!busy)void save().catch(e=>notify(String(e)));});
+window.nativeBack=()=>{const dialog=document.querySelector<HTMLDialogElement>('dialog[open]');if(dialog){dialog.close();return true;}if(!reader.root.hidden){reader.close();return true;}if(busy){notify('Please wait for the current operation to finish.');return true;}if(!drawer.hidden){drawer.hidden=true;return true;}if(active!=='home'){show('home');return true;}return false;};document.addEventListener('visibilitychange',()=>{if(document.hidden&&!busy)void save().catch(e=>notify(String(e)));});
 foldGuidance(host);show(active);void run(async()=>{const previous=await projectSummaries();if(previous.length)project=(await getProject(previous[0].id))||project;load(previous.length>0);editor.refresh(project.id);notify('');void dashboard.refresh();native?.quickCaptureReady?.();});
 
 editor.setNoteProvider(()=>projectSummaries());

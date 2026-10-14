@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": {
+      "../spotube-native/build/windows/x64/runner/Release/": "spotube/",
+      "../../integrations/spotube/LICENSE": "spotube-LICENSE.txt"
+    }
+  }
+}

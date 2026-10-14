@@ -93,6 +93,12 @@ if (process.platform === 'win32') {
     copyFileSync(join(root,'local-ai',name),join(portable,'local-ai',name));
   }
   cpSync(join(root,'media'),join(portable,'media'),{recursive:true});
+  if(process.argv.includes('--with-spotube')) {
+    const music=join(root,'spotube-native/build/windows/x64/runner/Release');
+    if(!statSync(join(music,'spotube.exe')).isFile())throw Error('Embedded music executable is missing.');
+    cpSync(music,join(portable,'spotube'),{recursive:true});
+    copyFileSync(join(root,'../integrations/spotube/LICENSE'),join(portable,'spotube-LICENSE.txt'));
+  }
   for(const name of ['THIRD-PARTY-LICENSES.txt','THIRD-PARTY-EDITOR-LICENSES.txt','THIRD-PARTY-STORAGE-LICENSES.txt','THIRD-PARTY-AUDIO-LICENSES.txt']) {
     copyFileSync(join(root,name),join(portable,name));
   }

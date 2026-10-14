@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
   private final String origin="https://coucou.local/";
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
+    WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
     web=new WebView(this);setContentView(web);
     media=new MediaBridge(this,this::mediaResult);
     web.setOnApplyWindowInsetsListener((v,insets)->{
@@ -79,6 +80,23 @@ public class MainActivity extends Activity {
   private void notice(String text){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.nativeNotice && window.nativeNotice("+JSONObject.quote(text)+")",null);});}
   @Override public void onBackPressed(){web.evaluateJavascript("typeof window.nativeBack === 'function' && window.nativeBack()",handled->{if(!"true".equals(handled))moveTaskToBack(true);});}
   public class LocalActions {
+    @JavascriptInterface public boolean spotubeAvailable(){
+      boolean supported=false;for(String abi:android.os.Build.SUPPORTED_ABIS)if("arm64-v8a".equals(abi)||"x86_64".equals(abi))supported=true;
+      if(!supported)return false;
+      try{Class.forName("com.coucou.workspace.SpotubeHost");return true;}catch(ClassNotFoundException e){return false;}
+    }
+    @JavascriptInterface public void spotubeRequest(String id,String operation){
+      if(id==null||!id.matches("[0-9]{1,12}"))return;
+      runOnUiThread(()->{
+        java.util.function.Consumer<String> reply=error->{if(!closing)web.evaluateJavascript("window.anfSpotubeResult && window.anfSpotubeResult("+JSONObject.quote(id)+","+JSONObject.quote(error)+")",null);};
+        try{
+          Class<?> host=Class.forName("com.coucou.workspace.SpotubeHost");
+          if("open".equals(operation)){host.getMethod("open",Activity.class).invoke(null,MainActivity.this);reply.accept("");}
+          else if("pause".equals(operation))host.getMethod("pause",Activity.class,java.util.function.Consumer.class).invoke(null,MainActivity.this,reply);
+          else reply.accept("Unsupported music operation.");
+        }catch(Exception|LinkageError e){reply.accept("Embedded Spotube is unavailable in this build.");}
+      });
+    }
     @JavascriptInterface public void mediaRequest(String id,String operation,String json){if(media!=null)media.request(id,operation,json);}
     @JavascriptInterface public void vaultRequest(String id,String operation,String json){
       if(id==null||!id.matches("[0-9]{1,12}"))return;

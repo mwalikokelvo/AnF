@@ -21,3 +21,7 @@ _prive/
 
 # Local release artifacts and build tools
 releases/
+
+# Generated native Spotube module; reproducible source/patches live in integrations/spotube.
+android/spotube-module/
+windows/spotube-native/

@@ -1,5 +1,9 @@
 # AnF recovery and continuation
 
+The continuation adds the 0.1.21 Music Hub and opt-in native adapters. See
+[MUSIC-HUB.md](MUSIC-HUB.md) for the current implementation and verification
+boundary. The records below describe the recovered 0.1.20 state.
+
 ## Saved state
 
 Continue PR #1 on `codex/release-builds`, not `main`. The recovered workspace

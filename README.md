@@ -8,6 +8,11 @@
 
 Read, write, work with local AI on Windows, and connect your devices over your own Wi-Fi. AnF preserves the existing Coucou installation and saved-data identities when you update. The macOS notch companion and historical documentation below come from the upstream project.
 
+The 0.1.21 source adds a dark Music Hub with local music, playlists and a persistent
+player, separate from Audio Studio. Native Spotube adapters are opt-in review
+builds pending installed verification; see [Music Hub build and test notes](docs/MUSIC-HUB.md).
+This product includes software developed by Kingkor Roy Tirtho.
+
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-AppImage%20%7C%20deb%20%7C%20rpm-FCC624?logo=linux&logoColor=black)
