@@ -24,5 +24,16 @@ const reply=(request,playing,error='')=>window.coucouMediaResult(request.id,JSON
  poll();reply(requests.shift(),true);await flush();assert.equal(stopped,1,'Fresh external play should stop browser audio');
  const failedPause=panel.suspend();reply(requests.shift(),true,'Cannot pause');
  await assert.rejects(failedPause,/Cannot pause/,'Failed pause must prevent starting a second player');
- console.log('PASS: delayed status, handoff polling, external resume and pause failure');
+ // Background transport must await the other player's acknowledgement.
+ let allowStart,rejectStart;
+ const delayed=nativeMediaPanel(()=>[],()=> 'off',()=>new Promise((resolve,reject)=>{allowStart=resolve;rejectStart=reject;}),()=>{});
+ poll();reply(requests.shift(),false);await flush();
+ const find=(el,text)=>el.children.find(child=>child && child.textContent===text);
+ const dock=document.body.children.at(-1),toggle=find(dock,'Play');
+ toggle.handlers.click();await flush();assert.equal(requests.length,0,'Do not play before handoff acknowledgement');
+ allowStart();await flush();const play=requests.shift();assert.equal(play.op,'play');reply(play,true);await flush();
+ toggle.handlers.click();const paused=requests.shift();assert.equal(paused.op,'pause');reply(paused,false);await flush();
+ toggle.handlers.click();await flush();rejectStart(Error('Other player did not pause'));await flush();
+ assert.equal(requests.length,0,'Failed handoff must not reach the native play command');
+ console.log('PASS: delayed status, handoff polling, external resume, pause failure and awaited background transport handoff');
 })().catch(e=>{console.error(e);process.exitCode=1;});

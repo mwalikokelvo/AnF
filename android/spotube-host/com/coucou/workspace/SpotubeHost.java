@@ -11,6 +11,7 @@ import io.flutter.plugin.common.MethodChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 /** Internal Flutter screen sharing audio_service's retained engine. */
 public final class SpotubeHost {
@@ -47,19 +48,34 @@ public final class SpotubeHost {
   }
 
   public static void pause(Activity activity,Consumer<String> result) {
-    // A not-yet-started module cannot be playing. Do not boot it for local audio.
-    if(channel==null || FlutterEngineCache.getInstance().get(AudioServicePlugin.getFlutterEngineId())!=cachedEngine){result.accept("");return;}
+    request(activity,"pause",(value,error)->result.accept(error));
+  }
+
+  public static void request(Activity activity,String operation,BiConsumer<String,String> result) {
+    if(!java.util.Arrays.asList("status","play","pause","previous","next").contains(operation)){
+      result.accept("","Unsupported music operation.");return;
+    }
+    // Status and pause never boot a not-yet-started module.
+    if(channel==null || FlutterEngineCache.getInstance().get(AudioServicePlugin.getFlutterEngineId())!=cachedEngine){
+      result.accept("",("status".equals(operation)||"pause".equals(operation))?"":"Open Spotube and choose music first.");return;
+    }
+    if(waiting.size()>=32){result.accept("","Music requests are busy.");return;}
     final boolean[] completed={false};
-    Consumer<String> finish=error->{if(!completed[0]){completed[0]=true;result.accept(error);}};
+    final Runnable[] timeout={null};
+    BiConsumer<String,String> finish=(value,error)->{if(!completed[0]){completed[0]=true;if(timeout[0]!=null)handler.removeCallbacks(timeout[0]);result.accept(value,error);}};
     Runnable action=()->{
       if(completed[0])return;
-      channel.invokeMethod("pause",null,new MethodChannel.Result(){
-        @Override public void success(Object value){finish.accept("");}
-        @Override public void error(String code,String message,Object details){finish.accept("Spotube could not pause playback.");}
-        @Override public void notImplemented(){finish.accept("Spotube playback bridge is unavailable.");}
+      channel.invokeMethod("control",operation,new MethodChannel.Result(){
+        @Override public void success(Object value){
+          if(value instanceof String && ((String)value).length()<=3500)finish.accept((String)value,"");
+          else finish.accept("","Invalid Spotube playback status.");
+        }
+        @Override public void error(String code,String message,Object details){finish.accept("","Spotube playback control failed.");}
+        @Override public void notImplemented(){finish.accept("","Spotube playback bridge is unavailable.");}
       });
     };
+    timeout[0]=()->{waiting.remove(action);finish.accept("","Spotube did not respond. Stop music before previewing audio.");};
+    handler.postDelayed(timeout[0],10000);
     if(ready)action.run();else waiting.add(action);
-    handler.postDelayed(()->{waiting.remove(action);finish.accept("Spotube did not respond. Stop music before previewing audio.");},10000);
   }
 }

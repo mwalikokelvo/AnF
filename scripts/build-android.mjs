@@ -31,6 +31,9 @@ for (const name of ['THIRD-PARTY-LICENSES.txt', 'THIRD-PARTY-NATIVE-MEDIA-LICENS
   await copyFile(path.join(android, 'web', name), path.join(assets, name));
 }
 await copyFile(path.join(root, 'windows/THIRD-PARTY-STORAGE-LICENSES.txt'), path.join(assets, 'THIRD-PARTY-STORAGE-LICENSES.txt'));
+if (process.argv.includes('--with-spotube')) {
+  await copyFile(path.join(root, 'integrations/spotube/LICENSE'), path.join(assets, 'THIRD-PARTY-SPOTUBE-LICENSE.txt'));
+}
 if (process.argv.includes('--assets-only')) process.exit(0);
 const gradle = process.env.GRADLE_BIN || (process.platform === 'win32' ? 'gradle.bat' : 'gradle');
 const gradleArgs = ['--no-daemon', 'assembleRelease', 'assembleDebug'];
