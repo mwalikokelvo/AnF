@@ -1,8 +1,23 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
 #[derive(Deserialize)]
 pub struct MusicBounds { x: i32, y: i32, width: i32, height: i32 }
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicState {
+    has_track: bool, playing: bool, title: String, artist: String,
+    position: u64, duration: u64,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MusicOperation { Status, Play, Pause, Previous, Next }
+#[cfg(all(windows, feature = "embedded-music"))]
+impl MusicOperation {
+    fn name(&self) -> &'static str {
+        match self { Self::Status => "status", Self::Play => "play", Self::Pause => "pause", Self::Previous => "previous", Self::Next => "next" }
+    }
+}
 impl MusicBounds {
     fn validate(&self) -> Result<(), String> {
         if self.width < 1 || self.height < 1 || self.width > 16384 || self.height > 16384 || self.x.abs_diff(0) > 16384 || self.y.abs_diff(0) > 16384 {
@@ -29,7 +44,7 @@ mod native {
     use tauri::Emitter;
     struct Runtime { child: Child, input: ChildStdin, generation: u64 }
     impl Drop for Runtime { fn drop(&mut self) { let _ = self.child.kill(); let _ = self.child.wait(); } }
-    type Reply = tokio::sync::oneshot::Sender<Result<(), String>>;
+    type Reply = tokio::sync::oneshot::Sender<Result<Option<MusicState>, String>>;
     static RUNTIME: OnceLock<Mutex<Option<Runtime>>> = OnceLock::new();
     static PENDING: OnceLock<Mutex<HashMap<u64, (u64, Reply)>>> = OnceLock::new();
     static SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -62,13 +77,21 @@ mod native {
                     if line.len()>4096 { break; }
                     let Ok(text)=std::str::from_utf8(&line) else { continue };
                     let Some(reply)=text.strip_prefix("ANF_REPLY ") else { continue };
-                    let mut parts=reply.split_whitespace();
+                    let mut parts=reply.trim_end().splitn(3, ' ');
                     if let Some(id)=parts.next() {
-                        if id=="CLOSED" { let _=app.emit("spotube-closed",());continue; }
+                        if id=="CLOSED" {
+                            if runtime().lock().is_ok_and(|state| state.as_ref().is_some_and(|state| state.generation==generation)) { let _=app.emit("spotube-closed",()); }
+                            continue;
+                        }
                         if let Ok(id)=id.parse::<u64>() {
                             if let Ok(mut pending)=pending().lock() {
                                 if pending.get(&id).is_some_and(|entry| entry.0==generation) {
-                                    if let Some((_,sender))=pending.remove(&id) { let _=sender.send(if parts.next()==Some("OK") {Ok(())}else{Err("Spotube could not pause playback.".into())}); }
+                                    if let Some((_,sender))=pending.remove(&id) {
+                                        let result=if parts.next()==Some("OK") {
+                                            serde_json::from_str::<MusicState>(parts.next().unwrap_or("")).map(Some).map_err(|_| "Invalid Spotube playback status.".into())
+                                        } else { Err("Spotube playback control failed.".into()) };
+                                        let _=sender.send(result);
+                                    }
                                 }
                             }
                         }
@@ -78,7 +101,11 @@ mod native {
                     let ids:Vec<_>=pending.iter().filter(|(_,entry)|entry.0==generation).map(|(id,_)|*id).collect();
                     for id in ids { if let Some((_,reply))=pending.remove(&id) { let _=reply.send(Err("Spotube stopped responding.".into())); } }
                 }
-                let _=app.emit("spotube-closed",());
+                // A broken protocol must not leave uncontrolled playback behind.
+                let current=if let Ok(mut state)=runtime().lock() {
+                    if state.as_ref().is_some_and(|state| state.generation==generation) { *state=None;true } else { false }
+                } else { false };
+                if current { let _=app.emit("spotube-closed",()); }
             });
             *guard=Some(Runtime {child,input,generation});
         }
@@ -93,16 +120,23 @@ mod native {
         Ok(())
     }
 
-    pub async fn pause() -> Result<(), String> {
+    pub async fn request(operation: &str) -> Result<Option<MusicState>, String> {
         let id=SEQUENCE.fetch_add(1,Ordering::Relaxed);
         let (sender,receiver)=tokio::sync::oneshot::channel();
         {
             let mut guard=runtime().lock().map_err(|_| "Music runtime is busy.")?;
-            let Some(state)=guard.as_mut() else { return Ok(()) };
+            let Some(state)=guard.as_mut() else {
+                return if operation=="status" || operation=="pause" { Ok(None) } else { Err("Open Spotube and choose music first.".into()) };
+            };
+            if state.child.try_wait().map_err(|_| "Music process unavailable.")?.is_some() {
+                *guard=None;
+                return if operation=="status" || operation=="pause" { Ok(None) } else { Err("Spotube has closed. Open it again.".into()) };
+            }
+            if pending().lock().map_err(|_| "Music requests are busy.")?.len()>=32 { return Err("Music requests are busy.".into()); }
             pending().lock().map_err(|_| "Music requests are busy.")?.insert(id,(state.generation,sender));
-            if writeln!(state.input,"PAUSE {id}").and_then(|_|state.input.flush()).is_err() {
+            if writeln!(state.input,"CONTROL {id} {operation}").and_then(|_|state.input.flush()).is_err() {
                 if let Ok(mut pending)=pending().lock(){pending.remove(&id);}
-                return Err("Spotube could not pause playback.".into());
+                return Err("Spotube playback control failed.".into());
             }
         }
         let result=tokio::time::timeout(std::time::Duration::from_secs(12),receiver).await;
@@ -125,8 +159,16 @@ pub fn music_hide() -> Result<(),String> {
 }
 #[tauri::command]
 pub async fn music_pause() -> Result<(),String> {
-    #[cfg(all(windows, feature = "embedded-music"))] { native::pause().await }
+    #[cfg(all(windows, feature = "embedded-music"))] { native::request("pause").await.map(|_| ()) }
     #[cfg(not(all(windows, feature = "embedded-music")))] { Ok(()) }
+}
+#[tauri::command]
+pub async fn music_control(window: tauri::WebviewWindow, operation: MusicOperation) -> Result<Option<MusicState>,String> {
+    if window.label() != "workspace" { return Err("Music belongs to the workspace window.".into()); }
+    #[cfg(all(windows, feature = "embedded-music"))] { native::request(operation.name()).await }
+    #[cfg(not(all(windows, feature = "embedded-music")))] {
+        match operation { MusicOperation::Status | MusicOperation::Pause => Ok(None), _ => Err("Embedded Spotube requires the Windows native build.".into()) }
+    }
 }
 pub fn shutdown(){#[cfg(all(windows, feature = "embedded-music"))] native::shutdown();}
 

@@ -88,13 +88,13 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void spotubeRequest(String id,String operation){
       if(id==null||!id.matches("[0-9]{1,12}"))return;
       runOnUiThread(()->{
-        java.util.function.Consumer<String> reply=error->{if(!closing)web.evaluateJavascript("window.anfSpotubeResult && window.anfSpotubeResult("+JSONObject.quote(id)+","+JSONObject.quote(error)+")",null);};
+        java.util.function.BiConsumer<String,String> reply=(value,error)->{if(!closing)web.evaluateJavascript("window.anfSpotubeResult && window.anfSpotubeResult("+JSONObject.quote(id)+","+JSONObject.quote(error)+","+JSONObject.quote(value)+")",null);};
         try{
           Class<?> host=Class.forName("com.coucou.workspace.SpotubeHost");
-          if("open".equals(operation)){host.getMethod("open",Activity.class).invoke(null,MainActivity.this);reply.accept("");}
-          else if("pause".equals(operation))host.getMethod("pause",Activity.class,java.util.function.Consumer.class).invoke(null,MainActivity.this,reply);
-          else reply.accept("Unsupported music operation.");
-        }catch(Exception|LinkageError e){reply.accept("Embedded Spotube is unavailable in this build.");}
+          if("open".equals(operation)){host.getMethod("open",Activity.class).invoke(null,MainActivity.this);reply.accept("","");}
+          else if(java.util.Arrays.asList("status","play","pause","previous","next").contains(operation))host.getMethod("request",Activity.class,String.class,java.util.function.BiConsumer.class).invoke(null,MainActivity.this,operation,reply);
+          else reply.accept("","Unsupported music operation.");
+        }catch(Exception|LinkageError e){reply.accept("","Embedded Spotube is unavailable in this build.");}
       });
     }
     @JavascriptInterface public void mediaRequest(String id,String operation,String json){if(media!=null)media.request(id,operation,json);}

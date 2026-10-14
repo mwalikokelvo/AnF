@@ -30,8 +30,14 @@ Normal builds retain the working local Music Hub and do not claim to contain
 Spotube. The Open Spotube control appears only when the packaged runtime is
 available. It opens a native screen inside AnF, never the Spotube website.
 Retaining the native engine/process provides the background-playback foundation.
-A shared native mini-player with track controls across the other AnF sections
-is still pending; the tested persistent dock currently controls local music.
+A separate native Spotube dock follows playback across AnF sections, showing
+track/artist, position and duration with play, pause, previous and next controls.
+Its title returns to the embedded screen. Status polling stops while the page is
+hidden or the dock is suspended. Late replies cannot restore a suspended dock.
+These controls are verified with native-bridge browser fixtures; installed
+Spotube behavior remains pending the native device/Windows checks below.
+Android background queue controls also await the Spotube pause acknowledgement
+before starting playback. A failed handoff does not start another player.
 
 Source: `KRTirtho/spotube`, commit
 `69a310c78f5ceaf4eab7dfee98f187d38211c9ba`, package 5.1.2+45.
@@ -118,6 +124,7 @@ npm exec vite -- build
 cd ..
 node scripts/build-android.mjs --assets-only
 node scripts/app-qa/music-hub.mjs
+node scripts/app-qa/native-music-player.mjs
 node scripts/app-qa/appearance.mjs
 node scripts/check-release.mjs
 ```
@@ -128,6 +135,9 @@ playback, artwork loading and six viewport layouts. Desktop IPC is a fixture;
 these checks do not simulate a native Flutter runtime. The broader appearance
 suite covers 84 views, both themes, retained drafts/preferences and seven-section
 navigation. A native Rust test rejects invalid/overflowing view bounds.
+Native-control browser fixtures exercise both bridges, cross-section controls,
+responsive layouts, failed pause, malformed status, studio handoff and late
+responses. They do not replace installed native streaming/system-controls tests.
 
 Saved local review package: `releases/AnF-Android-0.1.21-embedded-review.apk`.
 This is a signed review build, not a verified public release. The normal debug

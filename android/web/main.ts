@@ -1,3 +1,4 @@
+import {createNativeMusicPlayer} from '../../windows/src/workspace/native-music-player';
 import {spotubeAvailable,spotubeRequest} from './spotube';
 import {nativeMediaPanel} from './native-media';
 import {snapshotPanel,type SavedVersion} from '../../windows/src/workspace/snapshot-panel';
@@ -92,10 +93,14 @@ const dashboard=createDashboard({current:()=>({...project,draft:draft.value,name
 section('home','Home',dashboard.root,button('Connect my devices',()=>show('settings')));
 section('documents','Documents',h('h1',{text:'Documents'}),h('p',{class:'muted',text:'PDF · EPUB · Word · Text. Up to four documents, 50 MB each; 600 PDF pages and 2 MB of extracted text. Protected books and scanned PDFs are not supported in this edition.'}),file,libraryControls(sourceList),sourceList,webResearch);
 let nativeMedia:ReturnType<typeof nativeMediaPanel>|undefined;
-const musicHub=createMusicHub({notify,beforePlay:async()=>{audioStudio.stop();audioStudio.hideDock();await spotubeRequest('pause');await nativeMedia?.suspend();}});
-const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{musicHub.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();});
-if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,()=>{musicHub.pause();audioStudio.stop();audioStudio.hideDock();},notify);audioStudio.root.append(nativeMedia.root);}
-if(spotubeAvailable())musicHub.root.querySelector('.music-heading')!.append(button('Open Spotube',()=>void (async()=>{try{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMedia?.suspend();await spotubeRequest('open');}catch(e){notify(String(e));}})()));
+let nativeMusic:ReturnType<typeof createNativeMusicPlayer>|undefined;
+const musicHub=createMusicHub({notify,beforePlay:async()=>{audioStudio.stop();audioStudio.hideDock();nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();}});
+const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{musicHub.suspend();nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();});
+if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,async()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();nativeMusic?.suspend();await spotubeRequest('pause');},notify);audioStudio.root.append(nativeMedia.root);}
+if(spotubeAvailable()){
+ nativeMusic=createNativeMusicPlayer({request:spotubeRequest,notify,beforePlay:async()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMedia?.suspend();},open:async()=>{show('music');await spotubeRequest('open');}});
+ musicHub.root.querySelector('.music-heading')!.append(button('Open Spotube',()=>void nativeMusic!.open()));
+}
 section('music','Music Hub',musicHub.root);
 section('audio','Audio Studio',audioStudio.root);
 section('writing','Writing',h('h1',{text:'Writing'}),h('p',{class:'muted',text:'Write freely. Preview your formatting and keep every draft local.'}),editor.root,h('div',{class:'row'},format,button('Export writing',()=>{if(!draft.value.trim()){notify('Write something first.');return;}const ext=format.value;let text=draft.value;const mime=ext==='html'?'text/html':ext==='md'?'text/markdown':'text/plain';if(ext==='html'){const preview=renderWriting(draft.value);text='<!doctype html><meta charset="utf-8"><title>'+escape(title.value)+'</title><body>'+ (preview?.innerHTML||'<pre>'+escape(text)+'</pre>')+'</body>';}exportText('AnF-writing.'+ext,text,mime);},'primary')),h('div',{class:'row'},button('Read aloud',()=>native?native.speak(draft.value):notify('Read-aloud is available in the Android app.')),button('Stop reading',()=>native?.stopSpeaking())));

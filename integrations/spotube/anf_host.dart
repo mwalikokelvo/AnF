@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:spotube/services/audio_player/audio_player.dart';
@@ -16,12 +17,53 @@ class AnfHost {
           await audioPlayer.pause();
           return null;
         case 'status':
-          return {'playing': audioPlayer.isPlaying};
+          return _status();
+        case 'control':
+          switch (call.arguments) {
+            case 'status':
+              break;
+            case 'pause':
+              await audioPlayer.pause();
+              break;
+            case 'play':
+              if (!audioPlayer.hasSource) throw StateError('Choose music in Spotube first.');
+              await audioPlayer.resume();
+              break;
+            case 'previous':
+              await audioPlayer.skipToPrevious();
+              break;
+            case 'next':
+              await audioPlayer.skipToNext();
+              break;
+            default:
+              throw MissingPluginException('Unknown AnF music operation');
+          }
+          return _status();
         default:
           throw MissingPluginException('Unknown AnF music operation');
       }
     });
     channel.invokeMethod<void>('ready');
+  }
+
+  static String _status() {
+    final playlist = audioPlayer.playlist;
+    final index = playlist.index;
+    final media = index >= 0 && index < playlist.medias.length
+        ? playlist.medias[index] : null;
+    final extras = media?.extras;
+    final artists = extras?['artists'];
+    String bounded(String value) => value.length > 200 ? value.substring(0, 200) : value;
+    return jsonEncode({
+      'hasTrack': media != null,
+      'playing': audioPlayer.isPlaying,
+      'title': bounded(extras?['name']?.toString() ?? 'Spotube music'),
+      'artist': bounded(artists is List
+          ? artists.whereType<Map>().map((artist) => artist['name']?.toString() ?? '').where((name) => name.isNotEmpty).join(', ')
+          : ''),
+      'position': audioPlayer.position.inMilliseconds,
+      'duration': audioPlayer.duration.inMilliseconds,
+    });
   }
 
   static material.Widget frame(material.Widget child) {

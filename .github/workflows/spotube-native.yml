@@ -1,7 +1,7 @@
 name: Embedded Spotube review builds
 on:
   pull_request:
-    paths: ['integrations/spotube/**', 'android/spotube-host/**', 'windows/src-tauri/src/music_native.rs', '.github/workflows/spotube-native.yml']
+    paths: ['integrations/spotube/**', 'android/spotube-host/**', 'android/web/spotube.ts', 'android/web/native-media.ts', 'windows/src/workspace/native-music-player.ts', 'windows/src/workspace/spotube-desktop.ts', 'windows/src-tauri/src/music_native.rs', '.github/workflows/spotube-native.yml']
   workflow_dispatch:
     inputs:
       platform:
