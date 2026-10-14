@@ -29,6 +29,9 @@ The native adapters are opt-in review builds until native verification completes
 Normal builds retain the working local Music Hub and do not claim to contain
 Spotube. The Open Spotube control appears only when the packaged runtime is
 available. It opens a native screen inside AnF, never the Spotube website.
+Retaining the native engine/process provides the background-playback foundation.
+A shared native mini-player with track controls across the other AnF sections
+is still pending; the tested persistent dock currently controls local music.
 
 Source: `KRTirtho/spotube`, commit
 `69a310c78f5ceaf4eab7dfee98f187d38211c9ba`, package 5.1.2+45.
