@@ -21,6 +21,10 @@ const script=path.join(module,'.android/anf_aar_init.gradle');
 const engineRepository=`
 allprojects { project ->
   if (project.rootProject.name != "android_generated") return
+  // Rebuild Rust plugins when the required Android ELF page alignment changes.
+  project.tasks.matching { it.name.startsWith("cargokitCargoBuild") }.configureEach {
+    inputs.property("anfAndroidPageAlignment", "16384-encoded-v1")
+  }
   def realm = new File(getFlutterRoot(project), "bin/cache/engine.realm").text.trim()
   def storage = System.getenv('FLUTTER_STORAGE_BASE_URL') ?: "https://storage.googleapis.com"
   def engineRepo = project.repositories.maven { url "$storage/" + (realm ? "$realm/" : "") + "download.flutter.io" }
@@ -37,6 +41,9 @@ for(const variant of (process.argv.includes('--release-only') ? ['Release'] : ['
   '-Pkotlin.compiler.execution.strategy=in-process',`-I=${script}`,`-Pflutter-root=${flutterRoot}`,
   `-Poutput-dir=${path.join(module,'build/host')}`,'-Pis-plugin=false','-PbuildNumber=1.0',
   '-Ptarget=lib/main.dart','-Ptarget-platform=android-arm64,android-x64',`assembleAar${variant}`],
- {cwd:path.join(module,'.android'),stdio:'inherit',env:{...process.env,PATH:path.join(flutterRoot,'bin')+path.delimiter+process.env.PATH},shell:process.platform==='win32'});
+ {cwd:path.join(module,'.android'),stdio:'inherit',env:{...process.env,
+  // Cargokit merges encoded flags with its NDK workaround and ignores RUSTFLAGS.
+  CARGO_ENCODED_RUSTFLAGS:[process.env.CARGO_ENCODED_RUSTFLAGS||'', ...(process.env.CARGO_ENCODED_RUSTFLAGS ? [] : (process.env.RUSTFLAGS||'').split(/\s+/).filter(Boolean)), '-C', 'link-arg=-Wl,-z,max-page-size=16384'].filter(Boolean).join('\x1f'),
+  PATH:path.join(flutterRoot,'bin')+path.delimiter+process.env.PATH},shell:process.platform==='win32'});
  if(result.error)throw result.error;if(result.status)process.exit(result.status);
 }

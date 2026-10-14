@@ -84,6 +84,36 @@ still require installed tests. The isolated software-only API 35 emulator
 developed Settings and System UI hangs, so it provided no reliable installed
 verification. It was stopped after this attempt.
 
+### Isolated Android previews
+
+When the original signing key is unavailable, build an installable preview beside
+the production app:
+
+```bash
+node integrations/spotube/prepare.mjs
+node integrations/spotube/build-android.mjs --release-only
+node scripts/build-android.mjs --with-spotube --review
+python scripts/check-music-apk.py --abi arm64-v8a releases/AnF-Android-0.1.21-music-preview-arm64-v8a.apk
+```
+
+The default preview targets ARM64 phones. `ANF_REVIEW_ABI=x86_64` selects the other
+supported architecture. Each preview contains one architecture; the inspector
+rejects unexpected ABIs, missing Flutter/host code and native ELF load alignment
+below 16 KB. The host pins NDK 27 for stripping, and the AAR builder passes encoded
+Rust linker flags through Cargokit for the required alignment.
+
+The launcher label is **AnF Music Preview**, application ID is
+`com.coucou.workspace.musicdev`, and version name ends with `-music-preview`.
+It uses a local development certificate and separate application storage. It
+cannot update the original app or automatically access that app's data. Keep the
+production app installed. This preview does not establish installed-device
+startup, streaming, background-controls or upgrade verification.
+
+Embedded sleep timers pause playback; task removal pauses without exiting AnF.
+The close shortcut asks the native host to return to AnF. Android preparation
+vendors the locked NewPipe revision and removes its absent desktop asset entry,
+while retaining its source/license and leaving the shared Pub cache unchanged.
+
 ### Windows
 
 On a Windows machine with Flutter, MSVC and the existing AnF native prerequisites:
@@ -139,8 +169,10 @@ Native-control browser fixtures exercise both bridges, cross-section controls,
 responsive layouts, failed pause, malformed status, studio handoff and late
 responses. They do not replace installed native streaming/system-controls tests.
 
-Saved local review package: `releases/AnF-Android-0.1.21-embedded-review.apk`.
-This is a signed review build, not a verified public release. The normal debug
+The earlier worker reported a production-signed local review package named
+`releases/AnF-Android-0.1.21-embedded-review.apk`. That APK and its signing key are
+not present in this continuation workspace. The isolated preview described above
+uses a different application ID and development certificate. The normal debug
 and unsigned output filenames also contain Spotube when built with
 `--with-spotube`; filenames alone do not establish the packaged runtime.
 

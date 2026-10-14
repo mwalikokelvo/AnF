@@ -16,6 +16,9 @@ def main():
     with zipfile.ZipFile(args.apk) as archive:
         assert archive.testzip() is None, "APK CRC failure"
         names = archive.namelist()
+        if args.abi:
+            packaged = {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')}
+            assert packaged == {args.abi}, f"Unexpected packaged ABIs: {packaged}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
         for name in ("MusicActivity", "SpotubeHost", "AudioServiceActivity"):
             assert name.encode() in dex, "Missing native host class: " + name
@@ -38,12 +41,14 @@ def main():
                 if struct.unpack_from("<I", data, header)[0] == 1:
                     alignments.append(struct.unpack_from("<Q" if wide else "<I", data, header + (48 if wide else 28))[0])
             assert alignments, "Missing ELF load segments"
+            assert min(alignments) >= 16384, "Native library lacks 16 KB load alignment: " + name
             native.append({"file": name, "bits": 64 if wide else 32, "loadAlignment": alignments})
         report = {
             "file": str(args.apk), "bytes": args.apk.stat().st_size,
             "sha256": hashlib.sha256(args.apk.read_bytes()).hexdigest(),
             "crc": "passed", "embeddedFlutter": True, "hostClasses": "present",
             "nativeLibraries": native,
+            "nativeLoadAlignment": "at least 16 KB",
             "deviceTesting": "not performed", "signature": "verify separately with apksigner",
         }
     print(json.dumps(report, indent=2))
