@@ -32,7 +32,7 @@ allprojects { project ->
 `;
 await writeFile(script,original.replaceAll('withJavadocJar()','// Runtime review builds omit API documentation jars.')+engineRepository);
 const gradle=path.join(module,'.android',process.platform==='win32'?'gradlew.bat':'gradlew');
-for(const variant of ['Debug','Release']){
+for(const variant of (process.argv.includes('--release-only') ? ['Release'] : ['Debug','Release'])){
  const result=spawnSync(gradle,['--no-daemon','--max-workers=2','-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1024m',
   '-Pkotlin.compiler.execution.strategy=in-process',`-I=${script}`,`-Pflutter-root=${flutterRoot}`,
   `-Poutput-dir=${path.join(module,'build/host')}`,'-Pis-plugin=false','-PbuildNumber=1.0',

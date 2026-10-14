@@ -44,18 +44,24 @@ jobs:
       - name: Prepare pinned native music module
         run: node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
-        run: node integrations/spotube/build-android.mjs
+        run: node integrations/spotube/build-android.mjs --release-only
       - name: Build AnF with embedded music
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
           npm ci --prefix windows
           npm ci --prefix android
-          node scripts/build-android.mjs --with-spotube
+          node scripts/build-android.mjs --with-spotube --review
           node scripts/check-release.mjs
+          python scripts/check-music-apk.py --abi arm64-v8a releases/AnF-Android-*-music-preview-arm64-v8a.apk > releases/Android-music-inspection.json
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify releases/AnF-Android-*-music-preview-arm64-v8a.apk
+          (cd releases && sha256sum AnF-Android-*-music-preview-arm64-v8a.apk > SHA256SUMS-music-preview)
       - uses: actions/upload-artifact@v4
         with:
           name: AnF-Android-embedded-Spotube-review
-          path: releases/AnF-Android-*.apk
+          path: |
+            releases/AnF-Android-*-music-preview-arm64-v8a.apk
+            releases/Android-music-inspection.json
+            releases/SHA256SUMS-music-preview
           retention-days: 7
           if-no-files-found: error
   windows:

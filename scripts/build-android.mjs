@@ -36,13 +36,17 @@ if (process.argv.includes('--with-spotube')) {
 }
 if (process.argv.includes('--assets-only')) process.exit(0);
 const gradle = process.env.GRADLE_BIN || (process.platform === 'win32' ? 'gradle.bat' : 'gradle');
-const gradleArgs = ['--no-daemon', 'assembleRelease', 'assembleDebug'];
+const review = process.argv.includes('--review');
+const reviewAbi = process.env.ANF_REVIEW_ABI || 'arm64-v8a';
+if (review && !['arm64-v8a', 'x86_64'].includes(reviewAbi)) throw Error('Music previews support arm64-v8a or x86_64.');
+const gradleArgs = ['--no-daemon', ...(review ? ['assembleReview'] : ['assembleRelease', 'assembleDebug'])];
+if (review) gradleArgs.push(`-PmusicPreviewAbi=${reviewAbi}`);
 if (process.argv.includes('--offline')) gradleArgs.push('--offline');
 if (process.argv.includes('--with-spotube')) {
   const repository = process.env.SPOTUBE_REPOSITORY || path.join(android, 'spotube-module/build/host/outputs/repo');
   // Fail before Gradle if the embedded runtime was not actually built.
   await stat(path.join(repository, 'com/coucou/spotube/flutter_release/1.0/flutter_release-1.0.aar'));
-  await stat(path.join(repository, 'com/coucou/spotube/flutter_debug/1.0/flutter_debug-1.0.aar'));
+  if (!review) await stat(path.join(repository, 'com/coucou/spotube/flutter_debug/1.0/flutter_debug-1.0.aar'));
   gradleArgs.push(`-PspotubeRepository=${repository}`);
   // Upstream native plugins still contain pre-AndroidX bytecode.
   gradleArgs.push('-Pandroid.enableJetifier=true');
@@ -57,17 +61,17 @@ if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status || 1);
 const out = path.join(root, 'releases');
 await mkdir(out, { recursive: true });
-for (const [variant, suffix] of [
+for (const [variant, suffix] of (review ? [['review', `music-preview-${reviewAbi}`]] : [
   ['release', 'unsigned'],
   ['debug', 'debug'],
-]) {
+])) {
   const directory = path.join(android, 'gradle-build/outputs/apk', variant);
   const metadata = JSON.parse(await readFile(path.join(directory, 'output-metadata.json')));
-  if (metadata.applicationId !== 'com.coucou.workspace' || metadata.elements.length !== 1) {
+  if (metadata.applicationId !== (review ? 'com.coucou.workspace.musicdev' : 'com.coucou.workspace') || metadata.elements.length !== 1) {
     throw Error(`Unexpected APK metadata for ${variant}`);
   }
   const input = metadata.elements[0];
-  if (input.versionName !== version || path.basename(input.outputFile) !== input.outputFile) {
+  if (input.versionName !== (review ? version + '-music-preview' : version) || path.basename(input.outputFile) !== input.outputFile) {
     throw Error(`APK version or output path mismatch for ${variant}`);
   }
   const source = path.join(directory, input.outputFile);

@@ -18,6 +18,8 @@ android {
         targetSdk 35
         versionCode components[0] * 1000000 + components[1] * 1000 + components[2]
         versionName config.version
+        manifestPlaceholders = [appLabel: 'AnF']
+        if (project.hasProperty('spotubeRepository')) ndk { abiFilters 'arm64-v8a', 'x86_64' }
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     sourceSets {
@@ -38,7 +40,21 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
         coreLibraryDesugaringEnabled project.hasProperty('spotubeRepository')
     }
-    buildTypes { release { minifyEnabled false } }
+    buildTypes {
+        release { minifyEnabled false }
+        review {
+            initWith release
+            applicationIdSuffix '.musicdev'
+            versionNameSuffix '-music-preview'
+            manifestPlaceholders = [appLabel: 'AnF Music Preview']
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+            ndk {
+                abiFilters.clear()
+                abiFilters providers.gradleProperty('musicPreviewAbi').getOrElse('arm64-v8a')
+            }
+        }
+    }
     packaging {
         resources { excludes += ['META-INF/DEPENDENCIES'] }
         if (project.hasProperty('spotubeRepository')) jniLibs.useLegacyPackaging = true
@@ -48,6 +64,7 @@ dependencies {
     if (project.hasProperty('spotubeRepository')) {
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
         releaseImplementation 'com.coucou.spotube:flutter_release:1.0'
+        reviewImplementation 'com.coucou.spotube:flutter_release:1.0'
         debugImplementation 'com.coucou.spotube:flutter_debug:1.0'
     }
     androidTestImplementation 'androidx.test:runner:1.6.2'
