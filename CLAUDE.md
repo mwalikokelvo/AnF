@@ -17,6 +17,9 @@ cd NotchBuddy && xcodegen && xcodebuild -scheme NotchBuddy -configuration Debug 
 Windows and Linux: `cd windows && npm install && npm run tauri dev`
 
 ## Rules
+- Delivery preference: complete authorized build and verification work without repeated confirmation requests. Report the exact remaining dependency when external access prevents completion.
+- Release requests should lead with usable download links and accurate platform/version labels. Distinguish installed verification from compilation and browser fixtures; do not describe a review build as a verified functioning release.
+- Keep progress updates concise and carry valid saved work forward. Follow the user's attached delivery/communication guidance using the capabilities actually available in the session.
 - Swift 6, SwiftUI + AppKit. No third-party dependencies unless truly unavoidable. The character is drawn in code (`Canvas` + `TimelineView`), no Rive/Lottie/images.
 - Secrets live in the Keychain, never on disk or in git.
 - No telemetry. Network calls only to services the user configured.
