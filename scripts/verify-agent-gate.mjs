@@ -3,9 +3,12 @@ import {readFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
+for(const argument of process.argv.slice(2))if(!['--release','--offline'].includes(argument))throw Error('Unknown gate option: '+argument);
+if(process.argv.includes('--offline')&&!process.argv.includes('--release'))throw Error('--offline applies to the mandatory Android release build; include --release.');
 function run(args){const r=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit'});if(r.error)throw r.error;if(r.status!==0)process.exit(r.status||1);}
 for(const name of ['PROTOCOL.md','HANDOFF.md','DECISIONS.md']){const text=readFileSync(path.join(root,name),'utf8');if(text.trim().length<100)throw Error(name+' is incomplete.');}
 const handoff=readFileSync(path.join(root,'HANDOFF.md'),'utf8');for(const section of ['Completed Tasks','Active In-Flight Work','Known Blockers','Next Step'])if(!handoff.includes(section))throw Error('Missing handoff section: '+section);
+run(['scripts/check-agent-infrastructure.mjs']);
 run(['windows/node_modules/typescript/bin/tsc','--noEmit','-p','windows/tsconfig.json']);
 run(['scripts/check-release.mjs']);
 if(process.argv.includes('--release')){

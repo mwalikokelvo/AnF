@@ -8,3 +8,6 @@
 | 2026-10-17 | Voices | Use both recordings with user permission, local synthesis only | User confirmed rights and local-only processing. Samples and trained/reference-backed synthesis are separate readiness states; do not fabricate voice availability. |
 | 2026-10-17 | Fonts | Bundle openly licensed defaults; support licensed user imports/cache extraction | User selected this. The extractor copies existing local fonts; its MIT code license does not grant font redistribution rights. |
 | 2026-10-17 | Ownership | Core renaming precedes integration of feature branches; specialists report exact touched files and evidence | Broad token/path changes overlap reader and Android work. Integrate with explicit reconciliation and regenerate compiled artifacts only after source stabilizes. |
+
+| 2026-10-18 | Recovery | Resume preserved specialist branches after agent credit errors | Frontend commit and mobile/asset partial work survived. Do not restart or discard their implementations. |
+| 2026-10-18 | Worktree safety | Canonicalize Windows paths with native realpath before repository ownership comparison | Generic realpath retained 8.3 aliases and falsely rejected clean removal. Isolated tests verify refusal for dirty/foreign paths and normal removal. |
