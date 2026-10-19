@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AnF",
-  "version": "0.1.21",
-  "identifier": "fr.louisraille.coucou",
+  "version": "0.1.32",
+  "identifier": "fr.louisraille.anf",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -52,7 +52,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../target/release/coucou-hook.exe": "coucou-hook.exe",
+      "../target/release/anf-hook.exe": "anf-hook.exe",
       "../local-ai/*.dll": "local-ai/",
       "../local-ai/llama-server.exe": "local-ai/llama-server.exe",
       "../local-ai/model.gguf": "local-ai/model.gguf",
@@ -60,6 +60,7 @@
       "../local-ai/*.rten": "local-ai/",
       "../local-ai/*LICENSE*": "local-ai/",
       "../local-ai/NOTICE.txt": "local-ai/NOTICE.txt",
+      "../THIRD-PARTY-LICENSES.txt": "THIRD-PARTY-LICENSES.txt",
       "../THIRD-PARTY-EDITOR-LICENSES.txt": "THIRD-PARTY-EDITOR-LICENSES.txt",
       "../THIRD-PARTY-STORAGE-LICENSES.txt": "THIRD-PARTY-STORAGE-LICENSES.txt",
       "../media/ffmpeg.exe": "media/ffmpeg.exe",

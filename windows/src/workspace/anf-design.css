@@ -96,5 +96,46 @@ main,.panel-host,.drawer,pre{scrollbar-width:thin;scrollbar-color:var(--line) tr
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 @media print{#workspace-root{display:none!important}}
 .workspace-header{flex-wrap:wrap;gap:16px}.workspace-header>div:first-child{min-width:140px}
+.task-tools{padding:12px 16px;margin:12px 0;background:transparent;box-shadow:none}
+.task-tools summary{font-weight:600;cursor:pointer;color:var(--muted)}
+.task-tools[open] summary{margin-bottom:12px}
+.task-tools .quick-tasks{margin-top:8px}
+.composer-help{padding:0;border:0;background:transparent;box-shadow:none;font-size:12px;color:var(--muted)}
+.composer-help summary{cursor:pointer}
 .dashboard-heading h2{white-space:pre-line}.mobile-project .studio-header-tools{flex-wrap:nowrap;gap:5px}
 @media(max-width:1100px){.workspace-header .studio-header-tools{width:100%}.workspace-header .project-title{flex:1}}
+
+/* Keep navigation reachable while saved conversations scroll independently. */
+.history-sidebar .brand{margin-bottom:20px}
+.workspace-navigation{gap:3px;margin-bottom:18px}
+.workspace-navigation button{padding:9px 14px}
+.workspace-header{padding-top:16px;padding-bottom:16px;min-height:86px}
+.source-address{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.source .row{margin-bottom:0}
+.context-tabs{display:flex;gap:8px;padding:12px 36px;border-bottom:1px solid var(--line);background:var(--bg);flex-shrink:0}
+.context-tabs button{min-height:40px;padding:7px 18px;background:transparent;border:1px solid transparent;color:var(--muted)}
+.context-tabs button[aria-current=page]{color:var(--accent);border-color:var(--line);background:var(--surface);font-weight:650}
+.context-tabs[hidden],.workspace-header [hidden],.history-sidebar>[hidden]{display:none!important}
+.recent-work{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:24px}
+.recent-work button{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:48px;background:var(--surface)}
+.dashboard .resume-card{min-height:190px;padding:20px}.dashboard-heading{padding-bottom:20px}.dashboard-heading h2{font-size:32px}
+.dashboard-heading h2{text-wrap:balance}.dashboard-habits{margin-top:20px}.dashboard-habits summary{cursor:pointer;font-weight:600;min-height:40px}.dashboard-habits[open] summary{margin-bottom:12px}
+.about-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:24px;margin-bottom:24px;max-width:760px}
+.tool-hub{margin:0 0 28px}.tool-hub-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.tool-hub-heading h2{font-size:22px;margin:0}
+.tool-hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;margin:16px 0}
+.tool-hub-grid article{display:flex;flex-direction:column;padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--surface);min-width:0}
+.tool-hub-grid h3{font-size:16px;margin:0 0 8px}.tool-hub-grid p{font-size:13px;line-height:1.5;margin:0 0 12px}.tool-hub-grid .tool-state{font-weight:650;color:var(--accent)}.tool-hub-grid button{margin-top:auto;align-self:flex-start}
+[aria-label="Connected services"] [data-service]{padding:14px 0;border-bottom:1px solid var(--line)}
+[aria-label="Connected services"] input:not([type=checkbox]),[aria-label="Connected services"] textarea,[aria-label="Connected services"] select{max-width:100%;margin:8px 0}
+[aria-label="Connected services"] pre,[aria-label="Source-based skill export"] pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+[aria-label="Connected services"] label{display:flex;align-items:center;gap:8px;margin:10px 0}
+.about-card h2{margin-top:0}.about-card h3{margin-top:24px}.about-card p{line-height:1.6;text-wrap:pretty}
+.search-result{padding:20px;overflow:hidden}.source-domain{font-size:12px;font-weight:650;color:var(--accent);margin:0 0 8px;overflow-wrap:anywhere}
+.source-snippet{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.6}.search-result h3{margin:0 0 8px;text-wrap:pretty}.search-result .row{margin-top:16px}
+.workspace-navigation button,.context-tabs button,.about-card button,.search-result button{transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease}
+@media(max-width:760px){.context-tabs{padding:10px 18px}.recent-work{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace-header h1{font-size:22px}.about-card{padding:18px}}
+@media(max-width:480px){.workspace-layout{grid-template-columns:70px minmax(0,1fr)}.history-sidebar{padding:18px 8px}.history-sidebar .brand strong,.workspace-navigation button span{display:none}.history-sidebar .brand{justify-content:center}.workspace-navigation button{justify-content:center;padding:10px}.history-sidebar .brand-mark{width:40px;height:40px}.history-sidebar:has([data-view=chat][aria-current=page]){grid-column:1/-1;max-height:260px}.history-sidebar:has([data-view=chat][aria-current=page]) .workspace-navigation{display:flex;flex-wrap:wrap}.recent-work{grid-template-columns:1fr}.workspace-header{padding:18px}.context-tabs{gap:4px}}
+@media(min-height:720px){.history-sidebar{display:flex;flex-direction:column;overflow:hidden}.history-sidebar>nav[aria-label="Conversation history"]{flex:1;min-height:64px;overflow:auto;scrollbar-width:thin}.history-sidebar>.workspace-navigation,.history-sidebar>.brand,.history-sidebar>button,.history-sidebar>input,.history-sidebar>.history-heading{flex-shrink:0}.history-sidebar .history-heading{margin-top:20px}}
+
+.local-tools{border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0;scroll-margin-top:16px}
+.local-tools[hidden]{display:none!important}.local-tools label{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-width:650px}.local-tools button{margin:6px 8px 6px 0}.tool-hub-grid details{margin-top:12px}.tool-hub-grid summary{cursor:pointer;font-size:.85em}.tool-hub-grid details button{margin-top:10px}

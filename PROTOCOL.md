@@ -49,3 +49,15 @@ versioned, bounded, verified and documented; missing components fail visibly.
 Bootstrap → branding/migration → reader, Android and asset implementations →
 integration → static/native/browser checks → real Android package → release gate.
 Parallel discovery is allowed; application edits start only after bootstrap commit.
+
+## Release delivery after every application update
+
+The user requires downloadable releases after every app update. Treat an app
+update as delivered only after producing and verifying current Windows installer
+and portable ZIP plus Android APK, with version, checksums and direct local download
+links in the final response. Never present source-only changes or a previous-version
+artifact as the new release. If a platform build fails, state the specific blocker
+and keep release delivery outstanding. Complete native/UI checks required by the
+change before calling the package verified. Local artifact delivery is authorized;
+public hosting/publication remains a separate action. Keep private voice recordings
+and their derived private voice pack out of public releases.

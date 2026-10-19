@@ -4,9 +4,26 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:spotube/anf_host.dart';
 import 'package:spotube/components/titlebar/titlebar_buttons.dart';
 import 'package:spotube/collections/intents.dart';
+import 'package:spotube/models/metadata/metadata.dart';
+import 'package:spotube/provider/discord_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final track=SpotubeTrackObject.fromJson({
+    'id':'test','name':'Audio regression','externalUri':'https://example.invalid/track',
+    'artists':[{'id':'artist','name':'Test artist','externalUri':'https://example.invalid/artist'}],
+    'album':{'id':'album','name':'Test album','albumType':'album','externalUri':'https://example.invalid/album','artists':[],'images':[]},
+    'durationMs':5000,'isrc':'TEST','explicit':false,
+  }) as SpotubeFullTrackObject;
+  test('track JSON is deeply serialized for plugin and media boundaries',(){
+    final json=track.toJson();
+    expect((json['artists'] as List).single,isA<Map<String,dynamic>>());
+    expect(json['album'],isA<Map<String,dynamic>>());
+    expect(SpotubeTrackObject.fromJson(json).artists.single.name,'Test artist');
+  });
+  test('embedded playback does not access uninitialized Discord RPC',()async{
+    await DiscordNotifier().updatePresence(track);
+  });
   test('close shortcut returns to AnF through its host channel', () async {
     final calls = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

@@ -26,7 +26,7 @@ device=[adb,'-s',serials[0]]
 keystore=out/'ci-signing.jks'
 run(['keytool','-genkeypair','-keystore',str(keystore),'-storepass','android',
      '-keypass','android','-alias','qa','-keyalg','RSA','-keysize','2048',
-     '-validity','365','-dname','CN=Coucou installation test'])
+     '-validity','365','-dname','CN=AnF installation test'])
 for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.test)]:
     destination=out/(name+'.apk')
     # A fresh disposable key signs all three APKs; production keys remain local.
@@ -34,13 +34,13 @@ for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.
     run([signer,'verify',str(destination)])
 run(device+['install','--no-incremental','-r',str(out/'test.apk')])
 for storage in ['encrypted','legacy']:
-    if storage=='legacy':run(device+['uninstall','com.coucou.workspace'])
+    if storage=='legacy':run(device+['uninstall','com.anf.workspace'])
     run(device+['install','--no-incremental','-r',str(out/'baseline.apk')])
     for phase in ['seed','verify','reopen']:
         if phase=='verify':run(device+['install','--no-incremental','-r',str(out/'candidate.apk')])
-        run(device+['shell','am','force-stop','com.coucou.workspace'])
+        run(device+['shell','am','force-stop','com.anf.workspace'])
         label=storage+'-'+phase
-        result=run(device+['shell','am','instrument','-w','-e','phase',phase,'-e','storage',storage,'com.coucou.workspace.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
+        result=run(device+['shell','am','instrument','-w','-e','phase',phase,'-e','storage',storage,'com.anf.workspace.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
         (out/(label+'.txt')).write_text(result)
         print(result)
         if 'OK (1 test)' not in result or any(s in result for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):

@@ -69,10 +69,11 @@ body {
   position: absolute;
   top: 0;
   left: 50%;
-  background: #000;
+  background: transparent;
   border-radius: 0 0 14px 14px;
   overflow: visible;
-  will-change: width, height, transform;
+  isolation: isolate;
+  will-change: transform;
 }
 
 #island-clip {
@@ -80,6 +81,10 @@ body {
   inset: 0;
   overflow: hidden;
   border-radius: inherit;
+  background: #000;
+  /* Keep one composited, rounded paint surface throughout the resize. */
+  transform: translateZ(0);
+  isolation: isolate;
 }
 
 #bot-canvas,
@@ -87,6 +92,8 @@ body {
   position: absolute;
   pointer-events: none;
 }
+
+#bot-canvas { z-index: 1; }
 
 /* The drop sequence. Sits under the header and takes over the island body; it
    cross-fades in and out, so the last frame stays up while the views return. */
@@ -190,9 +197,15 @@ body {
   display: flex;
   flex-direction: column;
   transition: opacity 0.2s ease-in-out;
+  z-index: auto;
+  border-radius: inherit;
+  overflow: hidden;
 }
 
 #header {
+  position: relative;
+  z-index: 3;
+  background: #000;
   height: 34px;
   flex: 0 0 34px;
   display: flex;
@@ -243,7 +256,23 @@ body {
   display: grid;
   place-items: center;
   cursor: default;
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 8px;
 }
+
+.header-actions button:hover { background: var(--tab-on); color: var(--ink); }
+#header button:focus-visible { outline: 2px solid var(--green-2); outline-offset: -2px; }
+#header{height:40px;flex-basis:40px;padding:0 6px;gap:6px;border-radius:inherit}
+#header .tabs{padding-left:4px;gap:2px}
+#header button{min-width:36px;min-height:36px;border-radius:10px}
+#header .header-actions{gap:4px;padding-right:4px}
+#views{min-height:0;overflow:auto;scrollbar-width:thin}
+.floating-capture{display:flex;gap:8px;margin-top:10px;align-items:center}
+.floating-capture input{min-width:0;flex:1;border:1px solid #3b454b;border-radius:10px;background:#202528;color:#f4f7f5;padding:9px 10px;font:inherit}
+.floating-capture button{flex-shrink:0;min-height:36px}
+.floater-home [role=status]{display:block;margin-top:5px;font-size:11px}
+@media(max-width:580px){.floater-home{padding-left:20px!important}.home-heading{flex-wrap:wrap;gap:8px}.floating-capture{flex-wrap:wrap}.floating-capture input{min-width:140px}}
 
 .header-actions button.on {
   color: var(--ink);
@@ -262,9 +291,11 @@ body {
   transform: scale(0.97);
   pointer-events: none;
   transition: opacity 0.16s ease-in;
+  visibility: hidden;
 }
 
 .view.on {
+  visibility: visible;
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;

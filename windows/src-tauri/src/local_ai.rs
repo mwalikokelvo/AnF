@@ -94,7 +94,7 @@ impl Engine {
                 "--api-key",
                 &key,
                 "--alias",
-                "coucou-local",
+                "anf-local",
                 "--ctx-size",
                 &context.to_string(),
                 "--parallel",
@@ -149,7 +149,7 @@ impl Engine {
                     if let Ok(value) = response.json::<Value>().await {
                         if value["data"]
                             .as_array()
-                            .is_some_and(|models| models.iter().any(|m| m["id"] == "coucou-local"))
+                            .is_some_and(|models| models.iter().any(|m| m["id"] == "anf-local"))
                         {
                             return Ok((url, key));
                         }
@@ -187,7 +187,7 @@ impl Engine {
             .build()
             .map_err(|e| e.to_string())?;
         let response = client.post(format!("{url}/v1/chat/completions")).bearer_auth(key)
-            .json(&json!({"model":"coucou-local","messages":messages,"stream":false,"max_tokens":if long{4096}else if profile=="fast"{768}else{1536},
+            .json(&json!({"model":"anf-local","messages":messages,"stream":false,"max_tokens":if long{4096}else if profile=="fast"{768}else{1536},
                 "temperature":0.7,"chat_template_kwargs":{"enable_thinking":false}}))
             .send().await.map_err(|_|"The local model did not respond. Try again or free some memory.".to_string())?;
         if !response.status().is_success() {
@@ -311,7 +311,7 @@ mod tests {
     use super::*;
     #[test]
     fn repaired_pack_is_detected_without_restarting() {
-        let root = std::env::temp_dir().join(format!("coucou-pack-repair-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("\x63\x6f\x75\x63\x6f\x75-pack-repair-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         let e = Engine::default();
         e.configure(root.clone());

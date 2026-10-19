@@ -10,14 +10,16 @@ pub fn parse(body:&str)->Vec<Hit>{
     let snippets=Selector::parse(".result__snippet").unwrap();
     let mut hits=Vec::new();
     for row in html.select(&rows){
+        if row.value().classes().any(|class| class=="result--ad") {continue;}
         let Some(a)=row.select(&links).next() else {continue};
         let Some(href)=a.value().attr("href") else {continue};
         let Ok(mut url)=reqwest::Url::parse(href).or_else(|_|reqwest::Url::parse("https://html.duckduckgo.com/").unwrap().join(href)) else{continue};
-        if matches!(url.host_str(),Some("duckduckgo.com"|"html.duckduckgo.com")){
+        if matches!(url.host_str().map(|host|host.trim_start_matches("www.")),Some("duckduckgo.com"|"html.duckduckgo.com")){
             let Some(target)=url.query_pairs().find(|(k,_)|k=="uddg").map(|(_,v)|v.into_owned()) else{continue};
             let Ok(target)=reqwest::Url::parse(&target) else{continue};url=target;
         }
         if url.scheme()!="https"||url.host_str().is_none()||!url.username().is_empty()||url.password().is_some(){continue;}
+        if url.host_str().is_some_and(|host|host=="duckduckgo.com"||host.ends_with(".duckduckgo.com")){continue;}
         if hits.iter().any(|h:&Hit|h.url==url.as_str()){continue;}
         let title=a.text().collect::<Vec<_>>().join(" ").chars().take(300).collect();
         let snippet=row.select(&snippets).next().map(|e|e.text().collect::<Vec<_>>().join(" ").chars().take(1000).collect()).unwrap_or_default();
@@ -35,6 +37,10 @@ pub async fn search(query:&str,enabled:bool)->Result<Vec<Hit>,String>{
 }
 #[cfg(test)]mod tests{
     use super::*;
+    #[test]fn excludes_ads_and_tracking_endpoints(){
+        let hits=parse(r#"<div class="result result--ad"><a class="result__a" href="https://advertiser.example/">Ad</a></div><div class="result"><a class="result__a" href="https://www.duckduckgo.com/y.js?ad_domain=pdf.net&amp;u3=anything">Tracking</a></div><div class="result"><a class="result__a" href="https://www.duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fguide">Guide</a></div>"#);
+        assert_eq!(hits.len(),1);assert_eq!(hits[0].url,"https://example.org/guide");
+    }
     #[test]fn accepts_https_and_unwraps_provider_links(){let hits=parse(r#"<div class="result"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Farticle">Example</a><a class="result__snippet">Useful evidence</a></div><div class="result"><a class="result__a" href="javascript:alert(1)">Unsafe</a></div><div class="result"><a class="result__a" href="https://example.org/article">Duplicate</a></div>"#);assert_eq!(hits.len(),1);assert_eq!(hits[0].url,"https://example.org/article");assert_eq!(hits[0].snippet,"Useful evidence");}
     #[test]fn off_refuses_without_network(){let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();assert!(rt.block_on(search("sample",false)).unwrap_err().contains("off"));}
     #[test]#[ignore="requires internet; service may rate limit"]fn live_public_search(){let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();let results=rt.block_on(search("public library reading benefits",true)).unwrap();assert!(!results.is_empty());assert!(results.iter().all(|h|h.url.starts_with("https://")));println!("Live search returned {} usable links",results.len());}

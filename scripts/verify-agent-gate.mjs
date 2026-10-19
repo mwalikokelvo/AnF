@@ -10,6 +10,8 @@ for(const name of ['PROTOCOL.md','HANDOFF.md','DECISIONS.md']){const text=readFi
 const handoff=readFileSync(path.join(root,'HANDOFF.md'),'utf8');for(const section of ['Completed Tasks','Active In-Flight Work','Known Blockers','Next Step'])if(!handoff.includes(section))throw Error('Missing handoff section: '+section);
 run(['scripts/check-agent-infrastructure.mjs']);
 run(['windows/node_modules/typescript/bin/tsc','--noEmit','-p','windows/tsconfig.json']);
+run(['scripts/check-branding.mjs']);
+run(['scripts/check-identity-migration.mjs']);
 run(['scripts/check-release.mjs']);
 if(process.argv.includes('--release')){
  const args=['scripts/build-android.mjs'];if(process.argv.includes('--offline'))args.push('--offline');

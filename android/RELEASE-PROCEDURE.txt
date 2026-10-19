@@ -1,4 +1,4 @@
-Coucou release procedure
+AnF release procedure
 
 User preference: produce matching Windows and Android packages for future updates.
 Use docs/RELEASE-BUILDS.md and the Windows/Android Actions workflows.
@@ -9,7 +9,7 @@ package versions in sync. Android versionCode is derived from the same version.
 Windows preserves the existing app identity and data paths. Use the same install
 folder and select Do not uninstall when upgrading. Save work and quit first.
 
-Android uses package com.coucou.workspace. Always reuse the original signing key
+Android uses package com.anf.workspace. Always reuse the original signing key
 from the original release workspace. Back that key up
 privately; do not publish it with the release or source repository. Losing the key
 prevents compatible in-place updates. The release APK stays unsigned when the

@@ -2,7 +2,6 @@ export function followups(hasDocuments:boolean):Array<{label:string;question:str
   return hasDocuments?[
     {label:'Explain simply',question:'Explain the previous answer more simply, using the loaded documents. Cite the supporting passages.'},
     {label:'Show the evidence',question:'Which passages in the loaded documents support the previous answer? Quote short excerpts and give page references where available.'},
-    {label:'Compare documents',question:'Compare the loaded documents on the topic we have been discussing. Identify agreements, differences, and missing evidence.'},
     {label:'Make a lesson plan',question:'Using the loaded documents and our discussion, draft a lesson plan. Ask me for the learner level and lesson duration if I have not given them.'}
   ]:[{label:'Explain simply',question:'Explain the previous answer more simply with a concrete example.'},{label:'Explore further',question:'What useful details or next steps should we explore from your previous answer?'}];
 }

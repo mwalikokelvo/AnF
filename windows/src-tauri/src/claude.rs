@@ -171,7 +171,7 @@ async fn call(key: &str, body: &Value) -> Result<Value, String> {
         .map_err(|e| e.to_string())?;
 
     let response = client
-        .post(endpoint_from(std::env::var("COUCOU_ANTHROPIC_BASE_URL").ok().as_deref())?)
+        .post(endpoint_from(std::env::var("ANF_ANTHROPIC_BASE_URL").ok().as_deref())?)
         .header("x-api-key", key)
         .header("anthropic-version", ANTHROPIC_VERSION)
         .header("anthropic-beta", FALLBACK_BETA)

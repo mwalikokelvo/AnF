@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart' as material;
+import 'package:shadcn_flutter/shadcn_flutter.dart' show ThemeMode;
 import 'package:spotube/services/audio_player/audio_player.dart';
 
 /// The native AnF host owns screen navigation and the application lifetime.
@@ -8,6 +10,7 @@ import 'package:spotube/services/audio_player/audio_player.dart';
 class AnfHost {
   static const embedded = bool.fromEnvironment('ANF_EMBEDDED', defaultValue: true);
   static const channel = MethodChannel('anf/spotube');
+  static final theme = material.ValueNotifier<ThemeMode>(ThemeMode.system);
 
   static void install() {
     if (!embedded) return;
@@ -21,6 +24,20 @@ class AnfHost {
         case 'control':
           switch (call.arguments) {
             case 'status':
+              break;
+            case 'light':
+              theme.value = ThemeMode.light;
+              break;
+            case 'dark':
+              theme.value = ThemeMode.dark;
+              break;
+            case 'system':
+              theme.value = ThemeMode.system;
+              break;
+            case 'retry':
+              final playlist = audioPlayer.playlist;
+              if (playlist.medias.isEmpty) throw StateError('Choose music in Spotube first.');
+              await audioPlayer.openPlaylist(playlist.medias, initialIndex: playlist.index.clamp(0, playlist.medias.length - 1));
               break;
             case 'pause':
               await audioPlayer.pause();
@@ -57,6 +74,8 @@ class AnfHost {
     return jsonEncode({
       'hasTrack': media != null,
       'playing': audioPlayer.isPlaying,
+      'buffering': audioPlayer.isBuffering,
+      'error': audioPlayer.lastError,
       'title': bounded(extras?['name']?.toString() ?? 'Spotube music'),
       'artist': bounded(artists is List
           ? artists.whereType<Map>().map((artist) => artist['name']?.toString() ?? '').where((name) => name.isNotEmpty).join(', ')
@@ -67,6 +86,7 @@ class AnfHost {
   }
 
   static material.Widget frame(material.Widget child) {
+    if (Platform.isWindows) return child;
     return material.Column(children: [
       material.SafeArea(bottom: false, child: material.Material(
         color: const material.Color(0xff15191a),

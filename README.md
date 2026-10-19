@@ -6,7 +6,7 @@
 
 **A private workspace for your ideas, documents, writing and audio on Android and Windows.**
 
-Read, write, work with local AI on Windows, and connect your devices over your own Wi-Fi. AnF preserves the existing Coucou installation and saved-data identities when you update. The macOS notch companion and historical documentation below come from the upstream project.
+Read, write, work with local AI on Windows, and connect your devices over your own Wi-Fi. AnF preserves the existing AnF installation and saved-data identities when you update. The macOS notch companion and historical documentation below come from the upstream project.
 
 The 0.1.21 source adds a dark Music Hub with local music, playlists and a persistent
 player, separate from Audio Studio. Native Spotube adapters are opt-in review
@@ -20,9 +20,9 @@ This product includes software developed by Kingkor Roy Tirtho.
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-native-0A84FF)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![GitHub stars](https://img.shields.io/github/stars/Louis-CFM/coucou?style=social)
+![GitHub stars](https://img.shields.io/github/stars/Louis-CFM/%63%6f%75%63%6f%75?style=social)
 
-<img src="docs/media/demo.gif" width="760" alt="Coucou in action">
+<img src="docs/media/demo.gif" width="760" alt="AnF in action">
 
 </div>
 
@@ -31,13 +31,13 @@ This product includes software developed by Kingkor Roy Tirtho.
 ## Why
 
 Some studios showed off gorgeous notch companions… and never let anyone use them.
-**Coucou is the open version.** Every line of code, every animation, every sound — free to use, read, fork and remix.
+**AnF is the open version.** Every line of code, every animation, every sound — free to use, read, fork and remix.
 
 Meet **Mochi**: a soft little squircle with big eyes that pops out of your notch, waves hello, follows your cursor with its eyes, gets annoyed when you poke it (and dizzy if you insist), and tells you the moment Claude Code needs you.
 
 ## Features
 
-- 🤖 **Claude Code, Cursor, Codex, Gemini CLI, Antigravity and other agents, live** — see every session in your notch: what it reads, edits and runs, step by step. Tag a hook payload with `coucou_agent` to give any agent its own pill (see [`docs/AGENTS.md`](docs/AGENTS.md)). Finished? Mochi does a happy little jump.
+- 🤖 **Claude Code, Cursor, Codex, Gemini CLI, Antigravity and other agents, live** — see every session in your notch: what it reads, edits and runs, step by step. Tag a hook payload with `anf_agent` to give any agent its own pill (see [`docs/AGENTS.md`](docs/AGENTS.md)). Finished? Mochi does a happy little jump.
 - See what Claude is editing, live in the notch: each file modification shows the file name and +N −M counts in the ticker, tap to read the full diff
 - ✅ **Approve and answer from the notch** — Claude Code permission requests show up with **Allow / Deny / Always**; `AskUserQuestion` prompts show the choices right in the notch (single or multi-select, up to 4 questions). One click, or "Reply in terminal" to fall back to the CLI. Codex also gets Allow / Deny.
 - 🧑‍💻 **Jump to the right terminal** — open the exact terminal window of a session *(macOS)*.
@@ -68,9 +68,9 @@ Meet **Mochi**: a soft little squircle with big eyes that pops out of your notch
 
 ### Download for macOS
 
-1. Grab the latest `Coucou.zip` from [Releases](https://github.com/Louis-CFM/coucou/releases).
-2. Unzip and move **Coucou.app** to `/Applications`.
-3. Launch it, and click **Open** when macOS asks you to confirm. Updating from 0.1.0? macOS may ask you, once for each key you saved, to let Coucou use it: enter your Mac password and click **Always Allow**.
+1. Grab the latest `AnF.zip` from [Releases](https://github.com/Louis-CFM/%63%6f%75%63%6f%75/releases).
+2. Unzip and move **AnF.app** to `/Applications`.
+3. Launch it, and click **Open** when macOS asks you to confirm. Updating from 0.1.0? macOS may ask you, once for each key you saved, to let AnF use it: enter your Mac password and click **Always Allow**.
 
 ### Windows
 
@@ -85,11 +85,11 @@ rest of the differences.
 
 ### Linux
 
-The first Linux build is out as a beta: download it from [Coucou for Linux 0.1.1 (beta)](https://github.com/Louis-CFM/coucou/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/Louis-CFM/coucou/releases) under `linux-v*` tags.
+The first Linux build is out as a beta: download it from [AnF for Linux 0.1.1 (beta)](https://github.com/Louis-CFM/%63%6f%75%63%6f%75/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/Louis-CFM/%63%6f%75%63%6f%75/releases) under `linux-v*` tags.
 
-- **AppImage** (any distribution): `chmod +x Coucou-Linux-*.AppImage`, then run it.
-- **Debian / Ubuntu**: `sudo apt install ./Coucou-Linux-*.deb`
-- **Fedora / openSUSE**: `sudo dnf install ./Coucou-Linux-*.rpm`
+- **AppImage** (any distribution): `chmod +x AnF-Linux-*.AppImage`, then run it.
+- **Debian / Ubuntu**: `sudo apt install ./AnF-Linux-*.deb`
+- **Fedora / openSUSE**: `sudo dnf install ./AnF-Linux-*.rpm`
 
 Check a download with `sha256sum -c SHA256SUMS --ignore-missing`. Gemini CLI, Antigravity, Google AI, OpenAI and local model (Ollama / LM Studio) chat are macOS only for now.
 
@@ -103,8 +103,8 @@ so there it opens as a regular window. See [`windows/README.md`](windows/README.
 
 ```bash
 brew install xcodegen
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/NotchBuddy
+git clone https://github.com/Louis-CFM/%63%6f%75%63%6f%75.git
+cd anf/NotchBuddy
 xcodegen
 open NotchBuddy.xcodeproj   # then ⌘R
 ```
@@ -112,8 +112,8 @@ open NotchBuddy.xcodeproj   # then ⌘R
 **Windows** — requirements: [Rust](https://rustup.rs), Node 20+, MSVC build tools.
 
 ```powershell
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/windows
+git clone https://github.com/Louis-CFM/%63%6f%75%63%6f%75.git
+cd anf/windows
 npm install
 npm run pack                # installer lands in windows/release/
 ```
@@ -126,19 +126,19 @@ sudo apt install build-essential pkg-config \
   libwebkit2gtk-4.1-dev libgtk-layer-shell-dev libayatana-appindicator3-dev \
   librsvg2-dev libssl-dev libdbus-1-dev patchelf \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/windows
+git clone https://github.com/Louis-CFM/%63%6f%75%63%6f%75.git
+cd anf/windows
 npm install
 npm run pack                # AppImage, .deb and .rpm land in windows/release/
 ```
 
 ## Setup
 
-Click the Coucou icon in the menu bar (macOS) or in the system tray (Windows, Linux) → **Settings…**
+Click the AnF icon in the menu bar (macOS) or in the system tray (Windows, Linux) → **Settings…**
 
 | What | Why | Where the key goes |
 |---|---|---|
-| **Claude Code hooks** | live sessions and approvals | **Install hooks** — Coucou backs up `~/.claude/settings.json`, merges its hooks and shows you the diff before writing anything |
+| **Claude Code hooks** | live sessions and approvals | **Install hooks** — AnF backs up `~/.claude/settings.json`, merges its hooks and shows you the diff before writing anything |
 | **Claude plan** *(macOS, GitHub build)* | Plan usage gauge in the notch header | **Install relay** in Settings → Agents → Plan usage, then enable "Show in the notch" |
 | **Gemini CLI hooks** *(macOS)* | Gemini CLI sessions in the island | **Install hooks** in Settings → Gemini CLI — backs up `~/.gemini/settings.json` |
 | **Antigravity (agy) hooks** *(macOS)* | agy sessions in the island | **Install hooks** in Settings → Antigravity — backs up `~/.gemini/config/hooks.json` |
@@ -150,7 +150,7 @@ Click the Coucou icon in the menu bar (macOS) or in the system tray (Windows, Li
 | **Active pills** *(macOS)* | choose which tools and agents appear in the island | Settings → Active pills |
 | Stripe, n8n, GitHub, Vercel, Resend, Notion, Cal.com | the service pills | Keychain / Windows Credential Manager / Secret Service, all optional |
 
-If Coucou isn't running, the hook exits immediately: **Claude Code is never blocked.**
+If AnF isn't running, the hook exits immediately: **Claude Code is never blocked.**
 
 ## Things to try
 
@@ -181,14 +181,14 @@ The macOS app is native Swift 6 / SwiftUI / AppKit with **zero third-party depen
 **Windows**
 
 - A [Tauri 2](https://tauri.app) app (Rust + TypeScript): the island is a transparent, always-on-top window that never steals focus, Mochi is drawn in Canvas 2D with the same shapes, timings and sounds as on the Mac.
-- Claude Code hooks go through a tiny `coucou-hook.exe` and a named pipe; keys live in Windows Credential Manager.
+- Claude Code hooks go through a tiny `anf-hook.exe` and a named pipe; keys live in Windows Credential Manager.
 - Details and differences in [`windows/README.md`](windows/README.md).
 
 **Linux**
 
 - The same Tauri app as Windows. On Wayland the island is a gtk-layer-shell
   overlay anchored to the top edge, and click-through is its input region.
-- Claude Code hooks go through the same `coucou-hook`, over a Unix socket in
+- Claude Code hooks go through the same `anf-hook`, over a Unix socket in
   `$XDG_RUNTIME_DIR`; keys live in the Secret Service.
 
 ## Contributing
@@ -209,6 +209,6 @@ Inspired by the notch-companion concepts shared by design studios — this proje
 
 **If Mochi made you smile, a ⭐ helps a lot.**
 
-[Website](https://louis-cfm.github.io/coucou/) · [Privacy](https://louis-cfm.github.io/coucou/privacy.html) · [Terms](https://louis-cfm.github.io/coucou/terms.html) · [Support](https://louis-cfm.github.io/coucou/support.html)
+[Website](https://louis-cfm.github.io/%63%6f%75%63%6f%75/) · [Privacy](https://louis-cfm.github.io/%63%6f%75%63%6f%75/privacy.html) · [Terms](https://louis-cfm.github.io/%63%6f%75%63%6f%75/terms.html) · [Support](https://louis-cfm.github.io/%63%6f%75%63%6f%75/support.html)
 
 </div>

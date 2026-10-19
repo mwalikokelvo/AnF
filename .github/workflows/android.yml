@@ -1,118 +1,16 @@
 name: Android packages
-
 on:
   workflow_dispatch:
-    inputs:
-      baseline_run:
-        description: 'Optional previous AnF-Android artifact run for installation upgrade QA'
-        required: false
-        type: string
   pull_request:
-    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', '.github/workflows/android.yml']
-
+    paths: ['android/**', 'windows/src/workspace/**', 'scripts/**', '.github/workflows/android*.yml']
 permissions:
   contents: read
-  actions: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  build:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: |
-            windows/package-lock.json
-            android/package-lock.json
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: '16111833'
-          packages: platform-tools
-          log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 9.4.1
-      - name: Install SDK
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
-      - name: Install frontend dependencies
-        run: |
-          npm ci --prefix windows
-          npm ci --prefix android
-      - name: Build unsigned release and debug packages
-        run: node scripts/build-android.mjs
-      - name: Regression checks
-        run: node scripts/check-release.mjs
-      - name: Build installed-release instrumentation tests
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        working-directory: android
-        run: gradle --no-daemon assembleReleaseAndroidTest
-      - name: Download previous Android package
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        uses: actions/download-artifact@v4
-        with:
-          name: Coucou-Android
-          run-id: ${{ inputs.baseline_run }}
-          github-token: ${{ github.token }}
-          path: previous-android
-      - name: Enable emulator hardware acceleration
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Free unused native SDK toolchains for emulator storage
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        run: |
-          # This Java app ships prebuilt native libraries; its build is complete.
-          # These hosted-runner NDK installations are unused by the UI test.
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
-          df -h /
-      - name: Verify installed Android release and saved-data retention
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          disk-size: 2048M
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
-          script: |
-            version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-            baseline=(previous-android/*-unsigned.apk)
-            test "${#baseline[@]}" -eq 1
-            python3 scripts/app-qa/android-upgrade.py --baseline "${baseline[0]}" --candidate "releases/AnF-Android-$version-unsigned.apk" --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --output "$RUNNER_TEMP/anf-android-qa"
-      - name: Retain installed Android test evidence
-        uses: actions/upload-artifact@v4
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        with:
-          name: AnF-Android-installation-tests
-          path: |
-            ${{ runner.temp }}/anf-android-qa/*.txt
-            ${{ runner.temp }}/anf-android-qa/*.png
-          if-no-files-found: ignore
-          retention-days: 7
-      - name: Verify debug signature and package versions
-        run: |
-          version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "releases/AnF-Android-$version-debug.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "releases/AnF-Android-$version-unsigned.apk" > releases/android-package.txt
-          grep -F "versionName='$version'" releases/android-package.txt
-          cd releases
-          sha256sum *.apk > SHA256SUMS-Android
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AnF-Android
-          path: releases/
-          if-no-files-found: error
-          retention-days: 7
+  android-package:
+    uses: ./.github/workflows/android-release-gate.yml
+# New identity requires export/import from the still-installed legacy app.
+# Do not run the old same-package upgrade/uninstall test against the new app.
+# This workflow builds only and has no signing secrets or publication permission.

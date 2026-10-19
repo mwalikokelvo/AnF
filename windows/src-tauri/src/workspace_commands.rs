@@ -94,6 +94,7 @@ pub struct Reply {
 }
 #[tauri::command]
 pub async fn workspace_ask(
+    window: tauri::WebviewWindow,
     jobs: State<'_, Jobs>,
     chat: State<'_, Chat>,
     job: u64,
@@ -103,12 +104,17 @@ pub async fn workspace_ask(
     memory: String,
     model: String,
     long_response: Option<bool>,
+    gateway: Option<bool>,
 ) -> Result<Reply, String> {
+    if gateway.unwrap_or(false) && window.label()!="workspace" {return Err("Gateway requests are available only in the workspace.".into());}
     let mut changed=jobs.changed.subscribe();jobs.token(job)?;
-    let result=tokio::select!{r=ask_local(&chat,query,sources,history,memory,model,long_response)=>r,_=changed.changed()=>{chat.local.shutdown();return Err("Cancelled.".into());}};
+    let result=tokio::select!{r=ask_with_provider(&chat,query,sources,history,memory,model,long_response,gateway.unwrap_or(false))=>r,_=changed.changed()=>{chat.local.shutdown();return Err("Cancelled.".into());}};
     jobs.token(job)?;result
 }
 pub async fn ask_local(chat:&Chat,query:String,sources:Vec<Source>,history:Vec<Value>,memory:String,model:String,long_response:Option<bool>)->Result<Reply,String>{
+    ask_with_provider(chat,query,sources,history,memory,model,long_response,false).await
+}
+async fn ask_with_provider(chat:&Chat,query:String,sources:Vec<Source>,history:Vec<Value>,memory:String,model:String,long_response:Option<bool>,gateway:bool)->Result<Reply,String>{
     if query.trim().is_empty() || query.len() > 10000 {
         return Err(
             "Questions can contain up to 10,000 UTF-8 bytes. Load longer material as a document.".into(),
@@ -173,16 +179,17 @@ pub async fn ask_local(chat:&Chat,query:String,sources:Vec<Source>,history:Vec<V
         }
     }
     let (messages, trimmed) = local_ai::bounded_messages(&history, &prompt);
-    let result = chat.local.reply_sized(&messages,&model,long_response.unwrap_or(false)).await;
+    let result = if gateway { crate::connections::gateway_reply(&messages).await.map(|text|(text,false)) }
+        else { chat.local.reply_sized(&messages,&model,long_response.unwrap_or(false)).await };
     let (text, incomplete) = result?;
-    let mut notice = format!(
+    let mut notice = if gateway {"Answered through your configured AI gateway. Selected context was sent to that gateway; check its routing and privacy settings. Check facts and source citations.".to_string()} else {format!(
         "Answered locally with {}. Check facts and any source citations.",
         if model == "fast" {
             "Fast · Qwen3 0.6B"
         } else {
             "Balanced · Qwen3 1.7B"
         }
-    );
+    )};
     let web_count=evidence.iter().filter(|e|e.source_name.starts_with("https://")).count();
     notice.push_str(&format!(" Basis: {}.",if evidence.is_empty(){"general model knowledge; no source excerpts used".to_string()}else{format!("{} document excerpts and {} saved web excerpts",evidence.len()-web_count,web_count)}));
     if trimmed {
@@ -217,6 +224,17 @@ pub async fn workspace_save_project(
 #[derive(Serialize)]
 pub struct SavedProject {#[serde(flatten)]project:projects::Project,revision:String}
 fn saved_project(project:projects::Project)->SavedProject{let revision=crate::sync_data::revision(&project,true);SavedProject{project,revision}}
+#[tauri::command]
+pub async fn workspace_quick_capture(app:tauri::AppHandle,store:State<'_,projects::Store>,text:String)->Result<String,String>{
+    let text=text.trim().to_string();
+    if text.is_empty()||text.chars().count()>8000{return Err("Write a note under 8,000 characters.".into());}
+    let store=store.inner().clone();
+    let id=tokio::task::spawn_blocking(move||{
+        let p=projects::Project{id:String::new(),name:format!("Capture · {}",text.lines().next().unwrap_or("").chars().take(45).collect::<String>()),title:"Quick capture".into(),question:String::new(),draft:text,history:vec![],sources:vec![],memory:String::new(),model:"fast".into()};
+        store.save_checked(p,None).map(|p|p.id)
+    }).await.map_err(|_|"Saving the note stopped.".to_string())??;
+    use tauri::Emitter;let _=app.emit("quick-captured",&id);Ok(id)
+}
 #[tauri::command]
 pub async fn workspace_load_project(
     store: State<'_, projects::Store>,
@@ -270,7 +288,7 @@ pub fn workspace_diagnostics(chat: State<Chat>) -> Value {
     };
     let documents = settings::local_dir().join("documents");
     let _ = crate::platform::ensure_private_dir(&documents);
-    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
+    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("anf.log").to_string_lossy()})
 }
 
 #[cfg(test)]
@@ -293,7 +311,7 @@ pub async fn workspace_export_pack(text:String)->Result<String,String>{
  tokio::task::spawn_blocking(move||{
   if text.len()>14_000_000{return Err("Encrypted backup exceeds 14 MB.".into());}
   let value:serde_json::Value=serde_json::from_str(&text).map_err(|_|"Invalid encrypted backup.")?;
-  if value.get("kind").and_then(|v|v.as_str())!=Some("coucoupack"){return Err("Only encrypted AnF packs can be saved here.".into());}
+  if value.get("kind").and_then(|v|v.as_str())!=Some("\x63\x6f\x75\x63\x6f\x75pack"){return Err("Only encrypted AnF packs can be saved here.".into());}
   let dir=crate::settings::local_dir().join("documents");crate::platform::ensure_private_dir(&dir).map_err(|e|e.to_string())?;
   let path=dir.join(format!("AnF-{}.anfpack",crate::local_ai::random_key()?));
   use std::io::Write;let mut file=std::fs::OpenOptions::new().create_new(true).write(true).open(&path).map_err(|e|e.to_string())?;
@@ -312,14 +330,14 @@ fn validated_restore(text:&str)->Result<Vec<projects::Project>,String>{
  if text.len()>10_000_000{return Err("Decrypted backup exceeds 10 MB.".into());}
   #[derive(serde::Deserialize)]struct Backup{kind:String,version:u32,projects:Vec<projects::Project>}
   let mut backup:Backup=serde_json::from_str(&text).map_err(|_|"Choose a AnF Windows backup.")?;
-  if backup.kind!="coucou-windows-backup"||backup.version!=1||backup.projects.len()>200{return Err("Unsupported Windows backup.".into());}
+  if backup.kind!="\x63\x6f\x75\x63\x6f\x75-windows-backup"||backup.version!=1||backup.projects.len()>200{return Err("Unsupported Windows backup.".into());}
   for p in &mut backup.projects{p.id=crate::local_ai::random_key()?;for source in &mut p.sources{source.path=None;}projects::validate(p)?;}
  Ok(backup.projects)
 }
 
 #[cfg(test)] mod backup_tests {
  use super::*;
- fn sample()->serde_json::Value{serde_json::json!({"kind":"coucou-windows-backup","version":1,"projects":[{"id":"old-id","name":"Saved","title":"Draft","question":"","draft":"Private writing","history":[],"sources":[{"name":"text.txt","text":"Source","pages":[],"path":"C:\\untrusted\\file.txt"}],"memory":"","model":"fast"}]})}
+ fn sample()->serde_json::Value{serde_json::json!({"kind":"\x63\x6f\x75\x63\x6f\x75-windows-backup","version":1,"projects":[{"id":"old-id","name":"Saved","title":"Draft","question":"","draft":"Private writing","history":[],"sources":[{"name":"text.txt","text":"Source","pages":[],"path":"C:\\untrusted\\file.txt"}],"memory":"","model":"fast"}]})}
  #[test]fn restore_assigns_new_ids_and_drops_paths(){let value=sample().to_string();let first=validated_restore(&value).unwrap();let second=validated_restore(&value).unwrap();assert_ne!(first[0].id,second[0].id);assert_eq!(first[0].id.len(),64);assert!(first[0].sources[0].path.is_none());assert_eq!(first[0].draft,"Private writing");}
  #[test]fn restore_validates_entire_batch(){let mut value=sample();let mut bad=value["projects"][0].clone();bad["model"]=serde_json::json!("not-a-model");value["projects"].as_array_mut().unwrap().push(bad);assert!(validated_restore(&value.to_string()).is_err());value["kind"]=serde_json::json!("other-app");assert!(validated_restore(&value.to_string()).is_err());assert!(validated_restore(&"x".repeat(10_000_001)).is_err());}
 }

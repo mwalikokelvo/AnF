@@ -10,3 +10,13 @@ assert.throws(()=>readingState(state,text.replace('Hello','Other')),/matches/);a
 assert.throws(()=>readingState({...state,offset:-1},text),/Invalid/);assert.throws(()=>readingState({...state,annotations:Array(101).fill(state.annotations[0])},text),/Invalid/);
 assert.equal(clipText('Draft','Quote','Book'),'Draft\n\nQuote\n\nSource: Book');assert.throws(()=>clipText('🙂'.repeat(50000),'x','Book'),/limit/);
 console.log('Reader checks passed: lossless sectioning, Unicode boundaries, exact quote anchors, invalid metadata, duplicate IDs and bounded draft clipping.');
+
+const {documentMatches,readingNotesMarkdown,sourceSections}=require(process.argv[2]);
+assert.deepEqual(documentMatches('A.b a.B','a.b'),[{start:0,end:3},{start:4,end:7}]);
+assert.deepEqual(documentMatches('A.b a.B','a.b',true),[]);
+assert.deepEqual(documentMatches('😀 İ x','İ'),[{start:3,end:4}]);
+assert.equal(documentMatches('x'.repeat(6000),'x').length,5000);
+assert.deepEqual(documentMatches('abcdef','['),[]);
+assert.match(readingNotesMarkdown({name:'Book',text:'text'}),/No highlights saved/);
+assert.equal(sourceSections({name:'PDF',text:'A\n\n',pages:[{number:1,text:'A'},{number:2,text:''}]}).length,2);
+console.log('Reader additions: literal Unicode search, case matching, bounded results, page boundaries and note export passed.');

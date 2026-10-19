@@ -430,7 +430,7 @@ function generalSection(): HTMLElement {
 
   const screen = h("select", {}) as HTMLSelectElement;
   screen.append(
-    h("option", { value: "primary", text: "Main display" }),
+    h("option", { value: "primary", text: "Remembered display (main initially)" }),
     h("option", { value: "cursor", text: "Display under the cursor" }),
   );
   screen.value = settings.screen;
@@ -454,7 +454,7 @@ function generalSection(): HTMLElement {
       h("span", { class: "hint", text: "seconds after you leave the island" }),
     ),
     h("div", { class: "row" },
-      h("label", { text: "Island lives on" }),
+      h("label", { text: "Floating panel display" }),
       screen,
     ),
     h("div", { class: "row" },

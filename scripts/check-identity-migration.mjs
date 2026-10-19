@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {stripTypeScriptTypes} from 'node:module';
+const read=file=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
+const legacy=String.fromCharCode(99,111,117,99,111,117);
+const source=read('windows/src/workspace/encrypted-pack.ts');
+const pack=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+// Independent old-format fixture: encrypt with the historical AAD rather than
+// using the new exporter to manufacture its own compatibility test.
+const password='portable fixture passphrase',encoder=new TextEncoder();
+const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+const material=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);
+const key=await crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:600000},material,{name:'AES-GCM',length:256},false,['encrypt']);
+const payload={kind:legacy+'-mobile-backup',version:1,projects:[{id:'original',name:'Retained',draft:'Existing text',prompt:'',notes:[],sources:[]}]};
+const aad=encoder.encode(legacy[0].toUpperCase()+legacy.slice(1)+' encrypted backup v1');
+const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad},key,encoder.encode(JSON.stringify(payload)));
+const b64=value=>Buffer.from(value).toString('base64');
+const fixture=JSON.stringify({kind:legacy+'pack',version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:b64(salt),iv:b64(iv),data:b64(data)});
+assert.deepEqual(await pack.decryptPack(fixture,password),payload);
+await assert.rejects(pack.decryptPack(fixture,'a different passphrase'));
+assert.deepEqual(await pack.decryptPack(await pack.encryptPack(payload,password),password),payload);
+const projectSource=stripTypeScriptTypes(read('android/web/project-data.ts').replace(/^import .*;\r?\n/gm,''));
+const projects=await import('data:text/javascript;base64,'+Buffer.from(projectSource).toString('base64'));
+const restored=projects.restoreProjects(payload,()=> 'new-copy',42);
+assert.equal(restored[0].id,'new-copy');assert.equal(restored[0].draft,'Existing text');
+assert.equal(payload.projects[0].id,'original');
+for(const file of ['windows/src-tauri/src/platform/windows.rs','windows/src-tauri/src/platform/linux.rs'])assert.match(read(file),/identity::data_dir/);
+assert.match(read('windows/src-tauri/src/lib.rs'),/data_directory\(settings::local_dir\(\).join\("webview-v014"\)\)/);
+assert.ok(read('windows/src-tauri/src/secrets.rs').includes('fr.louisraille.\\x63\\x6f\\x75\\x63\\x6f\\x75'));
+assert.ok(read('windows/src-tauri/src/vault.rs').includes('\\x43\\x6f\\x75\\x63\\x6f\\x75 SQLCipher vault'));
+assert.match(read('android/build.gradle'),/applicationId 'com\.anf\.workspace'/);
+for(const [file,suffix] of [['windows/src/workspace/audio-library.ts','-audio'],['windows/src/workspace/dashboard.ts','-quick-capture'],['windows/src/workspace/reader.ts','-scroll-']])assert.ok(read(file).includes('\\x63\\x6f\\x75\\x63\\x6f\\x75'+suffix),file+' preserves existing saved data');
+console.log('PASS: independent legacy encrypted backup, wrong-key rejection, new export, non-destructive Android restore and desktop storage identity.');

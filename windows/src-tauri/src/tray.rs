@@ -8,22 +8,23 @@ use crate::island::WINDOW_LABEL;
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open AnF", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-    let workspace = MenuItem::with_id(app, "workspace", "Key-free workspace…", true, None::<&str>)?;
-    let pause = MenuItem::with_id(app, "pause", "Pause", true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", "Floating panel settings…", true, None::<&str>)?;
+    let floating = MenuItem::with_id(app, "floating", "Show floating panel", true, None::<&str>)?;
+    let pause = MenuItem::with_id(app, "pause", "Pause floating panel", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
 
-    let menu = Menu::with_items(app, &[&open, &workspace, &sep1, &settings, &pause, &sep2, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &floating, &sep1, &settings, &pause, &sep2, &quit])?;
 
-    let mut builder = TrayIconBuilder::with_id("coucou")
+    let mut builder = TrayIconBuilder::with_id("anf")
         .tooltip("AnF")
         .menu(&menu)
         .on_menu_event(|app: &AppHandle, event| match event.id.as_ref() {
             "quit" => app.exit(0),
             "settings" => crate::show_settings_window(app),
-            "workspace" => crate::show_workspace_window(app),
+            "open" => crate::show_workspace_window(app),
+            "floating" => crate::show_floating_panel(app.clone()),
             id => {
                 let _ = app.emit_to(WINDOW_LABEL, "tray", id.to_string());
             }

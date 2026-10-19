@@ -89,8 +89,8 @@ will change in `%USERPROFILE%\.claude\settings.json`, the path of the dated back
 that will be taken, and nothing is written until you click. Your own hooks are
 never touched, and uninstalling removes only AnF's entries.
 
-The relay is a tiny executable, `coucou-hook.exe`, copied to
-`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach AnF and
+The relay is a tiny executable, `anf-hook.exe`, copied to
+`%LOCALAPPDATA%\AnF\bin\` at launch. It is given 300 ms to reach AnF and
 exits cleanly if the app is closed, slow or crashed — **a Claude Code session is
 never blocked or slowed down by AnF.** If nobody answers a permission request
 in time, AnF stays quiet and Claude Code asks in the terminal as usual.
@@ -132,7 +132,7 @@ AnF-Windows-X.Y.Z-setup.exe    the versioned installer
 AnF-Windows-setup.exe          the same file under the rolling name
 ```
 
-Installing is optional — `target/release/coucou.exe` runs on its own. There is no
+Installing is optional — `target/release/anf.exe` runs on its own. There is no
 window in the taskbar and no console: the island at the top of the screen and the
 Mochi in the notification area are the whole app, and Quit lives in its menu.
 
@@ -156,13 +156,13 @@ windows/
     views/             every island view
     settings/          the settings window
   src-tauri/           Rust backend: window, named pipe, Claude API, pollers
-  hook/                coucou-hook.exe, the Claude Code relay
+  hook/                anf-hook.exe, the Claude Code relay
   scripts/             icon generator
 ```
 
 ### Log
 
-`%LOCALAPPDATA%\AnF\coucou.log` — hook events, permission decisions, poller
+`%LOCALAPPDATA%\AnF\anf.log` — hook events, permission decisions, poller
 problems. It stays on your machine.
 
 ## What's different from the Mac version
@@ -196,24 +196,24 @@ What changes on Linux:
 - **The island** is a gtk-layer-shell overlay anchored to the top edge, over any
   top panel, on compositors that support it: COSMIC, KDE Plasma, Hyprland, Sway
   and other wlroots compositors. GNOME has no layer-shell, so there the island
-  is a regular window. `COUCOU_LAYER_SHELL=0` forces that mode anywhere.
+  is a regular window. `ANF_LAYER_SHELL=0` forces that mode anywhere.
 - **Click-through** is the window's input region, kept equal to the island
   shape, so the compositor sends every other click to what is underneath.
 - **Mochi's eyes** follow the pointer only while it is over the island: Wayland
   gives no app the cursor position anywhere else.
-- **Claude Code hooks** go through `~/.local/share/coucou/bin/coucou-hook` and a
-  Unix socket at `$XDG_RUNTIME_DIR/coucou.sock`. Both ends check that the other
+- **Claude Code hooks** go through `~/.local/share/anf/bin/anf-hook` and a
+  Unix socket at `$XDG_RUNTIME_DIR/anf.sock`. Both ends check that the other
   runs as the same user.
 - **Keys** live in the Secret Service (GNOME Keyring, KWallet).
-- **Files**: preferences in `~/.config/coucou/`, the log at
-  `~/.local/share/coucou/coucou.log`.
+- **Files**: preferences in `~/.config/anf/`, the log at
+  `~/.local/share/anf/anf.log`.
 - What the Windows build leaves out, this one does too: sending a file by
   email, dragging Mochi onto a window, and jumping to a specific terminal
   window — "Open terminal" opens the folder in VS Code.
 
 ## Key-free workspace (0.1.4)
 
-The workspace opens first on Windows. Settings and the island use the same WebView2 profile and browser options. A second launch reopens the workspace. Startup stages are logged in %LOCALAPPDATA%\AnF\coucou.log; initialization errors display a native Windows error message. WebView2 Runtime is required. This release uses a new WebView2 profile and preserves older profiles and preferences.
+The workspace opens first on Windows. Settings and the island use the same WebView2 profile and browser options. A second launch reopens the workspace. Startup stages are logged in %LOCALAPPDATA%\AnF\anf.log; initialization errors display a native Windows error message. WebView2 Runtime is required. This release uses a new WebView2 profile and preserves older profiles and preferences.
 
 The workspace always uses local AI, regardless of optional cloud settings. The full installer and portable folder contain two CPU models: Fast (official Qwen3 0.6B Q8_0, about 639 MB on disk) and Balanced (Qwen3 1.7B requantized from Q8_0 to Q4_K_M, about 1.11 GB on disk). Plan roughly 1–2 GB free RAM for Fast or 2–3 GB for Balanced; usage varies with context and runtime overhead. Only one model loads at a time. Model switching unloads the old model. Changing workspace models does not alter cloud credentials. There is no recurring hosted quota, but finite RAM, context, output length, CPU speed and model capability apply. Cloud and browser services retain their own limits.
 
@@ -270,15 +270,15 @@ editor. Mobile unfinished pasted replies remain local. Sync is manual, not backu
 See outputs/Read-me-Workspace-0.1.11.txt in the build workspace for setup and limits.
 Native tests exercise transport/authentication and conflict handling. The optional
 java_transport_interoperates test runs android/java-test/.../LinkCheck.java using
-COUCOU_TEST_JAVA and COUCOU_TEST_CLASSES. Android sync-check.cjs tests conversion,
+ANF_TEST_JAVA and ANF_TEST_CLASSES. Android sync-check.cjs tests conversion,
 metadata, byte bounds and document opt-out against a bundled web/sync.ts module.
 Physical phone/tablet network testing remains separate from these checks.
 
 
 ### AnF branding and existing installations
 
-AnF 0.1.20 introduces a shared Android/Windows design with light, dark and system themes. New installers, shortcuts, exports and app icons use AnF. Internal package identifiers, database names, OS credential-store services, browser storage and encrypted-backup authentication remain stable so existing saved work is readable. Older `.coucoupack` backups remain supported; new encrypted exports use `.anfpack`.
+AnF 0.1.20 introduces a shared Android/Windows design with light, dark and system themes. New installers, shortcuts, exports and app icons use AnF. Internal package identifiers, database names, OS credential-store services, browser storage and encrypted-backup authentication remain stable so existing saved work is readable. Older `.anfpack` backups remain supported; new encrypted exports use `.anfpack`.
 
-The Windows NSIS template is based on Tauri CLI 2.12.0 (MIT/Apache-2.0). It keeps the previous uninstall registry key and installation-location record, and retains the default `%LOCALAPPDATA%\Coucou` folder. The displayed product and executable are AnF; updates find the existing folder automatically. Keep these compatibility changes when updating the upstream installer template. Windows publication remains paused pending signing or Defender clearance.
+The Windows NSIS template is based on Tauri CLI 2.12.0 (MIT/Apache-2.0). It keeps the previous uninstall registry key and installation-location record, and retains the default `%LOCALAPPDATA%\AnF` folder. The displayed product and executable are AnF; updates find the existing folder automatically. Keep these compatibility changes when updating the upstream installer template. Windows publication remains paused pending signing or Defender clearance.
 
 For rendered interface checks, build the Windows frontend and Android assets, then run `node scripts/app-qa/appearance.mjs` from the repository root with Chromium available. This checks real browser rendering and Android browser storage; native installed-app tests run separately in the release workflows.

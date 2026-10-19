@@ -11,3 +11,20 @@
 
 | 2026-10-18 | Recovery | Resume preserved specialist branches after agent credit errors | Frontend commit and mobile/asset partial work survived. Do not restart or discard their implementations. |
 | 2026-10-18 | Worktree safety | Canonicalize Windows paths with native realpath before repository ownership comparison | Generic realpath retained 8.3 aliases and falsely rejected clean removal. Isolated tests verify refusal for dirty/foreign paths and normal removal. |
+
+## 2026-10-19 OmniRoute-first release decisions
+
+- Preserve31 as delivered baseline while32 is under development. No release claim
+  for source-only gateway, OCR or build-tool changes. Gate32Windows/Android artifacts
+  after integration and native checks; preserve old artifacts.
+- OmniRoute remains explicit optional routing. Add guided pinned local setup and
+  bounded model discovery; differentiate reachable catalog from successful inference.
+  Verify real locally routed generation using a separate DATA_DIR/port and bundled
+  model. Cloud provider accounts/quotas are not granted by installing a gateway.
+- Preserve first user message when gateway request lacks a leading system message.
+  Use bounded response budgets and cancellable requests; no silent fallback.
+- OCR root cause measured: resampling1600x2240 to1714x2400 loses a glyph. Preserve
+  native grid for smaller images while bounding oversized inputs. Keep original
+  phrase assertion and scanned PDF unchanged; no text-specific substitutions.
+- Test installers in isolated registry namespaces; even /S /D still changes HKCU
+  app registration. Existing installed-app registry/data remains untouched.

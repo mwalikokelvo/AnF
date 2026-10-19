@@ -8,7 +8,11 @@ on:
 # Notarization is done locally with scripts/release.sh.
 # This workflow only verifies the build compiles on a clean machine.
 jobs:
+  android-package:
+    uses: ./.github/workflows/android-release-gate.yml
+
   build-check:
+    needs: android-package
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

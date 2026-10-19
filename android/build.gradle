@@ -9,12 +9,12 @@ def config = new groovy.json.JsonSlurper().parse(file('../windows/src-tauri/taur
 def components = config.version.tokenize('.').collect { it as int }
 layout.buildDirectory = file('gradle-build')
 android {
-    namespace 'com.coucou.workspace'
+    namespace 'com.anf.workspace'
     compileSdk 37
     buildToolsVersion '36.0.0'
     if (project.hasProperty('spotubeRepository')) ndkVersion '27.0.12077973'
     defaultConfig {
-        applicationId 'com.coucou.workspace'
+        applicationId 'com.anf.workspace'
         minSdk 26
         targetSdk 35
         versionCode components[0] * 1000000 + components[1] * 1000 + components[2]
@@ -69,9 +69,9 @@ android {
 dependencies {
     if (project.hasProperty('spotubeRepository')) {
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
-        releaseImplementation 'com.coucou.spotube:flutter_release:1.0'
-        reviewImplementation 'com.coucou.spotube:flutter_release:1.0'
-        debugImplementation 'com.coucou.spotube:flutter_debug:1.0'
+        releaseImplementation 'com.anf.spotube:flutter_release:1.0'
+        reviewImplementation 'com.anf.spotube:flutter_release:1.0'
+        debugImplementation 'com.anf.spotube:flutter_debug:1.0'
     }
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'junit:junit:4.13.2'
@@ -80,7 +80,7 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.6.1'
     implementation 'androidx.media3:media3-session:1.6.1'
 }
-tasks.register('prepareCoucouManifest') {
+tasks.register('prepareAnFManifest') {
     inputs.file 'AndroidManifest.xml'
     outputs.file 'gradle-input/AndroidManifest.xml'
     doLast {
@@ -105,7 +105,7 @@ tasks.register('prepareCoucouManifest') {
     }
     inputs.property 'spotubeEnabled', project.hasProperty('spotubeRepository')
 }
-tasks.named('preBuild').configure { dependsOn 'prepareCoucouManifest' }
+tasks.named('preBuild').configure { dependsOn 'prepareAnFManifest' }
 
 // Record only the runtime artifacts actually resolved for the shipped app.
 tasks.register('audioRuntimeInventory') {
