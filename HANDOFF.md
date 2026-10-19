@@ -189,3 +189,59 @@ realdevice/signing, currentSpotube401/deviceAAR, OCRmodelcorpus and Strix prereq
 from REMAINING-IMPLEMENTATION-PLAN.md. Preserve all31and32releases. Worktrees retain
 specialist work; OmniRoute credit interruption occurred before its final commit,
 but reviewed dirtydiff/untrackeddocs/testscript were recovered into primary.
+
+## Managed OmniRoute next increment (2026-10-19)
+
+Current32 baseline preserved in temporary-index snapshot158501eb5a467a7e0563a090e30aec21ba32de64,
+ref snapshot/managed-032; new isolated wt/omniroute-managed, no primary index changes.
+Approved architecture: optional verified prebuilt component (no runtime npm/global
+Node), picker for pinned manifest, bounded no-reparse hash-verified copy to private
+staging+atomic promotion. Explicit workspace-only install/start/stop/status/use-route.
+Own private DATA_DIR and credentials, scrub inherited Node/proxy/config overrides,
+bind HTTP and separate WS listeners to numeric loopback only. Owned Windows job
+cleans process tree, never attaches to existing services. Authenticated bounded
+Rust loopback adapter shares bundled AI Engine/lock so provider restart/profile
+changes cannot invalidate gateway keys or leave another resident model. Keep
+external saved gateway settings until explicit switch. Agents own implementation,
+component inventory/licenses and independent security/lifecycle review. No new
+app release or managed-service completion claim until real install/lifecycle tests
+and verified Windows/Android33 artifacts. Do not bypass usage limits.
+
+## GitHub publication in progress — 2026-10-19
+
+User authorized ongoing GitHub source/release publication. Verified32 snapshot
+158501eb5a467a7e0563a090e30aec21ba32de64 fast-forward pushed to origin branch
+codex/downloadable-releases; version tagv0.1.32 points to the same exact snapshot.
+No main writes, no real-index/working-file reset. GitHub repository remains private;
+release links require repository access. Source preflight525files excluded private
+voice/runtime directories and passed credential-pattern/path screen. Primary source
+matches snapshot; only later HANDOFF notes differed when checked through tempindex.
+
+Draft release/assets upload is active via .tools/publish-032.py, log
+.tools/logs/publish-032.txt (process48267). Helper gets saved GitHub credential only
+in memory, never prints/persists it; official portablegh version/hash in
+.tools/github-cli/provenance.json. One duplicate empty draft created during
+recovery was removed after exact body/target/title/empty-assets matching. Current
+upload is one remaining draft. Resume helper safely; no clobber of differing assets.
+Verify server digests/sizes before draft=false. Privatevoicepack is NOT an asset.
+ManagedOmniRoute remains isolated WIP; not part of32 release publication.
+
+### Hosted CI publication limitation
+
+GitHub check annotation118372250958 confirms jobs did not start because account
+payments failed or a spending limit must be increased. Do not retry jobs or bypass
+billing limits. Preview release notes explicitly distinguish locally verified
+artifacts from unavailable hosted CI. GitHub upload remains authorized and uses
+normal Releases API; repository stays private. Release currently has verified
+source tag and installer uploaded; portable upload is active. No voice assets.
+
+## GitHub 0.1.32 preview published — 2026-10-19
+
+Published https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.32 after all seven
+release assets uploaded and server-reported sizes/digests matched local verification.
+Source tag is158501eb5a467a7e0563a090e30aec21ba32de64; release branch pushed normally,
+main unchanged. Public build files are installer, portable ZIP and development APK,
+plus checksum/manifests. Repository remains private; access is required to download.
+Voice packs/recordings and unfinished managed runtime were not uploaded. Evidence:
+.tools/published-032.json and .tools/logs/publish-032.txt. Hosted CI is blocked by
+GitHub billing/spending settings; release notes say local validation only.

@@ -61,3 +61,13 @@ and keep release delivery outstanding. Complete native/UI checks required by the
 change before calling the package verified. Local artifact delivery is authorized;
 public hosting/publication remains a separate action. Keep private voice recordings
 and their derived private voice pack out of public releases.
+
+## GitHub publication authorization — 2026-10-19
+
+The user explicitly requested saving/uploading/publishing each update to GitHub.
+Publish verified release source on the existing release branch and versioned public
+build artifacts through that repository's Releases. Keep main protected, never
+force-push, preserve working files/index, and keep private recordings/voice packs,
+credentials and unfinished unverified runtime components out of release assets.
+Repository visibility must remain unchanged. Draft uploads become published only
+after remote size/digest verification. Do not bypass account usage limits.
