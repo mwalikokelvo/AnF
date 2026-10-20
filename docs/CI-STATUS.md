@@ -9,3 +9,5 @@ Required action: an account administrator resolves payment/billing or changes th
 Local Windows and Android release gates continue independently. They provide local artifact evidence and do not replace hosted CI, production signing or device tests. The current Android local release gate includes workflow contract checks; it passed for 0.1.36. No unverified YAML workaround or untrusted self-hosted runner was added.
 
 Latest source check: https://github.com/mwalikokelvo/AnF/actions/runs/39511220205, source 9f5fe4d4d32971b9dce7f5eea2078226e9463497, conclusion failure. Its annotation again reports the account payment/spending restriction before job execution. This remains separate from passing local 0.1.36 release checks.
+
+0.1.37 source check: https://github.com/mwalikokelvo/AnF/actions/runs/39514078541, source 47595d84a2c843bd19f33d74e2145131739ee8fd, conclusion failure; the job was again refused before execution for account payment/spending settings. Version-bump regression guards fix a separate local build failure and do not resolve this hosted account restriction.

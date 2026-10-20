@@ -739,3 +739,24 @@ versioncollisionguard. Saveharnesswait+handoffnormalchildbefore37tag.
 Userstoragequestionpending: C6.3GiB; K690GiBisNETWORK. Current37canpublishonC.
 Do not write future build outputs to K without explicit answer, and never copy
 private voice profiles/models there. Cachecleanupautoreviewrejected; noevading.
+
+### 0.1.37 delivery complete - 2026-10-20
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.37
+Tag/appsource 47595d84a2c843bd19f33d74e2145131739ee8fd; tenremoteSHAchecksPASS.
+Native101PASS/15ignored, browserreset/HomePASS, actualstaleownedgatewayexit ->
+UIStop -> ownershipreleased -> restartPASS. Allgeneration/auth/permissions/
+cancel/restart/forcedexitcleanupPASS;0proxy. Report reused4e7d1ddc profile;
+logmanaged-stale-037-native-e2e-final.txt; earlierfailurepreserved.
+Windowsproductionpack593files/ZIPCRC/SHA PASS; Androidactual37gatePASS incl
+versioncollisionguard. Publishplan .tools/release-037-plan.json, evidence
+.tools/published-0.1.37.json. No newfullrealrepairclaim (unchangedfrom36).
+Use scripts/bump-version.mjs; never globallyreplace versions (dependencycollision
+fixedbeforefinaltest). No third-partydependencyupgrade. No cargo fmt --all.
+Storagequestionpending unlesshumananswered: C6.3GiBfree,K690GiBNETWORK. Do not
+write future outputsKwithout explicitanswer; privatevoicefiles/modelsremainlocal.
+Autoapprovalrejectedolduncompressedstagingcleanup; no alternatedeleteattempt.
+Current37completedusingavailableCspace. Futurebuildsneedstoragedecision.
+Next repairperformance/finishingprogress, reviewedruntimeupgrades, thenlocalTTS/
+reader/mobile/servicegaps. CIaccountbilling remains externalaction; noYAMLfixclaim.
+PrimaryHEAD/index and allunrelatedchangespreserved; noappuninstall orprivatevoicesupload.
