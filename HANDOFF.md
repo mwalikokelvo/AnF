@@ -539,3 +539,26 @@ forcedexitandZEROQAmodel/gatewayafter. Earlierfailedreportpreservedbyreuseharnes
 No34release/tagyet; latestpublished33stillavailable. Sourcehelperfix+handoffmustbe
 savedasnormalchildof22694b1before34tag; appbinarysourceunchanged. Privatecomponent
 3.8.51pin9db5ZIPsameexactpublicbytes,canreuse33componentassetfor34release.
+
+### 0.1.34 final native acceptance PASS - 2026-10-20
+
+ManagednativeE2E model-ownership-034-native-e2e-identity.txt PASSall8checks,
+report4e7d1ddc...passedtrue, start127249ms,proxy0. CIMmodelimagehasWindows\\?\prefix;
+parentPID+canonicalrealpathfileidentitycorrectlyverifytheactualisolatedmodel rather
+thanliteralpathstrings. RootCIMencodingroundtripalsoverifiedexplicitUTF8required.
+Noactualproductchangeforharnessfixes. ModelUIgeneratedfreshanswers; nooldhistory
+falsepositiveafterawaitingNewconversationready+emptyassistantlist.
+
+Focusedfresh-profileofflineacceptancePASS:
+.tools/local-model-qa-16c3ba8e-35fe-410d-ad36-94ff0bef1d16/report.json,
+model-ownership-034-forced-exit-default.txt. ModelconfirmedrunningIMMEDIATELYbefore
+forcekillapp; afterwardoriginalmodelgone. Actualimagepathcontains spaces+é. Noother
+userprocesskilled. FirstfocusedattemptonlyfailedtryingtointeractwithcollapsedLocal
+modeladvancedselector; testnowassertsdefaultFastselectionwithoutforcinghiddenUI.
+
+All93native testsPASS/15ignored; Androidactual34gatePASS; Windowsproductionbuild85236
+andfullverifierPASS593files/ZIPCRC/SHA. Setup1816638955bytes,portable1820530657bytes.
+No34releaseyet. Sourceappcode22694b1unchanged; sourcecurrent3ec9a78testcorrection;
+savefinalharnessparent/canonicalidentity+newfocusedtest+handoffchildbefore34tag.
+Component3.8.51same9db5pin, publicZIPsame345205331bytes. Nextgenerate10assetplan,
+draftupload/verify,thenpublishv0.1.34.33assets/tagremainimmutable/privatevoicesexcluded.

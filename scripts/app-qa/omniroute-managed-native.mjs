@@ -2,7 +2,7 @@
 import {chromium} from 'playwright-core';
 import {spawn,spawnSync} from 'node:child_process';
 import {createServer,request} from 'node:http';
-import {mkdir,readFile,writeFile,copyFile,lstat,open} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,copyFile,lstat,open,realpath} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -34,6 +34,7 @@ const child=spawn(process.env.ANF_QA_EXE,[],{env,stdio:['ignore',appLog.fd,appLo
 child.on('exit',(code,signal)=>{report.childExit={code,signal};});
 let browser,page,invoke,initialConnections,primaryError;
 const psUtf8='[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ';
+const modelPids=new Set();
 async function recoverWorkspace(){
  assert.equal(child.exitCode,null,'QA application exited; transport recovery cannot hide a native crash.');
  const deadline=Date.now()+15000;
@@ -54,11 +55,10 @@ function ownedNodes(){
  return (Array.isArray(parsed)?parsed:[parsed]).filter(p=>typeof p.ExecutablePath==='string'&&p.ExecutablePath.toLowerCase().startsWith(profile.toLowerCase()+path.sep));
 }
 function ownedModels(){
- const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',psUtf8+"Get-CimInstance Win32_Process -Filter \"name='llama-server.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
+ const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',psUtf8+"Get-CimInstance Win32_Process -Filter \"name='llama-server.exe'\" | Select-Object ProcessId,ParentProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
  assert.equal(result.status,0,'Cannot inspect QA-owned model processes.');
  const parsed=result.stdout.trim()?JSON.parse(result.stdout):[];
- const expected=path.join(path.dirname(process.env.ANF_QA_EXE),'local-ai','llama-server.exe').toLowerCase();
- return (Array.isArray(parsed)?parsed:[parsed]).filter(p=>typeof p.ExecutablePath==='string'&&p.ExecutablePath.toLowerCase()===expected);
+ return (Array.isArray(parsed)?parsed:[parsed]).filter(p=>p.ParentProcessId===child.pid||modelPids.has(p.ProcessId));
 }
 async function waitNoModels(){for(let i=0;i<20;i++){if(!ownedModels().length)return;await new Promise(r=>setTimeout(r,250));}assert.fail('Forced app exit left a QA-owned model process running.');}
 async function waitNoNodes(){for(let i=0;i<30;i++){if(!ownedNodes().length)return;await new Promise(r=>setTimeout(r,250));}assert.fail('QA-owned Node process remained after shutdown.');}
@@ -155,7 +155,10 @@ try{
  }
  assert((await page.locator('.message.assistant').first().innerText()).length>15);assert.equal(proxyRequests,0);
  pass('Native Chat controls selected the managed route and generated a new local-model answer.');
- assert.equal(ownedModels().length,1,'A real model process must be owned by this isolated QA installation.');
+ const models=ownedModels();report.modelImages=models.map(p=>p.ExecutablePath);
+ assert.equal(models.length,1,'A real model process must be owned by this isolated QA application.');
+ assert.equal((await realpath(models[0].ExecutablePath)).toLowerCase(),(await realpath(path.join(path.dirname(process.env.ANF_QA_EXE),'local-ai','llama-server.exe'))).toLowerCase(),'The QA app used a model outside its isolated installation.');
+ modelPids.add(models[0].ProcessId);
  const island=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().startsWith('http')&&!p.url().includes('workspace.html')&&!p.url().includes('settings.html'));
  assert(island,'Floating QA window missing.');
  for(const command of ['omniroute_status','omniroute_start','omniroute_stop','omniroute_cancel','omniroute_use','omniroute_pick_component','omniroute_install']){
