@@ -1,6 +1,6 @@
 # Remaining implementation and delivery plan
 
-Updated: 2026-10-20. Release baseline: AnF 0.1.32.
+Updated: 2026-10-20. Release baseline: AnF 0.1.34.
 
 This is the consolidated inventory of known unmet requests, partial capabilities,
 and verification gaps. It covers the code and earlier requested scope; it cannot
@@ -22,8 +22,13 @@ encrypted backup and paired project exchange remain available.
 The verified 0.1.32 installer, portable ZIP and development APK are published at
 https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.32. Repository access is required.
 This release adds guided gateway discovery and generation checks, installer identity
-fixes and the original OCR regression fix. Managed gateway work remains unfinished
-in its isolated specialist worktree and is not part of that release.
+fixes and the original OCR regression fix. Managed gateway work was not part of 0.1.32. Windows 0.1.33 subsequently delivered
+the optional pinned local component and managed Chat route. Version 0.1.34 adds
+forced-exit ownership for the bundled Windows model, Unicode command-line handling
+and early repeated-import refusal. Current native tests: 93 passed, 15 ignored.
+The full managed lifecycle and a fresh offline forced-owner-death test passed;
+Windows packages and the current Android development APK passed their gates.
+These checks do not establish Android device or other-platform parity.
 
 ## Release and installation (first priority)
 

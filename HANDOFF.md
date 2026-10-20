@@ -562,3 +562,24 @@ No34releaseyet. Sourceappcode22694b1unchanged; sourcecurrent3ec9a78testcorrectio
 savefinalharnessparent/canonicalidentity+newfocusedtest+handoffchildbefore34tag.
 Component3.8.51same9db5pin, publicZIPsame345205331bytes. Nextgenerate10assetplan,
 draftupload/verify,thenpublishv0.1.34.33assets/tagremainimmutable/privatevoicesexcluded.
+
+### 0.1.34 delivery complete - 2026-10-20
+
+Published private preview: https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.34
+Tag and compiled source: 01d52097ac6d3453c87ee4fa0c0884d8d12d69f9. Ten assets verified by remote SHA-256.
+Source checkpoint .tools/source-034-commit.json; exact artifact plan
+.tools/release-034-plan.json; publication evidence .tools/published-0.1.34.json.
+Windows installer and portable ZIP, Android development APK, checksums/reports
+and unchanged optional OmniRoute 3.8.51 component are available.
+93 native tests passed, 15 ignored. Full native managed lifecycle passed;
+fresh Offline AI forced-owner-death test passed with model confirmed live
+immediately before app kill and cleanup in 1854 ms. Windows package verification
+matched 593 files and ZIP CRC/SHA. Android current artifact gate passed.
+No private recordings or private voice models uploaded. User installed app/model
+was left untouched. No Linux, physical Android or Strix verification claimed.
+
+Next: Home gateway setup discoverability, reviewed component upgrade/recovery,
+then reader/mobile/service gaps in docs/REMAINING-IMPLEMENTATION-PLAN.md.
+Real checkout HEAD/index remain preserved; publication uses temp-index commit-tree.
+Do not reset/pull or overwrite immutable release assets/tags. The docs-only child
+following this release does not change application source or require a new binary.
