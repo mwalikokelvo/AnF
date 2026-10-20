@@ -33,6 +33,7 @@ const appLog=await open(path.join(profile,'app-native.log'),'a');
 const child=spawn(process.env.ANF_QA_EXE,[],{env,stdio:['ignore',appLog.fd,appLog.fd],windowsHide:true});
 child.on('exit',(code,signal)=>{report.childExit={code,signal};});
 let browser,page,invoke,initialConnections,primaryError;
+const psUtf8='[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ';
 async function recoverWorkspace(){
  assert.equal(child.exitCode,null,'QA application exited; transport recovery cannot hide a native crash.');
  const deadline=Date.now()+15000;
@@ -47,13 +48,13 @@ async function recoverWorkspace(){
  assert.fail('The running QA workspace could not be recovered after its CDP target closed.');
 }
 function ownedNodes(){
- const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"Get-CimInstance Win32_Process -Filter \"name='node.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
+ const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',psUtf8+"Get-CimInstance Win32_Process -Filter \"name='node.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
  assert.equal(result.status,0,'Cannot inspect QA-owned Node processes.');
  const parsed=result.stdout.trim()?JSON.parse(result.stdout):[];
  return (Array.isArray(parsed)?parsed:[parsed]).filter(p=>typeof p.ExecutablePath==='string'&&p.ExecutablePath.toLowerCase().startsWith(profile.toLowerCase()+path.sep));
 }
 function ownedModels(){
- const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"Get-CimInstance Win32_Process -Filter \"name='llama-server.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
+ const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',psUtf8+"Get-CimInstance Win32_Process -Filter \"name='llama-server.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
  assert.equal(result.status,0,'Cannot inspect QA-owned model processes.');
  const parsed=result.stdout.trim()?JSON.parse(result.stdout):[];
  const expected=path.join(path.dirname(process.env.ANF_QA_EXE),'local-ai','llama-server.exe').toLowerCase();
@@ -142,6 +143,7 @@ try{
  assert.equal(proxyRequests,0);
  pass('Managed service started with private ownership, no external configuration change and no proxy traffic.');
  await page.getByRole('button',{name:'New conversation',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelectorAll('.message.assistant').length===0&&Array.from(document.querySelectorAll('footer [role="status"]')).some(e=>e.textContent==='New conversation ready.'));
  assert.equal(await page.getByLabel('Answer provider',{exact:true}).inputValue(),'managed');
  await page.getByLabel('Your question',{exact:true}).fill('Reply in one short sentence explaining why books are useful.');
  await page.getByRole('button',{name:'Ask selected AI',exact:true}).click();
