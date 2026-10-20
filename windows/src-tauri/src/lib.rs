@@ -1,25 +1,30 @@
 // AnF for Windows — app wiring and the commands the island calls.
 
-mod identity;
-mod actions;
 mod about;
-mod connections;
-mod floating;
+mod actions;
 mod ai;
 mod audio_native;
-mod local_voice;
-mod music_native;
-mod claude;
-mod local_ai;
-mod projects;
-mod vault;
-mod sync_data;
-mod local_link;
-mod reader;
-mod pdf_preview;
-mod workspace;
 mod book;
+mod claude;
+mod connections;
+mod floating;
+mod identity;
+mod local_ai;
+mod local_link;
+mod local_voice;
+mod managed_component;
+mod managed_http;
+mod managed_omniroute;
+mod managed_process;
+mod managed_proxy;
+mod music_native;
+mod pdf_preview;
+mod projects;
+mod reader;
+mod sync_data;
+mod vault;
 mod web_search;
+mod workspace;
 mod workspace_commands;
 use workspace_commands::*;
 mod files;
@@ -105,7 +110,9 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         }
     }
     if screen_changed {
-        if settings.screen=="primary" {floating::remember_monitor(None);}
+        if settings.screen == "primary" {
+            floating::remember_monitor(None);
+        }
         let collapsed = shared.gate.collapsed.load(Ordering::Relaxed);
         island::apply_geometry(&app, &settings.screen, collapsed);
     }
@@ -128,19 +135,38 @@ fn set_collapsed(app: AppHandle, shared: State<Shared>, collapsed: bool) {
 
 /// The front end pushes the island shape; Rust decides click-through from it.
 #[tauri::command]
-fn set_island_rect(app: AppHandle, window: tauri::WebviewWindow, shared: State<Shared>, x: f64, y: f64, width: f64, height: f64, pixel_ratio: Option<f64>) {
-    if window.label()!=island::WINDOW_LABEL {return;}
-    let scale=pixel_ratio.map(|ratio|ratio/window.scale_factor().unwrap_or(1.0)).filter(|ratio|ratio.is_finite() && (0.5..=4.0).contains(ratio)).unwrap_or(1.0);
-    let changed={let mut current=shared.gate.css_scale.lock().unwrap();let changed=(*current-scale).abs()>0.01;*current=scale;changed};
+fn set_island_rect(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    shared: State<Shared>,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    pixel_ratio: Option<f64>,
+) {
+    if window.label() != island::WINDOW_LABEL {
+        return;
+    }
+    let scale = pixel_ratio
+        .map(|ratio| ratio / window.scale_factor().unwrap_or(1.0))
+        .filter(|ratio| ratio.is_finite() && (0.5..=4.0).contains(ratio))
+        .unwrap_or(1.0);
+    let changed = {
+        let mut current = shared.gate.css_scale.lock().unwrap();
+        let changed = (*current - scale).abs() > 0.01;
+        *current = scale;
+        changed
+    };
     shared.gate.set_rect(island::IslandRect {
-        x:x*scale,
-        y:y*scale,
-        w:width*scale,
-        h:height*scale,
+        x: x * scale,
+        y: y * scale,
+        w: width * scale,
+        h: height * scale,
     });
     if changed {
-        let pref=shared.settings.lock().unwrap().screen.clone();
-        island::apply_geometry(&app,&pref,shared.gate.collapsed.load(Ordering::Relaxed));
+        let pref = shared.settings.lock().unwrap().screen.clone();
+        island::apply_geometry(&app, &pref, shared.gate.collapsed.load(Ordering::Relaxed));
     }
     // Without the cursor poll the input region is the click-through: it follows the island.
     if !platform::CURSOR_POLL {
@@ -432,14 +458,17 @@ fn open_workspace_window(app: AppHandle) {
 
 #[tauri::command]
 fn show_floating_panel(app: AppHandle) {
-    let shared=app.state::<Shared>();
-    let pref=shared.settings.lock().unwrap().screen.clone();
-    shared.gate.collapsed.store(false,Ordering::Relaxed);
-    island::apply_geometry(&app,&pref,false);
-    island::refresh_click_through(&app,&shared.gate);
+    let shared = app.state::<Shared>();
+    let pref = shared.settings.lock().unwrap().screen.clone();
+    shared.gate.collapsed.store(false, Ordering::Relaxed);
+    island::apply_geometry(&app, &pref, false);
+    island::refresh_click_through(&app, &shared.gate);
     shared.gate.set_active(true);
-    if let Some(win)=island::window(&app){let _=win.unminimize();let _=win.show();}
-    let _=app.emit_to(island::WINDOW_LABEL,"tray","open");
+    if let Some(win) = island::window(&app) {
+        let _ = win.unminimize();
+        let _ = win.show();
+    }
+    let _ = app.emit_to(island::WINDOW_LABEL, "tray", "open");
 }
 
 #[tauri::command]
@@ -480,16 +509,36 @@ pub fn run() {
         .manage(actions::Plans::default())
         .manage(audio_native::AudioJobs::default())
         .manage(local_voice::VoiceJobs::default())
+        .manage(managed_omniroute::Managed::default())
         .invoke_handler(tauri::generate_handler![
-            local_voice::local_voice_status, local_voice::local_voice_speak, local_voice::local_voice_cancel,
-            connections::connection_list,connections::connection_save,connections::connection_forget,
-            connections::connection_action,connections::connection_open_booking,
+            local_voice::local_voice_status,
+            local_voice::local_voice_speak,
+            local_voice::local_voice_cancel,
+            connections::connection_list,
+            connections::connection_save,
+            connections::connection_forget,
+            connections::connection_action,
+            connections::connection_open_booking,
+            managed_omniroute::omniroute_status,
+            managed_omniroute::omniroute_pick_component,
+            managed_omniroute::omniroute_install,
+            managed_omniroute::omniroute_start,
+            managed_omniroute::omniroute_stop,
+            managed_omniroute::omniroute_cancel,
+            managed_omniroute::omniroute_use,
             connections::workspace_export_skill,
-            about::app_check_updates,about::app_export_diagnostics,
+            about::app_check_updates,
+            about::app_export_diagnostics,
             workspace_quick_capture,
-            floating::floating_move,floating::floating_reset,
-            audio_native::audio_convert,audio_native::audio_conversion_cancel,
-            music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
+            floating::floating_move,
+            floating::floating_reset,
+            audio_native::audio_convert,
+            audio_native::audio_conversion_cancel,
+            music_native::music_available,
+            music_native::music_open,
+            music_native::music_hide,
+            music_native::music_pause,
+            music_native::music_control,
             boot,
             save_settings,
             set_collapsed,
@@ -528,7 +577,9 @@ pub fn run() {
             workspace_begin,
             workspace_cancel,
             workspace_save_project,
-            workspace_vault_versions,workspace_vault_restore,workspace_vault_status,
+            workspace_vault_versions,
+            workspace_vault_restore,
+            workspace_vault_status,
             workspace_vault_enable,
             workspace_vault_recovery_key,
             workspace_vault_recover,
@@ -629,10 +680,7 @@ pub fn run() {
                 island::spawn_drop_zone_watch(handle.clone(), gate.clone());
             }
 
-            log::line(format!(
-                "--- AnF {} started ---",
-                env!("CARGO_PKG_VERSION")
-            ));
+            log::line(format!("--- AnF {} started ---", env!("CARGO_PKG_VERSION")));
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
@@ -642,6 +690,7 @@ pub fn run() {
     match built {
         Ok(app) => app.run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                managed_omniroute::shutdown(&app.state::<managed_omniroute::Managed>().0);
                 music_native::shutdown();
                 app.state::<Chat>().local.shutdown();
             }

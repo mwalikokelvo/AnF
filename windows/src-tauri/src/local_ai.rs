@@ -15,7 +15,12 @@ struct Running {
     context: usize,
 }
 fn pack_available(path: &std::path::Path) -> bool {
-    path.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }).is_file()
+    path.join(if cfg!(windows) {
+        "llama-server.exe"
+    } else {
+        "llama-server"
+    })
+    .is_file()
         && (path.join("model.gguf").is_file() || path.join("model-fast.gguf").is_file())
 }
 impl Drop for Running {
@@ -30,6 +35,19 @@ pub struct Engine {
     process: Mutex<Option<Running>>,
     reply_lock: tokio::sync::Mutex<()>,
 }
+// Created only after acquiring reply_lock, and dropped before that lock is
+// released. Cancelling a queued future therefore cannot terminate another turn.
+struct InferenceTurn<'a> {
+    engine: &'a Engine,
+    completed: bool,
+}
+impl Drop for InferenceTurn<'_> {
+    fn drop(&mut self) {
+        if !self.completed {
+            self.engine.shutdown();
+        }
+    }
+}
 impl Engine {
     pub fn configure(&self, directory: PathBuf) {
         *self.directory.lock().unwrap() = Some(directory);
@@ -41,7 +59,8 @@ impl Engine {
         }
         // An installer/repair can restore the pack after this process started.
         // Never cache a missing pack for the lifetime of the application.
-        let portable = std::env::current_exe().ok()
+        let portable = std::env::current_exe()
+            .ok()
             .and_then(|p| p.parent().map(|p| p.join("local-ai")));
         if let Some(path) = portable.filter(|p| pack_available(p)) {
             *directory = Some(path);
@@ -52,11 +71,13 @@ impl Engine {
         self.process.lock().unwrap().take();
     }
 
-    async fn start(&self, profile: &str, context:usize) -> Result<(String, String), String> {
+    async fn start(&self, profile: &str, context: usize) -> Result<(String, String), String> {
         {
             let mut current = self.process.lock().unwrap();
             if let Some(p) = current.as_mut() {
-                if p.profile == profile && p.context==context && p.child.try_wait().map_err(|e| e.to_string())?.is_none()
+                if p.profile == profile
+                    && p.context == context
+                    && p.child.try_wait().map_err(|e| e.to_string())?.is_none()
                 {
                     return Ok((p.url.clone(), p.key.clone()));
                 }
@@ -170,18 +191,66 @@ impl Engine {
         messages: &[Value],
         profile: &str,
     ) -> Result<(String, bool), String> {
-        self.reply_sized(messages,profile,false).await
+        self.reply_sized(messages, profile, false).await
     }
-    pub async fn reply_sized(&self,messages:&[Value],profile:&str,long:bool)->Result<(String,bool),String>{
+    pub async fn reply_sized(
+        &self,
+        messages: &[Value],
+        profile: &str,
+        long: bool,
+    ) -> Result<(String, bool), String> {
         if !matches!(profile, "fast" | "balanced") {
             return Err("Choose Fast or Balanced.".into());
         }
         let _turn = self.reply_lock.lock().await;
-        let input_bytes:usize=messages.iter().filter_map(|m|m["content"].as_str()).map(str::len).sum();
-        let context=if long||input_bytes>6200 {16384}else{8192};
-        let (url, key) = self.start(profile,context).await?;
+        let mut inference = InferenceTurn {
+            engine: self,
+            completed: false,
+        };
+        let result = self.reply_unlocked(messages, profile, long).await;
+        inference.completed = result.is_ok();
+        result
+    }
+    pub async fn reply_managed(
+        &self,
+        messages: &[Value],
+        mut stop: tokio::sync::watch::Receiver<bool>,
+    ) -> Result<(String, bool), String> {
+        if *stop.borrow() {
+            return Err("Managed gateway stopped.".into());
+        }
+        let _turn = tokio::select! {guard=self.reply_lock.lock()=>guard,_=stop.changed()=>return Err("Managed gateway stopped while queued.".into())};
+        let mut inference = InferenceTurn {
+            engine: self,
+            completed: false,
+        };
+        // Shutdown only after this managed turn owns the inference lock. A queued
+        // gateway request must never terminate an unrelated offline Chat turn.
+        tokio::select! {result=self.reply_unlocked(messages,"fast",false)=>{inference.completed=result.is_ok();result},_=stop.changed()=>Err("Managed gateway stopped.".into()),_=tokio::time::sleep(std::time::Duration::from_secs(180))=>Err("Managed local generation timed out.".into())}
+    }
+    async fn reply_unlocked(
+        &self,
+        messages: &[Value],
+        profile: &str,
+        long: bool,
+    ) -> Result<(String, bool), String> {
+        let input_bytes: usize = messages
+            .iter()
+            .filter_map(|m| m["content"].as_str())
+            .map(str::len)
+            .sum();
+        let context = if long || input_bytes > 6200 {
+            16384
+        } else {
+            8192
+        };
+        let (url, key) = self.start(profile, context).await?;
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(if long {1200}else{600}))
+            .timeout(std::time::Duration::from_secs(if long {
+                1200
+            } else {
+                600
+            }))
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .build()
@@ -310,13 +379,83 @@ pub fn history_reply(text: &str) -> (String, bool) {
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "owned child-process fixture, launched only by the cancellation test"]
+    fn cancellation_process_fixture() {
+        if std::env::var("ANF_ENGINE_CANCEL_CHILD").as_deref() == Ok("1") {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        }
+    }
+    #[tokio::test]
+    async fn cancelling_queued_turn_preserves_engine_but_owned_turn_stops_it() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (_socket, _) = listener.accept().await.unwrap();
+            std::future::pending::<()>().await;
+        });
+        let e = Engine::default();
+        let child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "local_ai::tests::cancellation_process_fixture",
+                "--ignored",
+            ])
+            .env("ANF_ENGINE_CANCEL_CHILD", "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        *e.process.lock().unwrap() = Some(Running {
+            child,
+            url: format!("http://{address}"),
+            key: "0".repeat(64),
+            profile: "fast".into(),
+            context: 8192,
+        });
+        let held = e.reply_lock.lock().await;
+        let messages =
+            vec![json!({"role":"user","content":"A request that must wait for the current turn."})];
+        let mut queued = Box::pin(e.reply_sized(&messages, "fast", false));
+        tokio::select! {_=&mut queued=>panic!("Queued inference bypassed its lock"),_=tokio::time::sleep(std::time::Duration::from_millis(100))=>{}}
+        drop(queued);
+        {
+            let mut process = e.process.lock().unwrap();
+            let process = process.as_mut().unwrap();
+            assert_eq!(process.child.id(), pid);
+            assert!(process.child.try_wait().unwrap().is_none());
+        }
+        drop(held);
+        let mut owned = Box::pin(e.reply_sized(&messages, "fast", false));
+        tokio::select! {_=&mut owned=>panic!("The held HTTP fixture responded unexpectedly"),_=tokio::time::sleep(std::time::Duration::from_millis(100))=>{}}
+        drop(owned);
+        assert!(
+            e.process.lock().unwrap().is_none(),
+            "Cancelled active turn left its process running"
+        );
+        assert!(e.reply_lock.try_lock().is_ok());
+        server.abort();
+    }
+    #[test]
     fn repaired_pack_is_detected_without_restarting() {
-        let root = std::env::temp_dir().join(format!("\x63\x6f\x75\x63\x6f\x75-pack-repair-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "\x63\x6f\x75\x63\x6f\x75-pack-repair-{}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&root).unwrap();
         let e = Engine::default();
         e.configure(root.clone());
         assert!(!pack_available(&root));
-        std::fs::write(root.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }), b"fixture").unwrap();
+        std::fs::write(
+            root.join(if cfg!(windows) {
+                "llama-server.exe"
+            } else {
+                "llama-server"
+            }),
+            b"fixture",
+        )
+        .unwrap();
         std::fs::write(root.join("model-fast.gguf"), b"fixture").unwrap();
         assert!(pack_available(&e.directory().unwrap()));
         std::fs::remove_dir_all(root).unwrap();
@@ -376,13 +515,23 @@ mod tests {
     #[test]
     #[ignore = "runs the real bundled model with a long response budget"]
     fn long_response_uses_expanded_context() {
-        let e=Engine::default();e.configure(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../local-ai"));
-        let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        let messages=vec![json!({"role":"user","content":"Write an approximately 1700-word practical guide to building a weekly reading habit, with eight developed sections and examples. Keep writing until all sections are developed; do not claim or print a word count. /no_think"})];
-        let (text,incomplete)=rt.block_on(e.reply_sized(&messages,"fast",true)).unwrap();
+        let e = Engine::default();
+        e.configure(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../local-ai"));
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let messages = vec![
+            json!({"role":"user","content":"Write an approximately 1700-word practical guide to building a weekly reading habit, with eight developed sections and examples. Keep writing until all sections are developed; do not claim or print a word count. /no_think"}),
+        ];
+        let (text, incomplete) = rt.block_on(e.reply_sized(&messages, "fast", true)).unwrap();
         assert!(!text.trim().is_empty());
-        assert_eq!(e.process.lock().unwrap().as_ref().unwrap().context,16384);
-        println!("Long-response live check: {} words, token-limit reached: {}",text.split_whitespace().count(),incomplete);
+        assert_eq!(e.process.lock().unwrap().as_ref().unwrap().context, 16384);
+        println!(
+            "Long-response live check: {} words, token-limit reached: {}",
+            text.split_whitespace().count(),
+            incomplete
+        );
         e.shutdown();
     }
     #[test]

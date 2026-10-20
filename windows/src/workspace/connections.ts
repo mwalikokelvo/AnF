@@ -1,12 +1,13 @@
 import {invoke} from '@tauri-apps/api/core';
 import {h} from '../views/dom';
+import {managedGateway} from './managed-gateway';
 
 export type Service='gateway'|'notebook'|'nextcloud'|'cal'|'n8n'|'media';
 export type View={service:Service;endpoint:string;origin:string;username:string;model:string;enabled:boolean;hasSecret:boolean};
 type Source={name:string;text:string;pages:{number:number;text:string;ocr:boolean}[];path:string|null};
 type Result={message?:string;text?:string;id?:string;items?:{id:string;name:string}[];source?:Source;pack?:string;status?:string;outputs?:string[]};
 type Action={service:Service;operation:string;id?:string;title?:string;text?:string;eventId?:string};
-type Adapter={allowed:()=>boolean;projectId:()=>string;sources:()=>Source[];draft:()=>{title:string;text:string};importSource:(source:Source)=>Promise<void>};
+type Adapter={allowed:()=>boolean;projectId:()=>string;sources:()=>Source[];draft:()=>{title:string;text:string};importSource:(source:Source)=>Promise<void>;useManaged?:()=>void};
 
 const definitions:ReadonlyArray<{id:Service;name:string;hint:string;placeholder:string}>=[
  {id:'gateway',name:'AI gateway · OmniRoute',hint:'OpenAI-compatible API base including /v1. Use the gateway key, not a provider password. Select Gateway in Chat to send a question there.',placeholder:'http://127.0.0.1:20128/v1'},
@@ -83,6 +84,9 @@ export function createConnections(a:Adapter){
   });
 
   if(def.id==='gateway'){
+   const external=card.children.item(2);
+   card.insertBefore(managedGateway(()=>a.useManaged?.(),message=>{notice.textContent=message;}),external);
+   card.insertBefore(h('h4',{text:'External gateway connection'}),external);
    function savedGateway(){describe();if(endpoint.value.trim()!==current?.endpoint||secret.value||clear.checked||enabled.checked!==current.enabled)throw Error('Save your gateway address, credentials and enabled state before checking it.');}
    const catalog=h('select',{'aria-label':'Discovered gateway models'},h('option',{value:'',text:'Discover models first…'}));
    const route=h('p',{class:'hint',text:'No model selected. AnF will not choose an automatic provider.'});

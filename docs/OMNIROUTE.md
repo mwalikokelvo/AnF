@@ -1,9 +1,34 @@
 # OmniRoute connection
 
-AnF connects to a separately running, OpenAI-compatible gateway. The bundled
-offline AI remains the default and needs no provider API key. AnF does not yet
-install, supervise, update or start OmniRoute from the application. This is a
-working external-service integration with guided setup, not an embedded runtime.
+The 0.1.33 candidate adds an optional managed local gateway on Windows. The
+bundled offline AI remains the default and needs no provider API key. A separate
+external gateway connection remains available for your own services.
+
+## Managed local gateway (Windows candidate)
+
+1. Download and extract the separately supplied
+   `AnF-OmniRoute-3.8.51-Windows-x64.zip`. Keep its folders together.
+2. Open Settings → Connected services → AI gateway · OmniRoute → Managed
+   OmniRoute. Choose the extracted `component/component.json`, then choose
+   **Install optional component**. AnF verifies the pinned manifest and every
+   runtime file before installing its own private copy. The first installation
+   can take several minutes; progress and cancellation remain available.
+3. Choose **Start managed gateway**. Startup verifies the installed files again,
+   then starts a private loopback service. No global Node installation, provider
+   account or user-entered API key is needed. AnF creates its service credentials
+   locally and reuses the bundled Fast model rather than downloading another one.
+4. Choose **Use managed local AI in Chat**, enter a question and choose
+   **Ask selected AI**. A running status means the route is configured; an actual
+   answer verifies generation. This managed profile currently offers local Fast
+   inference, with a 768-token output limit. Use Continue for a longer answer.
+5. **Stop managed gateway** stops the owned service. Closing AnF also terminates
+   it. A stopped route reports an error rather than silently changing providers.
+
+Your saved external gateway connection is preserved. Installing or starting the
+managed service does not select it automatically, change external credentials,
+or enable cloud models. Component replacement/update and Android managed-runtime
+support remain future work. The component archive includes upstream notices and
+corresponding source archives; private recordings and voice models are excluded.
 
 ## Local setup
 

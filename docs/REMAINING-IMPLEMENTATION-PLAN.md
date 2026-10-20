@@ -1,6 +1,6 @@
 # Remaining implementation and delivery plan
 
-Updated: 2026-10-18. Release baseline: AnF 0.1.31.
+Updated: 2026-10-20. Release baseline: AnF 0.1.32.
 
 This is the consolidated inventory of known unmet requests, partial capabilities,
 and verification gaps. It covers the code and earlier requested scope; it cannot
@@ -19,6 +19,12 @@ The private five-voice pack passed full ZIP integrity verification. Existing loc
 writing, calendar ICS, SVG planning, music library, playlists, LRC, local recap,
 encrypted backup and paired project exchange remain available.
 
+The verified 0.1.32 installer, portable ZIP and development APK are published at
+https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.32. Repository access is required.
+This release adds guided gateway discovery and generation checks, installer identity
+fixes and the original OCR regression fix. Managed gateway work remains unfinished
+in its isolated specialist worktree and is not part of that release.
+
 ## Release and installation (first priority)
 
 | ID | Remaining gap | Implementation / integration | Completion evidence |
@@ -26,8 +32,8 @@ encrypted backup and paired project exchange remain available.
 | REL1 | Windows installation experience unverified on user's PC | Reproduce the exact installer launch/error; exercise clean install and upgrade in an isolated Windows environment; diagnose app/engine file locks and shortcut behavior. Add installer smoke checks. | Install, launch, upgrade and uninstall tests preserve user data; user can launch the delivered installer. |
 | REL2 | Production signing absent | Add protected Windows signing and Android release-key workflows; verify signer identity and keep development artifacts distinctly labelled. Requires provisioned signing credentials. | Verified production signatures and upgrade continuity; keys never enter Git or logs. |
 | REL3 | Android installed-device QA absent | Install in an emulator and physical phone; test new-identity export/import, permissions, rotation, process death, background audio and low storage. | Device reports with retained original backup, correct conversation counts and working attachments; no old-app deletion. |
-| REL4 | Reliable public delivery/updater not implemented | Choose a release host and update policy; publish only after explicit publication authorization; attach versioned artifacts/checksums and implement signed update verification/rollback. | Download/install/update from clean device; invalid updates rejected. Local files alone are not hosted downloads. |
-| REL5 | Hosted CI not executed here | Resolve runner/account availability; run Windows/Android required gates remotely, then Linux/macOS jobs as platforms mature. | Successful hosted run tied to exact source/artifact hashes. |
+| REL4 | Automatic verified updater absent | GitHub release hosting is established for 0.1.32, with authorized publication and server-verified asset digests. Implement signed update verification/rollback and test authenticated downloads from the private repository. | Download/install/update from clean device; invalid updates rejected. Repository visibility remains unchanged. |
+| REL5 | Hosted CI blocked by account billing/spending settings | Account administrator resolves GitHub billing; then run Windows/Android required gates remotely, followed by Linux/macOS as platforms mature. | Successful hosted run tied to exact source/artifact hashes. Local checks do not count as hosted CI. |
 | REL6 | Large installer and voice startup cost | Split optional models into versioned verified component downloads; measure CPU voice latency and implement a bounded persistent local worker/preloading with cancellation. Keep offline installation possible. | Smaller core installer; measured first/subsequent speech latency and memory; no cloud fallback or stale jobs. |
 
 ## Reading and local intelligence
@@ -36,7 +42,7 @@ encrypted backup and paired project exchange remain available.
 | --- | --- | --- | --- |
 | READ1 | Android original PDF pages absent | Add native PDF rendering into the existing Documents canvas, bounded page cache, zoom and anchored overlay annotations. | Image/text switching, page accuracy, memory/cancellation and annotation tests on phone. |
 | READ2 | Android scanned-document OCR absent | Integrate licensed offline OCR with image preprocessing and cancellable page jobs. | Scanned PDF corpus produces searchable text offline without memory spikes. |
-| READ3 | Windows OCR quality defect | Retain the failing 'seven letters' fixture; separate OCR resolution from display sizing and tune preprocessing/model. | Existing expectation passes plus representative noisy/rotated/multilingual corpus; no weakened assertions. |
+| READ3 | Windows OCR corpus quality defect | Original 'seven letters' regression now passes without unnecessary upscaling. Preserve the strict noisy/skew corpus exposing El→Fl; improve preprocessing/model. | Original regression continues to pass plus representative corpus; no weakened assertions. |
 | READ4 | EPUB/Word only extracted text | Build format-aware content models: EPUB spine, images, tables, footnotes and semantic headings; structured DOCX blocks. Sanitize content. | Format corpus preserves reading order, links and notes; safe malformed-archive handling. |
 | READ5 | Advanced accessibility and languages incomplete | Add chapter/heading/table navigation, accessible names and keyboard shortcuts; test screen readers, RTL and multilingual pronunciation. | Assistive-technology and multilingual device tests. |
 | READ6 | Custom voices unavailable on Android | Benchmark a licensed mobile CPU/GPU inference runtime and quantized model; implement native lifecycle/download/storage integration. Offer explicit paired-PC speech as an optional alternative. | Real new-text synthesis in airplane mode on supported phone; measured battery/RAM/latency; honest unsupported-device state. |
@@ -69,7 +75,7 @@ accounts. Local models may require an initial download, not paid API credentials
 | ID | Remaining gap | Implementation / integration | Completion evidence |
 | --- | --- | --- | --- |
 | CON1 | Open Notebook adapter not live-validated | Add guided optional local service setup/health check and job polling; integrate ingestion, retrieval and citations. | Real imported source completes processing and cited answer resolves correctly. |
-| CON2 | OmniRoute not live-validated | Offer optional local gateway setup, model discovery and explicit routing; test authentication/rate limits/cancel. | Real selected model responds; routing visible; no silent provider switch. |
+| CON2 | Managed OmniRoute lifecycle unfinished | Existing-service setup, discovery and real local generation are verified in 0.1.32. Add reviewed offline component import, owned loopback service lifecycle and a separate managed Chat route sharing the bundled engine. | Native import/start/generate/stop/restart/exit and failure tests pass; external gateway settings preserved; no silent provider switch. |
 | CON3 | Creative media actual generation/import incomplete | Support a local generator where hardware permits; finish optional remote job polling, validated output import and restart recovery. | Real generated artifact opens/saves; quotas/errors/cancel/restart tested. SVG planning remains separately labelled. |
 | CON4 | Cal.diy booking lifecycle absent | Add optional self-host setup, availability/timezone integration and explicit booking/reschedule/cancel actions. | DST, duplicate-click and attendee tests against running instance. |
 | CON5 | Nextcloud continuous sync absent | Extend encrypted backup adapter with ETags, conflict copies, retry/resume, revocation and explicit background settings. | Interrupted/concurrent edits restore correctly; credentials and encrypted content protected. |
@@ -90,13 +96,13 @@ accounts. Local models may require an initial download, not paid API credentials
 | PLAT2 | iOS absent | Define iOS app/runtime and parity scope; obtain Mac/Xcode/signing environment; implement document/audio/storage integrations. | Signed device build and lifecycle tests. User currently has no Mac/developer account. |
 | PLAT3 | Separate macOS app parity incomplete | Port shared workflows, replace Cursor/Codex readiness stub with real tested hooks, compile on Mac. | Native Mac build and actual integration checks; separate version tracked. |
 | PLAT4 | Portable user-data mode absent | Define portable vault/key policy with explicit portable-root marker; remove hidden machine dependencies for supported features. | Removable-drive tests across two PCs with recoverable encrypted data and no loss. |
-| TOOL1 | Ruflo/rea plugin installation incomplete | Inspect pending marketplace commands/manifests; use supported Codex plugin or pinned MCP path after reviewing declared capabilities. | Manager reports installed and a relevant tool smoke test passes; source download alone is insufficient. |
+| TOOL1 | Ruflo tool smoke test and rea compatibility unresolved | Ruflo Core 0.2.11 is installed. Smoke-test a relevant tool. Rea lacks the supported marketplace manifest; evaluate a reviewed compatible integration instead. | Installed tool performs a relevant task; incompatible repository is not described as an installed plugin. |
 | TOOL2 | NVIDIA nim-anywhere incompatible marketplace | Treat as optional service/deployment project, evaluate hardware and supported interface; do not claim plugin install. | Working explicit adapter/service health and task output, or documented unsupported environment. |
 | TOOL3 | Baseten/OpenRouter concrete packages unspecified | Resolve organization URLs to official specific integration/API/MCP packages; keep paid/account services optional. | Exact package/provider selected, configured and tested; no API keys required for core local features. |
 
 ## Dependency order and release-sized batches
 
-1. Delivery reliability: REL1–REL5; confirm user can install31; close phone migration
+1. Delivery reliability: REL1–REL5; confirm user can install the current release; close phone migration
    QA. Keep every application update paired with verified Windows/Android downloads.
 2. Repair current failures: MUSIC1, READ3, SEC1–SEC2. Avoid adding catalogs while
    playback and OCR remain unreliable. Record real account/environment dependencies.
@@ -116,11 +122,11 @@ checksums/download links → update this inventory. Mark external dependencies a
 blocked explicitly; do not replace implemented behavior with a setup card. Do not
 assign completion dates until benchmarks/environment checks establish effort.
 
-## Android31 delivery and installation scope
+## Android 0.1.32 delivery and installation scope
 
-Use releases/AnF-Android-0.1.31-debug.apk (15,431,185 bytes), NOT the unsigned APK.
+Use releases/AnF-Android-0.1.32-debug.apk (15,431,189 bytes), NOT the unsigned APK.
 It has a verified development certificate and application ID com.anf.workspace,
-versionCode1031. Transfer that APK to the phone and open it there. The old app
+versionCode1032. Transfer that APK to the phone and open it there. The old app
 must remain installed until export/import and content comparison succeed.
 
 Native package/source/assets/alignment/signature checks pass; physical-device
@@ -145,5 +151,6 @@ AI remain listed above rather than implied by the APK download.
 - A03/MUSIC2: module identity and Windows tool invocation fixes integrated. Actual
   Android native music AAR/build prerequisites and device playback remain open.
 - Release gates: Android32 built/verified; native32 suite79pass0fail14ignored and
-  native32 UI/PDF/connection/export checks passed. Windows32 production package is
-  still being built; no completed32Windows download claim until integrity checks.
+  native32 UI/PDF/connection/export checks passed. Windows32 installer and portable
+  ZIP passed integrity verification, including all 593 portable files. All seven
+  GitHub release assets matched local sizes and digests before publication.

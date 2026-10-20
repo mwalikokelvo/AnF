@@ -245,3 +245,180 @@ plus checksum/manifests. Repository remains private; access is required to downl
 Voice packs/recordings and unfinished managed runtime were not uploaded. Evidence:
 .tools/published-032.json and .tools/logs/publish-032.txt. Hosted CI is blocked by
 GitHub billing/spending settings; release notes say local validation only.
+
+## Managed gateway continuation — 2026-10-20
+
+Capacity resumed; specialist agents made progress then failed with workspace credit
+errors even while usage API reports ordinaryUsageAllowed=true (weekly16%). Do not
+repeat agent retries or bypass limits. Root continued in the existing isolated
+worktrees/omniroute-managed only; primary released app source remains 0.1.32.
+
+Saved specialist modules now include managed install/start/stop/status/use, separate
+managedGateway Chat selection, per-private-home OS keyring credentials, owned Windows
+job, bounded component paths/inventory, shared local engine and cancellation guards.
+Reviewer found a check/connect port race. Root added managed_http.rs with direct
+numeric loopback sockets, duplicated original process handle, established server-side
+5-tuple/PID attestation BEFORE any bytes, same held stream/no reconnect, bounded
+HTTP framing/chunked parsing, fixed deadlines and proxy bypass. Setup and managed
+generation use it. New parser/real socket wrong-owner tests are building in
+.tools/logs/managed-transport-tests.txt (exec session51187). No passing claim yet.
+
+Root owns primary/scripts/app-qa/omniroute-managed-native.mjs (syntax passes): actual
+native import/start/Chat generation, external-config preservation, hostile-proxy
+trap, workspace authorization, cancel/start/stop/restart/exit. Not executed yet.
+Candidate optional runtime is .tools/components/omniroute3.8.51-win32-x64; startup
+health/dashboard smoke passed, but candidate summary hash may predate dynamic
+playwright dependency addition. Reverify full component before pinning manifest.
+EXPECTED_MANIFEST remains PENDING_REVIEWED_COMPONENT_DIGEST intentionally. Licenses
+(especially LGPL libvips source offer/unknown package inclusion) need final review;
+no runtime component published or cleared for redistribution yet.
+
+Root also refreshed REMAINING-IMPLEMENTATION-PLAN.md to actual delivered32 status,
+and added local .tools/publish-verified-release.py (syntax checked, NOT executed),
+which verifies every explicit allowed asset's local+remote digest before publication.
+Sprint board: .tools/managed-sprint-board.json. Next: finish transport compile/tests,
+component license/runtime verification, native lifecycle/UI, independent review, then
+integrate and build verified Windows/Android33 and publish. No new release yet.
+
+### Managed transport/tests and QA timing correction — 2026-10-20
+
+Local WIP checkpoint4266e7f on wt/omniroute-managed now preserves native modules
+and frontend controls (14 files; primary app still unchanged). Root added transport
+and fixed two compile issues. Eight focused native tests PASS; full suite87pass,
+0fail,14ignored; source gate PASS. Logs: managed-transport-tests.txt,
+managed-native-full.txt, managed-source-gate.txt. QA build succeeded twice.
+
+Current component manifest for local QA is
+965aedb402bcdd521809c1037e0138630e2a5a10a8db9f0f02944b18855bd348,
+27379files/872486553bytes. Native Sharp/libvips payload removed from managed text
+profile (quarantined outside component),9missing third-party notices restored.
+Basic runtime smoke stillPASS. Unknown-license package metadata has no executable
+payload (khroma only has its retained MIT license). Additional source-availability
+review for conservatively bundled web dependencies remains open before release.
+Do not claim component legally cleared or published yet.
+
+Two isolated native E2E imports were intentionally cancelled while investigating
+slow setup. FIRST explanation blaming per-file sync was premature: removing sync
+had little effect. Profiling shows substantial debug hashing cost. Per-file sync
+has been RESTORED and manifest is also synced. Added opt-level3 specifically for
+sha2 in Cargo dev/test package profiles (production profile unchanged) so QA does
+not spend many minutes in unoptimized software SHA. These last changes are dirty
+on top of4266e7f and need final tests/commit. Optimized-hashing QA rebuild currently
+runs in managed-qa-build.txt, execsession26790. Last E2E execsession93013 was
+cancelled intentionally; no passing native E2E yet. Use primary's updated harness
+which measures importMs/startMs. Keep cancelled logs/profiles as evidence, never
+misrepresent partial imports as completed. Next: rerun native E2E using rebuilt
+worktree binary, fix actual startup/schema issues, finish review/package, integrate,
+then33builds+publication. No new Windows/Android release yet.
+
+### Managed OmniRoute production entry corrected - 2026-10-20
+
+Primary application remains released32; no33 publication yet. Worktree omniroute-managed
+has33 candidate changes on4266e7f. Latest full native suite:91pass/0fail/15ignored
+(log managed-native-full-33-final.txt). Whole-tree rustfmt check detects substantial
+pre-existing formatting differences; no bulk reformat was applied. Component integrity
+PASS:27379files/872486553bytes/no extras/no reparse points.
+
+Earlier genuine optimized native QA imported the component in492.4seconds, then setup
+failed403. Upstream production uses runtime/dist/server-ws.mjs; bare server.js skips
+peer-IP security initialization. Native launch and pinned manifest now use server-ws.mjs,
+OMNIROUTE_PUBLIC_BASE_URL numeric owned origin, explicit authenticated CSRF flow, and
+OMNIROUTE_ENABLE_LIVE_WS=false. Isolated control-plane probe using that entry and native-like
+environment PASSed login/CSRF/provider-node/provider/provider-valid/model/key endpoints.
+This is control-plane evidence only; full native Chat/lifecycle still needs rerun.
+
+CURRENT manifest SHA256:9db5aec18cfc8f2e8a5ae160056b2b728a444b88eda0ac4c202bdfa12361bafb.
+Old bare-entry ZIP retained under .tools/components/superseded-bare-entry, not for release.
+Current final packager includes3 verified corresponding-source archives and notices,
+Sharp/libvips native payload removed. Packager session30643; optimized QA33 finalbuild
+session17473. Logs managed-component-package-final.txt and managed-qa-release-build-33-final.txt.
+Final worktree sourcegate session54510 log managed-worktree-source-gate-33-final.txt.
+Do not confuse prior primary32 sourcegate with candidate33 verification.
+
+Four bounded import workers now retain every integrity/path/private-ACL/fsync/atomic
+promotion check. Cancellation correctly owns local inference turns: queued cancellation
+cannot stop another active model turn; active cancellation stops its own child. Test
+fixture validates actual owned processes. All five private voices remain unpublished.
+After final QA: integrate without discarding primary changes, build actual Windows/APK,
+verify artifacts, normal source push and private prerelease publication. No limit bypass.
+
+### Native setup passes; release33 builds in flight - 2026-10-20
+
+Root committed c5913ff then c4e3d9c on isolated managed worktree.91native tests still
+PASS after bounded parallel startup verification and corruption/cancel regressions
+(log managed-native-parallel-verify-final.txt). Production-entry native start succeeded
+in247005ms using reused isolated component; external connection unchanged and no proxy
+traffic. Harness then asserted provider before async click completed (local!=managed,
+line80), so no generation/lifecycle pass claimed. Added waitForFunction for actual
+managed+chat selection and listener/auth checks. Reused test profile safely retains
+current9db5 manifest; old backup is outside strict component inventory.
+
+19 application/doc files now integrated to primary after preflight all matched158501
+released baseline; no unrelated changes/index reset. Integration evidence:
+.tools/managed-integration-033.json; helper .tools/integrate-managed.py.
+Primary is now33 CANDIDATE, not yet published. docs/OMNIROUTE.md has candidate setup.
+Native harness remains primary/scripts/app-qa/omniroute-managed-native.mjs.
+
+Optimized QA rebuild with four-worker verify session79644 log
+managed-qa-parallel-verify-build.txt. Run native harness after it exits0, reuse profile
+first to verify startup/realgeneration/lifecycle, then fresh import as finalacceptance.
+Optional component finalZIP PASS CRC,345205331bytes,SHA256
+72f755f052d6d84b1752decb86fa3e4df929dc6e1e343628996dc583ab8f0e2b,
+report .tools/components/component-package-verification.json. Never use supersededZIP.
+
+Windows production pack:music session90065 log managed-windows-033-release-build.txt.
+Android actualrelease gate session94074 log managed-android-033-release-gate.txt.
+First Androidattempt failedonly because gradle.bat missingPATH; restartedwith
+.tools/android/gradle/gradle-9.4.1/bin and correct privateJava/Gradle/SDK dirs.
+Wait eachbuild exit0; nativeE2E andfullartifactverification required before source/tag/
+releasepublication. Release helper .tools/publish-verified-release.py still allows only
+7standardassets; extendexplicitreviewedcomponentvalidation before includingZIP+manifest.
+No33 release, no GitHub upload from these checkpoints yet. Do not bypass limits.
+
+### Shared target discovered; capacity checkpoint - 2026-10-20 13:14 UTC
+
+Android actual33 releasegate PASSED (94074 exit0), currentAPK/signature/alignment/source.
+QA worktree windows/target is a JUNCTION to primary/windows/target, so production
+pack must NOT run while nativeQA executable uses shared target/release. Root stopped
+only own queued Cargo PID47432 (exact hook build verified) to avoid overwritingQA;
+production session90065 exited1 intentionally. No installer33 produced yet.
+QAparallelbuild79644 stillinflight log managed-qa-parallel-verify-build.txt.
+Afterit exits0: COPY QA AnF.exe to a NEW .tools/managed-qa-bin-UUID folder and junction
+read-only resource folders local-ai/media/spotube to sharedrelease resources (or copy
+needed resources). KeepcopiedQAexe isolated, then production pack can rebuildsharedtarget.
+Runupdated nativeharness with copiedexe, currentmanifest, sourceRootprimaryorworktree33,
+reuseexistingprofile17053 first thenfreshprofile forreal4workerimport. NoE2Epassyet.
+
+Publisherhelper now supports explicit managedComponent version3.8.51/pin9db5 only,
+checks exactZIPinventory/sourcearchives/report before allowing10assets. SyntaxPASS.
+Report copied AnF/releases/omniroute-component-verification.json. NoGitHub33uploadyet.
+Sourceworktreec4e3d9c is latest; primary19files integrated, bothappsource33.
+Nativeall91testsPASSED,15ignored; nofullnativegenerationpassclaimed.
+Capacityordinarytrue99percentat13:13UTC,0credits. Neverbypass; resumeordinarycapacityonly.
+
+### Resume at normal capacity; managed single-listener profile - 2026-10-20
+
+Capacity reset normally (0percent at17:16UTC); no limit bypass. Copied QA executable
+AND physical local-ai/media/spotube resources to .tools/managed-qa-bin-a8c359a3-9271-422a-9b7f-6f91892f8214,
+currentpointer .tools/managed-qa-bin-current.json. Avoid shared-target exe forQA.
+First parallel-verify QA start116562ms passed but testfound2loopbacklisteners. Identified
+20131 as optional EmbedWsProxy, not APIrelay. ExplicitequalAPI/DASHBOARD/OMNIROUTE ports
+plus API_HOST127 retained fordeterminism, but actual fix is
+OMNIROUTE_DISABLE_BACKGROUND_SERVICES=true (also retainsENABLE_LIVE_WS=false).
+Isolated probe with this flag PASS:one127.0.0.1listener, allauthenticatedsetupendpoints.
+Log managed-background-disabled-probe.txt. Component payload/pin/archive unchanged9db5.
+Worktreelatest474bbeb; primarysourcefilecopiedmatches. Finaldeliverytests91pass/0fail/15ignored
+log managed-native-033-delivery-tests.txt. Android33 finalverification PASS after latest
+Windows-only changes (managed-android-033-final-verification.txt).
+
+QA single-listener rebuilt successfully4m31s; pipeline28826 copiedonlyQAexe into isolatedbin.
+That first E2E closedunexpectedly duringstartup and cleanupmaskedoriginalerror; no pass.
+Harness nowrecords originalfailure and childexit; cleanupcannotreplaceprimaryerror.
+Retry CURRENT session72671, log managed-single-listener-native-e2e-retry.txt;
+startupwas verifying612048262/872486553bytes at lastread, noerror yet. Oldfailedreports
+preserved by reuseharness. Keepreports honest; actualgeneration/lifecycle stillpending.
+Avoid extraCDPclients duringtest ifpossible. Productionfinalpacksession90961 nowrunning
+independently; log managed-windows-033-release-build-final.txt. It startswithactual91tests,
+thenpack:music. Await0, verifyfullZIP+installer beforepublication. Androidready local33.
+No33GitHubupload/tag/releaseyet. NextfullreuseE2Epass, fresh4workerimportE2E, artifactgates,
+source snapshot preservingprimaryindex, privateGitHub33release10explicitartifacts.

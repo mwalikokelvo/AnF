@@ -3,7 +3,7 @@ members = ["src-tauri", "hook"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.32"
+version = "0.1.33"
 edition = "2021"
 license = "MIT"
 
@@ -15,3 +15,11 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Full optional-component integrity checks should not run unoptimized SHA loops
+# in native QA. The algorithm/checks are identical; only hashing is optimized.
+[profile.dev.package.sha2]
+opt-level = 3
+
+[profile.test.package.sha2]
+opt-level = 3
