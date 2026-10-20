@@ -760,3 +760,21 @@ Current37completedusingavailableCspace. Futurebuildsneedstoragedecision.
 Next repairperformance/finishingprogress, reviewedruntimeupgrades, thenlocalTTS/
 reader/mobile/servicegaps. CIaccountbilling remains externalaction; noYAMLfixclaim.
 PrimaryHEAD/index and allunrelatedchangespreserved; noappuninstall orprivatevoicesupload.
+
+### 2026-10-20 23:27 UTC heartbeat: repair audit checkpoint
+
+Ordinary capacity is available. Version 0.1.37 remains the current verified app
+release; no 0.1.38 code/binary/tag was created. Fresh latest CI run39514580304
+(source ffaed71) was refused before execution for account payments/spending.
+This is not a YAML failure; retain the workflow diagnosis automation instruction.
+C: remains about6.3GiB free. The previous storage question is unanswered. No K:
+writes, no cleanup retry, and no new full build were attempted.
+
+Reviewed managed_repair.rs and managed_component.rs. Updated recovery plan with
+specific measurement, truthful phase progress, metadata traversal, accepted
+verification and mapped-drive classification tasks plus required regression
+evidence. The plan distinguishes proposals from delivered behavior; no checks
+were weakened and no speedup is claimed. Before an optimization, preserve
+acceptance-marker-last, restart verification, cancellation rollback and safety
+against concurrent filesystem changes; the controller lock does not exclude
+external writers. Next app update still requires paired Windows/Android releases.
