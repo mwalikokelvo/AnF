@@ -727,3 +727,15 @@ Then production pack/fullverifier and publish37verified10assets.
 No37tag/releaseyet. Parent latestsource bec884875fa82587093b5819bb123cf5bc8c3e9b.
 HostedCIstillaccountbilling; no YAMLfixclaimed. PreserveprimaryHEAD/index and
 unrelatedchanges; no cargo fmt --all.
+
+0.1.37 finalnativePASS: realownedgatewayexit -> statusownedtrue/readyfalse,
+explicit UI Stop releasesownership, restartworks, externalconfigunchanged; all
+normalAIgeneration/auth/permissions/cancel/restart/forcedexitchecksPASS.
+managed-stale-037-native-e2e-final.txt, reusedQAprofile reportpassedtrue,0proxy.
+FirsttestfailedonlyimmediateStopvisibilityassertduringasyncRefreshbusy; waitFor
+visibleaddedbeforeclick, appcodeunchanged; failedreportpreservedbeforefreshretry.
+Windowsproductionpack+593files/ZIPCRC/SHA PASS, Androidactual37finalgatePASS incl
+versioncollisionguard. Saveharnesswait+handoffnormalchildbefore37tag.
+Userstoragequestionpending: C6.3GiB; K690GiBisNETWORK. Current37canpublishonC.
+Do not write future build outputs to K without explicit answer, and never copy
+private voice profiles/models there. Cachecleanupautoreviewrejected; noevading.

@@ -187,7 +187,7 @@ try{
   await assert.rejects(()=>invoke('omniroute_use'));
   await page.locator('.workspace-navigation [data-view="settings"]').click();
   await managed.getByRole('button',{name:'Refresh managed gateway status',exact:true}).click();
-  assert.equal(await managed.getByRole('button',{name:'Stop managed gateway',exact:true}).isVisible(),true);
+  await managed.getByRole('button',{name:'Stop managed gateway',exact:true}).waitFor({state:'visible',timeout:10000});
   assert.equal(await managed.getByRole('button',{name:'Repair installed component',exact:true}).isVisible(),false);
   await managed.getByRole('button',{name:'Stop managed gateway',exact:true}).click();
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('[aria-label="Managed OmniRoute"] button')).find(b=>b.textContent==='Choose OmniRoute component')?.hidden===false);
