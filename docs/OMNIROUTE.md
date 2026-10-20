@@ -1,10 +1,10 @@
 # OmniRoute connection
 
-The 0.1.33 candidate adds an optional managed local gateway on Windows. The
+AnF 0.1.33 adds an optional managed local gateway on Windows. The
 bundled offline AI remains the default and needs no provider API key. A separate
 external gateway connection remains available for your own services.
 
-## Managed local gateway (Windows candidate)
+## Managed local gateway (Windows preview)
 
 1. Download and extract the separately supplied
    `AnF-OmniRoute-3.8.51-Windows-x64.zip`. Keep its folders together.

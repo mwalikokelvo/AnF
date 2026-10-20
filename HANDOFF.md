@@ -422,3 +422,62 @@ independently; log managed-windows-033-release-build-final.txt. It startswithact
 thenpack:music. Await0, verifyfullZIP+installer beforepublication. Androidready local33.
 No33GitHubupload/tag/releaseyet. NextfullreuseE2Epass, fresh4workerimportE2E, artifactgates,
 source snapshot preservingprimaryindex, privateGitHub33release10explicitartifacts.
+
+### Managed native acceptance passed;33 draft uploading - 2026-10-20
+
+Root now has a complete PASS using existing isolated installed component:
+managed-native-reconnect-033.txt and profile17053/report.json passed=true,8checks,
+start140702ms,1recordedCDPtransportreconnect,0proxyrequests. GeneratedrealFastanswer,
+one127.0.0.1listener,unauthchatdenied,workspace-onlyIPC,stop/no-fallback,
+cancel/no-stalepublish,restartandexitcleanupALLPASS. Prior apparentappcrasheswere
+CDPtargetclosures: capturedchildAliveBeforeCleanup=true,noRustpanic,actualworkspace
+recoverable. Harnessreconnectsobservesoriginaloperationwithoutresubmittingstart;
+realanswerverifiedthroughactualChatUI. Capturelogapp-native.log isempty. No product
+crashclaim; reconnectrecordremainsinevidence.
+
+Freshprofile fullimport+sameacceptance NOW session99367,helpernodePID34020,
+logmanaged-native-fresh-033.txt; unreviewedmanifestrefusalPASS,importinflight.
+Waitfullpassbeforepublication. Reusehelper35692 exited; noparallelQAapps.
+Primaryandworktreecodeidentical474bbeb; all91native tests0fail15ignoredPASS.
+Windowsproductionpack90961 exited0; fullverifier32012PASS593portablefiles+CRCs+SHA,
+installer1816636066bytes,portable1820529029bytes. Android33finalverifierPASS.
+
+GitHubsourceSAVED via temporaryindex/commit-tree, normalfastforwardpush preserving
+primaryrealindex/HEAD:7d1672b7d269e877f749c275e08281e32feeeb7f oncodex/downloadable-releases,
+parent0f7ad2f,22scopedfiles,preflightexcludedprivate/binaryassetsandcredentialpatterns.
+.tools/source-033-preflight.json andsource-033-commit.json. PrimaryrealHEADstill7b39.
+
+DraftuploadNOWsession70424 logdraft-release-033-upload-retry.txt. Firstattempt404was
+helperapi('') trailing slash; fixedrootURL,authenticationworks. Uploadsetupfirstcurrently.
+Plan.tools/release-033-plan.json:10exactassets,source7d1672b,notesrelease-033-notes.md.
+PublisherallowshelddraftWITHOUTtag; immutablev0.1.33tagcreatedonlywith--publishafter
+acceptance. Privatevisibilityandlocal/remoteSHArequired;noclobber/force/voiceuploads.
+Waitdraftuploadall10verifiedANDfreshnativepass,thenrunpublisherplan--publish. Ifsource
+changesareactuallyneeded,newsource/planreviewrequired;currentappbinarysourceis7d.
+No33publishedreleaseyet. Existing32stilllatestuntilfinalpublish.
+
+### Release0.1.33 published - 2026-10-20
+
+https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.33
+Tag/application source7d1672b7d269e877f749c275e08281e32feeeb7f. Tenassets remotely
+SHAverified; evidence.tools/published-0.1.33.json andpublished-033-final.txt. RepoPRIVATE.
+Windowsinstaller1816636066bytes,portable1820529029bytes; Androidcurrent33debugAPK;
+optionalOmniRouteZIP345205331bytes,pin9db5 unchanged. No privatevoiceupload.
+
+Freshprofile4e7d1ddc-80f2-4972-b250-6ae6d7d45b19/report.json passed=true,9checks,
+import184706ms,start129526ms,proxy0. Allgeneration/auth/scope/stop/cancel/restart/
+ownedNodeexitchecksPASS. Freshharnesssession99367done. Reuse17053passed8checks,
+start140702ms,oneCDPtransportreconnectrecorded. BothactualmodelanswersverifiedUI.
+91native testsPASS/15ignored; Androidgate+finalverificationPASS; Windows593files/CRC/
+SHAverificationPASS. Publishedhelper45996done; draft70424done. Currentappstillinstalled32
+was deliberately untouched; user must runnewinstaller to update. No uninstalls.
+
+ForcedQAapptermination left2QAmodelchildren in the isolatedQAresourcefolder; root
+cleanedONLYthose exactpathprocesses8740/53040. Installeduserapp/modeluntouched.
+GatewayNodekill-on-closewasverified; localmodelownershipunderforcedterminationis a
+separateexistinggap,nowexplicitnextwork. Do not claim allpossiblechildprocesskill
+casescovered. KeepQAprofiles/evidence; don'tdeleteuserfiles or sharedtargetjunction.
+DocsIMPROVEMENTS-0.1.33.md andremainingplanupdated; appcodeunchangedsince7d.
+Next: savecompletiondocs normally onreleasebranch preservingindex; continuebacklog
+withlocalmodeljobownership/Homegatewaydiscoverability thenreader/mobile/servicework.
+Neverbypasslimits. Nextappcodechange needs newbuilds andnewrelease,not33assetclobber.
