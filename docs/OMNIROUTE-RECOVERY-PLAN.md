@@ -1,6 +1,6 @@
 # Managed OmniRoute recovery: implementation specification
 
-Status: source implementation candidate 0.1.36; published baseline remains 0.1.35 until release acceptance. Eight native repair fixtures and the full 101-test suite passed; real-runtime native acceptance is pending.
+Status: pinned Windows repair delivered and verified in 0.1.36. Runtime version upgrades and additional platform/fault validation remain pending.
 
 The startup error in managed_omniroute.rs tells the user to reimport after early process exit. managed_component.rs refuses import whenever the component destination exists. The settings UI also hides manifest selection for installed components. This leaves a corrupt installation without a supported repair route. Home status currently validates the pinned manifest, not every payload file; startup still verifies every file before executing anything.
 

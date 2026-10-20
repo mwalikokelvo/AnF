@@ -106,3 +106,9 @@ test uses the same three gateway variables. Never run it against user instances.
 Upstream references: [OpenAI compatibility](https://github.com/diegosouzapw/OmniRoute/wiki/Openai-Compatibility),
 [3.8.51 provider-node API](https://github.com/diegosouzapw/OmniRoute/blob/release/v3.8.51/src/app/api/provider-nodes/route.ts),
 [3.8.51 environment contract](https://github.com/diegosouzapw/OmniRoute/blob/release/v3.8.51/.env.example).
+
+## Repair the reviewed local component (Windows 0.1.36)
+
+Stop the managed gateway in Settings. Extract the same published optional 3.8.51 component ZIP into a separate folder, choose its component.json, then select Repair installed component. Keep that extracted source separate from AnF's private managed directory. Repair verifies the complete payload and can take several minutes; wait for the repaired/stopped status before starting it. It does not accept arbitrary runtime versions or change your external gateway connections.
+
+Startup or a new import/repair recovers a pending transaction while stopped. Unexpected links, ambiguous copies and failed accepted verification are preserved for inspection. Keep those files when reporting a failure; do not manually delete a pending transaction or the only installed copy. If a crashed owned gateway still causes a stop-before-repair message, quit AnF completely and reopen it before retrying. Explicit stale-process-state controls remain a follow-up. Component version upgrades remain a separate reviewed release task.

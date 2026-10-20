@@ -674,3 +674,24 @@ bytes were restored ONLY after proving rustfmt(parent)==current normalized bytes
 .tools/format-only-restoration-036.json recordsproof. lib.rs minimal two-line
 registration change likewiseproved. Do NOT run cargo fmt --all again; formatonly
 new/managed files with skip_children. Never reset primaryHEAD/index or userchanges.
+
+### 0.1.36 delivery complete - 2026-10-20
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.36
+Tag/app source 9f5fe4d4d32971b9dce7f5eea2078226e9463497; ten remote asset SHA-256 checks passed.
+Native101PASS/15ignored; eight repair fixtures. Browser repair/Homepassed.
+Actual native isolated damaged-runtime repair PASS, 593.5s; first start131.5s.
+Real generation/auth/permission/cancel/restart/forced-exit cleanup passed.
+Report .tools/managed-native-qa-4e7d1ddc-80f2-4972-b250-6ae6d7d45b19/report.json
+(native prior reports preserved before reuse). Log managed-repair-036-native-e2e.txt.
+Windows setup/portable/full593fileCRC/SHAverifierPASS; Androidactual36gatePASS.
+Exact plan .tools/release-036-plan.json; .tools/published-0.1.36.json.
+No private voices uploaded; no real installed application or model terminated.
+CIstillaccountbilling/refusedrunner; user/accountadminmustresolve. NoYAMLfixclaimed.
+Next: repair metadata/cleanup latency and clear finishing-progress phases, reviewed
+version upgrades and more storage-fault tests; then reader/mobile/service/TTSgaps.
+NoPowerloss/liveDiskFull/AndroidDevice/Strixclaim. No arbitrary new pins. Audit follow-up: a dead owned Running record can still
+block repair even while ready/running status is false; Settings hides Stop in
+that state. Exercise this case and add explicit stale-state handling without
+terminating unrelated processes. Quitting/reopening AnF clears native ownership.
+This docs-only checkpoint follows compiled source; primary HEAD/index preserved.
