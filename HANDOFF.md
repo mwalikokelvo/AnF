@@ -610,3 +610,25 @@ report home-managed-qa-41d85fc3-ca7f-417b-8550-6eb44253b417. Browser state check
 TypeScript passed. Production pack session75868 still in progress; do not publish
 until pack and .tools/verify-windows-release.py pass. No native model/gateway
 process changes since34; no repeated inference claim for35. Android35gate passed.
+
+### 0.1.35 delivery complete - 2026-10-20
+
+Published private preview: https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.35
+Tag and compiled source: 64d6547274e4cc4488ed20827e8eca3bf8934446. Ten assets verified by remote SHA-256.
+Source checkpoint .tools/source-035-commit.json; exact artifact plan
+.tools/release-035-plan.json; publication evidence .tools/published-0.1.35.json.
+Windows installer and portable ZIP, Android development APK, checksums/reports
+and unchanged optional OmniRoute 3.8.51 component are available.
+Home gateway browser state/error/busy tests and TypeScript passed. Native
+Home setup/settings focus and preserved offline Chat navigation passed in isolated
+QA profiles; no model launched by Home or provider selection. Windows complete
+portable-folder/ZIP/hash verification and current Android artifact gate passed.
+Native process behavior is unchanged from34; no repeated inference claim for35.
+No private recordings or private voice models uploaded. User installed app/model
+was left untouched. No Linux, physical Android or Strix verification claimed.
+
+Next: reviewed component upgrade/recovery,
+then reader/mobile/service gaps in docs/REMAINING-IMPLEMENTATION-PLAN.md.
+Real checkout HEAD/index remain preserved; publication uses temp-index commit-tree.
+Do not reset/pull or overwrite immutable release assets/tags. The docs-only child
+following this release does not change application source or require a new binary.
