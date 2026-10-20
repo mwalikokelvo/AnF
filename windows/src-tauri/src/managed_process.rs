@@ -1,5 +1,6 @@
 //! Windows process ownership: create suspended, assign a kill-on-close Job,
 //! then resume its owned initial thread. Never adopt an existing process.
+use std::ffi::OsString;
 use std::path::Path;
 #[cfg(windows)]
 use windows::{
@@ -30,6 +31,44 @@ use windows::{
 #[cfg(windows)]
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
+}
+#[cfg(windows)]
+fn command_line(executable: &Path, arguments: &[OsString]) -> Result<Vec<u16>, String> {
+    use std::os::windows::ffi::OsStrExt;
+    let mut line = Vec::new();
+    for argument in
+        std::iter::once(executable.as_os_str()).chain(arguments.iter().map(|a| a.as_os_str()))
+    {
+        if !line.is_empty() {
+            line.push(b' ' as u16);
+        }
+        line.push(b'"' as u16);
+        let mut slashes = 0;
+        for unit in argument.encode_wide() {
+            if unit == 0 {
+                return Err("Process arguments cannot contain NUL.".into());
+            }
+            if unit == b'\\' as u16 {
+                slashes += 1;
+                continue;
+            }
+            let count = if unit == b'"' as u16 {
+                slashes * 2 + 1
+            } else {
+                slashes
+            };
+            line.extend(std::iter::repeat_n(b'\\' as u16, count));
+            line.push(unit);
+            slashes = 0;
+        }
+        line.extend(std::iter::repeat_n(b'\\' as u16, slashes * 2));
+        line.push(b'"' as u16);
+    }
+    line.push(0);
+    if line.len() > 32767 {
+        return Err("Process command line exceeds the Windows limit.".into());
+    }
+    Ok(line)
 }
 pub fn private_directory(path: &Path) -> Result<(), String> {
     crate::managed_component::no_links(path)?;
@@ -330,13 +369,25 @@ impl OwnedProcess {
         cwd: &Path,
         env: &[(String, String)],
     ) -> Result<Self, String> {
+        crate::managed_component::no_links(node)?;
+        crate::managed_component::no_links(entry)?;
+        crate::managed_component::no_links(cwd)?;
+        Self::start_args(node, &[entry.as_os_str().to_os_string()], cwd, Some(env))
+    }
+    /// Launch only a new child, suspended until its non-inheritable job owns it.
+    /// None preserves the caller's environment; gateways pass an explicit allowlist.
+    pub fn start_args(
+        executable: &Path,
+        arguments: &[OsString],
+        cwd: &Path,
+        env: Option<&[(String, String)]>,
+    ) -> Result<Self, String> {
         #[cfg(windows)]
         unsafe {
-            crate::managed_component::no_links(node)?;
-            crate::managed_component::no_links(entry)?;
-            crate::managed_component::no_links(cwd)?;
+            use std::os::windows::ffi::OsStrExt;
+            let mut command = command_line(executable, arguments)?;
             let job = CreateJobObjectW(None, None)
-                .map_err(|_| "Cannot create private gateway process job.")?;
+                .map_err(|_| "Cannot create private runtime process job.")?;
             let result = (|| {
                 let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
                 limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
@@ -346,21 +397,32 @@ impl OwnedProcess {
                     &limits as *const _ as *const _,
                     std::mem::size_of_val(&limits) as u32,
                 )
-                .map_err(|_| "Cannot protect gateway child ownership.")?;
-                let exe = wide(&node.to_string_lossy());
-                let mut command = wide(&format!("\"{}\" \"{}\"", node.display(), entry.display()));
-                let directory = wide(&cwd.to_string_lossy());
-                let mut entries = env.to_vec();
+                .map_err(|_| "Cannot protect runtime child ownership.")?;
+                let exe: Vec<u16> = executable
+                    .as_os_str()
+                    .encode_wide()
+                    .chain(Some(0))
+                    .collect();
+                let directory: Vec<u16> = cwd.as_os_str().encode_wide().chain(Some(0)).collect();
+                if exe[..exe.len() - 1].contains(&0)
+                    || directory[..directory.len() - 1].contains(&0)
+                {
+                    return Err("Process paths cannot contain NUL.".into());
+                }
+                let mut entries = env.unwrap_or_default().to_vec();
                 entries.sort_by_key(|(key, _)| key.to_ascii_uppercase());
                 let mut environment = Vec::<u16>::new();
                 for (key, value) in entries {
                     if key.contains(['=', '\0']) || value.contains('\0') {
-                        return Err("Invalid gateway environment.".into());
+                        return Err("Invalid runtime environment.".into());
                     }
                     environment.extend(format!("{key}={value}").encode_utf16());
                     environment.push(0);
                 }
                 environment.push(0);
+                if environment.len() == 1 {
+                    environment.push(0);
+                }
                 let mut startup = STARTUPINFOW::default();
                 startup.cb = std::mem::size_of_val(&startup) as u32;
                 let mut info = PROCESS_INFORMATION::default();
@@ -371,23 +433,23 @@ impl OwnedProcess {
                     None,
                     false,
                     CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
-                    Some(environment.as_ptr() as *const _),
+                    env.map(|_| environment.as_ptr() as *const _),
                     PCWSTR(directory.as_ptr()),
                     &startup,
                     &mut info,
                 )
-                .map_err(|_| "The optional Node runtime could not start.")?;
+                .map_err(|_| "The owned runtime could not start.")?;
                 if AssignProcessToJobObject(job, info.hProcess).is_err() {
                     let _ = windows::Win32::System::Threading::TerminateProcess(info.hProcess, 1);
                     let _ = CloseHandle(info.hThread);
                     let _ = CloseHandle(info.hProcess);
-                    return Err("Cannot contain the gateway process; startup was refused.".into());
+                    return Err("Cannot contain the runtime process; startup was refused.".into());
                 }
                 if ResumeThread(info.hThread) == u32::MAX {
                     let _ = TerminateJobObject(job, 1);
                     let _ = CloseHandle(info.hThread);
                     let _ = CloseHandle(info.hProcess);
-                    return Err("Cannot resume the contained gateway process.".into());
+                    return Err("Cannot resume the contained runtime process.".into());
                 }
                 let _ = CloseHandle(info.hThread);
                 Ok(Self {
@@ -402,7 +464,7 @@ impl OwnedProcess {
         }
         #[cfg(not(windows))]
         {
-            let _ = (node, entry, cwd, env);
+            let _ = (executable, arguments, cwd, env);
             Err("The optional gateway runtime currently supports Windows x64.".into())
         }
     }
@@ -425,5 +487,30 @@ impl Drop for OwnedProcess {
             let _ = CloseHandle(self.process);
             let _ = CloseHandle(self.job);
         }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod command_tests {
+    use super::*;
+    #[test]
+    fn quotes_empty_unicode_quotes_and_trailing_backslashes() {
+        let args = [
+            OsString::from(""),
+            OsString::from(r"C:\trailing\"),
+            OsString::from("a\"b"),
+            OsString::from("é😀"),
+        ];
+        let line = command_line(Path::new(r"C:\Program Files\AnF\runtime.exe"), &args).unwrap();
+        assert_eq!(line.last(), Some(&0));
+        assert_eq!(
+            String::from_utf16(&line[..line.len() - 1]).unwrap(),
+            r#""C:\Program Files\AnF\runtime.exe" "" "C:\trailing\\" "a\"b" "é😀""#
+        );
+    }
+    #[test]
+    fn refuses_nul_and_oversized_arguments_before_starting_a_child() {
+        assert!(command_line(Path::new("runtime.exe"), &["bad\0argument".into()]).is_err());
+        assert!(command_line(Path::new("runtime.exe"), &["a".repeat(32768).into()]).is_err());
     }
 }

@@ -1,14 +1,17 @@
 //! On-demand bundled CPU inference. Only loopback, authenticated, no cloud service.
+#[cfg(not(windows))]
 use crate::platform;
 use serde_json::{json, Value};
-use std::{
-    path::PathBuf,
-    process::{Child, Command, Stdio},
-    sync::Mutex,
-};
+#[cfg(not(windows))]
+use std::process::{Child, Command, Stdio};
+use std::{path::PathBuf, sync::Mutex};
+#[cfg(windows)]
+type ModelChild = crate::managed_process::OwnedProcess;
+#[cfg(not(windows))]
+type ModelChild = Child;
 
 struct Running {
-    child: Child,
+    child: ModelChild,
     url: String,
     key: String,
     profile: String,
@@ -25,8 +28,27 @@ fn pack_available(path: &std::path::Path) -> bool {
 }
 impl Drop for Running {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        #[cfg(not(windows))]
+        {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+        // Windows OwnedProcess closes its job after stopping the whole child tree.
+    }
+}
+impl Running {
+    fn alive(&mut self) -> Result<bool, String> {
+        #[cfg(windows)]
+        {
+            Ok(self.child.running())
+        }
+        #[cfg(not(windows))]
+        {
+            self.child
+                .try_wait()
+                .map(|status| status.is_none())
+                .map_err(|e| e.to_string())
+        }
     }
 }
 #[derive(Default)]
@@ -75,10 +97,7 @@ impl Engine {
         {
             let mut current = self.process.lock().unwrap();
             if let Some(p) = current.as_mut() {
-                if p.profile == profile
-                    && p.context == context
-                    && p.child.try_wait().map_err(|e| e.to_string())?.is_none()
-                {
+                if p.profile == profile && p.context == context && p.alive()? {
                     return Ok((p.url.clone(), p.key.clone()));
                 }
             }
@@ -102,12 +121,9 @@ impl Engine {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
         let port = listener.local_addr().map_err(|e| e.to_string())?.port();
         drop(listener);
-        let mut command = Command::new(exe);
-        command
-            .current_dir(&directory)
-            .args(["-m"])
-            .arg(model)
-            .args([
+        let mut arguments: Vec<std::ffi::OsString> = vec!["-m".into(), model.into_os_string()];
+        arguments.extend(
+            [
                 "--host",
                 "127.0.0.1",
                 "--port",
@@ -127,13 +143,25 @@ impl Engine {
                 "--no-webui",
                 "--offline",
                 "--log-disable",
-            ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let child = platform::no_console(&mut command)
-            .spawn()
-            .map_err(|e| format!("Could not start the offline model: {e}"))?;
+            ]
+            .into_iter()
+            .map(std::ffi::OsString::from),
+        );
+        #[cfg(windows)]
+        let child = ModelChild::start_args(&exe, &arguments, &directory, None)?;
+        #[cfg(not(windows))]
+        let child = {
+            let mut command = Command::new(exe);
+            command
+                .current_dir(&directory)
+                .args(&arguments)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            platform::no_console(&mut command)
+                .spawn()
+                .map_err(|e| format!("Could not start the offline model: {e}"))?
+        };
         let url = format!("http://127.0.0.1:{port}");
         *self.process.lock().unwrap() = Some(Running {
             child,
@@ -154,8 +182,8 @@ impl Engine {
                 .lock()
                 .unwrap()
                 .as_mut()
-                .and_then(|p| p.child.try_wait().ok())
-                .is_some_and(|status| status.is_none());
+                .and_then(|p| p.alive().ok())
+                .unwrap_or(false);
             if !alive {
                 self.shutdown();
                 return Err("The offline runtime stopped during startup. Check that this is a Windows x64 computer with enough free memory.".into());
@@ -394,6 +422,24 @@ mod tests {
             std::future::pending::<()>().await;
         });
         let e = Engine::default();
+        #[cfg(windows)]
+        let child = {
+            let mut environment: Vec<(String, String)> = std::env::vars().collect();
+            environment.retain(|(key, _)| key != "ANF_ENGINE_CANCEL_CHILD");
+            environment.push(("ANF_ENGINE_CANCEL_CHILD".into(), "1".into()));
+            ModelChild::start_args(
+                &std::env::current_exe().unwrap(),
+                &[
+                    "--exact".into(),
+                    "local_ai::tests::cancellation_process_fixture".into(),
+                    "--ignored".into(),
+                ],
+                &std::env::current_dir().unwrap(),
+                Some(&environment),
+            )
+            .unwrap()
+        };
+        #[cfg(not(windows))]
         let child = Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
@@ -406,6 +452,9 @@ mod tests {
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
+        #[cfg(windows)]
+        let pid = child.pid().unwrap();
+        #[cfg(not(windows))]
         let pid = child.id();
         *e.process.lock().unwrap() = Some(Running {
             child,
@@ -423,8 +472,11 @@ mod tests {
         {
             let mut process = e.process.lock().unwrap();
             let process = process.as_mut().unwrap();
+            #[cfg(windows)]
+            assert_eq!(process.child.pid(), Some(pid));
+            #[cfg(not(windows))]
             assert_eq!(process.child.id(), pid);
-            assert!(process.child.try_wait().unwrap().is_none());
+            assert!(process.alive().unwrap());
         }
         drop(held);
         let mut owned = Box::pin(e.reply_sized(&messages, "fast", false));

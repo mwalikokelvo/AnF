@@ -481,3 +481,38 @@ DocsIMPROVEMENTS-0.1.33.md andremainingplanupdated; appcodeunchangedsince7d.
 Next: savecompletiondocs normally onreleasebranch preservingindex; continuebacklog
 withlocalmodeljobownership/Homegatewaydiscoverability thenreader/mobile/servicework.
 Neverbypasslimits. Nextappcodechange needs newbuilds andnewrelease,not33assetclobber.
+
+### 0.1.34 model ownership candidate in flight - 2026-10-20
+
+Resumedordinarycapacity36percent; no agentcredits/no bypass. Worktree omniroute-managed
+nowcontainsgeneralOwnedProcess::start_args(executable,OsStringargs,cwd,optionalenv).
+Windowsmodel Engine uses existing suspended-create/assign-kill-on-closeJob/resume
+primitive; no process can run before containment. Nodewrapper retains all strict
+componentno-links checks and explicit allowlisted environment. GenericEngine inherits
+sameenvironmentasbefore and preservesUnicodepaths. Commandlinequotes empty/Unicode/
+embeddedquotes/trailingbackslashes and rejectsNUL/oversize. Linux Child path retained.
+Cancellationfixture nowusesownedWindowschild; queued/activecancellationteststillPASS.
+
+93native testsPASS/0fail/15ignored in model-ownership-034-native-tests.txt.
+Alsoearlyrefusecomponentalreadyinstalled beforefullsourceinventoryscan; secondcheck
+retainedafterprivatefoldercreation tocoverraces. Versions34preparedall5files.
+Eightscopedfilesintegratedtoprimary onlyafterbaseline7dcomparison. Record
+.tools/model-ownership-034-integration.json. Primaryindex/oldHEADpreserved.
+Worktreecommitrecordsnewcandidate; sourceGitHubbranchstill7445425 completiondocs33.
+
+QAresourcesphysicallymovedWITHIN.tools to path containing spaces+Unicode:
+read .tools/managed-qa-bin-current.json. OldQAfoldernolongerexists;noactiveQAprocesses
+werepresentatmove. CurrentQA34pipeline session97516 builds optimizedQAidentifier,
+thenCOPYexe fromsharedtarget to physicalQAfolder andrunsenhancedharnesslog
+model-ownership-034-native-e2e.txt. NewharnessrequiresonerealQAmodelafteranswer and
+ZEROQAmodels+gatewayNodesafterforcedapptermination. Actualmodelpathcontainsspaces/é.
+Currentbuildlog model-ownership-034-qa-build.txt; awaitexit/QAresult. Rememberworktree
+windows/target isjunctiontoprimarytarget. DoNOT productionbuilduntilQAcopycompleted
+(native-e2elogexists),thenisolatedexeallowsparallelproductionbuilds.
+
+Androidactual34gate session2242 log model-ownership-034-android-gate.txt.
+No34artifacts publishedyet. Latestpublished33 remainsvalid/private/10verifiedassets.
+NeedactualQAforcedexit+normalgenerationpass,Windowsinstaller/portablebuildfullverify,
+Androidgate,normalcandidate-sourcepushwithtempindexparent7445425,thennewv0.1.34
+release tenassets. Optionalcomponentpin9db5/runtimeZIPunchangedcanreuseexactbytes;
+never clobber33assets/tag; neveruploadprivatevoices; leaveinstalleduserappuntouched.

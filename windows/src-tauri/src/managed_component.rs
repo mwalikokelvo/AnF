@@ -405,6 +405,12 @@ fn install_pinned(
     expected: &str,
 ) -> Result<(), String> {
     progress.check(token)?;
+    // Refuse a repeated import before scanning the source's entire inventory.
+    // Keep the second check after private-directory setup to cover races.
+    no_links(home)?;
+    if home.join("component").exists() {
+        return Err("A component is already installed. Stop the gateway before replacing it through a future reviewed update.".into());
+    }
     let m = read_manifest(manifest, expected)?;
     let source = manifest.parent().ok_or("Invalid component folder.")?;
     let (names, dirs) = inventory(&m);

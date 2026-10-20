@@ -52,6 +52,14 @@ function ownedNodes(){
  const parsed=result.stdout.trim()?JSON.parse(result.stdout):[];
  return (Array.isArray(parsed)?parsed:[parsed]).filter(p=>typeof p.ExecutablePath==='string'&&p.ExecutablePath.toLowerCase().startsWith(profile.toLowerCase()+path.sep));
 }
+function ownedModels(){
+ const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"Get-CimInstance Win32_Process -Filter \"name='llama-server.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"],{encoding:'utf8',windowsHide:true});
+ assert.equal(result.status,0,'Cannot inspect QA-owned model processes.');
+ const parsed=result.stdout.trim()?JSON.parse(result.stdout):[];
+ const expected=path.join(path.dirname(process.env.ANF_QA_EXE),'local-ai','llama-server.exe').toLowerCase();
+ return (Array.isArray(parsed)?parsed:[parsed]).filter(p=>typeof p.ExecutablePath==='string'&&p.ExecutablePath.toLowerCase()===expected);
+}
+async function waitNoModels(){for(let i=0;i<20;i++){if(!ownedModels().length)return;await new Promise(r=>setTimeout(r,250));}assert.fail('Forced app exit left a QA-owned model process running.');}
 async function waitNoNodes(){for(let i=0;i<30;i++){if(!ownedNodes().length)return;await new Promise(r=>setTimeout(r,250));}assert.fail('QA-owned Node process remained after shutdown.');}
 async function checkOwnedListener(){
  const nodes=ownedNodes();assert.equal(nodes.length,1,'Expected one managed Node runtime.');
@@ -145,6 +153,7 @@ try{
  }
  assert((await page.locator('.message.assistant').first().innerText()).length>15);assert.equal(proxyRequests,0);
  pass('Native Chat controls selected the managed route and generated a new local-model answer.');
+ assert.equal(ownedModels().length,1,'A real model process must be owned by this isolated QA installation.');
  const island=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().startsWith('http')&&!p.url().includes('workspace.html')&&!p.url().includes('settings.html'));
  assert(island,'Floating QA window missing.');
  for(const command of ['omniroute_status','omniroute_start','omniroute_stop','omniroute_cancel','omniroute_use','omniroute_pick_component','omniroute_install']){
@@ -171,11 +180,13 @@ try{
  assert.deepEqual(await invoke('connection_list'),initialConnections);
  await page.screenshot({path:path.join(profile,'managed-native.png')});
  await browser.close();browser=undefined;
- child.kill();await waitNoNodes();
- pass('Restart succeeds; exiting QA app removes its managed Node process.');
+ child.kill();await waitNoNodes();await waitNoModels();
+ pass('Restart succeeds; forced app exit removes its gateway and local-model processes.');
  report.passed=true;
 }catch(error){
- primaryError=error;report.failure=String(error);throw error;
+ primaryError=error;report.failure=String(error);
+ if(page&&!page.isClosed())report.activityStatus=await page.locator('footer [role="status"]').allTextContents().catch(()=>[]);
+ throw error;
 }finally{
  let cleanupError;
  report.childAliveBeforeCleanup=child.exitCode===null;
