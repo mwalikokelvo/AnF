@@ -176,6 +176,26 @@ try{
  }
  assert((await page.locator('.message.assistant').first().innerText()).length>15);assert.equal(proxyRequests,0);
  pass('Native Chat controls selected the managed route and generated a new local-model answer.');
+ if(process.env.ANF_QA_STALE==='1'){
+  const gatewayProcesses=ownedNodes();assert.equal(gatewayProcesses.length,1,'Only the single isolated gateway process may be terminated.');
+  // The native controller retains the original process handle, preventing PID
+  // reuse while we deliberately terminate this exact QA-owned gateway.
+  process.kill(gatewayProcesses[0].ProcessId);
+  const untilDead=Date.now()+15000;let stale;
+  while(Date.now()<untilDead){stale=await invoke('omniroute_status');if(!stale.running)break;await new Promise(r=>setTimeout(r,100));}
+  assert.equal(stale.running,false);assert.equal(stale.owned,true);
+  await assert.rejects(()=>invoke('omniroute_use'));
+  await page.locator('.workspace-navigation [data-view="settings"]').click();
+  await managed.getByRole('button',{name:'Refresh managed gateway status',exact:true}).click();
+  assert.equal(await managed.getByRole('button',{name:'Stop managed gateway',exact:true}).isVisible(),true);
+  assert.equal(await managed.getByRole('button',{name:'Repair installed component',exact:true}).isVisible(),false);
+  await managed.getByRole('button',{name:'Stop managed gateway',exact:true}).click();
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('[aria-label="Managed OmniRoute"] button')).find(b=>b.textContent==='Choose OmniRoute component')?.hidden===false);
+  const reset=await invoke('omniroute_status');assert.equal(reset.owned,false);assert.equal(reset.running,false);
+  assert.deepEqual(await invoke('connection_list'),initialConnections);
+  assert.equal((await invoke('omniroute_start')).running,true);
+  pass('Unexpected exit of the exact QA-owned gateway exposes Stop; explicit UI reset releases stale ownership and permits restart without changing external connections.');
+ }
  const models=ownedModels();report.modelImages=models.map(p=>p.ExecutablePath);
  assert.equal(models.length,1,'A real model process must be owned by this isolated QA application.');
  assert.equal((await realpath(models[0].ExecutablePath)).toLowerCase(),(await realpath(path.join(path.dirname(process.env.ANF_QA_EXE),'local-ai','llama-server.exe'))).toLowerCase(),'The QA app used a model outside its isolated installation.');

@@ -1,6 +1,6 @@
 import {invoke} from '@tauri-apps/api/core';
 import {h} from '../views/dom';
-export type ManagedGatewayStatus={installed:boolean;repairable?:boolean;recoveryPending?:boolean;running:boolean;version:string;phase:string;done:number;total:number;error:string};
+export type ManagedGatewayStatus={installed:boolean;repairable?:boolean;recoveryPending?:boolean;running:boolean;owned?:boolean;version:string;phase:string;done:number;total:number;error:string};
 export function managedGateway(use:()=>void,notify:(message:string)=>void){
  const state=h('p',{role:'status',text:'Check the optional component to manage a local gateway.'});
  const file=h('input',{'aria-label':'OmniRoute component manifest',readonly:true,placeholder:'Choose component.json from the extracted optional component'});
@@ -10,15 +10,16 @@ export function managedGateway(use:()=>void,notify:(message:string)=>void){
  let busy=false,current:ManagedGatewayStatus|undefined,timer:ReturnType<typeof setInterval>|undefined;
  const button=(label:string,run:()=>Promise<void>)=>h('button',{type:'button',text:label,onclick:()=>void action(run)});
  function paint(value:ManagedGatewayStatus){
+  const owned=value.owned??value.running;
   current=value;progress.max=Math.max(1,value.total);progress.value=Math.max(0,value.done);progress.hidden=!busy||!value.total;
-  state.textContent=`${value.running?'Running':value.installed?'Installed · stopped':'Component not installed'} · OmniRoute ${value.version}${value.phase?' · '+value.phase:''}${value.total?' · '+Math.min(100,Math.round(value.done/value.total*100))+'%':''}${value.error?' · '+value.error:''}`;
+  state.textContent=`${value.running?'Running':owned?'Not ready · stop to reset':value.installed?'Installed · stopped':'Component not installed'} · OmniRoute ${value.version}${value.phase?' · '+value.phase:''}${value.total?' · '+Math.min(100,Math.round(value.done/value.total*100))+'%':''}${value.error?' · '+value.error:''}`;
   const repairable=value.repairable??value.installed;
-  file.hidden=value.running;choose.hidden=value.running||busy;install.hidden=repairable||busy;repair.hidden=!repairable||value.running||busy;repair.disabled=busy||!file.value;
+  file.hidden=owned;choose.hidden=owned||busy;install.hidden=repairable||owned||busy;repair.hidden=!repairable||owned||busy;repair.disabled=busy||!file.value;
   if(value.recoveryPending)state.textContent+=' · Recovery pending; start or repair while stopped';
-  start.hidden=!(value.installed||value.recoveryPending)||value.running||busy;stop.hidden=!value.running||busy;cancel.hidden=!busy;
+  start.hidden=!(value.installed||value.recoveryPending)||owned||busy;stop.hidden=!owned||busy;cancel.hidden=!busy;
   useButton.hidden=!value.running||busy;check.hidden=busy;
-  choose.disabled=busy;install.disabled=busy||!file.value||value.installed;start.disabled=busy||!(value.installed||value.recoveryPending)||value.running;
-  stop.disabled=!value.running;cancel.disabled=!busy;useButton.disabled=busy||!value.running;
+  choose.disabled=busy;install.disabled=busy||!file.value||value.installed;start.disabled=busy||!(value.installed||value.recoveryPending)||owned;
+  stop.disabled=!owned;cancel.disabled=!busy;useButton.disabled=busy||!value.running;
  }
 
  async function refresh(){try{paint(await invoke<ManagedGatewayStatus>('omniroute_status'));}catch(error){state.textContent=String(error).replace(/^Error: /,'');}}

@@ -13,6 +13,7 @@ run(['windows/node_modules/typescript/bin/tsc','--noEmit','-p','windows/tsconfig
 run(['scripts/check-branding.mjs']);
 run(['scripts/check-identity-migration.mjs']);
 run(['scripts/check-release.mjs']);
+run(['scripts/check-version-bump.mjs']);
 if(process.argv.includes('--release')){
  const args=['scripts/build-android.mjs'];if(process.argv.includes('--offline'))args.push('--offline');
  run(args);

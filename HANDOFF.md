@@ -695,3 +695,35 @@ block repair even while ready/running status is false; Settings hides Stop in
 that state. Exercise this case and add explicit stale-state handling without
 terminating unrelated processes. Quitting/reopening AnF clears native ownership.
 This docs-only checkpoint follows compiled source; primary HEAD/index preserved.
+
+### 0.1.37 stale owned-state reset candidate - 2026-10-20
+
+Status now distinguishes owned controller state from ready/listening state.
+Settings keeps explicit Stop available for a dead/unready owned gateway; hides
+source/repair/start until reset. Home explains Needs reset. No automatic process
+termination or provider switch. Native stale QA flag kills ONLY exact isolated
+gateway PID while native holds its original process handle, clicks UI Stop,
+checks ownership reset and restarts before the normal lifecycle suite.
+
+Browser stale/reset and Home flows passed; TypeScript passed; native101PASS/15ignored.
+Native+QA build pipeline session26288, logmanaged-stale-037-qa-build.txt. Android
+gate rerun99187/final log includes new version-collision check.
+An initial global version bump incorrectly changed tracing-core0.1.36 to0.1.37;
+compiler caught it. Cargo.lock restored from published36 after proving only our
+global replacement differed, then only anf/anf-hook versions bumped. JSlockroot
+versions updated independently. New scripts/bump-version.mjs and collision
+regressioncheck wired into source/release gate; use it for subsequent bumps.
+
+Old uncompressed34/35staging cleanup was rejected before execution by automatic
+approval review (blocked by policy); no deletion occurred and no alternate
+delete mechanism was attempted. Existing12.5GiB free is sufficient for this
+build; retain installers/ZIPs/private voice pack and all user changes.
+
+After QA buildexit0 copyexe to .tools/managed-qa-bin-current.json physicalfolder.
+Run managed-native harness with ANF_QA_STALE=1, ANF_QA_PROFILE=.tools/managed-native-qa-4e7d1ddc-80f2-4972-b250-6ae6d7d45b19,
+ANF_COMPONENT_MANIFEST=.tools/components/omniroute3.8.51-win32-x64/component.json;
+do NOT set ANF_QA_REPAIR (repaircodeunchanged, real damagedrepair passed36).
+Then production pack/fullverifier and publish37verified10assets.
+No37tag/releaseyet. Parent latestsource bec884875fa82587093b5819bb123cf5bc8c3e9b.
+HostedCIstillaccountbilling; no YAMLfixclaimed. PreserveprimaryHEAD/index and
+unrelatedchanges; no cargo fmt --all.

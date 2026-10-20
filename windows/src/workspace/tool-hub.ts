@@ -41,7 +41,7 @@ export function createToolHub(a:{allowed:()=>boolean;connect:(service:Service)=>
   useManaged.hidden=true;
   if(gateway.status==='fulfilled'){
    const value=gateway.value;
-   managedState.textContent=(value.running?'Running locally':value.installed?'Installed · stopped':'Optional component not installed')+' · OmniRoute '+value.version+(value.error?' · '+value.error:'');
+   managedState.textContent=(value.running?'Running locally':value.owned?'Needs reset · stop it in Settings':value.installed?'Installed · stopped':'Optional component not installed')+' · OmniRoute '+value.version+(value.error?' · '+value.error:'');
    manage.textContent=value.installed?'Manage local gateway':'Set up local gateway';
    useManaged.hidden=!value.running;useManaged.disabled=selecting;
   }else{managedState.textContent='Managed local gateway status unavailable. Open settings to inspect it.';manage.textContent='Check local gateway';}

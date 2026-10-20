@@ -51,6 +51,7 @@ pub struct Status {
     repairable: bool,
     recovery_pending: bool,
     running: bool,
+    owned: bool,
     version: &'static str,
     phase: String,
     done: u64,
@@ -68,12 +69,15 @@ fn home() -> PathBuf {
     crate::settings::local_dir().join("managed-omniroute")
 }
 fn status(c: &Controller) -> Status {
-    let running = c
-        .running
-        .lock()
-        .unwrap()
-        .as_ref()
-        .is_some_and(|r| r.process.owns_listener(r.port));
+    let (running, owned) = {
+        let process = c.running.lock().unwrap();
+        (
+            process
+                .as_ref()
+                .is_some_and(|r| r.process.owns_listener(r.port)),
+            process.is_some(),
+        )
+    };
     Status {
         repairable: std::fs::symlink_metadata(home().join("component")).is_ok()
             || crate::managed_repair::pending(&home()),
@@ -84,6 +88,7 @@ fn status(c: &Controller) -> Status {
         )
         .is_ok(),
         running,
+        owned,
         version: "3.8.51",
         phase: c.progress.phase.lock().unwrap().clone(),
         done: c.progress.done.load(Ordering::Relaxed),
