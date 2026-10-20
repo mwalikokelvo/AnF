@@ -632,3 +632,16 @@ then reader/mobile/service gaps in docs/REMAINING-IMPLEMENTATION-PLAN.md.
 Real checkout HEAD/index remain preserved; publication uses temp-index commit-tree.
 Do not reset/pull or overwrite immutable release assets/tags. The docs-only child
 following this release does not change application source or require a new binary.
+
+### Next milestone reviewed - 2026-10-20 18:55 UTC heartbeat
+
+0.1.35 remains the latest complete release. Capacity check ordinaryAllowedtrue,
+primary99percentused,weekly47percentused,noextra credits; no bypass attempted.
+Read-only audit found startup says reimport after early exit, but installed-state
+import is refused and UI hides source selection. This repair/reimport mismatch
+is NOT fixed yet. Saved docs/OMNIROUTE-RECOVERY-PLAN.md with stopped-only pinned
+repair, stage-before-swap, durable journal/rollback, containment and failure gates.
+Do not accept arbitrary new manifests or remove installed components to work
+around the gap. Next implement/test this specification before version36.
+No application code/version/artifact changed in this documentation checkpoint;
+no replacement release required. Preserve all primary dirty/untracked state.
