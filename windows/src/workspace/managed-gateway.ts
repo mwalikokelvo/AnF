@@ -5,7 +5,7 @@ export function managedGateway(use:()=>void,notify:(message:string)=>void){
  const state=h('p',{role:'status',text:'Check the optional component to manage a local gateway.'});
  const file=h('input',{'aria-label':'OmniRoute component manifest',readonly:true,placeholder:'Choose component.json from the extracted optional component'});
  const progress=h('progress',{'aria-label':'OmniRoute component progress',max:1,value:0});
- const root=h('section',{'aria-label':'Managed OmniRoute'},h('h4',{text:'Managed local gateway'}),
+ const root=h('section',{'aria-label':'Managed OmniRoute'},h('h4',{text:'Managed local gateway',tabindex:-1}),
   h('p',{text:'Optional Windows component with its own Node runtime. Import the reviewed component folder, then start or stop it here. No global Node installation or provider account is needed. It routes only to AnF’s existing local Fast model; external gateway settings stay separate.'}),file,progress,state);
  let busy=false,current:ManagedGatewayStatus|undefined,timer:ReturnType<typeof setInterval>|undefined;
  const button=(label:string,run:()=>Promise<void>)=>h('button',{type:'button',text:label,onclick:()=>void action(run)});

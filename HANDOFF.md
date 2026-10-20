@@ -531,7 +531,7 @@ legacyfalse,explicitConsole.OutputEncoding UTF8true. Thiswasprocess-queryencodin
 notamodelstartfailure. HarnessnowexplicitUTF8forCIMqueries,waitsNewconversationready
 andemptyassistantlistbeforequestion,andcapturesactivitystatusonfailure.
 Noactualproductchangefromthiscorrection. Noexistinguserprocesswasterminated.
-InstalledCoucoumodelPID34576wasobservedandLEFTUNTOUCHED; itisnotourQApath.
+Installed legacy model PID34576wasobservedandLEFTUNTOUCHED; itisnotourQApath.
 
 CurrentnativeUTF8retry session28436/helper43976, log
 model-ownership-034-native-e2e-utf8.txt. AwaitallpassesincludingoneactualQAmodelbefore
@@ -583,3 +583,30 @@ then reader/mobile/service gaps in docs/REMAINING-IMPLEMENTATION-PLAN.md.
 Real checkout HEAD/index remain preserved; publication uses temp-index commit-tree.
 Do not reset/pull or overwrite immutable release assets/tags. The docs-only child
 following this release does not change application source or require a new binary.
+
+### 0.1.35 Home gateway discoverability in progress - 2026-10-20
+
+Windows Home AI chat card now shows managed local gateway status outside the
+external connection disclosure. Missing/stopped/running/error states are separate
+from external credential-store failure. Setup opens Settings and focuses the
+managed gateway heading. Running state offers explicit use after native
+omniroute_use readiness validation; failure stays visible without provider fallback.
+Home status never starts/stops/installs a service or generates an answer.
+Existing Open AI chat selects Offline AI as before.
+TypeScript and home-managed-035-browser fixture passed all state/error/busy checks.
+Android 0.1.35 actual release artifact gate passed. Windows QA build in progress,
+then home-managed-native.mjs against isolated QA identifier; production pack and
+full verifier still required before publication. No35releaseyet;34remainsavailable.
+Files: four workspace TS modules, five version files, two scoped QA scripts,
+HANDOFF. Preserve all unrelated dirty/untracked source. Source parent for next
+normal temp-index commit: 5c655bebbc2361de6e5deb7140a81b7c90d7fa98.
+The Android initial gate caught an obsolete legacy-name mention in HANDOFF;
+wording corrected, scanner unchanged, full gate then passed.
+
+0.1.35 native Home acceptance PASS: missing-state setup opens managed settings
+and focuses its heading; existing offline Chat flow remains local and does not
+start generation/model. Evidence home-managed-035-native.txt; fresh-profile
+report home-managed-qa-41d85fc3-ca7f-417b-8550-6eb44253b417. Browser state checks and
+TypeScript passed. Production pack session75868 still in progress; do not publish
+until pack and .tools/verify-windows-release.py pass. No native model/gateway
+process changes since34; no repeated inference claim for35. Android35gate passed.

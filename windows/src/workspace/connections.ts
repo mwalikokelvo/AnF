@@ -188,7 +188,8 @@ export function createConnections(a:Adapter){
   if(!loaded&&!busy)await run(refresh);
   if(root.closest<HTMLElement>('.workspace-panel')?.hidden)return;
   card?.scrollIntoView({block:'start',behavior:'instant'});
-  card?.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});
+  if(service==='gateway')card?.querySelector<HTMLElement>('[aria-label="Managed OmniRoute"] h4')?.focus({preventScroll:true});
+  else card?.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});
  }
  return{root,open};
 }
