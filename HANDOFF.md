@@ -645,3 +645,32 @@ Do not accept arbitrary new manifests or remove installed components to work
 around the gap. Next implement/test this specification before version36.
 No application code/version/artifact changed in this documentation checkpoint;
 no replacement release required. Preserve all primary dirty/untracked state.
+
+### 0.1.36 pinned repair source candidate - 2026-10-20
+
+Latest published35 remains available. New source adds managed_repair.rs with
+private topology journal, full staged pin verification, retained previous copy,
+rollback on pre-accept interruption and acceptance-marker-last cleanup.
+New workspace-only omniroute_repair shares operation exclusion and refuses a
+running service. Start/import recover unfinished transactions. Repairable/pending
+status drives explicit settings actions, including damaged-manifest cases.
+Native suite101PASS/15ignored, eight new repair fixtures cover corrupt payload,
+interrupted swap phases, locked destination, changed source/cancel, ambiguous
+journal, accepted verification failure and protected cleanup ordering. Browser
+repair flow and Home regression passed; Androidactual36gatepassed.
+QA buildsession96444/logmanaged-repair-036-qa-build.txt; next copy QA exe to
+.tools/managed-qa-bin-current.json physical dir after buildexit0, run real suite
+with ANF_QA_REPAIR=1, ANF_QA_PROFILE=.tools/managed-native-qa-4e7d1ddc-80f2-4972-b250-6ae6d7d45b19
+and source manifest .tools/components/omniroute3.8.51-win32-x64/component.json.
+The suite damages only small RUNTIME-NOTICE.txt in exact isolated QA profile,
+checks failed startup/untrusted repair/concurrent exclusion, repairs it, then
+runs genuine generation/auth/cancel/restart/forced-exit gates.
+Production pack and full verifier still needed; no36release/tagyet.
+GitHub8recentjobs queried; same accountbilling/spending failure before steps.
+No YAML fix exists for that refusal. Account admin action required; keep CI
+remediation instruction open. docs/CI-STATUS.md records evidence.
+An accidental cargo fmt --all pass formatted31unrelated Rust files; exact parent
+bytes were restored ONLY after proving rustfmt(parent)==current normalized bytes.
+.tools/format-only-restoration-036.json recordsproof. lib.rs minimal two-line
+registration change likewiseproved. Do NOT run cargo fmt --all again; formatonly
+new/managed files with skip_children. Never reset primaryHEAD/index or userchanges.

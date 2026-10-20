@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "anf"
-version = "0.1.35"
+version = "0.1.36"
 dependencies = [
  "flate2",
  "gtk",
@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "anf-hook"
-version = "0.1.35"
+version = "0.1.36"
 dependencies = [
  "libc",
  "serde_json",

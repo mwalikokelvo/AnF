@@ -13,6 +13,7 @@ mod local_ai;
 mod local_link;
 mod local_voice;
 mod managed_component;
+mod managed_repair;
 mod managed_http;
 mod managed_omniroute;
 mod managed_process;
@@ -522,6 +523,7 @@ pub fn run() {
             managed_omniroute::omniroute_status,
             managed_omniroute::omniroute_pick_component,
             managed_omniroute::omniroute_install,
+            managed_omniroute::omniroute_repair,
             managed_omniroute::omniroute_start,
             managed_omniroute::omniroute_stop,
             managed_omniroute::omniroute_cancel,

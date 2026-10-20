@@ -90,14 +90,14 @@ try{
  invoke=async(command,args={})=>{
   try{return await page.evaluate(({command,args})=>window.__TAURI_INTERNALS__.invoke(command,args),{command,args});}
   catch(error){
-   if(!/Target page, context or browser has been closed/.test(String(error))||!['omniroute_start','omniroute_install'].includes(command))throw error;
+   if(!/Target page, context or browser has been closed/.test(String(error))||!['omniroute_start','omniroute_install','omniroute_repair'].includes(command))throw error;
    await recoverWorkspace();
    // The original native operation can continue after CDP disconnects. Observe
    // its outcome instead of submitting a second install/start operation.
    const deadline=Date.now()+600000;
    while(Date.now()<deadline){
     const state=await page.evaluate(()=>window.__TAURI_INTERNALS__.invoke('omniroute_status'));
-    if(command==='omniroute_start'?state.running:state.installed)return state;
+    if(command==='omniroute_start'?state.running:command==='omniroute_repair'?state.phase==='Repaired; stopped'&&!state.recoveryPending:state.installed)return state;
     if(state.error)throw Error(state.error);
     await new Promise(r=>setTimeout(r,500));
    }
@@ -123,6 +123,27 @@ try{
  }else{
   assert.equal(initial.installed,true,'Reuse requires the same pinned component previously imported by QA.');
   report.reusedComponent=true;pass('Reused isolated QA component; prior import report preserved.');
+ }
+ if(process.env.ANF_QA_REPAIR==='1'){
+  const component=path.join(profile,'AnF','managed-omniroute','component');
+  assert((await realpath(component)).toLowerCase().startsWith((await realpath(profile)).toLowerCase()+path.sep));
+  assert.equal((await lstat(component)).isSymbolicLink(),false);
+  const damaged=path.join(component,'RUNTIME-NOTICE.txt');
+  const original=await readFile(damaged);assert(original.length<1000000,'Only the small QA notice fixture may be changed.');
+  await writeFile(damaged,Buffer.concat([original,Buffer.from(' QA damage test')]));
+  await assert.rejects(()=>invoke('omniroute_start'));
+  assert.equal((await invoke('omniroute_status')).running,false);
+  await assert.rejects(()=>invoke('omniroute_repair',{manifest:bad}));
+  assert((await readFile(damaged)).equals(Buffer.concat([original,Buffer.from(' QA damage test')])));
+  const beforeRepair=Date.now();const repairing=invoke('omniroute_repair',{manifest:path.resolve(process.env.ANF_COMPONENT_MANIFEST)});
+  await new Promise(r=>setTimeout(r,200));
+  await assert.rejects(()=>invoke('omniroute_start'));
+  await assert.rejects(()=>invoke('omniroute_repair',{manifest:bad}));
+  const repaired=await repairing;report.repairMs=Date.now()-beforeRepair;
+  assert.equal(repaired.running,false);assert.equal(repaired.recoveryPending,false);
+  assert((await readFile(damaged)).equals(original));
+  assert.deepEqual(await invoke('connection_list'),initialConnections);
+  pass('A damaged isolated runtime refused startup; untrusted repair and concurrent operations were refused; pinned repair restored exact bytes while preserving external connections.');
  }
  const starting=Date.now();
  const started=await invoke('omniroute_start');report.startMs=Date.now()-starting;assert.equal(started.running,true);assert(ownedNodes().length>0);
@@ -161,7 +182,7 @@ try{
  modelPids.add(models[0].ProcessId);
  const island=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().startsWith('http')&&!p.url().includes('workspace.html')&&!p.url().includes('settings.html'));
  assert(island,'Floating QA window missing.');
- for(const command of ['omniroute_status','omniroute_start','omniroute_stop','omniroute_cancel','omniroute_use','omniroute_pick_component','omniroute_install']){
+ for(const command of ['omniroute_status','omniroute_start','omniroute_stop','omniroute_cancel','omniroute_use','omniroute_pick_component','omniroute_install','omniroute_repair']){
   assert.equal(await island.evaluate(({command,manifest})=>window.__TAURI_INTERNALS__.invoke(command,{manifest}).then(()=>false,()=>true),{command,manifest:bad}),true,command+' allowed from floating window');
  }
  pass('All managed lifecycle commands denied outside the workspace.');

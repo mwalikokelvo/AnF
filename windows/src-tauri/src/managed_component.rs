@@ -397,7 +397,7 @@ pub fn install(
 ) -> Result<(), String> {
     install_pinned(manifest, home, progress, token, EXPECTED_MANIFEST)
 }
-fn install_pinned(
+pub(crate) fn install_pinned(
     manifest: &Path,
     home: &Path,
     progress: Arc<Progress>,

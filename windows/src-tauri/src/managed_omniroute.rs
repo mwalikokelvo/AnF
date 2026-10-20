@@ -48,6 +48,8 @@ static ROUTE: Mutex<Option<Route>> = Mutex::new(None);
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     installed: bool,
+    repairable: bool,
+    recovery_pending: bool,
     running: bool,
     version: &'static str,
     phase: String,
@@ -73,6 +75,9 @@ fn status(c: &Controller) -> Status {
         .as_ref()
         .is_some_and(|r| r.process.owns_listener(r.port));
     Status {
+        repairable: std::fs::symlink_metadata(home().join("component")).is_ok()
+            || crate::managed_repair::pending(&home()),
+        recovery_pending: crate::managed_repair::pending(&home()),
         installed: managed_component::read_manifest(
             &home().join("component/component.json"),
             managed_component::EXPECTED_MANIFEST,
@@ -192,6 +197,12 @@ pub async fn omniroute_install(
     *c.error.lock().unwrap() = String::new();
     let progress = c.progress.clone();
     let result = tokio::task::spawn_blocking(move || {
+        crate::managed_repair::recover(
+            &home(),
+            managed_component::EXPECTED_MANIFEST,
+            &progress,
+            token,
+        )?;
         managed_component::install(&PathBuf::from(manifest), &home(), progress, token)
     })
     .await
@@ -202,6 +213,41 @@ pub async fn omniroute_install(
         Err(e) => {
             *c.error.lock().unwrap() = e.clone();
             *c.progress.phase.lock().unwrap() = "Import did not complete".into();
+            return Err(e);
+        }
+    }
+    Ok(status(&c))
+}
+#[tauri::command]
+pub async fn omniroute_repair(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Managed>,
+    manifest: String,
+) -> Result<Status, String> {
+    workspace(window.label())?;
+    let c = state.0.clone();
+    let _operation = c
+        .operation
+        .try_lock()
+        .map_err(|_| "A gateway operation is already running.")?;
+    if c.running.lock().unwrap().is_some() {
+        return Err("Stop the managed gateway before repairing its component.".into());
+    }
+    let token = c.progress.epoch.fetch_add(1, Ordering::SeqCst) + 1;
+    *c.progress.phase.lock().unwrap() = "Staging pinned repair".into();
+    *c.error.lock().unwrap() = String::new();
+    let progress = c.progress.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        crate::managed_repair::repair(&PathBuf::from(manifest), &home(), progress, token)
+    })
+    .await
+    .map_err(|_| "Component repair stopped.".to_string())
+    .and_then(|r| r);
+    match result {
+        Ok(()) => *c.progress.phase.lock().unwrap() = "Repaired; stopped".into(),
+        Err(e) => {
+            *c.error.lock().unwrap() = e.clone();
+            *c.progress.phase.lock().unwrap() = "Repair did not complete".into();
             return Err(e);
         }
     }
@@ -290,7 +336,13 @@ fn environment(
     ] {
         env.push((name.into(), base.clone()));
     }
-    for name in ["HOSTNAME", "HOST", "OMNIROUTE_SERVER_HOST", "API_HOST", "LIVE_WS_HOST"] {
+    for name in [
+        "HOSTNAME",
+        "HOST",
+        "OMNIROUTE_SERVER_HOST",
+        "API_HOST",
+        "LIVE_WS_HOST",
+    ] {
         env.push((name.into(), "127.0.0.1".into()));
     }
     for (name, value) in [
@@ -487,6 +539,14 @@ pub async fn omniroute_start(
     let verify = root.clone();
     let progress = c.progress.clone();
     tokio::task::spawn_blocking(move || {
+        crate::managed_repair::recover(
+            verify
+                .parent()
+                .ok_or("Invalid installed component directory.")?,
+            managed_component::EXPECTED_MANIFEST,
+            &progress,
+            token,
+        )?;
         managed_component::verify(
             &verify,
             managed_component::EXPECTED_MANIFEST,
@@ -527,7 +587,7 @@ pub async fn omniroute_start(
             c.progress.check(token)?;
             if !running.process.running() {
                 return Err(
-                    "Managed gateway exited during startup. Reimport the reviewed component."
+                    "Managed gateway exited during startup. Stop it and choose Repair installed component in Settings."
                         .into(),
                 );
             }
@@ -666,7 +726,10 @@ mod tests {
             storage: "s".into(),
         };
         let e = environment(std::path::Path::new("C:/private"), 1234, 1235, &s);
-        assert!(e.contains(&("OMNIROUTE_DISABLE_BACKGROUND_SERVICES".into(), "true".into())));
+        assert!(e.contains(&(
+            "OMNIROUTE_DISABLE_BACKGROUND_SERVICES".into(),
+            "true".into()
+        )));
         for key in ["PORT", "OMNIROUTE_PORT", "API_PORT", "DASHBOARD_PORT"] {
             assert!(e.contains(&(key.into(), "1234".into())));
         }

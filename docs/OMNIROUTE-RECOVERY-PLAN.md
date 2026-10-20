@@ -1,6 +1,6 @@
 # Managed OmniRoute recovery: implementation specification
 
-Status: reviewed source gap, not implemented. Baseline: published 0.1.35.
+Status: source implementation candidate 0.1.36; published baseline remains 0.1.35 until release acceptance. Eight native repair fixtures and the full 101-test suite passed; real-runtime native acceptance is pending.
 
 The startup error in managed_omniroute.rs tells the user to reimport after early process exit. managed_component.rs refuses import whenever the component destination exists. The settings UI also hides manifest selection for installed components. This leaves a corrupt installation without a supported repair route. Home status currently validates the pinned manifest, not every payload file; startup still verifies every file before executing anything.
 
@@ -25,3 +25,9 @@ The startup error in managed_omniroute.rs tells the user to reimport after early
 ## Later milestone: version upgrades
 
 Only add another version after reviewing and pinning its full manifest, runtime distribution, dependencies, licenses and corresponding sources. Define supported prior pins and explicit rollback compatibility. The repair path above must not become a generic unverified installer or execute npm at runtime. Android parity remains a separately benchmarked implementation.
+
+## Candidate implementation notes
+
+managed_repair.rs uses a fixed private component-repair directory as a topology journal, rather than parsing arbitrary paths from a journal file. The previous copy is retained until the promoted copy passes the pinned verification. An empty acceptance directory survives rollback cleanup; it is removed last so interrupted cleanup cannot restore a partially deleted old tree. Before acceptance, interrupted swaps restore the prior copy. Startup/import/repair run recovery under the existing exclusive operation lock. No external credentials or sessions are relocated.
+
+Unexpected entries, links, ambiguous copies or failure to verify an accepted candidate preserve data and return an error for inspection. The implementation does not guess which unverified copy to execute or discard. Power-loss durability, live disk exhaustion, runtime version upgrades and each platform require additional validation; process-interruption topology fixtures alone do not prove those cases. The original steps above remain the acceptance roadmap.
