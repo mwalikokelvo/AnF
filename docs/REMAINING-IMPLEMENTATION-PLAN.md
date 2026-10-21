@@ -1,6 +1,6 @@
 # Remaining implementation and delivery plan
 
-Updated: 2026-10-21. Release baseline: AnF 0.1.38.
+Updated: 2026-10-21. Release baseline: AnF 0.1.39.
 
 This is the consolidated inventory of known unmet requests, partial capabilities,
 and verification gaps. It covers the code and earlier requested scope; it cannot
@@ -80,7 +80,7 @@ accounts. Local models may require an initial download, not paid API credentials
 | ID | Remaining gap | Implementation / integration | Completion evidence |
 | --- | --- | --- | --- |
 | CON1 | Open Notebook adapter not live-validated | Add guided optional local service setup/health check and job polling; integrate ingestion, retrieval and citations. | Real imported source completes processing and cited answer resolves correctly. |
-| CON2 | Managed gateway upgrades and platform parity | Windows 0.1.33 delivers pinned component import, private owned loopback lifecycle and an explicit managed Chat route sharing the bundled Fast engine. Windows 0.1.35 adds visible Home status, focused setup access and explicit ready-only Chat selection. Windows 0.1.36 adds pinned repair and interrupted-swap recovery, with real damaged-runtime acceptance; 0.1.37 adds explicit stale-owned-state reset verified after an actual QA gateway exit. 0.1.38 adds truthful progress through verification and safe recovery cleanup. Next add reviewed version upgrades, reduce measured repair/cleanup latency, validate additional storage faults and implement feasible Android support. | Preserve native generation/auth/cancel/restart/exit gates; verify upgrade recovery and each platform before expansion. |
+| CON2 | Managed gateway upgrades and platform parity | Windows 0.1.33 delivers pinned component import, private owned loopback lifecycle and an explicit managed Chat route sharing the bundled Fast engine. Windows 0.1.35 adds visible Home status, focused setup access and explicit ready-only Chat selection. Windows 0.1.36 adds pinned repair and interrupted-swap recovery, with real damaged-runtime acceptance; 0.1.37 adds explicit stale-owned-state reset verified after an actual QA gateway exit. 0.1.38 adds truthful progress through verification and safe recovery cleanup; 0.1.39 adds measured lightweight polling. Next add reviewed version upgrades, reduce measured repair/cleanup latency, validate additional storage faults and implement feasible Android support. | Preserve native generation/auth/cancel/restart/exit gates; verify upgrade recovery and each platform before expansion. |
 | CON3 | Creative media actual generation/import incomplete | Support a local generator where hardware permits; finish optional remote job polling, validated output import and restart recovery. | Real generated artifact opens/saves; quotas/errors/cancel/restart tested. SVG planning remains separately labelled. |
 | CON4 | Cal.diy booking lifecycle absent | Add optional self-host setup, availability/timezone integration and explicit booking/reschedule/cancel actions. | DST, duplicate-click and attendee tests against running instance. |
 | CON5 | Nextcloud continuous sync absent | Extend encrypted backup adapter with ETags, conflict copies, retry/resume, revocation and explicit background settings. | Interrupted/concurrent edits restore correctly; credentials and encrypted content protected. |
@@ -161,3 +161,5 @@ AI remain listed above rather than implied by the APK download.
   GitHub release assets matched local sizes and digests before publication.
 
 0.1.38 completes truthful managed repair phases and visible, cancellation-independent recovery progress. Traversal/verification speed, drive-type validation, upgrades and platform parity remain open; see IMPROVEMENTS-0.1.38.md for actual evidence.
+
+0.1.39 completes measured lightweight OmniRoute progress polling, with paired Windows/Android artifacts verified. It does not complete repair traversal optimization, mapped-network-drive rejection, reviewed runtime upgrades, mobile parity or the remaining local TTS/reader/music/service work. See IMPROVEMENTS-0.1.39.md.

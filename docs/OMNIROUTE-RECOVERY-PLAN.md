@@ -1,6 +1,6 @@
 # Managed OmniRoute recovery: implementation specification
 
-Status: pinned Windows repair delivered and verified in 0.1.36; explicit stale-state reset in 0.1.37 and truthful repair-progress phases in 0.1.38. Runtime version upgrades and additional platform/fault validation remain pending.
+Status: pinned Windows repair delivered and verified in 0.1.36; explicit stale-state reset in 0.1.37 and truthful repair-progress phases in 0.1.38, and measured lightweight progress polling in 0.1.39. Runtime version upgrades and additional platform/fault validation remain pending.
 
 The original defect was an instruction to reimport after early process exit while import refused an existing destination and Settings hid source selection. Version 0.1.36 supplies the stopped-only pinned repair route. Version 0.1.37 also keeps Stop available when an owned gateway has exited, allowing explicit reset before repair or restart. Home status validates the pinned manifest, not every payload file; startup still verifies every file before executing anything.
 
@@ -47,6 +47,8 @@ Run these as separate, reviewable changes rather than combining a filesystem saf
 
 C: free space increased to about 11.4 GiB before 0.1.38, allowing its paired release locally without moving or deleting files in this task. Recheck free space before the next full build. K: remains a network drive without authorization for release outputs. Keep private voice recordings/models local, preserve existing artifacts and do not retry the rejected cleanup through another mechanism.
 
-Additional profiling target from 0.1.38 review: managed status rereads and validates the manifest on every status request, including progress polling. Measure that cost separately from repair. Consider a workspace-only lightweight progress snapshot rather than weakening or caching execution-time file verification. Retain full startup verification, owned-listener attestation and explicit final status refresh. This is proposed work, not a delivered performance change.
+Completed profiling target from the 0.1.38 review: full managed status rereads and validates the manifest. Version 0.1.39 measures that cost and moves busy polling to a workspace-only in-memory snapshot. Full startup verification, owned-listener attestation and explicit final status refresh remain intact. See IMPROVEMENTS-0.1.39.md for measured logical reads and latency; repair traversal optimization is still proposed work.
 
 Storage update, 2026-10-21: the user selected cleanup of old AnF files. Sixteen unpacked portable builds (0.1.21-0.1.36), verified file-by-file against retained ZIPs, were removed; current/fallback builds, all archives/installers and private assets remain. C: gained about 30.0 GiB and had 35.4 GiB free afterward. The immediate build-storage blocker is cleared; continue locally on C: while checking capacity before each build. K: was not selected or used. No app code changed for this cleanup.
+
+0.1.39 delivers the proposed lightweight progress snapshot, verified with native logical-I/O measurements and genuine repair/lifecycle tests. Full status and execution-time checks remain intact. See IMPROVEMENTS-0.1.39.md; traversal speed, mapped-network-drive classification, runtime upgrades and platform parity remain open.

@@ -1,0 +1,13 @@
+# AnF 0.1.39 preview
+
+Managed OmniRoute operations now poll a workspace-only in-memory progress snapshot containing phase, done and total. The snapshot performs no manifest or filesystem lookup and cannot authorize execution or assert readiness. Initial, manual and final status checks still validate installed state; all startup file verification, owned-listener checks and safe recovery checks remain unchanged. An operation epoch discards stale progress replies.
+
+## Measured evidence
+
+An isolated stopped-gateway benchmark made three groups of ten progress calls: median response times were 3.90, 3.94 and 3.26 milliseconds, with logical process reads of 7,840, 2,240 and 2,464 bytes per group. Ten full-status calls in the same run had a 97.64 millisecond median and 45,566,104 logical read bytes. The manifest is 4,556,364 bytes. Logical process reads are not physical disk traffic. These measurements establish cheaper polling, not an end-to-end repair speedup. Connection settings were unchanged; the benchmark did not start the gateway/model, import, repair or synthesize text.
+
+Native tests: 102 passed, 15 ignored. Browser fixtures verify lightweight polling without repeated full-status calls while busy, independent copy/verification counters, indeterminate cleanup, stale-state reset and no premature readiness. The native suite repaired genuinely damaged runtime bytes and observed Inspecting component source, Copying and verifying component files, Promoting verified repair candidate, Inspecting component files, Verifying component files, Inspecting pending repair, Cleaning repair rollback data, Repaired; stopped. Repair elapsed 604.0 seconds in this run; it is not a controlled before/after comparison. Actual local generation, authentication, workspace permission boundaries including the new RPC, cancellation/restart, stale-owned reset and forced-owner-exit cleanup passed, with zero application-side proxy requests.
+
+Windows installer/portable verification checked all 593 archived files and archive CRC/SHA. Android 0.1.39 passed current-source/assets/native-library, ZIP/16 KiB alignment and development-signature gates. All ten published assets had remote SHA digests checked. Private voice recordings and derived models are excluded.
+
+Windows remains unsigned and Android development-signed. Hosted CI still fails before runner execution because of account payment/spending settings. No YAML workaround resolves that restriction. Android device tests, managed-gateway platform parity, drive-type validation, runtime upgrades and the wider music/reader/TTS/service roadmap remain open.

@@ -877,3 +877,23 @@ removal/caching, no K writes/private voice upload. Primary HEAD/index preserved.
 HostedCI latest39631838720 refused for account billing before runner; retain task.
 
 039native102PASS/15ignored; actualAndroid39finalgatePASS; browserlightpollPASS. QA release compile still in progress2267. Application source frozen; no39tag/release yet.
+
+### 0.1.39 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.39
+App/tag source 8e5f9f0be1fdacac69bcf2346d81db6b9d88982d; all ten remote asset hashes verified.
+Native102PASS/15ignored; browserlightpollPASS; actualAndroid39gatePASS;
+Windows593files/ZIPCRC/SHA PASS; genuine repair (604.0s)
+and generation/auth/permissions/cancel/restart/stalereset/forcedexit PASS,
+zero proxy requests. Evidence logs managed-poll-039-*. Benchmark report
+managed-status-097a4871-1671-4efa-a715-42cecf6d4b51: progress medians3.26-3.94ms,
+fullstatus97.64ms; logical reads, not physical I/O or overall repair speedup.
+App snapshot onlyphase/done/total, stale replies discarded, execution checks intact.
+QA physical exe is39; primaryHEAD/index preserved; private voices/models local.
+HostedCI39634456029 refused before runner for billing/spending; no YAML fix.
+Next: mapped network drive validation and measured traversal work, reviewed runtime
+upgrades, then remaining local TTS/reader/mobile/music/service roadmap. Check C:
+space before builds; K: network drive remains unauthorized. Old21..36 redundant
+unpacked portables were removed with explicit user permission and archive proof;
+all archives/installers/current38/fallback37 and private/user/source files retained.
+Unsigned Windows/development-signed Android; no device/Strix/Linux success claimed.
