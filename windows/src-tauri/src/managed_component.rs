@@ -94,16 +94,38 @@ pub fn relative(value: &str) -> Result<PathBuf, String> {
     }
     Ok(PathBuf::from(value))
 }
+#[cfg(windows)]
+fn local_drive_with(path: &Path, query: impl FnOnce(&[u16; 4]) -> u32) -> Result<(), String> {
+    use std::path::{Component, Prefix};
+    use windows::Win32::System::WindowsProgramming::{
+        DRIVE_CDROM, DRIVE_FIXED, DRIVE_RAMDISK, DRIVE_REMOVABLE,
+    };
+    let refused = "Use a local Windows drive for the component; mapped network, unavailable and device paths are refused.";
+    let absolute = std::path::absolute(path).map_err(|_| "Cannot resolve component path.")?;
+    let drive = match absolute.components().next() {
+        Some(Component::Prefix(p)) => match p.kind() {
+            Prefix::Disk(drive) | Prefix::VerbatimDisk(drive) => drive,
+            _ => return Err(refused.into()),
+        },
+        _ => return Err(refused.into()),
+    };
+    // Explicit terminated root with the required trailing slash; never query a
+    // null/default root or assume that a drive letter denotes local storage.
+    let root = [drive as u16, b':' as u16, b'\\' as u16, 0];
+    match query(&root) {
+        DRIVE_REMOVABLE | DRIVE_FIXED | DRIVE_CDROM | DRIVE_RAMDISK => Ok(()),
+        _ => Err(refused.into()),
+    }
+}
 pub fn no_links(path: &Path) -> Result<(), String> {
     #[cfg(windows)]
-    {
-        use std::path::{Component, Prefix};
-        let absolute = std::path::absolute(path).map_err(|_| "Cannot resolve component path.")?;
-        if !matches!(absolute.components().next(),Some(Component::Prefix(p)) if matches!(p.kind(),Prefix::Disk(_)|Prefix::VerbatimDisk(_)))
-        {
-            return Err("Use a local Windows drive for the component; network and device paths are refused.".into());
+    local_drive_with(path, |root| {
+        // Rechecked for each access; no cached drive classification authorizes
+        // later filesystem reads, copies or deletion after a mapping changes.
+        unsafe {
+            windows::Win32::Storage::FileSystem::GetDriveTypeW(windows::core::PCWSTR(root.as_ptr()))
         }
-    }
+    })?;
     let mut ancestor = Some(path);
     while let Some(p) = ancestor {
         match fs::symlink_metadata(p) {
@@ -679,6 +701,46 @@ mod tests {
             assert!(no_links(Path::new(path))
                 .unwrap_err()
                 .contains("local Windows drive"));
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn mapped_network_drive_aliases_are_rejected() {
+        for path in [
+            r"Q:\missing\component.json",
+            r"\\?\Q:\missing\component.json",
+        ] {
+            assert!(local_drive_with(Path::new(path), |root| {
+                assert_eq!(*root, [b'Q' as u16, b':' as u16, b'\\' as u16, 0]);
+                windows::Win32::System::WindowsProgramming::DRIVE_REMOTE
+            })
+            .unwrap_err()
+            .contains("mapped network"));
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn drive_classification_fails_closed_without_requiring_the_source_to_exist() {
+        for kind in [0, 1, 4, u32::MAX] {
+            assert!(local_drive_with(Path::new(r"Z:\missing\component.json"), |_| kind).is_err());
+        }
+        for kind in [2, 3, 5, 6] {
+            assert!(local_drive_with(Path::new(r"Z:\missing\component.json"), |_| kind).is_ok());
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "Requires ANF_TEST_REMOTE_DRIVE naming an existing mapped network drive; root-type query only."]
+    fn actual_mapped_network_drive_is_refused() {
+        let drive = std::env::var("ANF_TEST_REMOTE_DRIVE").unwrap();
+        assert!(drive.len() == 1 && drive.as_bytes()[0].is_ascii_alphabetic());
+        for path in [
+            format!(r"{}:\AnF-readonly-path-probe\component.json", drive),
+            format!(r"\\?\{}:\AnF-readonly-path-probe\component.json", drive),
+        ] {
+            assert!(no_links(Path::new(&path))
+                .unwrap_err()
+                .contains("mapped network"));
         }
     }
 }

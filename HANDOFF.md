@@ -897,3 +897,20 @@ space before builds; K: network drive remains unauthorized. Old21..36 redundant
 unpacked portables were removed with explicit user permission and archive proof;
 all archives/installers/current38/fallback37 and private/user/source files retained.
 Unsigned Windows/development-signed Android; no device/Strix/Linux success claimed.
+
+### 0.1.40 mapped-drive candidate - 2026-10-21
+
+Adds GetDriveTypeW classification to every Windows no_links validation before
+source metadata access; normal/verbatim disk prefixes share an explicit terminated
+drive root. Reject remote/unknown/no-root/unsupported types; allow known local
+fixed/removable/optical/RAM disks. Existing reparse/ancestor checks and full file
+verification remain unchanged. No cached classification or K: file reads/writes.
+Tests104PASS/16ignored plus explicit actual K: mapped-network rejection testPASS;
+unknown kinds/drive aliases covered. Native QA harness adds remote repair-source
+rejection for normal/verbatim aliases and records remoteDriveRejected. No40release
+yet. Source frozen at40; QA/native repair/lifecycle, paired Windows/Android gates
+and verified publication still required. Logs managed-drive-040-*. Keep primary
+HEAD/index/private voices/user processes unchanged. Previous stable release39.
+HostedCI39659611829 on39docs still refused for account payment/spending before
+runner; no YAML fix or bypass. Do not drop its automation task as resolved.
+Next traversal measurements/reviewed upgrades, then remaining TTS/reader/mobile.

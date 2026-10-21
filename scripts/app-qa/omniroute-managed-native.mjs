@@ -109,6 +109,15 @@ try{
  const initial=await invoke('omniroute_status');assert.equal(initial.running,false);
  await assert.rejects(()=>invoke('omniroute_use'));
  const bad=path.join(profile,'untrusted-component.json');await writeFile(bad,'{"schema":1,"files":[]}');
+ if(process.env.ANF_QA_REMOTE_DRIVE){
+  const drive=process.env.ANF_QA_REMOTE_DRIVE;assert.match(drive,/^[A-Za-z]$/);assert(initial.installed,'Remote-source rejection requires an existing isolated component.');
+  for(const manifest of [`${drive}:\\AnF-readonly-path-probe\\component.json`,`\\\\?\\${drive}:\\AnF-readonly-path-probe\\component.json`]){
+   let rejected='';try{await invoke('omniroute_repair',{manifest});}catch(error){rejected=String(error);}
+   assert.match(rejected,/mapped network/);
+  }
+  assert.deepEqual(await invoke('connection_list'),initialConnections);report.remoteDriveRejected=true;
+  pass('Mapped network source is refused for normal and verbatim drive paths without reading source files or changing connections.');
+ }
  if(!process.env.ANF_QA_PROFILE){
  assert.equal(initial.installed,false);
  await assert.rejects(()=>invoke('omniroute_install',{manifest:bad}));
