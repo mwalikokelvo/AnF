@@ -933,3 +933,32 @@ HostedCI https://github.com/mwalikokelvo/AnF/actions/runs/39661051104 refused be
 Next local TTS/reader usability work, plus measured repair traversal/runtime
 upgrade roadmap and mobile/service/music gaps. Recheck C: before full builds.
 UnsignedWindows/developmentAndroid; no physicaldevice/Strix/Linux success claimed.
+
+### 0.1.41 local voice isolation candidate - 2026-10-21
+
+Current stable release40; appsource41 frozen for verification. Adds embedded
+scripts/local-voice-job.py compatible with the existing private five-voice pack,
+random per-profile job output folders, bounded WAV read, exact-file cleanup that
+preserves unexpected entries, and native shutdown cancellation. Private pack's
+shared output.wav is never read/deleted/written by the new app worker. Pack model,
+reference and source validation retained; per-request Python/CPU synthesis remains
+one-shot, NOT a persistent worker or claimed latency improvement. Runtime caches
+remain in the private pack. Hard app death can retain a bounded scratch job folder
+for inspection; no arbitrary/stale-directory GC is introduced.
+Windows voice_process uses PROC_THREAD_ATTRIBUTE_JOB_LIST at creation plus an
+explicit stdin/NUL HANDLE_LIST, verifies job membership before resume, kill-on-close
+ownership, and an OS environment allowlist (no provider keys/proxy/Python overrides).
+Requests stay stdin, never shell or text files. Python -I -B, four-minute timeout,
+same five voices and existing readiness contract. Shared managed_process logic is
+unchanged except command_line visibility. No worker/model/reference pack rewrite.
+106 native testsPASS/17ignored; explicit process fixturePASS including actual
+descendant termination, Unicode stdin and excluded harmless environment sentinel.
+QA pipeline17663 logsvoice-isolation-041-{native-tests,process-fixture,qa-build}.
+Androidgate21470 logvoice-isolation-041-android-gate. Real fivevoice synthesis,
+cancel/reader/forced-owner-exit tests and combined OmniRoute/model/voice exit remain
+required, then production Windows verification and paired41publication. No41tag
+or release yet. NativevoiceQA uses unique .tools/native-voice-qa folders, port9238;
+combined managedQA port9224 runs sequentially against retained4e7d1ddc profile.
+Physical managedQAexe40 until current QA build completes; copy only QA binary.
+Privatepack .tools/local-voice stays local; do not upload QA WAVs/private recordings.
+Preserve primaryHEAD/index and unrelated work; no broad formatter, no K outputs.

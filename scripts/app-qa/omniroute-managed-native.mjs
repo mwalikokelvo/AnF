@@ -238,9 +238,24 @@ try{
  pass('Cancelling startup prevents stale service publication and cleans owned processes.');
  assert.equal((await invoke('omniroute_start')).running,true);
  assert.deepEqual(await invoke('connection_list'),initialConnections);
+ let speechPids=[];
+ if(process.env.ANF_QA_WITH_VOICE==='1'){
+  await invoke('local_voice_status');
+  await page.evaluate(()=>{void window.__TAURI_INTERNALS__.invoke('local_voice_speak',{id:'combined-owner-exit',voice:'amazing',text:'This isolated speech worker must stop with its gateway and model owner.'}).catch(()=>{});});
+  const untilVoice=Date.now()+15000;
+  while(Date.now()<untilVoice&&!speechPids.length){
+   const probe=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',psUtf8+`Get-CimInstance Win32_Process -Filter "ParentProcessId=${child.pid} AND name='python.exe'" | Select-Object ProcessId | ConvertTo-Json -Compress`],{encoding:'utf8',windowsHide:true});assert.equal(probe.status,0);const data=probe.stdout.trim()?JSON.parse(probe.stdout):[];speechPids=(Array.isArray(data)?data:[data]).map(p=>p.ProcessId);if(!speechPids.length)await new Promise(r=>setTimeout(r,100));
+  }
+  assert.equal(speechPids.length,1,'A real speech process must coexist with the owned gateway and model.');report.combinedSpeechPid=speechPids[0];
+ }
  await page.screenshot({path:path.join(profile,'managed-native.png')});
  await browser.close();browser=undefined;
  child.kill();await waitNoNodes();await waitNoModels();
+ if(speechPids.length){
+  const untilVoiceExit=Date.now()+10000;let alive=true;
+  while(Date.now()<untilVoiceExit){const probe=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`if(Get-Process -Id ${speechPids[0]} -ErrorAction SilentlyContinue){'alive'}`],{encoding:'utf8',windowsHide:true});assert.equal(probe.status,0);alive=probe.stdout.includes('alive');if(!alive)break;await new Promise(r=>setTimeout(r,100));}
+  assert.equal(alive,false,'Combined owner exit left a speech worker alive.');pass('Forced owner exit stops coexisting gateway, model and real speech process.');
+ }
  pass('Restart succeeds; forced app exit removes its gateway and local-model processes.');
  report.passed=true;
 }catch(error){

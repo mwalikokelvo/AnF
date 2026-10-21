@@ -33,7 +33,7 @@ fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
 }
 #[cfg(windows)]
-fn command_line(executable: &Path, arguments: &[OsString]) -> Result<Vec<u16>, String> {
+pub(crate) fn command_line(executable: &Path, arguments: &[OsString]) -> Result<Vec<u16>, String> {
     use std::os::windows::ffi::OsStrExt;
     let mut line = Vec::new();
     for argument in

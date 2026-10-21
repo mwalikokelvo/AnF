@@ -12,6 +12,8 @@ mod identity;
 mod local_ai;
 mod local_link;
 mod local_voice;
+#[cfg(windows)]
+mod voice_process;
 mod managed_component;
 mod managed_repair;
 mod managed_http;
@@ -693,6 +695,7 @@ pub fn run() {
     match built {
         Ok(app) => app.run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                local_voice::shutdown(&app.state::<local_voice::VoiceJobs>());
                 managed_omniroute::shutdown(&app.state::<managed_omniroute::Managed>().0);
                 music_native::shutdown();
                 app.state::<Chat>().local.shutdown();
