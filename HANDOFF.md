@@ -996,3 +996,6 @@ Next local TTS controlled latency/persistent-worker design and stale scratch cle
 then reader/mobile/music/service backlog. Existing optional OmniRoutepin3.8.51 intact.
 PhysicalmanagedQAexe41; optional local-voice junction there is QA-only and resolves
 to the existing private pack. Never recursively remove a linked QA pack target.
+
+### Local TTS profiling checkpoint - 2026-10-21
+Two isolated fresh-process/two-generation profiling runs PASS. Evidence C:\Users\jhadfield\Downloads\Compressed\AnF-codex-downloadable-releases\.tools\voice-stage-profile-acaa78283bfb458aa46b367ff1a33fb8\report.json; private harness .tools/profile-local-voice-stages.py; no private WAV/log upload. Same 48-character amazing-profile text, 24kHz finite/non-silent audio, network disabled, shared pack output unchanged. No concurrent build; caches not cleared. See docs/LOCAL-TTS-PERFORMANCE.md for stage timings and proposed bounded resident protocol. Production code/pack unchanged; 0.1.41 remains release. Next implement single owned resident process with per-request full integrity, output isolation, bounded protocol, cancel/idle/crash/exit tests; then paired verified release. Latest docs Actions run39670518637 still billing/spending refusal before runner. PrimaryHEAD/index preserved.
