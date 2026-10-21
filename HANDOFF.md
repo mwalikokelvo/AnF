@@ -778,3 +778,30 @@ were weakened and no speedup is claimed. Before an optimization, preserve
 acceptance-marker-last, restart verification, cancellation rollback and safety
 against concurrent filesystem changes; the controller lock does not exclude
 external writers. Next app update still requires paired Windows/Android releases.
+
+### 0.1.38 progress candidate - 2026-10-21
+
+C: free space increased to about 11.4 GiB without any cleanup/move by this task.
+Release work resumed on C:; K: remains unauthorized and untouched. No rejected
+cleanup was retried. Candidate source 140f9b9444330a3c4f34b314ceaa0df0a5737689
+uploaded using temporary index; primary HEAD and index preserved.
+Repair progress shares counters/phase with an independent recovery cancellation
+epoch. Named inspection/copy/verification/promotion/acceptance/cleanup phases,
+indeterminate unknown work, no Ready at copy100%, no filesystem safety shortcut.
+Native102PASS/15ignored; browserphase/resetPASS; Android38 final gatePASS.
+First Android attempt correctly rejected a final UI change made during its build;
+settled-source rerun passed. Windows QA build session77818 in progress, then copy
+QA executable to existing physical QA-bin pointer. Run ANF_QA_REPAIR=1 and
+ANF_QA_STALE=1 with existing reused4e7d1ddc profile, report preserved by harness.
+Logs managed-progress-038-* under .tools/logs. Then productionpack/fullverifier,
+exact ten-asset release plan and immutable38 publication. No38release yet.
+
+First 0.1.38 native run restored the genuine damaged runtime in626871ms and
+passed progress/generation/auth/permissions/stale reset/stop, then failed a stale
+QA startup-cancellation label predicate. Inspection is now a distinct long phase,
+so the harness must accept inspecting|verifying|starting before cancellation.
+Updated only that harness predicate; application binary/code unchanged. Full
+real repair+lifecycle rerun63434 (managed-progress-038-native-e2e-final.txt).
+Earlier report preserved automatically before profile reuse. Do not claim full
+native success until corrected rerun completes. Windows593files/ZIPCRC/SHA PASS;
+installer1816640500bytes, ZIP1820538075bytes. Android final package gatePASS.

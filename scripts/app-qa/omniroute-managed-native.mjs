@@ -219,7 +219,7 @@ try{
  let active=false;
  for(let i=0;i<100;i++){
   const state=await invoke('omniroute_status');
-  if(!state.running&&/verifying|starting/i.test(state.phase)){active=true;break;}
+  if(!state.running&&/inspecting|verifying|starting/i.test(state.phase)){active=true;break;}
   await new Promise(r=>setTimeout(r,100));
  }
  assert(active,'Did not observe the cancellable startup operation.');
