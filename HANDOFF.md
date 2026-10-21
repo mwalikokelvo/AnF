@@ -914,3 +914,22 @@ HEAD/index/private voices/user processes unchanged. Previous stable release39.
 HostedCI39659611829 on39docs still refused for account payment/spending before
 runner; no YAML fix or bypass. Do not drop its automation task as resolved.
 Next traversal measurements/reviewed upgrades, then remaining TTS/reader/mobile.
+
+### 0.1.40 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.40
+App/tag source db6240f17b6976a5bfc7c8e99d3c81aa450e4b84; all ten remote asset SHA hashes verified.
+Native104PASS/16ignored plus separately executed actualK rejection1PASS; browser
+PASS; actualAndroid40 current-source/signature/alignment gatePASS; Windows593
+files/ZIPCRC/SHA PASS. QA native remote repair-source aliases refused; genuine
+damaged-runtime repair615.6s; local generation/auth/workspace
+permissions/stalereset/stop/cancel/restart/forcedexitPASS; zero proxyrequests.
+Evidence managed-drive-040-*; .tools/managed-drive-040-network-fixture.json confirms
+K: network via read-only root classification. No K: file content or writes.
+GetDriveTypeW checked at each Windows no_links call, no cache, existing file/link
+verification retained. No atomic protection against hostile remapping claimed.
+QAphysicalexe40; primaryHEAD/index preserved, private voices/models retainedlocal.
+HostedCI https://github.com/mwalikokelvo/AnF/actions/runs/39661051104 refused before runner for billing/spending; no YAML fix.
+Next local TTS/reader usability work, plus measured repair traversal/runtime
+upgrade roadmap and mobile/service/music gaps. Recheck C: before full builds.
+UnsignedWindows/developmentAndroid; no physicaldevice/Strix/Linux success claimed.

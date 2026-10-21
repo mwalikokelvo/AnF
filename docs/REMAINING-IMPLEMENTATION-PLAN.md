@@ -1,6 +1,6 @@
 # Remaining implementation and delivery plan
 
-Updated: 2026-10-21. Release baseline: AnF 0.1.39.
+Updated: 2026-10-21. Release baseline: AnF 0.1.40.
 
 This is the consolidated inventory of known unmet requests, partial capabilities,
 and verification gaps. It covers the code and earlier requested scope; it cannot
@@ -25,10 +25,12 @@ This release adds guided gateway discovery and generation checks, installer iden
 fixes and the original OCR regression fix. Managed gateway work was not part of 0.1.32. Windows 0.1.33 subsequently delivered
 the optional pinned local component and managed Chat route. Version 0.1.34 adds
 forced-exit ownership for the bundled Windows model, Unicode command-line handling
-and early repeated-import refusal. Current native tests: 93 passed, 15 ignored.
+and early repeated-import refusal. Native tests at 0.1.34: 93 passed, 15 ignored.
 The full managed lifecycle and a fresh offline forced-owner-death test passed;
 Windows packages and the current Android development APK passed their gates.
 These checks do not establish Android device or other-platform parity.
+
+Current 0.1.40 evidence: 104 native tests passed, 16 ignored in the standard run; the mapped-drive test was separately executed and passed. Genuine repair/local generation/lifecycle and current paired Windows/Android artifact checks passed. This remains separate from device tests and the blocked hosted CI account.
 
 ## Release and installation (first priority)
 
@@ -80,7 +82,7 @@ accounts. Local models may require an initial download, not paid API credentials
 | ID | Remaining gap | Implementation / integration | Completion evidence |
 | --- | --- | --- | --- |
 | CON1 | Open Notebook adapter not live-validated | Add guided optional local service setup/health check and job polling; integrate ingestion, retrieval and citations. | Real imported source completes processing and cited answer resolves correctly. |
-| CON2 | Managed gateway upgrades and platform parity | Windows 0.1.33 delivers pinned component import, private owned loopback lifecycle and an explicit managed Chat route sharing the bundled Fast engine. Windows 0.1.35 adds visible Home status, focused setup access and explicit ready-only Chat selection. Windows 0.1.36 adds pinned repair and interrupted-swap recovery, with real damaged-runtime acceptance; 0.1.37 adds explicit stale-owned-state reset verified after an actual QA gateway exit. 0.1.38 adds truthful progress through verification and safe recovery cleanup; 0.1.39 adds measured lightweight polling. Next add reviewed version upgrades, reduce measured repair/cleanup latency, validate additional storage faults and implement feasible Android support. | Preserve native generation/auth/cancel/restart/exit gates; verify upgrade recovery and each platform before expansion. |
+| CON2 | Managed gateway upgrades and platform parity | Windows 0.1.33 delivers pinned component import, private owned loopback lifecycle and an explicit managed Chat route sharing the bundled Fast engine. Windows 0.1.35 adds visible Home status, focused setup access and explicit ready-only Chat selection. Windows 0.1.36 adds pinned repair and interrupted-swap recovery, with real damaged-runtime acceptance; 0.1.37 adds explicit stale-owned-state reset verified after an actual QA gateway exit. 0.1.38 adds truthful progress through verification and safe recovery cleanup; 0.1.39 adds measured lightweight polling; 0.1.40 adds mapped-drive classification. Next add reviewed version upgrades, reduce measured repair/cleanup latency, validate additional storage faults and implement feasible Android support. | Preserve native generation/auth/cancel/restart/exit gates; verify upgrade recovery and each platform before expansion. |
 | CON3 | Creative media actual generation/import incomplete | Support a local generator where hardware permits; finish optional remote job polling, validated output import and restart recovery. | Real generated artifact opens/saves; quotas/errors/cancel/restart tested. SVG planning remains separately labelled. |
 | CON4 | Cal.diy booking lifecycle absent | Add optional self-host setup, availability/timezone integration and explicit booking/reschedule/cancel actions. | DST, duplicate-click and attendee tests against running instance. |
 | CON5 | Nextcloud continuous sync absent | Extend encrypted backup adapter with ETags, conflict copies, retry/resume, revocation and explicit background settings. | Interrupted/concurrent edits restore correctly; credentials and encrypted content protected. |
@@ -96,7 +98,7 @@ accounts. Local models may require an initial download, not paid API credentials
 | DATA2 | Pairing/cross-version resilience unverified | Version schemas, persist transfer checkpoints and test conflicts, revoked peers and interrupted pairing. | Real PC/phone cross-version recovery preserves text and reading anchors. |
 | DATA3 | Large collections unmeasured | Add virtualization/pagination, deduplication, quota UI and incremental audiobook indexing after measuring baseline. | Published large-corpus latency/memory measurements and restart-safe imports. |
 | SEC1 | Strix scan not run | Provision reviewed CLI, Docker and usable model, scan authorized source copy, triage and fix findings. | Completed scan report and remediation retest; missing prerequisites stay a failure. |
-| SEC2 | Parser/runtime hardening and ignored tests | Review voice/font/document/media input boundaries; classify 12 ignored native tests and execute where dependencies exist; fuzz malformed inputs. | Tests cover limits, cancellation, corrupt assets and recovery; reasons recorded for remaining skips. |
+| SEC2 | Parser/runtime hardening and ignored tests | Review voice/font/document/media input boundaries; classify the remaining ignored native tests and execute where dependencies exist; fuzz malformed inputs. | Tests cover limits, cancellation, corrupt assets and recovery; reasons recorded for remaining skips. |
 | PLAT1 | Linux release unverified | Finish WSL/restart/toolchain prerequisites, compile/package, implement platform renderer/speech fallbacks and GUI smoke. | Installable Linux release and portable artifact verified in Linux. |
 | PLAT2 | iOS absent | Define iOS app/runtime and parity scope; obtain Mac/Xcode/signing environment; implement document/audio/storage integrations. | Signed device build and lifecycle tests. User currently has no Mac/developer account. |
 | PLAT3 | Separate macOS app parity incomplete | Port shared workflows, replace Cursor/Codex readiness stub with real tested hooks, compile on Mac. | Native Mac build and actual integration checks; separate version tracked. |
@@ -163,3 +165,7 @@ AI remain listed above rather than implied by the APK download.
 0.1.38 completes truthful managed repair phases and visible, cancellation-independent recovery progress. Traversal/verification speed, drive-type validation, upgrades and platform parity remain open; see IMPROVEMENTS-0.1.38.md for actual evidence.
 
 0.1.39 completes measured lightweight OmniRoute progress polling, with paired Windows/Android artifacts verified. It does not complete repair traversal optimization, mapped-network-drive rejection, reviewed runtime upgrades, mobile parity or the remaining local TTS/reader/music/service work. See IMPROVEMENTS-0.1.39.md.
+
+Next local TTS work: measure cold and subsequent synthesis latency; review app-exit ownership for the current one-process-per-chunk Python worker; isolate its current fixed output.wav per job/profile before testing concurrent synthesis; add genuine cancellation/forced-owner-exit evidence before introducing a bounded persistent worker. Existing voice QA links the private pack, so avoid concurrent writes through that shared target. Keep all five private reference voices local and retain actual sentence playback events rather than estimating word timings. The persistent worker, output-isolation and exit-ownership changes are proposed, not delivered by 0.1.40.
+
+0.1.40 completes Windows mapped-drive validation, including real mapped-source rejection and paired verified release artifacts. Hostile concurrent drive remapping, broader storage faults, traversal optimization and reviewed runtime upgrades remain separate work. Continue the local-only TTS/reader/music/mobile/service roadmap; see IMPROVEMENTS-0.1.40.md.
