@@ -824,3 +824,25 @@ C: regained capacity allowed this release without cleanup/moves; check free spac
 before next build. K: remains unauthorized. Private voices/models stay local.
 Primary HEAD/index preserved. Next measured performance/drive classification,
 then local TTS/reader/mobile/service backlog. No app uninstall or private upload.
+
+### Authorized old-build cleanup completed - 2026-10-21
+
+User answered the pending storage question: delete old AnF files. Removed ONLY
+16 redundant unpacked portable build folders, 0.1.21 through 0.1.36, after each
+file matched its retained ZIP by SHA-256. Rechecked absolute allowlisted paths,
+no links/reparse points, no executables running from those folders, and unchanged
+inventory/timestamps before deletion. No alternate-shell deletion or force fallback.
+All16 removed, no errors/skips; observed C: free-space increase 30.00 GiB,
+ending 35.42 GiB free. Storage blocker is cleared for further local builds.
+Keep outputs on C: and recheck capacity; K: remains unauthorized/untouched.
+Retained 0.1.38 current and0.1.37 fallback unpacked builds, EVERY release archive
+and installer, source/worktrees, app/user data, private voices/models/voice pack,
+and downloaded build runtimes. No app uninstall. Postcleanup0.1.38 verification
+PASS:593files/ZIPCRC/SHA, installer1816640500bytes, portableZIP1820538075bytes.
+Evidence .tools/old-portable-cleanup-{plan,result}.json and logs/old-portable-
+cleanup-{audit,delete}.txt; protected check cleanup-protected-038-verification.txt.
+No app code/version changed; latest verified published app remains0.1.38.
+Next resume OmniRoute progress-poll efficiency/drive classification, then local
+TTS/reader/mobile/service gaps. CI account billing remains independently blocked.
+Future cleanup should prefer redundant generated unpacked copies backed by exact
+archives; never expand into source/user data/private assets or uninstall apps.
