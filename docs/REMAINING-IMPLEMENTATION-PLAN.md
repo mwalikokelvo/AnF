@@ -1,6 +1,6 @@
 # Remaining implementation and delivery plan
 
-Updated: 2026-10-21. Release baseline: AnF 0.1.40.
+Updated: 2026-10-21. Release baseline: AnF 0.1.41.
 
 This is the consolidated inventory of known unmet requests, partial capabilities,
 and verification gaps. It covers the code and earlier requested scope; it cannot
@@ -30,7 +30,9 @@ The full managed lifecycle and a fresh offline forced-owner-death test passed;
 Windows packages and the current Android development APK passed their gates.
 These checks do not establish Android device or other-platform parity.
 
-Current 0.1.40 evidence: 104 native tests passed, 16 ignored in the standard run; the mapped-drive test was separately executed and passed. Genuine repair/local generation/lifecycle and current paired Windows/Android artifact checks passed. This remains separate from device tests and the blocked hosted CI account.
+0.1.40 evidence: 104 native tests passed, 16 ignored in the standard run; the mapped-drive test was separately executed and passed. Genuine repair/local generation/lifecycle and current paired Windows/Android artifact checks passed. This remains separate from device tests and the blocked hosted CI account.
+
+Current 0.1.41 evidence: 106 native tests passed, 17 ignored in the standard run; a real process/descendant fixture passed separately. All five custom voices synthesized new text, native reader/cancellation/output cleanup and forced app exit passed, and a combined gateway/model/speech exit test passed. Paired Windows/Android artifacts and all remote asset hashes were verified.
 
 ## Release and installation (first priority)
 
@@ -51,7 +53,7 @@ Current 0.1.40 evidence: 104 native tests passed, 16 ignored in the standard run
 | READ2 | Android scanned-document OCR absent | Integrate licensed offline OCR with image preprocessing and cancellable page jobs. | Scanned PDF corpus produces searchable text offline without memory spikes. |
 | READ3 | Windows OCR corpus quality defect | Original 'seven letters' regression now passes without unnecessary upscaling. Preserve the strict noisy/skew corpus exposing El→Fl; improve preprocessing/model. | Original regression continues to pass plus representative corpus; no weakened assertions. |
 | READ4 | EPUB/Word only extracted text | Build format-aware content models: EPUB spine, images, tables, footnotes and semantic headings; structured DOCX blocks. Sanitize content. | Format corpus preserves reading order, links and notes; safe malformed-archive handling. |
-| READ5 | Advanced accessibility and languages incomplete | Add chapter/heading/table navigation, accessible names and keyboard shortcuts; test screen readers, RTL and multilingual pronunciation. | Assistive-technology and multilingual device tests. |
+| READ5 | Advanced accessibility and languages incomplete | Add chapter/heading/table navigation, accessible names, keyboard shortcuts and a compact player with visible controls; test screen readers, RTL and multilingual pronunciation. | Assistive-technology and multilingual device tests. |
 | READ6 | Custom voices unavailable on Android | Benchmark a licensed mobile CPU/GPU inference runtime and quantized model; implement native lifecycle/download/storage integration. Offer explicit paired-PC speech as an optional alternative. | Real new-text synthesis in airplane mode on supported phone; measured battery/RAM/latency; honest unsupported-device state. |
 | READ7 | Custom voice word-level alignment absent | Evaluate local forced alignment; return genuine UTF-16 word offsets/time marks linked to generated audio. Keep current sentence fallback. | Unicode/pauses/rate-change fixtures align to actual audio, without estimated word timers. |
 | READ8 | Phone-only AI absent | Choose supported on-device model/runtime based on phone benchmarks; add bounded model installation, streaming, cancellation and resource policy. | Chat/document questions work offline without PC/API key; grounded citations and low-memory recovery. |
@@ -169,3 +171,5 @@ AI remain listed above rather than implied by the APK download.
 Next local TTS work: measure cold and subsequent synthesis latency; review app-exit ownership for the current one-process-per-chunk Python worker; isolate its current fixed output.wav per job/profile before testing concurrent synthesis; add genuine cancellation/forced-owner-exit evidence before introducing a bounded persistent worker. Existing voice QA links the private pack, so avoid concurrent writes through that shared target. Keep all five private reference voices local and retain actual sentence playback events rather than estimating word timings. The persistent worker, output-isolation and exit-ownership changes are proposed, not delivered by 0.1.40.
 
 0.1.40 completes Windows mapped-drive validation, including real mapped-source rejection and paired verified release artifacts. Hostile concurrent drive remapping, broader storage faults, traversal optimization and reviewed runtime upgrades remain separate work. Continue the local-only TTS/reader/music/mobile/service roadmap; see IMPROVEMENTS-0.1.40.md.
+
+0.1.41 completes per-profile/per-request voice output isolation, contained speech process creation, restricted environment/handle inheritance, cancellation and native forced-owner-exit evidence. It retains the existing private pack without moving or publishing its references/models. One-shot latency remains; next measure controlled cold/subsequent synthesis, design bounded persistent-worker reuse, stale scratch cleanup and actual timing/alignment. Earlier TTS output/ownership proposals above are superseded by this delivered milestone. The native narrow-window reader capture shows lower player controls below the visible reading area; add responsive visibility/keyboard tests and a compact layout. This UI work is not delivered by 0.1.41. See IMPROVEMENTS-0.1.41.md.

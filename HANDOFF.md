@@ -971,3 +971,28 @@ Only the test comparison was fixed to normalize that prefix; app binary unchange
 Initial failed report native-voice-qa-f03cd6bd-d875-4e88-95a8-8853938f2860 retained,
 logvoice-isolation-041-native-voices-initial.txt; full native run repeated77294.
 No release claimed until forcedexit and combined ownership actually pass.
+
+### 0.1.41 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.41
+App/tag source 05027566d7afb12751821edb64a7566dc6de1b34; all ten remote SHA hashes verified. Windows593files /
+ZIPCRC/SHA PASS; actualAndroid41 source/signature/alignment gatePASS.
+Native106PASS/17ignored plus explicit process descendant/env/Unicode fixture1PASS.
+Nativevoice report C:\Users\jhadfield\Downloads\Compressed\AnF-codex-downloadable-releases\.tools\native-voice-qa-ebebf5d6-7930-4c56-a7e6-b54f2aa1be59\voice-native-report.json; all5 actual new-text24k WAVs, no
+pack output modification, per-job cleanup/cancel/reader1.5x/highlight/end PASS;
+forced-owner-exit actual speech workerPASS. Combinedmanaged/localgeneration/auth/
+permission/stop/cancel/restart/forcedexit with simultaneous gateway/model/voice PASS,
+zero application-side proxy requests. Evidence .tools/voice-isolation-041-evidence.json
+and logsvoice-isolation-041-*. Private QA WAVs and pack .tools/local-voice staylocal.
+New public scripts/local-voice-job.py is embedded in app; existing private worker
+and pack unchanged. Native private jobs use profile/AnF/voice-jobs random folders,
+bounded WAVs; known-file cleanup preserves unexpected content. Hardkill may retain
+scratchfolders; no recursive/stale GC. Caches remain in private pack. Windows10+
+JOB_LIST at process creation and limited HANDLE_LIST, OS-env allowlist, Python-I-B.
+No persistent worker or latency speedup claimed. Measured values are in41notes.
+PrimaryHEAD/index preserved. HostedCIhttps://github.com/mwalikokelvo/AnF/actions/runs/39668486457 refused for account payment/spending
+before runner; no YAML workaround/fix. Signing/device/Strix/Linux limitations remain.
+Next local TTS controlled latency/persistent-worker design and stale scratch cleanup,
+then reader/mobile/music/service backlog. Existing optional OmniRoutepin3.8.51 intact.
+PhysicalmanagedQAexe41; optional local-voice junction there is QA-only and resolves
+to the existing private pack. Never recursively remove a linked QA pack target.
