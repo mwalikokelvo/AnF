@@ -1,6 +1,6 @@
 # Managed OmniRoute recovery: implementation specification
 
-Status: pinned Windows repair delivered and verified in 0.1.36. Runtime version upgrades and additional platform/fault validation remain pending.
+Status: pinned Windows repair delivered and verified in 0.1.36; explicit stale-state reset in 0.1.37 and truthful repair-progress phases in 0.1.38. Runtime version upgrades and additional platform/fault validation remain pending.
 
 The original defect was an instruction to reimport after early process exit while import refused an existing destination and Settings hid source selection. Version 0.1.36 supplies the stopped-only pinned repair route. Version 0.1.37 also keeps Stop available when an owned gateway has exited, allowing explicit reset before repair or restart. Home status validates the pinned manifest, not every payload file; startup still verifies every file before executing anything.
 
@@ -34,7 +34,7 @@ Unexpected entries, links, ambiguous copies or failure to verify an accepted can
 
 ## Next milestone: measured repair performance and truthful progress
 
-Source review on 2026-10-20 found the following candidates. These are implementation tasks, not delivered optimizations. The genuine 0.1.36 repair baseline took 593,455 ms for the reviewed 27,379-file, 872,486,553-byte payload. That single run is a baseline, not a reproducible performance guarantee.
+Source review on 2026-10-20 found the following candidates. The progress row was implemented and verified in 0.1.38; traversal/verification optimizations and drive classification remain proposed work. The genuine 0.1.36 repair baseline took 593,455 ms for the reviewed 27,379-file, 872,486,553-byte payload. That single run is a baseline, not a reproducible performance guarantee.
 
 | Observed work | Proposed change | Required evidence before release |
 | --- | --- | --- |
@@ -45,4 +45,6 @@ Source review on 2026-10-20 found the following candidates. These are implementa
 
 Run these as separate, reviewable changes rather than combining a filesystem safety rewrite with a progress-label change. Benchmark the genuine optional component again in an isolated QA profile, report per-phase durations and the full elapsed time, then run the existing generation/cancel/restart/forced-exit suite. Include Windows and Android release gates for each application update. Do not promise a speedup before measuring it.
 
-Release capacity is a prerequisite for the next application change: C: currently has about 6.3 GiB free, and the user's choice of future output location is pending. K: is a network drive and has not been authorized for release outputs. Keep private voice recordings/models local. Preserve existing artifacts and do not retry the rejected staging-directory cleanup through another mechanism.
+C: free space increased to about 11.4 GiB before 0.1.38, allowing its paired release locally without moving or deleting files in this task. Recheck free space before the next full build. K: remains a network drive without authorization for release outputs. Keep private voice recordings/models local, preserve existing artifacts and do not retry the rejected cleanup through another mechanism.
+
+Additional profiling target from 0.1.38 review: managed status rereads and validates the manifest on every status request, including progress polling. Measure that cost separately from repair. Consider a workspace-only lightweight progress snapshot rather than weakening or caching execution-time file verification. Retain full startup verification, owned-listener attestation and explicit final status refresh. This is proposed work, not a delivered performance change.

@@ -1,8 +1,10 @@
 # Agent Session Handoff
 
+> Historical bootstrap details follow. Read the latest dated delivery and continuation entries at the end for the current state; earlier Running labels are historical.
+
 **Worktree / Branch:** active release checkout; specialists use wt/*
 **Assigned Role:** Head Orchestrator
-**Last Updated:** 2026-10-18
+**Last Updated:** 2026-10-21
 
 ## 1. Completed Tasks
 
@@ -805,3 +807,20 @@ real repair+lifecycle rerun63434 (managed-progress-038-native-e2e-final.txt).
 Earlier report preserved automatically before profile reuse. Do not claim full
 native success until corrected rerun completes. Windows593files/ZIPCRC/SHA PASS;
 installer1816640500bytes, ZIP1820538075bytes. Android final package gatePASS.
+
+### 0.1.38 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.38
+App/tag source 0be993155dc8435c747a5e7b9478a5499dfd7081; ten remote asset hashes verified.
+Native102PASS/15ignored, browserphase/resetPASS, genuine damaged runtime repair
+PASS (578.1s), copying/verification/cleanup phases observed.
+Full local generation/auth/permission/cancel/restart/stale reset/forcedexitPASS,
+zero proxy requests. Report reused4e7d1ddc profile; previous evidence preserved.
+Windows593files/ZIPCRC/SHA PASS, Android38 settled-source final gatePASS.
+Logs managed-progress-038-*; release plan .tools/release-038-plan.json.
+No speedup claim or safety-check removal. Independent recovery epoch shares only
+display state. Hosted CI account billing remains external action; no YAML fix.
+C: regained capacity allowed this release without cleanup/moves; check free space
+before next build. K: remains unauthorized. Private voices/models stay local.
+Primary HEAD/index preserved. Next measured performance/drive classification,
+then local TTS/reader/mobile/service backlog. No app uninstall or private upload.
