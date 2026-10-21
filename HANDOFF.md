@@ -962,3 +962,12 @@ combined managedQA port9224 runs sequentially against retained4e7d1ddc profile.
 Physical managedQAexe40 until current QA build completes; copy only QA binary.
 Privatepack .tools/local-voice stays local; do not upload QA WAVs/private recordings.
 Preserve primaryHEAD/index and unrelated work; no broad formatter, no K outputs.
+
+041 first native voice run synthesized all5 voices, completed cancellation and actual
+reader1.5x/highlight/end checks, then its forced-owner-exit probe missed the child
+because CIM reports a verbatim Windows executable path. Controlled read-only probe
+confirmed real owned Python at the same canonical pack path with a \\?\ prefix.
+Only the test comparison was fixed to normalize that prefix; app binary unchanged.
+Initial failed report native-voice-qa-f03cd6bd-d875-4e88-95a8-8853938f2860 retained,
+logvoice-isolation-041-native-voices-initial.txt; full native run repeated77294.
+No release claimed until forcedexit and combined ownership actually pass.
