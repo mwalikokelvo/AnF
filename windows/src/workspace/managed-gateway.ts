@@ -7,7 +7,7 @@ export function managedGateway(use:()=>void,notify:(message:string)=>void){
  const progress=h('progress',{'aria-label':'OmniRoute component progress',max:1,value:0});
  const root=h('section',{'aria-label':'Managed OmniRoute'},h('h4',{text:'Managed local gateway',tabindex:-1}),
   h('p',{text:'Optional Windows component with its own Node runtime. Import the reviewed component folder, then start or stop it here. No global Node installation or provider account is needed. It routes only to AnF’s existing local Fast model; external gateway settings stay separate.'}),file,progress,state);
- let busy=false,current:ManagedGatewayStatus|undefined,timer:ReturnType<typeof setInterval>|undefined;
+ let epoch=0,busy=false,current:ManagedGatewayStatus|undefined,timer:ReturnType<typeof setInterval>|undefined;
  const button=(label:string,run:()=>Promise<void>)=>h('button',{type:'button',text:label,onclick:()=>void action(run)});
  function paint(value:ManagedGatewayStatus){
   const owned=value.owned??value.running;
@@ -25,7 +25,12 @@ export function managedGateway(use:()=>void,notify:(message:string)=>void){
  }
 
  async function refresh(){try{paint(await invoke<ManagedGatewayStatus>('omniroute_status'));}catch(error){state.textContent=String(error).replace(/^Error: /,'');}}
- async function action(run:()=>Promise<void>){if(busy)return;busy=true;if(current)paint(current);timer=setInterval(()=>void refresh(),500);try{await run();}catch(error){notify(String(error).replace(/^Error: /,''));}finally{busy=false;if(timer)clearInterval(timer);timer=undefined;await refresh();}}
+ async function refreshProgress(){
+  if(!busy||!current)return;const operation=epoch;
+  try{const value=await invoke<Pick<ManagedGatewayStatus,'phase'|'done'|'total'>>('omniroute_progress');if(busy&&epoch===operation&&current)paint({...current,...value});}
+  catch(error){if(busy&&epoch===operation)state.textContent=String(error).replace(/^Error: /,'');}
+ }
+ async function action(run:()=>Promise<void>){if(busy)return;busy=true;epoch++;if(current)paint(current);timer=setInterval(()=>void refreshProgress(),500);try{await run();}catch(error){notify(String(error).replace(/^Error: /,''));}finally{busy=false;if(timer)clearInterval(timer);timer=undefined;await refresh();}}
  const choose=button('Choose OmniRoute component',async()=>{const selected=await invoke<string|null>('omniroute_pick_component');if(selected)file.value=selected;});
  const install=button('Install optional component',async()=>{await invoke('omniroute_install',{manifest:file.value});notify('Optional gateway component installed. Choose Start managed gateway when ready.');});
  const repair=button('Repair installed component',async()=>{await invoke('omniroute_repair',{manifest:file.value});notify('Reviewed component repaired. Choose Start managed gateway when ready.');});

@@ -58,6 +58,26 @@ pub struct Status {
     total: u64,
     error: String,
 }
+/// Advisory counters only: no filesystem access, listener lookup or secrets.
+#[derive(Serialize)]
+pub struct ProgressStatus {
+    phase: String,
+    done: u64,
+    total: u64,
+}
+#[tauri::command]
+pub fn omniroute_progress(
+    window: tauri::WebviewWindow,
+    state: tauri::State<Managed>,
+) -> Result<ProgressStatus, String> {
+    workspace(window.label())?;
+    let phase = state.0.progress.phase.lock().unwrap();
+    Ok(ProgressStatus {
+        phase: phase.clone(),
+        done: state.0.progress.done.load(Ordering::Relaxed),
+        total: state.0.progress.total.load(Ordering::Relaxed),
+    })
+}
 pub fn workspace(label: &str) -> Result<(), String> {
     if label != "workspace" {
         Err("Manage OmniRoute from the workspace.".into())

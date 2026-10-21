@@ -140,7 +140,7 @@ try{
   await assert.rejects(()=>invoke('omniroute_start'));
   await assert.rejects(()=>invoke('omniroute_repair',{manifest:bad}));
   let repairDone=false;const phases=new Set();
-  const observing=(async()=>{while(!repairDone){const state=await invoke('omniroute_status');phases.add(state.phase);await new Promise(r=>setTimeout(r,500));}})();
+  const observing=(async()=>{while(!repairDone){const state=await invoke('omniroute_progress');phases.add(state.phase);await new Promise(r=>setTimeout(r,500));}})();
   let repaired;try{repaired=await repairing;}finally{repairDone=true;await observing;}
   report.repairMs=Date.now()-beforeRepair;report.repairPhases=[...phases];
   for(const phase of ['Copying and verifying component files','Verifying component files','Cleaning repair rollback data'])assert(phases.has(phase),'Native repair phase missing: '+phase);
@@ -207,7 +207,7 @@ try{
  modelPids.add(models[0].ProcessId);
  const island=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().startsWith('http')&&!p.url().includes('workspace.html')&&!p.url().includes('settings.html'));
  assert(island,'Floating QA window missing.');
- for(const command of ['omniroute_status','omniroute_start','omniroute_stop','omniroute_cancel','omniroute_use','omniroute_pick_component','omniroute_install','omniroute_repair']){
+ for(const command of ['omniroute_status','omniroute_progress','omniroute_start','omniroute_stop','omniroute_cancel','omniroute_use','omniroute_pick_component','omniroute_install','omniroute_repair']){
   assert.equal(await island.evaluate(({command,manifest})=>window.__TAURI_INTERNALS__.invoke(command,{manifest}).then(()=>false,()=>true),{command,manifest:bad}),true,command+' allowed from floating window');
  }
  pass('All managed lifecycle commands denied outside the workspace.');

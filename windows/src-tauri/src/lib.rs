@@ -521,6 +521,7 @@ pub fn run() {
             connections::connection_action,
             connections::connection_open_booking,
             managed_omniroute::omniroute_status,
+            managed_omniroute::omniroute_progress,
             managed_omniroute::omniroute_pick_component,
             managed_omniroute::omniroute_install,
             managed_omniroute::omniroute_repair,

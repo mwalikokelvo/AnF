@@ -846,3 +846,34 @@ Next resume OmniRoute progress-poll efficiency/drive classification, then local
 TTS/reader/mobile/service gaps. CI account billing remains independently blocked.
 Future cleanup should prefer redundant generated unpacked copies backed by exact
 archives; never expand into source/user data/private assets or uninstall apps.
+
+### 0.1.39 lightweight progress candidate - 2026-10-21
+
+Storage available C:~86GiB (further external free-space change after our cleanup).
+Primary capacity was ordinaryAllowed at92% primary used; do not bypass limits.
+Measured native38 status baseline with new scripts/app-qa/omniroute-status-benchmark.mjs:
+report .tools/benchmarks/managed-status-95a6be19-6b9c-4430-b47e-ba161f65740a.json.
+Manifest4556364bytes;30status calls read136713952logical bytes, medians87.4-94ms;
+transport-only controls0native reads. Logical I/O is not physical disk I/O.
+At2Hz ten-minute repair this implies~5.1GiB of manifest reads; not a measured repair
+speedup. Gateway stayed stopped, connections unchanged; only isolated QA used.
+
+Candidate39 adds workspace-only omniroute_progress (phase/done/total ONLY), no
+filesystem or owned-listener lookup. UI busy500ms polling uses it; initial/final
+full status and ALL execution integrity/ownership checks unchanged. UI epoch
+rejects stale progress replies. Browser test asserts no full-status polling while
+busy and passed. Native harness polls lightweight repair counters and denies new
+RPC outsideworkspace. Benchmark ANF_BENCH_PROGRESS=1 compares new progress/status.
+Versions bumped using safe tool to0.1.39. No39release/sourcecommit yet.
+Native102tests + QA pipeline2267, logsmanaged-poll-039-{native-tests,qa-build}.txt.
+Android gate30980, logmanaged-poll-039-android-gate.txt. BrowserPASS.
+After QAexit0 copyexe to .tools/managed-qa-bin-current.json physicalfolder (ensure
+notrunning). Run benchmark with ANF_BENCH_PROGRESS=1, QAexe/profile existing4e7d1ddc.
+Then full native ANF_QA_REPAIR=1 ANF_QA_STALE=1 lifecycle (same profile; preserve
+reports automatically), productionpack/fullverifier, source/tempindexcommit and
+verified paired39publication. Parent source488ac22d95f8ee9fc46ab296da4ba6e8e1ead02e.
+Do not mark candidate delivered or substitute38artifacts for39. No safety-check
+removal/caching, no K writes/private voice upload. Primary HEAD/index preserved.
+HostedCI latest39631838720 refused for account billing before runner; retain task.
+
+039native102PASS/15ignored; actualAndroid39finalgatePASS; browserlightpollPASS. QA release compile still in progress2267. Application source frozen; no39tag/release yet.
