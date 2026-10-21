@@ -36,11 +36,28 @@ pub struct Entry {
 #[derive(Default)]
 pub struct Progress {
     pub epoch: AtomicU64,
-    pub done: AtomicU64,
-    pub total: AtomicU64,
-    pub phase: Mutex<String>,
+    pub done: Arc<AtomicU64>,
+    pub total: Arc<AtomicU64>,
+    pub phase: Arc<Mutex<String>>,
 }
 impl Progress {
+    /// Begin a visible phase without reusing the preceding phase's byte count.
+    pub fn begin(&self, phase: &str) {
+        let mut current = self.phase.lock().unwrap();
+        self.total.store(0, Ordering::Relaxed);
+        self.done.store(0, Ordering::Relaxed);
+        *current = phase.into();
+    }
+    /// Share display state while keeping rollback independent of cancellation.
+    pub(crate) fn recovery_view(&self) -> Self {
+        Self {
+            done: self.done.clone(),
+            total: self.total.clone(),
+            phase: self.phase.clone(),
+            ..Self::default()
+        }
+    }
+
     pub fn check(&self, token: u64) -> Result<(), String> {
         if self.epoch.load(Ordering::SeqCst) != token {
             Err("Cancelled.".into())
@@ -230,6 +247,7 @@ pub fn verify(
     progress: &Progress,
     token: u64,
 ) -> Result<Manifest, String> {
+    progress.begin("Inspecting component files");
     let m = read_manifest(&root.join("component.json"), expected)?;
     let (names, dirs) = inventory(&m);
     inspect_tree(root, root, &names, &dirs, &mut 0, progress, token)?;
@@ -237,6 +255,7 @@ pub fn verify(
         .total
         .store(m.files.iter().map(|f| f.size).sum(), Ordering::Relaxed);
     progress.done.store(0, Ordering::Relaxed);
+    *progress.phase.lock().unwrap() = "Verifying component files".into();
     // Bound verification just like import: four workers, one 1 MB buffer each.
     // No executable starts until all workers finish every mandatory check.
     let next = AtomicUsize::new(0);
@@ -405,6 +424,7 @@ pub(crate) fn install_pinned(
     expected: &str,
 ) -> Result<(), String> {
     progress.check(token)?;
+    progress.begin("Inspecting component source");
     // Refuse a repeated import before scanning the source's entire inventory.
     // Keep the second check after private-directory setup to cover races.
     no_links(home)?;
@@ -432,6 +452,7 @@ pub(crate) fn install_pinned(
             .total
             .store(m.files.iter().map(|f| f.size).sum(), Ordering::Relaxed);
         progress.done.store(0, Ordering::Relaxed);
+        *progress.phase.lock().unwrap() = "Copying and verifying component files".into();
         // Bound disk work and memory: each worker keeps its own 1 MB buffer.
         // All hashes, ancestor/reparse checks and durability flushes remain mandatory.
         let next = AtomicUsize::new(0);
@@ -488,6 +509,7 @@ pub(crate) fn install_pinned(
         {
             return Err(message);
         }
+        progress.begin("Saving verified component manifest");
         let mut bytes = Vec::new();
         File::open(manifest)
             .map_err(|_| "Cannot reread manifest.")?
@@ -528,6 +550,26 @@ pub(crate) fn install_pinned(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recovery_progress_is_visible_but_cancellation_is_independent() {
+        let progress = Progress::default();
+        let recovery = progress.recovery_view();
+        progress.epoch.store(7, Ordering::SeqCst);
+        progress.done.store(10, Ordering::Relaxed);
+        progress.total.store(10, Ordering::Relaxed);
+        recovery.begin("Cleaning repair rollback data");
+        assert_eq!(progress.done.load(Ordering::Relaxed), 0);
+        assert_eq!(progress.total.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            *progress.phase.lock().unwrap(),
+            "Cleaning repair rollback data"
+        );
+        assert!(progress.check(0).is_err());
+        assert!(recovery.check(0).is_ok());
+        progress.epoch.fetch_add(1, Ordering::SeqCst);
+        assert!(recovery.check(0).is_ok());
+    }
+
     #[cfg(windows)]
     #[test]
     fn parallel_import_is_atomic_and_never_overwrites_a_valid_component() {

@@ -116,7 +116,7 @@ pub fn shutdown(c: &Controller) {
     ROUTE.lock().unwrap().take();
     let previous = c.running.lock().unwrap().take();
     drop(previous);
-    *c.progress.phase.lock().unwrap() = "Stopped".into();
+    c.progress.begin("Stopped");
 }
 #[tauri::command]
 pub fn omniroute_status(
@@ -198,7 +198,7 @@ pub async fn omniroute_install(
         return Err("Stop the managed gateway before installing its component.".into());
     }
     let token = c.progress.epoch.fetch_add(1, Ordering::SeqCst) + 1;
-    *c.progress.phase.lock().unwrap() = "Importing and verifying component".into();
+    c.progress.begin("Importing and verifying component");
     *c.error.lock().unwrap() = String::new();
     let progress = c.progress.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -214,10 +214,10 @@ pub async fn omniroute_install(
     .map_err(|_| "Component import stopped.".to_string())
     .and_then(|r| r);
     match result {
-        Ok(()) => *c.progress.phase.lock().unwrap() = "Installed; stopped".into(),
+        Ok(()) => c.progress.begin("Installed; stopped"),
         Err(e) => {
             *c.error.lock().unwrap() = e.clone();
-            *c.progress.phase.lock().unwrap() = "Import did not complete".into();
+            c.progress.begin("Import did not complete");
             return Err(e);
         }
     }
@@ -239,7 +239,7 @@ pub async fn omniroute_repair(
         return Err("Stop the managed gateway before repairing its component.".into());
     }
     let token = c.progress.epoch.fetch_add(1, Ordering::SeqCst) + 1;
-    *c.progress.phase.lock().unwrap() = "Staging pinned repair".into();
+    c.progress.begin("Staging pinned repair");
     *c.error.lock().unwrap() = String::new();
     let progress = c.progress.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -249,10 +249,10 @@ pub async fn omniroute_repair(
     .map_err(|_| "Component repair stopped.".to_string())
     .and_then(|r| r);
     match result {
-        Ok(()) => *c.progress.phase.lock().unwrap() = "Repaired; stopped".into(),
+        Ok(()) => c.progress.begin("Repaired; stopped"),
         Err(e) => {
             *c.error.lock().unwrap() = e.clone();
-            *c.progress.phase.lock().unwrap() = "Repair did not complete".into();
+            c.progress.begin("Repair did not complete");
             return Err(e);
         }
     }
@@ -539,7 +539,7 @@ pub async fn omniroute_start(
         c.progress.epoch.fetch_add(1, Ordering::SeqCst) + 1
     };
     *c.error.lock().unwrap() = String::new();
-    *c.progress.phase.lock().unwrap() = "Verifying installed runtime".into();
+    c.progress.begin("Verifying installed runtime");
     let root = home().join("component");
     let verify = root.clone();
     let progress = c.progress.clone();
@@ -570,7 +570,7 @@ pub async fn omniroute_start(
     let port = free_port()?;
     let live = free_port()?;
     let proxy = Proxy::start(app).await?;
-    *c.progress.phase.lock().unwrap() = "Starting private loopback gateway".into();
+    c.progress.begin("Starting private loopback gateway");
     let process = OwnedProcess::start(
         &root.join("node/node.exe"),
         &root.join("runtime/dist/server-ws.mjs"),
@@ -672,7 +672,7 @@ pub async fn omniroute_start(
     let result = tokio::select! {result=setup=>result,_=wait_cancellation(&c.progress,token)=>Err("Cancelled.".to_string())};
     if let Err(e) = result {
         *c.error.lock().unwrap() = e.clone();
-        *c.progress.phase.lock().unwrap() = "Startup did not complete".into();
+        c.progress.begin("Startup did not complete");
         drop(running);
         return Err(e);
     }
@@ -687,7 +687,7 @@ pub async fn omniroute_start(
         key: running.key.clone(),
     });
     *c.running.lock().unwrap() = Some(running);
-    *c.progress.phase.lock().unwrap() = "Running; local route configured".into();
+    c.progress.begin("Running; local route configured");
     Ok(status(&c))
 }
 #[tauri::command]

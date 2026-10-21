@@ -91,6 +91,7 @@ pub fn recover(home: &Path, expected: &str, progress: &Progress, token: u64) -> 
     if !pending(home) {
         return Ok(());
     }
+    progress.begin("Inspecting pending repair");
     inspect(home)?;
     let journal = home.join(TRANSACTION);
     let dest = home.join("component");
@@ -99,6 +100,7 @@ pub fn recover(home: &Path, expected: &str, progress: &Progress, token: u64) -> 
     if exists(&journal.join("accepted")) {
         component::verify(&dest, expected, progress, token)?;
     } else if exists(&previous) {
+        progress.begin("Restoring previous component safely");
         if exists(&dest) {
             if exists(&candidate) {
                 return Err("Ambiguous repair state; all copies preserved.".into());
@@ -111,6 +113,7 @@ pub fn recover(home: &Path, expected: &str, progress: &Progress, token: u64) -> 
     } else if !exists(&dest) {
         return Err("Repair has no installed or previous component; data preserved.".into());
     }
+    progress.begin("Cleaning repair rollback data");
     inspect(home)?;
     // Keep acceptance until ALL rollback data is gone. Otherwise an interruption
     // during recursive cleanup could restore a partly deleted previous tree.
@@ -152,6 +155,7 @@ fn repair_pinned(
     expected: &str,
 ) -> Result<(), String> {
     recover(home, expected, &progress, token)?;
+    progress.begin("Inspecting repair source");
     component::no_links(home)?;
     let dest = home.join("component");
     component::no_links(&dest)?;
@@ -175,6 +179,7 @@ fn repair_pinned(
     let result = (|| {
         component::install_pinned(manifest, &journal, progress.clone(), token, expected)?;
         progress.check(token)?;
+        progress.begin("Promoting verified repair candidate");
         inspect(home)?;
         fs::rename(&dest, journal.join("previous"))
             .map_err(|_| "Cannot retain current component; it may be in use.")?;
@@ -182,13 +187,14 @@ fn repair_pinned(
             .map_err(|_| "Cannot promote repair candidate.")?;
         component::verify(&dest, expected, &progress, token)?;
         progress.check(token)?;
+        progress.begin("Accepting verified repair");
         fs::create_dir(journal.join("accepted"))
             .map_err(|_| "Cannot accept repaired component.")?;
         Ok(())
     })();
     // Cancellation must not interrupt rollback. A separate recovery token lets
     // cleanup restore the previous tree even if the import token was cancelled.
-    let cleanup = Progress::default();
+    let cleanup = progress.recovery_view();
     let recovered = recover(home, expected, &cleanup, 0);
     match (result, recovered) {
         (_, Err(e)) => Err(e),
@@ -291,7 +297,13 @@ mod tests {
         let f = Fixture::new();
         fs::write(f.home.join("component/node/node.exe"), b"broken").unwrap();
         fs::write(f.home.join("unrelated.txt"), b"preserve").unwrap();
-        repair_pinned(&f.source, &f.home, Arc::new(Progress::default()), 0, &f.pin).unwrap();
+        let progress = Arc::new(Progress::default());
+        repair_pinned(&f.source, &f.home, progress.clone(), 0, &f.pin).unwrap();
+        assert_eq!(
+            *progress.phase.lock().unwrap(),
+            "Cleaning repair rollback data"
+        );
+        assert_eq!(progress.total.load(std::sync::atomic::Ordering::Relaxed), 0);
         component::verify(&f.home.join("component"), &f.pin, &Progress::default(), 0).unwrap();
         assert_eq!(fs::read(f.home.join("unrelated.txt")).unwrap(), b"preserve");
         assert!(!pending(&f.home));

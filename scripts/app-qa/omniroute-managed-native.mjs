@@ -139,7 +139,12 @@ try{
   await new Promise(r=>setTimeout(r,200));
   await assert.rejects(()=>invoke('omniroute_start'));
   await assert.rejects(()=>invoke('omniroute_repair',{manifest:bad}));
-  const repaired=await repairing;report.repairMs=Date.now()-beforeRepair;
+  let repairDone=false;const phases=new Set();
+  const observing=(async()=>{while(!repairDone){const state=await invoke('omniroute_status');phases.add(state.phase);await new Promise(r=>setTimeout(r,500));}})();
+  let repaired;try{repaired=await repairing;}finally{repairDone=true;await observing;}
+  report.repairMs=Date.now()-beforeRepair;report.repairPhases=[...phases];
+  for(const phase of ['Copying and verifying component files','Verifying component files','Cleaning repair rollback data'])assert(phases.has(phase),'Native repair phase missing: '+phase);
+  pass('Native repair exposes copying, verification and uncancellable recovery cleanup progress before completion.');
   assert.equal(repaired.running,false);assert.equal(repaired.recoveryPending,false);
   assert((await readFile(damaged)).equals(original));
   assert.deepEqual(await invoke('connection_list'),initialConnections);

@@ -11,8 +11,10 @@ export function managedGateway(use:()=>void,notify:(message:string)=>void){
  const button=(label:string,run:()=>Promise<void>)=>h('button',{type:'button',text:label,onclick:()=>void action(run)});
  function paint(value:ManagedGatewayStatus){
   const owned=value.owned??value.running;
-  current=value;progress.max=Math.max(1,value.total);progress.value=Math.max(0,value.done);progress.hidden=!busy||!value.total;
-  state.textContent=`${value.running?'Running':owned?'Not ready · stop to reset':value.installed?'Installed · stopped':'Component not installed'} · OmniRoute ${value.version}${value.phase?' · '+value.phase:''}${value.total?' · '+Math.min(100,Math.round(value.done/value.total*100))+'%':''}${value.error?' · '+value.error:''}`;
+  current=value;root.setAttribute('aria-busy',String(busy));progress.max=Math.max(1,value.total);
+  if(value.total>0)progress.value=Math.min(value.total,Math.max(0,value.done));else progress.removeAttribute('value');
+  progress.hidden=!busy;
+  state.textContent=`${busy?'Working':value.running?'Running':owned?'Not ready · stop to reset':value.installed?'Installed · stopped':'Component not installed'} · OmniRoute ${value.version}${value.phase?' · '+value.phase:''}${busy&&value.total?' · '+Math.min(100,Math.round(value.done/value.total*100))+'%':''}${value.error?' · '+value.error:''}`;
   const repairable=value.repairable??value.installed;
   file.hidden=owned;choose.hidden=owned||busy;install.hidden=repairable||owned||busy;repair.hidden=!repairable||owned||busy;repair.disabled=busy||!file.value;
   if(value.recoveryPending)state.textContent+=' · Recovery pending; start or repair while stopped';
@@ -32,6 +34,6 @@ export function managedGateway(use:()=>void,notify:(message:string)=>void){
  const cancel=h('button',{type:'button',text:'Cancel gateway operation',onclick:()=>void invoke('omniroute_cancel').then(refresh).catch(e=>notify(String(e)))});
  const useButton=button('Use managed local AI in Chat',async()=>{await invoke('omniroute_use');use();});
  const check=button('Refresh managed gateway status',refresh);
- root.append(h('div',{class:'row'},choose,install,repair,start,stop,cancel,useButton,check),h('p',{class:'hint',text:'Download and extract the separate optional component when it is provided with your release, then select its component.json. For a damaged installation, stop the gateway, choose that extracted component and select Repair installed component. AnF verifies every imported file and never downloads an unconfigured component URL. Stop ends only AnF-owned gateway processes; the service also stops when AnF exits. Cancelling or stopping never switches to a cloud provider.'}));
+ root.append(h('div',{class:'row'},choose,install,repair,start,stop,cancel,useButton,check),h('p',{class:'hint',text:'Download and extract the separate optional component when it is provided with your release, then select its component.json. For a damaged installation, stop the gateway, choose that extracted component and select Repair installed component. AnF verifies every imported file and never downloads an unconfigured component URL. Stop ends only AnF-owned gateway processes; the service also stops when AnF exits. Cancellation waits for safe repair recovery and cleanup before finishing. Cancelling or stopping never switches to a cloud provider.'}));
  paint({installed:false,running:false,version:"3.8.51",phase:"Checking status",done:0,total:0,error:""});void refresh();return root;
 }
