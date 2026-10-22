@@ -1019,3 +1019,56 @@ required. Android42 actualgate completed; recheck provenance if product source
 changes. QA binary42 build in progress. Keep all voice pack/QAaudio local. Shared
 OmniRoute component3.8.51 unchanged. Primary checkout/index and unrelated work
 preserved; outputs C only. Source freeze is candidate, not released functionality.
+
+### 0.1.42 acceptance investigation - 2026-10-21 19:19 local
+Candidate source5b2b6db74cdb7676dcff7d8f7a1816d6505248fc pushed but NOT released.
+Native runs436ddaab and3d3d5c03 under .tools/native-voice-qa stopped after two
+syntheses; browser connection lost on third. Second captured app exit code0,
+requestedStop=false, no Windows Application crash event found. Do not dismiss
+or publish until explained. Failed reports/WAVs/logs retained; initial/repeat logs
+.tools/logs/resident-042-native-voices-{initial,repeat}.txt.
+Direct Python real resident protocol probe ALL FIVE PASS and clean EOF exit0:
+.tools/resident-protocol-probe-7d5803e0029442e5800de3548e3818e3/report.json.
+Its timings are functional-only (QA trace build concurrent), not benchmarks.
+Added uncommitted static exit/quit origin logs in lib.rs/tray.rs, no prompt logging.
+Trace QA build session19075 logresident-042-qa-trace-build.txt compiling. Physical
+QA exe currently INITIAL42; copy traced QA exe only after build exits0. Harness
+now records early app exits and kills owner BEFORE closing browser for genuine
+forced termination. Same ordering correction in combined harness. These changes
+need a reviewed candidate child commit before tagging. Android42 gatepassed before
+lifecycle trace changes; recheck current-source gate before release. Native106PASS/
+18ignored, real process fixtures2PASS, Python8PASS. No production42 build or tag yet.
+Prepared make-release-042-plan.py/finalize-042-docs.py MUST NOT RUN until all actual
+native voice/idle/cancel/reader/combined tests and current packaging gates PASS.
+Preserve checkout/index, private pack/models/audio and failed evidence. Stable41.
+
+### CONFIRMED endpoint block for42 - 2026-10-21 19:36 local
+Apex One Misc/pccnt35.log has SEVEN exact AnF Unauthorized file encryption
+detections matching the QA/test paths at19:10,19:12,19:21,19:24(two),19:30,19:32.
+Original copied QA/test EXEs disappear; matching names/sizes in Security Agent/
+Suspect. No quarantine contents read/copied/restored/executed and no protection
+settings changed. Earlier WebView/process/idle hypotheses are superseded by
+confirmed detections. Local incident .tools/resident-042-security-incident.json
+retains project-only records and hash of original traced QA binary (still retained)
+c5b29d3890b12f95934cfd530bb29aed8772ad36a22f28500a35bde8241e4e46.
+See docs/SECURITY-REVIEW-0.1.42.md. User asked asynchronously for security admin
+review/outcome; reply REQUIRED before more affected candidate execution. Keep
+protection/quarantine unchanged; do not rebuild/rename/restore to evade detection.
+No vendor/admin messages sent. No42 release/tag/production Windows packages.
+Stable41 retained; do not count code0 partial logs asPASS. Current source has20
+ignored fixtures total anticipated; latest completed standard suite was106PASS/
+18ignored BEFORE two additional fixtures. Two short process fixturesPASS; separate
+70.23s long transport fixturePASS, owner outside private job. Real native allvoice/
+idle/cancel acceptance interrupted, NOT PASS. StandalonePython real all5probePASS,
+functional-only concurrent-build timings. Static Rust format / two JS syntax checks
+PASS after diagnostic cleanup. Test-only watchdog bypass/noisy probes REMOVED.
+No live owned test/Cargo/Python jobs left. Physical QAexe is TRACE42, not released.
+New full native-core fixture and long transport fixture retained; hardened voice
+harness logs app/browser/page failure state, and both QA harnesses now force-kill
+owned app BEFORE disconnecting browser. These need all gates after reviewed build.
+make-release-042-plan.py now blocks pending security review and requires explicit
+106PASS/20ignored, process3PASS, real-native-core1PASS plus all actualQA/packaging.
+Do NOT run prepared finalizer or publisher until review+all proof actually pass.
+Hosted Actions remains independent billing/spending refusal (run39697481054).
+Preserve changes/private assets/failed evidence; repeated heartbeats stay quiet if
+security/billing state unchanged. Do not claim all requirements or release complete.

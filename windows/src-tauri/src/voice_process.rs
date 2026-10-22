@@ -343,6 +343,45 @@ impl Drop for VoiceProcess {
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "Requires ANF_TEST_VOICE_PYTHON; holds an owned transport fixture for 70 seconds."]
+    fn resident_transport_survives_beyond_one_minute() {
+        let python = std::path::PathBuf::from(std::env::var_os("ANF_TEST_VOICE_PYTHON").unwrap());
+        let dir = std::env::temp_dir().join(format!(
+            "anf-transport-long-{}",
+            crate::local_ai::random_key().unwrap()
+        ));
+        std::fs::create_dir(&dir).unwrap();
+        let script = dir.join("fixture.py");
+        std::fs::write(&script,"import sys\nfor line in sys.stdin.buffer:\n sys.stdout.buffer.write(line);sys.stdout.buffer.flush()\n").unwrap();
+        let mut process = VoiceProcess::start_resident(&python, &script, &dir).unwrap();
+        let mut owner = BOOL::default();
+        unsafe {
+            IsProcessInJob(GetCurrentProcess(), Some(raw(&process.job)), &mut owner).unwrap();
+        }
+        assert!(
+            !owner.as_bool(),
+            "Owner unexpectedly entered its private child job"
+        );
+        println!("Long transport owner outside private child job");
+        for step in 0..7 {
+            process.send_frame(b"{}").unwrap();
+            let start = std::time::Instant::now();
+            loop {
+                if process.reply().unwrap().is_some() {
+                    break;
+                }
+                assert!(start.elapsed().as_secs() < 5);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            assert_eq!(process.exit_code().unwrap(), None);
+            println!("Long transport interval {step}");
+            std::thread::sleep(std::time::Duration::from_secs(10));
+        }
+        drop(process);
+        std::fs::remove_file(script).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
+    #[test]
     #[ignore = "Requires ANF_TEST_VOICE_PYTHON; launches only owned protocol fixtures."]
     fn resident_protocol_reuses_one_process_and_rejects_oversized_responses() {
         let python = std::path::PathBuf::from(std::env::var_os("ANF_TEST_VOICE_PYTHON").unwrap());

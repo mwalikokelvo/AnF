@@ -238,6 +238,7 @@ fn open_in_vscode(path: Option<String>) -> bool {
 
 #[tauri::command]
 fn quit_app(app: AppHandle) {
+    log::line("Quit requested through the app command.");
     app.exit(0);
 }
 
@@ -694,7 +695,11 @@ pub fn run() {
         .build(tauri::generate_context!());
     match built {
         Ok(app) => app.run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { code, .. } = &event {
+                log::line(format!("Application exit requested; code {code:?}."));
+            }
             if matches!(event, tauri::RunEvent::Exit) {
+                log::line("Application exiting; stopping owned services.");
                 local_voice::shutdown(&app.state::<local_voice::VoiceJobs>());
                 managed_omniroute::shutdown(&app.state::<managed_omniroute::Managed>().0);
                 music_native::shutdown();

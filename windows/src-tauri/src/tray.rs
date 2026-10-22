@@ -21,7 +21,10 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .tooltip("AnF")
         .menu(&menu)
         .on_menu_event(|app: &AppHandle, event| match event.id.as_ref() {
-            "quit" => app.exit(0),
+            "quit" => {
+                crate::log::line("Quit requested through the tray menu.");
+                app.exit(0)
+            }
             "settings" => crate::show_settings_window(app),
             "open" => crate::show_workspace_window(app),
             "floating" => crate::show_floating_panel(app.clone()),

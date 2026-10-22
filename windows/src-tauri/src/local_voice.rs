@@ -407,6 +407,94 @@ fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "Requires ANF_TEST_VOICE_PACK; real private CPU synthesis, kept local."]
+    fn real_resident_voices_cancel_restart_and_idle_cleanup() {
+        let root = PathBuf::from(std::env::var_os("ANF_TEST_VOICE_PACK").unwrap())
+            .canonicalize()
+            .unwrap();
+        assert!(ready(&root));
+        let base = std::env::temp_dir().join(format!(
+            "anf-resident-native-{}",
+            crate::local_ai::random_key().unwrap()
+        ));
+        let state = Arc::new(Mutex::new(None));
+        let mut identity = None;
+        for voice in [
+            "amazing",
+            "always-forever",
+            "burt-preview",
+            "serafina-preview",
+            "kelvin-preview",
+        ] {
+            let start = Instant::now();
+            let bytes = run(
+                root.clone(),
+                base.clone(),
+                voice.into(),
+                "This local reading voice stays on this computer.".into(),
+                Arc::new(AtomicBool::new(false)),
+                state.clone(),
+            )
+            .unwrap();
+            assert!(bytes.len() > 12000);
+            let key = state
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .directory
+                .path
+                .clone();
+            if let Some(first) = identity.as_ref() {
+                assert_eq!(first, &key);
+            } else {
+                identity = Some(key);
+            }
+            assert_eq!(fs::read_dir(&base).unwrap().count(), 1);
+            println!(
+                "Native resident {voice}: {}ms {}bytes",
+                start.elapsed().as_millis(),
+                bytes.len()
+            );
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        let flag = cancel.clone();
+        let trigger = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            flag.store(true, Ordering::Relaxed);
+        });
+        assert!(run(
+            root.clone(),
+            base.clone(),
+            "amazing".into(),
+            "Cancel this pending local speech.".into(),
+            cancel,
+            state.clone()
+        )
+        .unwrap_err()
+        .contains("cancel"));
+        trigger.join().unwrap();
+        assert!(state.lock().unwrap().is_none());
+        assert_eq!(fs::read_dir(&base).unwrap().count(), 0);
+        run(
+            root,
+            base.clone(),
+            "amazing".into(),
+            "A fresh voice worker restarts after cancellation.".into(),
+            Arc::new(AtomicBool::new(false)),
+            state.clone(),
+        )
+        .unwrap();
+        let start = Instant::now();
+        while state.lock().unwrap().is_some() && start.elapsed() < Duration::from_secs(70) {
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        assert!(state.lock().unwrap().is_none());
+        assert_eq!(fs::read_dir(&base).unwrap().count(), 0);
+        fs::remove_dir(base).unwrap();
+    }
     #[test]
     fn only_workspace_can_access_voices() {
         assert!(workspace("workspace").is_ok());

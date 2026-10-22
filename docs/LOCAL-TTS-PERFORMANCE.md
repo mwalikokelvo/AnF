@@ -31,3 +31,7 @@ Library imports and model loading are substantial recurring costs. The experimen
 8. Settle the application version/source, then repeat native tests, real voice/reader/combined ownership suites, Windows portable/installer verification and current Android release gates. Publish paired verified artifacts before calling an application update delivered.
 
 Stale crash-scratch collection and compact reader playback controls remain separate roadmap items. Hosted Actions still cannot start runners because GitHub reports an account payment/spending restriction; a YAML change cannot resolve that account condition.
+
+## Candidate acceptance blocker
+
+A resident implementation was prepared for 0.1.42, but Apex One quarantined QA/test executables during native acceptance. It is not a released optimization. A separate real five-voice Python protocol test passed; native all-voice/idle/cancel/reader acceptance remains incomplete. See SECURITY-REVIEW-0.1.42.md. Protection settings and quarantined contents were left unchanged, and security administrator review is pending.

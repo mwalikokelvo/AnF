@@ -249,8 +249,8 @@ try{
   assert.equal(speechPids.length,1,'A real speech process must coexist with the owned gateway and model.');report.combinedSpeechPid=speechPids[0];
  }
  await page.screenshot({path:path.join(profile,'managed-native.png')});
- await browser.close();browser=undefined;
- child.kill();await waitNoNodes();await waitNoModels();
+ child.kill();await browser.close().catch(()=>{});browser=undefined;
+ await waitNoNodes();await waitNoModels();
  if(speechPids.length){
   const untilVoiceExit=Date.now()+10000;let alive=true;
   while(Date.now()<untilVoiceExit){const probe=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`if(Get-Process -Id ${speechPids[0]} -ErrorAction SilentlyContinue){'alive'}`],{encoding:'utf8',windowsHide:true});assert.equal(probe.status,0);alive=probe.stdout.includes('alive');if(!alive)break;await new Promise(r=>setTimeout(r,100));}
