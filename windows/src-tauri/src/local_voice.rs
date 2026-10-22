@@ -11,8 +11,11 @@ use std::{
 };
 use tauri::{Manager, State};
 #[derive(Default)]
-pub struct VoiceJobs(Mutex<Option<(String, Arc<AtomicBool>)>>);
-const JOB_WORKER: &str = include_str!("../../../scripts/local-voice-job.py");
+pub struct VoiceJobs(
+    Mutex<Option<(String, Arc<AtomicBool>)>>,
+    #[cfg(windows)] Arc<Mutex<Option<Resident>>>,
+);
+const JOB_WORKER: &str = include_str!("../../../scripts/local-voice-resident.py");
 const MAX_AUDIO: u64 = 5_000_000;
 pub fn shutdown(jobs: &VoiceJobs) {
     if let Ok(lock) = jobs.0.lock() {
@@ -20,6 +23,40 @@ pub fn shutdown(jobs: &VoiceJobs) {
             cancel.store(true, Ordering::Relaxed);
         }
     }
+    #[cfg(windows)]
+    if let Ok(mut worker) = jobs.1.try_lock() {
+        *worker = None;
+    }
+}
+
+#[cfg(windows)]
+struct Resident {
+    // Drop containment before attempting to remove its script directory.
+    child: crate::voice_process::VoiceProcess,
+    directory: JobDirectory,
+    root: PathBuf,
+    used: Instant,
+}
+#[cfg(windows)]
+fn expire_idle(state: &Arc<Mutex<Option<Resident>>>, key: PathBuf) {
+    let weak = Arc::downgrade(state);
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(1));
+        let Some(state) = weak.upgrade() else {
+            break;
+        };
+        if let Ok(mut lock) = state.try_lock() {
+            match lock.as_ref() {
+                Some(worker) if worker.directory.path == key => {
+                    if worker.used.elapsed() >= Duration::from_secs(60) {
+                        *lock = None;
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        };
+    });
 }
 
 /// Only a freshly created random directory and its two known files are owned.
@@ -241,10 +278,21 @@ pub async fn local_voice_speak(
         *lock = Some((id, cancel.clone()));
     }
     let base = crate::settings::local_dir().join("voice-jobs");
-    let result = tokio::task::spawn_blocking(move || run(root, base, voice, text, cancel))
-        .await
-        .map_err(|_| "Local voice job stopped.".to_string())
-        .and_then(|r| r);
+    #[cfg(windows)]
+    let resident = jobs.1.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        #[cfg(windows)]
+        {
+            run(root, base, voice, text, cancel, resident)
+        }
+        #[cfg(not(windows))]
+        {
+            run(root, base, voice, text, cancel)
+        }
+    })
+    .await
+    .map_err(|_| "Local voice job stopped.".to_string())
+    .and_then(|r| r);
     if let Ok(mut lock) = jobs.0.lock() {
         *lock = None;
     }
@@ -257,35 +305,94 @@ fn run(
     voice: String,
     text: String,
     cancel: Arc<AtomicBool>,
+    state: Arc<Mutex<Option<Resident>>>,
 ) -> Result<Vec<u8>, String> {
     if cancel.load(Ordering::Relaxed) {
         return Err("Local synthesis cancelled.".into());
     }
-    let payload=serde_json::json!({"root":root.to_str().ok_or("Private voice path must be valid Unicode.")?,"voice":voice,"text":text}).to_string();
-    if payload.len() > 8192 {
+    crate::managed_component::no_links(&root)?;
+    let directory = JobDirectory::new(&base)?;
+    let key = directory
+        .path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or("Invalid speech job path.")?;
+    let payload=serde_json::json!({"v":1,"id":key,"root":root.to_str().ok_or("Private voice path must be valid Unicode.")?,"voice":voice,"text":text}).to_string();
+    if payload.len() >= 8192 {
         return Err("Local speech input or private pack path exceeded its limit.".into());
     }
-    let directory = JobDirectory::new(&base)?;
-    let mut child = crate::voice_process::VoiceProcess::start(
-        &root.join("python/python.exe"),
-        &directory.path.join("worker.py"),
-        &root,
-    )?;
-    child.send(payload.as_bytes())?;
-    let started = Instant::now();
-    loop {
-        if cancel.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(240) {
-            return Err("Local synthesis cancelled or exceeded four minutes.".into());
-        }
-        match child.exit_code()?{Some(0)=>break,Some(_)=>return Err("Local voice synthesis failed. Verify the private voice pack and choose an installed voice.".into()),None=>std::thread::sleep(Duration::from_millis(60))}
+    let mut lock = state
+        .lock()
+        .map_err(|_| "Speech worker lock unavailable.")?;
+    if lock
+        .as_ref()
+        .map(|w| {
+            w.root != root
+                || w.used.elapsed() >= Duration::from_secs(60)
+                || w.child.exit_code().ok() != Some(None)
+        })
+        .unwrap_or(false)
+    {
+        *lock = None;
     }
-    let output = directory.path.join("output.wav");
-    crate::managed_component::no_links(&output)?;
-    let mut bytes = Vec::new();
-    File::open(output)
-        .and_then(|f| f.take(MAX_AUDIO + 1).read_to_end(&mut bytes))
-        .map_err(|_| "Local voice audio could not be read.")?;
-    valid_audio(bytes)
+    if lock.is_none() {
+        let worker_dir = JobDirectory::new(&base)?;
+        let child = crate::voice_process::VoiceProcess::start_resident(
+            &root.join("python/python.exe"),
+            &worker_dir.path.join("worker.py"),
+            &root,
+        )?;
+        let idle_key = worker_dir.path.clone();
+        *lock = Some(Resident {
+            child,
+            directory: worker_dir,
+            root,
+            used: Instant::now(),
+        });
+        expire_idle(&state, idle_key);
+    }
+    let result = (|| {
+        let worker = lock.as_mut().ok_or("Speech worker unavailable.")?;
+        worker.child.send_frame(payload.as_bytes())?;
+        let started = Instant::now();
+        loop {
+            if cancel.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(240) {
+                return Err("Local synthesis cancelled or exceeded four minutes.".into());
+            }
+            if let Some(frame) = worker.child.reply()? {
+                let reply: serde_json::Value =
+                    serde_json::from_slice(&frame).map_err(|_| "Invalid speech response.")?;
+                if reply.as_object().map(|o| o.len()) != Some(3)
+                    || reply["v"] != 1
+                    || reply["id"] != key
+                    || reply["ok"] != true
+                {
+                    return Err("Unexpected speech response.".into());
+                }
+                break;
+            }
+            if worker.child.exit_code()?.is_some() {
+                return Err("Local voice synthesis failed. Verify the private voice pack and choose an installed voice.".into());
+            }
+            std::thread::sleep(Duration::from_millis(60));
+        }
+        let output = directory.path.join("output.wav");
+        crate::managed_component::no_links(&output)?;
+        let mut bytes = Vec::new();
+        File::open(output)
+            .and_then(|f| f.take(MAX_AUDIO + 1).read_to_end(&mut bytes))
+            .map_err(|_| "Local voice audio could not be read.")?;
+        if cancel.load(Ordering::Relaxed) {
+            return Err("Local synthesis cancelled.".into());
+        }
+        let bytes = valid_audio(bytes)?;
+        worker.used = Instant::now();
+        Ok(bytes)
+    })();
+    if result.is_err() {
+        *lock = None;
+    }
+    result
 }
 #[cfg(not(windows))]
 fn run(

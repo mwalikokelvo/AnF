@@ -999,3 +999,23 @@ to the existing private pack. Never recursively remove a linked QA pack target.
 
 ### Local TTS profiling checkpoint - 2026-10-21
 Two isolated fresh-process/two-generation profiling runs PASS. Evidence C:\Users\jhadfield\Downloads\Compressed\AnF-codex-downloadable-releases\.tools\voice-stage-profile-acaa78283bfb458aa46b367ff1a33fb8\report.json; private harness .tools/profile-local-voice-stages.py; no private WAV/log upload. Same 48-character amazing-profile text, 24kHz finite/non-silent audio, network disabled, shared pack output unchanged. No concurrent build; caches not cleared. See docs/LOCAL-TTS-PERFORMANCE.md for stage timings and proposed bounded resident protocol. Production code/pack unchanged; 0.1.41 remains release. Next implement single owned resident process with per-request full integrity, output isolation, bounded protocol, cancel/idle/crash/exit tests; then paired verified release. Latest docs Actions run39670518637 still billing/spending refusal before runner. PrimaryHEAD/index preserved.
+
+### 0.1.42 resident speech candidate - 2026-10-21
+Release41 remains current until paired42 artifacts verified/published. New embedded
+local-voice-resident.py uses version1 bounded newline JSON stdin/response pipe,
+native random per-request IDs and isolated outputs. One owned model/pack at a time,
+full provenance/all-file streaming hashes EVERY request; changed provenance ends
+residency. Same private pack/model/references unchanged. Protocol stdout reserved
+before library imports; diagnostics discarded to NUL. Same Windows JOB_LIST at
+creation/limited handles/OS environment/-I-B and network-disabled offline policy.
+Cancellation, bad response/audio, worker failure and240s timeout destroy resident
+process; next request starts fresh. Idle60s checked with weak ownership watchdog;
+graceful/forced owner exit retains kill-on-close containment. No word timing claim.
+Native106PASS/18ignored; both explicit real process/env/Unicode/descendant and
+resident pipe/reuse/oversize fixturesPASS. Python8 parser/path/hash/entrypoint tests
+PASS. Logs .tools/logs/resident-042-*. QA/prod native actualfive voices/idle/cancel/
+reader/combined gateway-model-speech tests and Windows packaging verification still
+required. Android42 actualgate completed; recheck provenance if product source
+changes. QA binary42 build in progress. Keep all voice pack/QAaudio local. Shared
+OmniRoute component3.8.51 unchanged. Primary checkout/index and unrelated work
+preserved; outputs C only. Source freeze is candidate, not released functionality.

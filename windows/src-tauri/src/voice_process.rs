@@ -1,9 +1,9 @@
 //! Windows 10+ speech child: job membership is assigned at process creation.
-//! Only its stdin and NUL output handles are inherited; requests stay off disk.
+//! Explicit pipe/NUL handles only; requests stay off disk.
 use std::{
     ffi::OsString,
     fs::File,
-    io::Write,
+    io::{Read, Write},
     os::windows::{
         ffi::OsStrExt,
         io::{AsRawHandle, FromRawHandle, OwnedHandle},
@@ -23,7 +23,7 @@ use windows::{
                 SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
                 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
             },
-            Pipes::CreatePipe,
+            Pipes::{CreatePipe, PeekNamedPipe},
             Threading::*,
         },
     },
@@ -78,9 +78,22 @@ pub struct VoiceProcess {
     process: OwnedHandle,
     job: OwnedHandle,
     input: Option<File>,
+    output: Option<File>,
+    frame: Vec<u8>,
 }
 impl VoiceProcess {
     pub fn start(executable: &Path, worker: &Path, cwd: &Path) -> Result<Self, String> {
+        Self::start_inner(executable, worker, cwd, false)
+    }
+    pub fn start_resident(executable: &Path, worker: &Path, cwd: &Path) -> Result<Self, String> {
+        Self::start_inner(executable, worker, cwd, true)
+    }
+    fn start_inner(
+        executable: &Path,
+        worker: &Path,
+        cwd: &Path,
+        capture: bool,
+    ) -> Result<Self, String> {
         unsafe {
             let job = owned(
                 CreateJobObjectW(None, None).map_err(|_| "Cannot create private speech job.")?,
@@ -114,7 +127,24 @@ impl VoiceProcess {
             let null_handle = HANDLE(null.as_raw_handle());
             SetHandleInformation(null_handle, HANDLE_FLAG_INHERIT.0, HANDLE_FLAG_INHERIT)
                 .map_err(|_| "Cannot protect private speech output handles.")?;
-            let inherited = [raw(&read), null_handle];
+            let (output_read, output_write) = if capture {
+                let mut reader = HANDLE::default();
+                let mut writer = HANDLE::default();
+                CreatePipe(&mut reader, &mut writer, Some(&security), 4096)
+                    .map_err(|_| "Cannot create private speech response pipe.")?;
+                let reader = owned(reader);
+                let writer = owned(writer);
+                SetHandleInformation(raw(&reader), HANDLE_FLAG_INHERIT.0, HANDLE_FLAGS(0))
+                    .map_err(|_| "Cannot protect private speech response pipe.")?;
+                (Some(reader), Some(writer))
+            } else {
+                (None, None)
+            };
+            let output_handle = output_write.as_ref().map(raw).unwrap_or(null_handle);
+            let mut inherited = vec![raw(&read), null_handle];
+            if capture {
+                inherited.push(output_handle);
+            }
             let jobs = [raw(&job)];
             let attrs = Attributes::new()?;
             attrs.set(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &inherited)?;
@@ -183,7 +213,7 @@ impl VoiceProcess {
             startup.StartupInfo.cb = std::mem::size_of_val(&startup) as u32;
             startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
             startup.StartupInfo.hStdInput = raw(&read);
-            startup.StartupInfo.hStdOutput = null_handle;
+            startup.StartupInfo.hStdOutput = output_handle;
             startup.StartupInfo.hStdError = null_handle;
             startup.lpAttributeList = attrs.list;
             let mut info = PROCESS_INFORMATION::default();
@@ -220,6 +250,8 @@ impl VoiceProcess {
                 process,
                 job,
                 input: Some(File::from(write)),
+                output: output_read.map(File::from),
+                frame: Vec::new(),
             })
         }
     }
@@ -232,6 +264,55 @@ impl VoiceProcess {
             .ok_or("Local speech input unavailable.")?
             .write_all(payload)
             .map_err(|_| "Local speech input failed.".into())
+    }
+    pub fn send_frame(&mut self, payload: &[u8]) -> Result<(), String> {
+        if payload.len() >= 8192 || payload.contains(&b'\n') || !self.frame.is_empty() {
+            return Err("Invalid local speech protocol frame.".into());
+        }
+        let input = self
+            .input
+            .as_mut()
+            .ok_or("Local speech input unavailable.")?;
+        input
+            .write_all(payload)
+            .and_then(|_| input.write_all(b"\n"))
+            .map_err(|_| "Local speech input failed.".into())
+    }
+    pub fn reply(&mut self) -> Result<Option<Vec<u8>>, String> {
+        let output = self
+            .output
+            .as_mut()
+            .ok_or("Local speech output unavailable.")?;
+        let mut available = 0;
+        unsafe {
+            PeekNamedPipe(
+                HANDLE(output.as_raw_handle()),
+                None,
+                0,
+                None,
+                Some(&mut available),
+                None,
+            )
+        }
+        .map_err(|_| "Local speech response pipe stopped.".to_string())?;
+        if available == 0 {
+            return Ok(None);
+        }
+        if self.frame.len() + available as usize > 256 {
+            return Err("Local speech response exceeded its limit.".into());
+        }
+        let mut bytes = vec![0; available as usize];
+        output
+            .read_exact(&mut bytes)
+            .map_err(|_| "Local speech response failed.")?;
+        self.frame.extend(bytes);
+        if let Some(end) = self.frame.iter().position(|&b| b == b'\n') {
+            if end + 1 != self.frame.len() {
+                return Err("Unexpected local speech response.".into());
+            }
+            return Ok(Some(std::mem::take(&mut self.frame)));
+        }
+        Ok(None)
     }
     pub fn exit_code(&self) -> Result<Option<u32>, String> {
         unsafe {
@@ -261,6 +342,54 @@ impl Drop for VoiceProcess {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "Requires ANF_TEST_VOICE_PYTHON; launches only owned protocol fixtures."]
+    fn resident_protocol_reuses_one_process_and_rejects_oversized_responses() {
+        let python = std::path::PathBuf::from(std::env::var_os("ANF_TEST_VOICE_PYTHON").unwrap());
+        let dir = std::env::temp_dir().join(format!(
+            "AnF resident fixture-é-{}",
+            crate::local_ai::random_key().unwrap()
+        ));
+        std::fs::create_dir(&dir).unwrap();
+        let script = dir.join("fixture.py");
+        std::fs::write(&script,"import sys,json\nfor line in sys.stdin.buffer:\n value=json.loads(line)\n print(json.dumps(value),flush=True)\n").unwrap();
+        let mut process = VoiceProcess::start_resident(&python, &script, &dir).unwrap();
+        for id in ["first λ", "second 🌻"] {
+            process
+                .send_frame(serde_json::json!({"id":id}).to_string().as_bytes())
+                .unwrap();
+            let start = std::time::Instant::now();
+            let frame = loop {
+                if let Some(frame) = process.reply().unwrap() {
+                    break frame;
+                }
+                assert!(start.elapsed().as_secs() < 10);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            };
+            let value: serde_json::Value = serde_json::from_slice(&frame).unwrap();
+            assert_eq!(value["id"], id);
+            assert_eq!(process.exit_code().unwrap(), None);
+        }
+        assert!(process.send_frame(&vec![b'x'; 8192]).is_err());
+        assert!(process.send_frame(b"{}\n{}").is_err());
+        drop(process);
+        std::fs::write(&script,"import sys,time\nsys.stdin.buffer.readline()\nprint('x'*300,flush=True)\ntime.sleep(30)\n").unwrap();
+        let mut process = VoiceProcess::start_resident(&python, &script, &dir).unwrap();
+        process.send_frame(b"{}").unwrap();
+        let start = std::time::Instant::now();
+        loop {
+            match process.reply() {
+                Err(_) => break,
+                Ok(None) => {}
+                Ok(Some(_)) => panic!("Oversized protocol frame accepted"),
+            };
+            assert!(start.elapsed().as_secs() < 10);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        drop(process);
+        std::fs::remove_file(script).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
     #[test]
     #[ignore = "Requires ANF_TEST_VOICE_PYTHON and a harmless ANF_VOICE_INHERIT_PROBE sentinel; launches only owned fixture processes."]
     fn contains_descendants_and_keeps_private_stdin_and_environment_scoped() {
