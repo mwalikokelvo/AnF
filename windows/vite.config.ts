@@ -16,7 +16,7 @@ export const SOUNDS_DIR = resolve(__dirname, "../NotchBuddy/Resources/sounds");
 function sharedSounds(): Plugin {
   const prefix = "/sounds/";
   return {
-    name: "coucou-shared-sounds",
+    name: "anf-shared-sounds",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith(prefix)) return next();
@@ -51,7 +51,7 @@ export default defineConfig({
     host: "127.0.0.1",
     // The Cargo workspace lives in windows/, so its target/ sits inside Vite's root.
     // Watching it crashes Vite with EBUSY on Windows while cargo holds .pdb files open.
-    watch: { ignored: ["**/target/**", "**/src-tauri/**", "**/hook/**"] },
+    watch: { ignored: ["**/target/**", "**/src-tauri/**", "**/hook/**", "**/spotube-native/**", "**/local-ai/**", "**/media/**", "**/release/**"] },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],
   build: {

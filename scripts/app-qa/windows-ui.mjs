@@ -15,7 +15,7 @@ try {
   while(Date.now()<deadline&&!page) {
     try {
       let port=9223;
-      const activePort=path.join(process.env.LOCALAPPDATA,'Coucou/webview-v014/EBWebView/DevToolsActivePort');
+      const activePort=path.join(process.env.LOCALAPPDATA,'AnF/webview-v014/EBWebView/DevToolsActivePort');
       const detected=Number((await readFile(activePort,'utf8').catch(()=>'' )).split('\n')[0]);
       if(detected>0&&detected<65536)port=detected;
       browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`,{timeout:3000});
@@ -64,7 +64,7 @@ try {
       await view('chat');
       await page.getByLabel('AI context',{exact:true}).selectOption('none');
       await page.getByLabel('Your question',{exact:true}).fill('Calculate 2 + 2. Reply with the number only.');
-      await page.getByRole('button',{name:'Ask local AI',exact:true}).click();
+      await page.getByRole('button',{name:'Ask selected AI',exact:true}).click();
       await page.locator('.message.assistant').last().waitFor({timeout:240000});
       assert.match(await page.locator('.message.assistant').last().innerText(),/\b4\b/);
       await write(after);

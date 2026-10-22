@@ -7,8 +7,8 @@
       "rpm"
     ],
     "resources": {
-      "../target/release/coucou-hook.exe": null,
-      "../target/release/coucou-hook": "coucou-hook",
+      "../target/release/anf-hook.exe": null,
+      "../target/release/anf-hook": "anf-hook",
       "../local-ai/*.dll": null,
       "../local-ai/llama-server.exe": null,
       "../local-ai/lib*.so*": "local-ai/",

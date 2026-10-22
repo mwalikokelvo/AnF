@@ -62,6 +62,8 @@ pub struct PollGate {
     cv: Condvar,
     pub collapsed: AtomicBool,
     pub rect: Mutex<IslandRect>,
+    /// WebView CSS scale relative to the monitor DPI (Windows text scaling).
+    pub css_scale: Mutex<f64>,
     /// Mirrors the window flag so we only call into the OS when it changes.
     ignoring: AtomicBool,
 }
@@ -73,6 +75,7 @@ impl PollGate {
             cv: Condvar::new(),
             collapsed: AtomicBool::new(true),
             rect: Mutex::new(IslandRect::default()),
+            css_scale: Mutex::new(1.0),
             ignoring: AtomicBool::new(false),
         }
     }
@@ -127,6 +130,7 @@ fn target_monitor(app: &AppHandle, pref: &str) -> Option<Monitor> {
             }
         }
     }
+    if pref!="cursor" {if let Some(name)=crate::floating::last_monitor(){if let Some(m)=monitors.iter().find(|m|m.name()==Some(&name)){return Some(m.clone());}}}
     app.primary_monitor()
         .ok()
         .flatten()
@@ -162,14 +166,22 @@ fn place(app: &AppHandle, pref: &str, lw: f64, lh: f64) {
     let Some(win) = window(app) else { return };
     let Some(m) = target_monitor(app, pref) else { return };
 
+    // This fixed-size transparent panel cannot inherit workspace page zoom:
+    // zoomed content would be cropped by its native window and lose controls.
+    let _ = win.set_zoom(1.0);
+
     let scale = m.scale_factor();
     let mp = *m.position();
     let ms = *m.size();
 
-    let pw = (lw * scale).round().max(1.0) as u32;
-    let ph = (lh * scale).round().max(1.0) as u32;
-    let x = mp.x + (ms.width as i32 - pw as i32) / 2;
-    let y = mp.y;
+    let css_scale=app.try_state::<crate::Shared>().map(|s|*s.gate.css_scale.lock().unwrap()).unwrap_or(1.0);
+    let pw = (lw * scale * css_scale).round().clamp(1.0,ms.width as f64) as u32;
+    let ph = (lh * scale * css_scale).round().clamp(1.0,ms.height as f64) as u32;
+    let full_w=(PANEL_W*scale*css_scale).min(ms.width as f64);
+    let full_h=(PANEL_H*scale*css_scale).min(ms.height as f64);
+    let anchor=crate::floating::anchor(&m);
+    let x = mp.x + ((ms.width as f64-full_w)*anchor.x+(full_w-pw as f64)/2.0).round() as i32;
+    let y = mp.y + ((ms.height as f64-full_h)*anchor.y).round() as i32;
 
     // GTK never sizes a non-resizable window below its natural size (200 px
     // here), so on Linux the 6 px wake strip would stay a 200 px block. tao
@@ -259,9 +271,13 @@ fn drop_zone_rect(app: &AppHandle, pref: &str) -> Option<(f64, f64, f64, f64)> {
     let m = target_monitor(app, pref)?;
     let scale = m.scale_factor();
     let (mp, ms) = (*m.position(), *m.size());
-    let w = PANEL_W * scale;
-    let left = mp.x as f64 + (ms.width as f64 - w) / 2.0;
-    Some((left, mp.y as f64, left + w, mp.y as f64 + DROP_ZONE_H * scale))
+    let css_scale=app.try_state::<crate::Shared>().map(|s|*s.gate.css_scale.lock().unwrap()).unwrap_or(1.0);
+    let w = (PANEL_W * scale * css_scale).min(ms.width as f64);
+    let h = (PANEL_H * scale * css_scale).min(ms.height as f64);
+    let anchor=crate::floating::anchor(&m);
+    let left = mp.x as f64 + (ms.width as f64 - w) * anchor.x;
+    let top = mp.y as f64 + (ms.height as f64-h)*anchor.y;
+    Some((left, top, left + w, top + DROP_ZONE_H * scale * css_scale))
 }
 
 /// Position, size and scale of the monitor the island lives on. Any change here
@@ -301,7 +317,7 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
                 // nobody can reach. Checked about twice a second — the cursor poll
                 // is already running, so this costs one monitor query.
                 ticks = ticks.wrapping_add(1);
-                if ticks % screen_every == 0 {
+                if ticks % screen_every == 0 && !platform::moving_window() {
                     let now = current_screen_key(&app);
                     if now.is_some() && now != last_screen {
                         let first = last_screen.is_none();
@@ -373,7 +389,8 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
 
                 if moved {
                     last = (x, y);
-                    let _ = win.emit("cursor", CursorPayload { x, y });
+                    let css_scale=*gate.css_scale.lock().unwrap();
+                    let _ = win.emit("cursor", CursorPayload { x:x/css_scale, y:y/css_scale });
                 }
             }
 

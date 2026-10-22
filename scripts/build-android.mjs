@@ -1,24 +1,28 @@
 // Build the checked-in Android app without the historical external work/ tree.
-import { cp, copyFile, mkdir, readFile, stat, rm } from 'node:fs/promises';
+import { cp, copyFile, mkdir, readFile, stat, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { androidContract } from './android-release-contract.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const android = path.join(root, 'android');
 const require = createRequire(path.join(root, 'windows/package.json'));
 const { build } = require('esbuild');
 const { version } = JSON.parse(await readFile(path.join(root, 'windows/src-tauri/tauri.conf.json')));
+const contract = await androidContract(root);
 // MainActivity serves /index.html from getAssets().open("web/index.html").
 // Keep the APK's physical asset directory aligned with that native route.
 const assetsRoot = path.join(android, 'build/assets');
 const assets = path.join(assetsRoot, 'web');
+if (!assetsRoot.startsWith(path.resolve(root) + path.sep) || path.basename(assetsRoot) !== 'assets') throw Error('Unsafe Android assets directory.');
 await rm(assetsRoot, { recursive: true, force: true });
 await mkdir(assets, { recursive: true });
 await build({
   entryPoints: [path.join(android, 'web/main.ts')], bundle: true,
   format: 'esm', target: 'chrome110', minify: true,
+  loader: { '.ttf': 'dataurl', '.otf': 'dataurl', '.woff': 'dataurl', '.woff2': 'dataurl' },
   outfile: path.join(assets, 'main.js'), logLevel: 'info',
 });
 await copyFile(path.join(android, 'web/index.html'), path.join(assets, 'index.html'));
@@ -31,18 +35,26 @@ for (const name of ['THIRD-PARTY-LICENSES.txt', 'THIRD-PARTY-NATIVE-MEDIA-LICENS
   await copyFile(path.join(android, 'web', name), path.join(assets, name));
 }
 await copyFile(path.join(root, 'windows/THIRD-PARTY-STORAGE-LICENSES.txt'), path.join(assets, 'THIRD-PARTY-STORAGE-LICENSES.txt'));
+await writeFile(path.join(assets, 'android-build.json'), JSON.stringify(contract) + '\n');
 if (process.argv.includes('--with-spotube')) {
   await copyFile(path.join(root, 'integrations/spotube/LICENSE'), path.join(assets, 'THIRD-PARTY-SPOTUBE-LICENSE.txt'));
 }
-if (process.argv.includes('--assets-only')) process.exit(0);
+if (process.argv.includes('--assets-only')) {
+  console.log('Web assets prepared only. No APK was built; this does not satisfy the release gate.');
+  process.exit(0);
+}
 const gradle = process.env.GRADLE_BIN || (process.platform === 'win32' ? 'gradle.bat' : 'gradle');
-const gradleArgs = ['--no-daemon', 'assembleRelease', 'assembleDebug'];
+const review = process.argv.includes('--review');
+const reviewAbi = process.env.ANF_REVIEW_ABI || 'arm64-v8a';
+if (review && !['arm64-v8a', 'x86_64'].includes(reviewAbi)) throw Error('Music previews support arm64-v8a or x86_64.');
+const gradleArgs = ['--no-daemon', ...(review ? ['assembleReview'] : ['assembleRelease', 'assembleDebug'])];
+if (review) gradleArgs.push(`-PmusicPreviewAbi=${reviewAbi}`);
 if (process.argv.includes('--offline')) gradleArgs.push('--offline');
 if (process.argv.includes('--with-spotube')) {
   const repository = process.env.SPOTUBE_REPOSITORY || path.join(android, 'spotube-module/build/host/outputs/repo');
   // Fail before Gradle if the embedded runtime was not actually built.
-  await stat(path.join(repository, 'com/coucou/spotube/flutter_release/1.0/flutter_release-1.0.aar'));
-  await stat(path.join(repository, 'com/coucou/spotube/flutter_debug/1.0/flutter_debug-1.0.aar'));
+  await stat(path.join(repository, 'com/anf/spotube/flutter_release/1.0/flutter_release-1.0.aar'));
+  if (!review) await stat(path.join(repository, 'com/anf/spotube/flutter_debug/1.0/flutter_debug-1.0.aar'));
   gradleArgs.push(`-PspotubeRepository=${repository}`);
   // Upstream native plugins still contain pre-AndroidX bytecode.
   gradleArgs.push('-Pandroid.enableJetifier=true');
@@ -57,26 +69,31 @@ if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status || 1);
 const out = path.join(root, 'releases');
 await mkdir(out, { recursive: true });
-for (const [variant, suffix] of [
+for (const [variant, suffix] of (review ? [['review', `music-preview-${reviewAbi}`]] : [
   ['release', 'unsigned'],
   ['debug', 'debug'],
-]) {
+])) {
   const directory = path.join(android, 'gradle-build/outputs/apk', variant);
   const metadata = JSON.parse(await readFile(path.join(directory, 'output-metadata.json')));
-  if (metadata.applicationId !== 'com.coucou.workspace' || metadata.elements.length !== 1) {
+  if (metadata.applicationId !== contract.applicationId + (review ? '.musicdev' : '') || metadata.elements.length !== 1) {
     throw Error(`Unexpected APK metadata for ${variant}`);
   }
   const input = metadata.elements[0];
-  if (input.versionName !== version || path.basename(input.outputFile) !== input.outputFile) {
+  if (input.versionName !== (review ? version + '-music-preview' : version) || path.basename(input.outputFile) !== input.outputFile) {
     throw Error(`APK version or output path mismatch for ${variant}`);
   }
   const source = path.join(directory, input.outputFile);
   if ((await stat(source)).size === 0) throw Error(`Empty APK: ${source}`);
-  const check = spawnSync(process.platform === 'win32' ? 'python' : 'python3',
+  const check = spawnSync(process.env.ANF_PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3'),
     [path.join(root, 'scripts/check-android-apk.py'), source], { stdio: 'inherit' });
   if (check.error) throw check.error;
   if (check.status !== 0) process.exit(check.status || 1);
   const dest = path.join(out, `AnF-Android-${version}-${suffix}.apk`);
   await copyFile(source, dest);
   console.log(`Prepared ${dest}`);
+}
+if (!review) {
+  const verify = spawnSync(process.execPath, [path.join(root, 'scripts/verify-android-release.mjs')], { stdio: 'inherit', env: process.env });
+  if (verify.error) throw verify.error;
+  if (verify.status !== 0) process.exit(verify.status || 1);
 }

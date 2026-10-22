@@ -5,7 +5,7 @@ Set-Location (Join-Path $PSScriptRoot '..')
 if (!(Test-Path local-ai/llama-server.exe) -or !(Test-Path local-ai/model.gguf)) {
     & scripts/prepare-offline.ps1
 }
-cargo build --release --locked -p coucou-hook
+cargo build --release --locked -p anf-hook
 if ($LASTEXITCODE) { throw 'Hook build failed' }
 node node_modules/typescript/bin/tsc --noEmit
 if ($LASTEXITCODE) { throw 'TypeScript check failed' }
@@ -19,7 +19,7 @@ foreach ($entry in @(@('index.html','main'), @('settings.html','settings/main'),
   $html = $html.Replace('</head>', ('<link rel="stylesheet" href="/assets/' + $entry[1] + '.css"></head>'))
   Set-Content ('dist/' + $entry[0]) $html -Encoding utf8NoBOM
 }
-cargo build --release --locked --features tauri/custom-protocol --bin coucou
+cargo build --release --locked --features tauri/custom-protocol --bin anf
 if ($LASTEXITCODE) { throw 'Application build failed' }
 node node_modules/@tauri-apps/cli/tauri.js bundle --bundles nsis --ci --no-binary-patching --config '{"bundle":{"useLocalToolsDir":true}}'
 if ($LASTEXITCODE) { throw 'Installer packaging failed' }

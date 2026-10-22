@@ -1,6 +1,6 @@
 export type Highlight={id:string;start:number;end:number;quote:string;color:'gold'|'green'|'pink';note:string};
 export type ReadingState={offset:number;bookmarks:number[];annotations:Highlight[]};
-export type ReadingSource={name:string;text:string;reading?:ReadingState|null};
+export type ReadingSource={name:string;text:string;path?:string|null;pages?:{number:number;text:string;ocr?:boolean}[];reading?:ReadingState|null};
 export type ReadingSection={start:number;end:number;label:string};
 export function sections(text:string):ReadingSection[]{
   const result:ReadingSection[]=[];let start=0;
@@ -24,4 +24,26 @@ export function addHighlight(state:ReadingState,text:string,start:number,end:num
 export function clipText(draft:string,quote:string,source:string){
   const next=draft+(draft.trim()?'\n\n':'')+quote+'\n\nSource: '+source;
   if(new TextEncoder().encode(next).length>200000)throw Error('This clip exceeds the writing limit. Start a new draft or shorten it.');return next;
+}
+
+/** Use real page boundaries only when their text exactly reconstructs the source.
+ * Existing note anchors always address the unchanged source text. */
+export function sourceSections(source:ReadingSource):ReadingSection[]{
+ if(source.pages?.length && source.pages.map(p=>p.text).join('\n\n')===source.text){
+  let offset=0;return source.pages.map((page,i)=>{const start=offset;offset+=page.text.length+(i<source.pages!.length-1?2:0);return{start,end:offset,label:'Page '+page.number+(page.ocr?' \u00b7 OCR':'')};});
+ }
+ return sections(source.text);
+}
+
+export function readingNotesMarkdown(source:ReadingSource){
+ const state=readingState(source.reading,source.text),parts=sourceSections(source);
+ const label=(offset:number)=>parts.find(p=>p.end>offset)?.label||parts[parts.length-1].label;
+ const quote=(text:string)=>text.split(/\r?\n/).map(line=>'> '+line).join('\n');
+ return '# Reading notes: '+source.name.replace(/[\r\n]/g,' ')+'\n\n'+(state.annotations.length?state.annotations.map(a=>'## '+label(a.start)+'\n\n'+quote(a.quote)+(a.note?'\n\nNote:\n'+quote(a.note):'')).join('\n\n'):'No highlights saved.')+'\n\n## Bookmarks\n\n'+(state.bookmarks.length?state.bookmarks.map(n=>'- '+label(n)).join('\n'):'No bookmarks saved.')+'\n';
+}
+export function documentMatches(text:string,query:string,matchCase=false):{start:number;end:number}[]{
+ if(!query.trim())return[];
+ const escaped=query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),regex=new RegExp(escaped,matchCase?'gu':'giu'),result:{start:number;end:number}[]=[];
+ for(const match of text.matchAll(regex)){result.push({start:match.index!,end:match.index!+match[0].length});if(result.length>=5000)break;}
+ return result;
 }

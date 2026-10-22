@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/lucaschultz/adobe-font-extractor",
+  "commit": "d449020e2814bf714112883d0261e9a5fcc7a613",
+  "license": "MIT",
+  "copyright": "2025 Luca Schultz",
+  "reuse": "Approach reviewed; independent bounded cache copier, no upstream code copied."
+}

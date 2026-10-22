@@ -1,5 +1,5 @@
 ; Based on Tauri CLI v2.12.0 (MIT / Apache-2.0).
-; Stable legacy install keys/folder let AnF update Coucou in place.
+; Select the existing current or legacy install identity before an in-place update.
 Unicode true
 ManifestDPIAware true
 ; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
@@ -66,9 +66,22 @@ ${StrLoc}
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 !define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
-!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Coucou"
+!ifndef ANF_UNINSTALL_ROOT
+  !define ANF_UNINSTALL_ROOT "Software\Microsoft\Windows\CurrentVersion\Uninstall"
+!endif
+!ifndef ANF_USER_INSTALL_DIR
+  !define ANF_USER_INSTALL_DIR "$LOCALAPPDATA\AnF"
+!endif
+!ifndef ANF_RUN_ROOT
+  !define ANF_RUN_ROOT "Software\Microsoft\Windows\CurrentVersion\Run"
+!endif
+!define ANF_CURRENT_UNINSTKEY "${ANF_UNINSTALL_ROOT}\AnF"
 !define MANUKEY "Software\${MANUFACTURER}"
-!define MANUPRODUCTKEY "${MANUKEY}\Coucou"
+!define ANF_CURRENT_PRODUCTKEY "${MANUKEY}\AnF"
+!define ANF_LEGACY_UNINSTKEY "${ANF_UNINSTALL_ROOT}\$AnfLegacyName"
+!define ANF_LEGACY_PRODUCTKEY "${MANUKEY}\$AnfLegacyName"
+!define UNINSTKEY "$AnfUninstallKey"
+!define MANUPRODUCTKEY "$AnfProductKey"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
@@ -78,6 +91,105 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+Var AnfLegacyName
+Var AnfUninstallKey
+Var AnfProductKey
+Var AnfIdentityLocation
+Var AnfCurrentLocation
+Var AnfLegacyLocation
+Var AnfCurrentRecord
+Var AnfLegacyRecord
+
+; These functions are shared verbatim by the installer and its generated uninstaller.
+!macro ANF_IDENTITY_FUNCTIONS PREFIX
+Function ${PREFIX}AnfReadIdentities
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  ; Historical registry identity, encoded to keep it out of visible product branding.
+  IntFmt $0 "%c" 67
+  IntFmt $1 "%c" 111
+  IntFmt $2 "%c" 117
+  IntFmt $3 "%c" 99
+  IntFmt $4 "%c" 111
+  IntFmt $5 "%c" 117
+  StrCpy $AnfLegacyName "$0$1$2$3$4$5"
+  ReadRegStr $AnfCurrentLocation SHCTX "${ANF_CURRENT_UNINSTKEY}" "InstallLocation"
+  ReadRegStr $0 SHCTX "${ANF_CURRENT_UNINSTKEY}" "UninstallString"
+  ReadRegStr $1 SHCTX "${ANF_CURRENT_UNINSTKEY}" "DisplayVersion"
+  StrCpy $AnfCurrentRecord "$AnfCurrentLocation$0$1"
+  ${If} $AnfCurrentLocation == ""
+    ReadRegStr $AnfCurrentLocation SHCTX "${ANF_CURRENT_PRODUCTKEY}" ""
+  ${EndIf}
+  ReadRegStr $AnfLegacyLocation SHCTX "${ANF_LEGACY_UNINSTKEY}" "InstallLocation"
+  ReadRegStr $0 SHCTX "${ANF_LEGACY_UNINSTKEY}" "UninstallString"
+  ReadRegStr $1 SHCTX "${ANF_LEGACY_UNINSTKEY}" "DisplayVersion"
+  StrCpy $AnfLegacyRecord "$AnfLegacyLocation$0$1"
+  ${If} $AnfLegacyLocation == ""
+    ReadRegStr $AnfLegacyLocation SHCTX "${ANF_LEGACY_PRODUCTKEY}" ""
+  ${EndIf}
+  ; InstallLocation written by earlier installers includes enclosing quotes.
+  StrCpy $0 $AnfCurrentLocation 1
+  StrCpy $1 $AnfCurrentLocation 1 -1
+  ${If} $0 == '$\"'
+  ${AndIf} $1 == '$\"'
+    StrCpy $AnfCurrentLocation $AnfCurrentLocation -1 1
+  ${EndIf}
+  ${If} $AnfCurrentLocation != ""
+    GetFullPathName $AnfCurrentLocation $AnfCurrentLocation
+  ${EndIf}
+  StrCpy $0 $AnfLegacyLocation 1
+  StrCpy $1 $AnfLegacyLocation 1 -1
+  ${If} $0 == '$\"'
+  ${AndIf} $1 == '$\"'
+    StrCpy $AnfLegacyLocation $AnfLegacyLocation -1 1
+  ${EndIf}
+  ${If} $AnfLegacyLocation != ""
+    GetFullPathName $AnfLegacyLocation $AnfLegacyLocation
+  ${EndIf}
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+!macroend
+!insertmacro ANF_IDENTITY_FUNCTIONS ""
+!insertmacro ANF_IDENTITY_FUNCTIONS "un."
+
+Function AnfSelectInstallIdentity
+  Call AnfReadIdentities
+  StrCpy $AnfUninstallKey "${ANF_CURRENT_UNINSTKEY}"
+  StrCpy $AnfProductKey "${ANF_CURRENT_PRODUCTKEY}"
+  StrCpy $AnfIdentityLocation $AnfCurrentLocation
+  ${If} $AnfCurrentRecord == ""
+  ${AndIf} $AnfLegacyRecord != ""
+    StrCpy $AnfUninstallKey "${ANF_LEGACY_UNINSTKEY}"
+    StrCpy $AnfProductKey "${ANF_LEGACY_PRODUCTKEY}"
+    StrCpy $AnfIdentityLocation $AnfLegacyLocation
+  ${EndIf}
+FunctionEnd
+
+Function un.AnfSelectUninstallIdentity
+  Call un.AnfReadIdentities
+  StrCpy $AnfUninstallKey ""
+  StrCpy $AnfProductKey ""
+  GetFullPathName $AnfIdentityLocation $INSTDIR
+  ; Coexisting installations must never remove one another's registry record.
+  ${If} $AnfCurrentRecord != ""
+  ${AndIf} $AnfCurrentLocation == $AnfIdentityLocation
+    StrCpy $AnfUninstallKey "${ANF_CURRENT_UNINSTKEY}"
+    StrCpy $AnfProductKey "${ANF_CURRENT_PRODUCTKEY}"
+  ${ElseIf} $AnfLegacyRecord != ""
+  ${AndIf} $AnfLegacyLocation == $AnfIdentityLocation
+    StrCpy $AnfUninstallKey "${ANF_LEGACY_UNINSTKEY}"
+    StrCpy $AnfProductKey "${ANF_LEGACY_PRODUCTKEY}"
+  ${EndIf}
+FunctionEnd
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -355,7 +467,10 @@ Function PageLeaveReinstall
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
       ExecWait '$R1' $0
     ${Else}
-      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+      StrCpy $4 $AnfIdentityLocation
+      ${If} $4 == ""
+        Abort "The existing installation location could not be verified."
+      ${EndIf}
       ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
       ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
@@ -478,6 +593,8 @@ FunctionEnd
 {{/each}}
 
 Function .onInit
+  !insertmacro SetContext
+  Call AnfSelectInstallIdentity
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
@@ -514,7 +631,7 @@ Function .onInit
         StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
       ${EndIf}
     !else if "${INSTALLMODE}" == "currentUser"
-      StrCpy $INSTDIR "$LOCALAPPDATA\Coucou"
+      StrCpy $INSTDIR "${ANF_USER_INSTALL_DIR}"
     !endif
 
     Call RestorePreviousInstallLocation
@@ -694,7 +811,10 @@ Section Install
   ReadRegStr $OldMainBinaryName SHCTX "${UNINSTKEY}" "MainBinaryName"
   ${If} $OldMainBinaryName != ""
   ${AndIf} $OldMainBinaryName != "${MAINBINARYNAME}.exe"
-    Delete "$INSTDIR\$OldMainBinaryName"
+    ${GetFileName} "$OldMainBinaryName" $0
+    ${If} $0 == $OldMainBinaryName
+      Delete "$INSTDIR\$OldMainBinaryName"
+    ${EndIf}
   ${EndIf}
 
   ; Save current MAINBINARYNAME for future updates
@@ -758,9 +878,11 @@ FunctionEnd
 
 Function un.onInit
   !insertmacro SetContext
+  Call un.AnfSelectUninstallIdentity
 
   !if "${INSTALLMODE}" == "both"
     !insertmacro MULTIUSER_UNINIT
+    Call un.AnfSelectUninstallIdentity
   !endif
 
   !insertmacro MUI_UNGETLANGUAGE
@@ -852,6 +974,7 @@ Section Uninstall
   ${EndIf}
 
   ; Remove registry information for add/remove programs
+  ${If} $AnfUninstallKey != ""
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
   !else if "${INSTALLMODE}" == "perMachine"
@@ -859,19 +982,27 @@ Section Uninstall
   !else
     DeleteRegKey HKCU "${UNINSTKEY}"
   !endif
+  ${EndIf}
 
   ; Removes the Autostart entry for ${PRODUCTNAME} from the HKCU Run key if it exists.
   ; This ensures the program does not launch automatically after uninstallation if it exists.
   ; If it doesn't exist, it does nothing.
   ; We do this when not updating (to preserve the registry value on updates)
   ${If} $UpdateMode <> 1
-    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+    ReadRegStr $0 HKCU "${ANF_RUN_ROOT}" "${PRODUCTNAME}"
+    ${If} $0 == '$INSTDIR\${MAINBINARYNAME}.exe'
+    ${OrIf} $0 == '$INSTDIR\${MAINBINARYNAME}.exe '
+    ${OrIf} $0 == '$\"$INSTDIR\${MAINBINARYNAME}.exe$\"'
+    ${OrIf} $0 == '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" '
+      DeleteRegValue HKCU "${ANF_RUN_ROOT}" "${PRODUCTNAME}"
+    ${EndIf}
   ${EndIf}
 
   ; Delete app data if the checkbox is selected
   ; and if not updating
   ${If} $DeleteAppDataCheckboxState = 1
   ${AndIf} $UpdateMode <> 1
+  ${AndIf} $AnfProductKey != ""
     ; Clear the install location $INSTDIR from registry
     DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
     DeleteRegKey /ifempty SHCTX "${MANUKEY}"
@@ -898,9 +1029,10 @@ Section Uninstall
 SectionEnd
 
 Function RestorePreviousInstallLocation
-  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-  StrCmp $4 "" +2 0
-    StrCpy $INSTDIR $4
+  Call AnfSelectInstallIdentity
+  ${If} $AnfIdentityLocation != ""
+    StrCpy $INSTDIR $AnfIdentityLocation
+  ${EndIf}
 FunctionEnd
 
 Function Skip

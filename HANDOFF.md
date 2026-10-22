@@ -1,0 +1,1074 @@
+# Agent Session Handoff
+
+> Historical bootstrap details follow. Read the latest dated delivery and continuation entries at the end for the current state; earlier Running labels are historical.
+
+**Worktree / Branch:** active release checkout; specialists use wt/*
+**Assigned Role:** Head Orchestrator
+**Last Updated:** 2026-10-21
+
+## 1. Completed Tasks
+
+- Read the implementation directive, starter kit and current release state.
+- Governance committed as 82c2c52. Current source preserved in isolated snapshot
+  7c98419; four requested worktrees provisioned without changing application files.
+- Worktree safety tests pass, including dirty-tree retention and native Windows
+  long/short path equivalence. No force-delete fallback.
+- Frontend commit 50db9de passes source and focused inline reader browser gates.
+- Mobile specialist built/verified baseline 0.1.30 APKs; those diagnostic artifacts
+  are not the final renamed/integrated 0.1.31 release.
+- Audit census and capability inventory: docs/IMPLEMENTATION-AUDIT.md.
+- Pinned local voice model and CPU dependencies downloaded; real synthesis and
+  packaged runtime integration are still under verification.
+- User approved local-only synthesis using both supplied recordings, openly
+  licensed bundled fonts with licensed imports, and a new Android identity with
+  explicit export/import data migration.
+
+## 2. Active In-Flight Work
+
+| Mission | Owner | Branch | State | Acceptance |
+| --- | --- | --- | --- | --- |
+| Rebrand and migration | Core specialist | wt/core-refactor | Running | Source/path/ID rename; data compatibility documented and tested |
+| In-document reading | Frontend specialist | wt/frontend-reader | Review (50db9de) | Inline canvas, controls and synchronized speech anchors on both surfaces |
+| Android release | Mobile specialist | wt/mobile-android | Review / final identity pending | Actual new APK and blocking release workflow/gate |
+| Fonts and voices | Asset specialist | wt/assets-engine | Running | Licensed font ingestion; real local voice pipeline and honest readiness/fallback |
+| Exhaustive audit/integration | Head | release checkout | Running | Evidence-backed unfinished-feature inventory and ordered next sprint |
+
+Mission briefs are in docs/SPRINT-MISSIONS.md. Detailed evidence is recorded per
+specialist and consolidated here after integration.
+
+## 3. Known Blockers and Cross-Team Needs
+
+- Prior release source is dirty: snapshot it without changing existing files or
+  the user's index. Specialist worktrees must receive that current source.
+- Hosted CI was previously unavailable due to account billing. Local SDK/toolchain
+  availability and real Android build failures need fresh verification.
+- Voice recordings are reference material, not ready-made synthesis models. Need
+  a local engine, reference preparation, model provisioning and offline tests.
+- Strict identity migration changes Android installation identity; retain the old
+  installed app until export/import is tested. Do not uninstall user applications.
+- Existing limitations: provider authentication failure, optional OCR spelling
+  failure, unavailable Strix runtime, and unimplemented service/media capabilities.
+
+## 4. Next Step for Successor / Restart
+
+1. Inspect this handoff and DECISIONS.md; verify worktree/branch before editing.
+2. Resume specialist branches from saved files/commits, not from stale main.
+   Agent credit failure interrupted the prior run; the user resumed on 2026-10-18.
+3. Integrate core branding/migration then frontend/mobile/assets diffs relative to
+   snapshot 7c98419. Primary checkout contains older source work; do not reset it.
+   Reconcile shared files explicitly and preserve all original source additions.
+4. Run ./scripts/verify_agent_gate.sh and the blocking --release variant before
+   calling a release complete. Document unavailable checks and actual artifacts.
+
+## 2026-10-18 continuation and additional requests
+
+- Hourly thread heartbeat `resume-anf-implementation` is ACTIVE. Resume when capacity is available; remain quiet on unchanged blockers. Both core_resume and assets_resume reported workspace credits exhausted during integration; inspect their persisted changes before retrying.
+- User explicitly confirmed permission for ALL THREE additional MP3 voice previews for new-speech synthesis, including Burt Reynolds-labelled preview. Keep all synthesis local. Pending ingestion into actual synthesis registry/proofs, not sample-only playback:
+  - C:/Users/jhadfield/Downloads/voice_preview_burt reynolds™ - deep, smooth and clear.mp3
+  - C:/Users/jhadfield/Downloads/voice_preview_serafina - sensual temptress.mp3
+  - C:/Users/jhadfield/Downloads/voice_preview_kelvin mwamburi mwaliko.mp3
+- Requested Ruflo, rea, NVIDIA nim-anywhere, Baseten and OpenRouter plugins. Plugin catalog search returned no matches; NOTHING installed yet. Ruflo upstream documents Codex MCP setup separately from Claude plugin marketplace commands. Baseten/OpenRouter URLs are organization pages, not specific plugin repositories. Continue compatibility review and supported installation, preserving existing config; do not claim success from downloading source.
+- Core reported commit 842dcb1 before attempting frontend/mobile integration; inspect cherry-pick state. Asset workspace guard/request bounds/readiness improvements are persisted, but actual offline proof and final commit/build remain pending.
+
+## Integrated continuation evidence (2026-10-18)
+
+- Applied reviewed core/reader/mobile changes baseline7c98419 through84421eb to primary working files without resetting existing changes or index. Version0.1.31 and new Android identity integrated. Root stronger gates retained.
+- Actual inline-reader browser regression PASS on primary checkout (PDF pages/annotations/search/speech/responsive layout). Renamed anf-hook release build PASS. Native application tests in progress; final packaged release not yet verified.
+- Local CPU synthesis proof exists for both original recordings; three additional voices authorized and under specialist integration/proof. No cloud voice fallback.
+- NVIDIA nim-anywhere marketplace add rejected by Codex: repository root has no supported manifest. Ruflo/rea add commands still pending network/Git completion; no installation claim. Organization-only Baseten/OpenRouter URLs need compatible concrete packages.
+
+## Verification recovery (2026-10-18 evening)
+
+- Ordinary usage available at heartbeat. Source freeze includes five-voice asset commit61ef526 + license checkout rules8231308; three new voices genuinely synthesized new text at24kHz offline. Optional CLI extractor followup56039c6 remains to apply if absent.
+- Private ZIP64 voice pack completed: releases/AnF-Local-Voice-Pack-0.1.31-private.zip,2293003751bytes, SHA2568c8bc4624eb4762964c1a0ef44b73d8b956d1ed94534b2a1f7f6a4243cde9070. FullCRC/nativevoiceUI checks delegated to assets specialist.
+- Primary sourcegate PASS (branding419textfiles, independent encryptedbackup/migration, regression checks). Focused font/provider tests PASS. Native suite after required temp access:72passed0failed12ignored. Original sandbox failure resolved; see .tools/logs/implementation/native-tests-31.txt.
+- Native QA31 build running .tools/logs/implementation/qa-build-31.txt. Final actualAndroid31 gate running .tools/logs/integrated-android-release-31.txt via mobile specialist. Windows productionpackage not yet rebuilt.
+- Core accidentally committed only initial check-branding.mjs as7b39f71 in primary; corrected scanner remains workingtree delta. All pre-existing changes preserved; no reset/amend.
+
+## Android31 final gate PASS
+
+Actual --release --offline gate completed0; Gradle BUILD SUCCESSFUL58s. Binary manifest com.anf.workspace, version0.1.31/code1031. DebugAPK15,431,185bytes SHA25690d9f5828007426018343fddea5c5cb0e40945b6bae55388b05f472bae15392b. UnsignedAPK14,104,079bytes SHA256fb5521587867b6cb1b2d4d721286e869b79a82672d1fef86907074406588d948. Both match current source/assets; ZIP/native16KB alignment pass; debug signature verified; negative provenance fixtures pass. No installation/publication. Reports releases/android-release-verification.json andSHA256SUMS-Android.
+
+Windows QA build ongoing; Windows production package build started with log .tools/logs/implementation/windows-package-31.txt. Preserve0.1.30 artifacts. Neither ongoing build is a completed release claim. Finish nativevoiceUI and connections QA then validate installer/portable ZIP/sums before delivery. PrivatevoicepackCRC delegated assets_resume.
+
+## User delivery requirement: releases after every update
+
+User explicitly requires releases after every application update. Produce verified
+Windows installer/portable and Android APK with version/checksums/download links
+before declaring that update delivered. Current Android31 is verified; Windows31
+production compilation and final five-voice native QA remain running. Do not substitute
+Windows30 for31. This requirement is recorded in PROTOCOL.md for future sessions.
+
+## Version0.1.31 delivery complete
+
+Windows productionpack exit0. Verified593portablefiles byte-for-byte, ZIPCRC/SHA, current frontendembedding, noQAidentity, fullnative musicruntime. Installer1,816,509,775bytes; portableZIP1,820,422,330bytes. Artifacts windows/release/AnF-Windows-0.1.31-{setup.exe,portable.zip}; checksums SHA256SUMS-Windows andSHA256SUMS-Windows-portable. Android31 releasegate previouslyPASS. All5actualnativevoiceIPC, readerAudio1.5x, exactsentencehighlight, cancellation/windowdenial/fontloadingPASS; privatepackCRC26,536entriesPASS. NativeUI connections/PDF/exportPASS. No publicpublication or installation. Outstanding unrelated plugin compatibility/Strix/platform/service limitations remain as audit documents; this package does not claim those solved.
+
+## Consolidated remaining implementation plan
+
+User requested Android installation details plus every remaining capability and
+implementation plan. See docs/REMAINING-IMPLEMENTATION-PLAN.md (2026-10-18), which
+supersedes pre-integration status labels in the original audit. It records completed31
+baseline separately and gives every known gap an integration step, acceptance proof
+and dependency order. No new application code or release rebuild in this docs update.
+
+## OmniRoute-first continuation (2026-10-19)
+
+Ordinary usage available again. User's recurring instruction prioritizes OmniRoute.
+Specialist core_resume owns isolated wt/omniroute fromcca9fa3: guided local setup,
+bounded model discovery, explicit model/route selection and real local gateway →
+bundled model generation proof. Existing adapter alone is not completion. npm
+metadata reports3.8.51; pin package/runtime/integrity and isolated DATA_DIR/port.
+No paid API keys or provider account required for bundled local inference. Cloud
+providers retain their own account/entitlement requirements. No usage-limit bypass.
+
+REL1 installer compatibility issue and READ3 OCR baseline remain open; prior
+worktrees preserved. Root reproduced real OCR failure (seven etters) in
+.tools/logs/implementation/ocr-baseline-31.txt. Android device QA blocked:no device,
+emulator/systemimage/AVD; virtualization firmware unavailable. Mobile found actual
+legacy namespace generator defect in Spotube preparation; scoped repair pending.
+
+Ruflo Core0.2.11 installed fromruflo marketplace via supported plugin manager.
+rea and NVIDIA rejected due unsupported root marketplace manifests. No claim they
+are installed. Windows/Android31 remain latest delivered release until32passes.
+
+### Next release integration in progress
+
+Integrated mobile REL3/MUSIC2 patch3fbc5fa (excluding peer governance) into primary:
+correct native module namespace, explicit Windows batch launch, pinnedFlutterprobe,
+upstream-drift rejection, nativeworkflowpreflight. Focused check PASS in primary.
+No claim native AAR/device playback exists yet. This is unreleased source pending
+OmniRoute-first implementation and complete32 Windows/Android gates/artifacts.
+Core runtime npm install and native gateway/catalog/probe UI work ongoing isolated.
+
+## 0.1.32 final integration and gates (2026-10-19)
+
+Recovered and applied reviewed OmniRoute specialist diff from wt/omniroute
+(connections.rs/connections.ts/nativeQAfixture +OMNIROUTE.md/liveUIscript), preserving
+all primary changes/index. Real pinned3.8.51 gateway→bundledllama localgeneration
+and realworkspaceUI discovery/select/save/Chat flow passed before credit interruption;
+UI IPC persistence fixture and separately compiled nativeadapter test are distinct.
+SourcegatePASS. Integrated installer80c092d, OCRcd6470f, nativebuild3fbc5fa.
+Metadata32prepared (only anf/anf-hook lockversions changed; dependencies retained).
+Primary fullfreeze32. Currentnative tests .tools/logs/implementation/native-tests-32.txt,
+QA build qa-build-32.txt, actualAndroidgate integrated-android-release-32.txt running.
+No completed32artifact claim yet. Previous31downloads preserved.
+
+OmniRoute managedoneclickruntime remains absent; localmanualservice setup is guided.
+Known OCR El→Fl corpus diagnostic remainsstrict/ignored, notweakened. Strixscan,
+AndroiddeviceQA/nativeSpotubeAAR/provider401 remainpending. No usage-limit bypass.
+
+### 0.1.32 verification progress
+
+Primary native suite: 79 passed, 0 failed, 14 ignored. Live OmniRoute test was
+executed separately; the new OCR corpus diagnostic remains a documented failure.
+Actual Android --release --offline gate passed; application com.anf.workspace,
+version0.1.32/code1032. Development APK15,431,189 bytes, SHA256
+2094e26c8e6f3bc8d5e3fead385c29877b70b7be31ae199da1682413566b9fee.
+Unsigned APK14,104,079 bytes, SHA256
+ab85cf98d8c0555584d972aec9f844b93fe44d9aab5f692a6e2e2bd762f57db0.
+Current source/assets, ZIP integrity, native alignment, debug signature and negative
+provenance tests passed. No phone installation or public publication performed.
+Windows production packaging is active in .tools/logs/implementation/windows-package-32.txt;
+QA build qa-build-32.txt. Await exit0, then native UI and portable checksum/CRC verification.
+
+## 0.1.32 delivered and verified (2026-10-19)
+
+Windows packaging exited0. Final portable verification passed:593files match the
+complete folder byte-for-byte; archive CRCs/SHA256, frontend freshness, production
+identity and native music runtime match. Installer1,816,543,693bytes SHA256
+1f514399bfd396fd4c74f75377c9377b5829f5e377cdb3a70172c3eb7b5a5f5e.
+PortableZIP1,820,434,778bytes SHA256
+9f7c36e099fadbef39949f33d39cdbe77a56a654f7780c3549ae86159401fd4f.
+Artifacts windows/release/AnF-Windows-0.1.32-setup.exe and-portable.zip; checksum
+manifests in same folder. Android32 and native79/0/14/UIchecks passed as above.
+Private five-voice pack31 is unchanged and compatible; no repeated CPU proofs needed.
+Only matched isolated OmniRoute-test/model processes were stopped after successful
+proofs; installed app/production connections untouched. Public hosting not performed.
+
+Next: managed OmniRoute installation/lifecycle remains open; current integration is
+guided existing-service setup +discovery/explicitroute/probe. Continue installer
+realdevice/signing, currentSpotube401/deviceAAR, OCRmodelcorpus and Strix prerequisites
+from REMAINING-IMPLEMENTATION-PLAN.md. Preserve all31and32releases. Worktrees retain
+specialist work; OmniRoute credit interruption occurred before its final commit,
+but reviewed dirtydiff/untrackeddocs/testscript were recovered into primary.
+
+## Managed OmniRoute next increment (2026-10-19)
+
+Current32 baseline preserved in temporary-index snapshot158501eb5a467a7e0563a090e30aec21ba32de64,
+ref snapshot/managed-032; new isolated wt/omniroute-managed, no primary index changes.
+Approved architecture: optional verified prebuilt component (no runtime npm/global
+Node), picker for pinned manifest, bounded no-reparse hash-verified copy to private
+staging+atomic promotion. Explicit workspace-only install/start/stop/status/use-route.
+Own private DATA_DIR and credentials, scrub inherited Node/proxy/config overrides,
+bind HTTP and separate WS listeners to numeric loopback only. Owned Windows job
+cleans process tree, never attaches to existing services. Authenticated bounded
+Rust loopback adapter shares bundled AI Engine/lock so provider restart/profile
+changes cannot invalidate gateway keys or leave another resident model. Keep
+external saved gateway settings until explicit switch. Agents own implementation,
+component inventory/licenses and independent security/lifecycle review. No new
+app release or managed-service completion claim until real install/lifecycle tests
+and verified Windows/Android33 artifacts. Do not bypass usage limits.
+
+## GitHub publication in progress — 2026-10-19
+
+User authorized ongoing GitHub source/release publication. Verified32 snapshot
+158501eb5a467a7e0563a090e30aec21ba32de64 fast-forward pushed to origin branch
+codex/downloadable-releases; version tagv0.1.32 points to the same exact snapshot.
+No main writes, no real-index/working-file reset. GitHub repository remains private;
+release links require repository access. Source preflight525files excluded private
+voice/runtime directories and passed credential-pattern/path screen. Primary source
+matches snapshot; only later HANDOFF notes differed when checked through tempindex.
+
+Draft release/assets upload is active via .tools/publish-032.py, log
+.tools/logs/publish-032.txt (process48267). Helper gets saved GitHub credential only
+in memory, never prints/persists it; official portablegh version/hash in
+.tools/github-cli/provenance.json. One duplicate empty draft created during
+recovery was removed after exact body/target/title/empty-assets matching. Current
+upload is one remaining draft. Resume helper safely; no clobber of differing assets.
+Verify server digests/sizes before draft=false. Privatevoicepack is NOT an asset.
+ManagedOmniRoute remains isolated WIP; not part of32 release publication.
+
+### Hosted CI publication limitation
+
+GitHub check annotation118372250958 confirms jobs did not start because account
+payments failed or a spending limit must be increased. Do not retry jobs or bypass
+billing limits. Preview release notes explicitly distinguish locally verified
+artifacts from unavailable hosted CI. GitHub upload remains authorized and uses
+normal Releases API; repository stays private. Release currently has verified
+source tag and installer uploaded; portable upload is active. No voice assets.
+
+## GitHub 0.1.32 preview published — 2026-10-19
+
+Published https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.32 after all seven
+release assets uploaded and server-reported sizes/digests matched local verification.
+Source tag is158501eb5a467a7e0563a090e30aec21ba32de64; release branch pushed normally,
+main unchanged. Public build files are installer, portable ZIP and development APK,
+plus checksum/manifests. Repository remains private; access is required to download.
+Voice packs/recordings and unfinished managed runtime were not uploaded. Evidence:
+.tools/published-032.json and .tools/logs/publish-032.txt. Hosted CI is blocked by
+GitHub billing/spending settings; release notes say local validation only.
+
+## Managed gateway continuation — 2026-10-20
+
+Capacity resumed; specialist agents made progress then failed with workspace credit
+errors even while usage API reports ordinaryUsageAllowed=true (weekly16%). Do not
+repeat agent retries or bypass limits. Root continued in the existing isolated
+worktrees/omniroute-managed only; primary released app source remains 0.1.32.
+
+Saved specialist modules now include managed install/start/stop/status/use, separate
+managedGateway Chat selection, per-private-home OS keyring credentials, owned Windows
+job, bounded component paths/inventory, shared local engine and cancellation guards.
+Reviewer found a check/connect port race. Root added managed_http.rs with direct
+numeric loopback sockets, duplicated original process handle, established server-side
+5-tuple/PID attestation BEFORE any bytes, same held stream/no reconnect, bounded
+HTTP framing/chunked parsing, fixed deadlines and proxy bypass. Setup and managed
+generation use it. New parser/real socket wrong-owner tests are building in
+.tools/logs/managed-transport-tests.txt (exec session51187). No passing claim yet.
+
+Root owns primary/scripts/app-qa/omniroute-managed-native.mjs (syntax passes): actual
+native import/start/Chat generation, external-config preservation, hostile-proxy
+trap, workspace authorization, cancel/start/stop/restart/exit. Not executed yet.
+Candidate optional runtime is .tools/components/omniroute3.8.51-win32-x64; startup
+health/dashboard smoke passed, but candidate summary hash may predate dynamic
+playwright dependency addition. Reverify full component before pinning manifest.
+EXPECTED_MANIFEST remains PENDING_REVIEWED_COMPONENT_DIGEST intentionally. Licenses
+(especially LGPL libvips source offer/unknown package inclusion) need final review;
+no runtime component published or cleared for redistribution yet.
+
+Root also refreshed REMAINING-IMPLEMENTATION-PLAN.md to actual delivered32 status,
+and added local .tools/publish-verified-release.py (syntax checked, NOT executed),
+which verifies every explicit allowed asset's local+remote digest before publication.
+Sprint board: .tools/managed-sprint-board.json. Next: finish transport compile/tests,
+component license/runtime verification, native lifecycle/UI, independent review, then
+integrate and build verified Windows/Android33 and publish. No new release yet.
+
+### Managed transport/tests and QA timing correction — 2026-10-20
+
+Local WIP checkpoint4266e7f on wt/omniroute-managed now preserves native modules
+and frontend controls (14 files; primary app still unchanged). Root added transport
+and fixed two compile issues. Eight focused native tests PASS; full suite87pass,
+0fail,14ignored; source gate PASS. Logs: managed-transport-tests.txt,
+managed-native-full.txt, managed-source-gate.txt. QA build succeeded twice.
+
+Current component manifest for local QA is
+965aedb402bcdd521809c1037e0138630e2a5a10a8db9f0f02944b18855bd348,
+27379files/872486553bytes. Native Sharp/libvips payload removed from managed text
+profile (quarantined outside component),9missing third-party notices restored.
+Basic runtime smoke stillPASS. Unknown-license package metadata has no executable
+payload (khroma only has its retained MIT license). Additional source-availability
+review for conservatively bundled web dependencies remains open before release.
+Do not claim component legally cleared or published yet.
+
+Two isolated native E2E imports were intentionally cancelled while investigating
+slow setup. FIRST explanation blaming per-file sync was premature: removing sync
+had little effect. Profiling shows substantial debug hashing cost. Per-file sync
+has been RESTORED and manifest is also synced. Added opt-level3 specifically for
+sha2 in Cargo dev/test package profiles (production profile unchanged) so QA does
+not spend many minutes in unoptimized software SHA. These last changes are dirty
+on top of4266e7f and need final tests/commit. Optimized-hashing QA rebuild currently
+runs in managed-qa-build.txt, execsession26790. Last E2E execsession93013 was
+cancelled intentionally; no passing native E2E yet. Use primary's updated harness
+which measures importMs/startMs. Keep cancelled logs/profiles as evidence, never
+misrepresent partial imports as completed. Next: rerun native E2E using rebuilt
+worktree binary, fix actual startup/schema issues, finish review/package, integrate,
+then33builds+publication. No new Windows/Android release yet.
+
+### Managed OmniRoute production entry corrected - 2026-10-20
+
+Primary application remains released32; no33 publication yet. Worktree omniroute-managed
+has33 candidate changes on4266e7f. Latest full native suite:91pass/0fail/15ignored
+(log managed-native-full-33-final.txt). Whole-tree rustfmt check detects substantial
+pre-existing formatting differences; no bulk reformat was applied. Component integrity
+PASS:27379files/872486553bytes/no extras/no reparse points.
+
+Earlier genuine optimized native QA imported the component in492.4seconds, then setup
+failed403. Upstream production uses runtime/dist/server-ws.mjs; bare server.js skips
+peer-IP security initialization. Native launch and pinned manifest now use server-ws.mjs,
+OMNIROUTE_PUBLIC_BASE_URL numeric owned origin, explicit authenticated CSRF flow, and
+OMNIROUTE_ENABLE_LIVE_WS=false. Isolated control-plane probe using that entry and native-like
+environment PASSed login/CSRF/provider-node/provider/provider-valid/model/key endpoints.
+This is control-plane evidence only; full native Chat/lifecycle still needs rerun.
+
+CURRENT manifest SHA256:9db5aec18cfc8f2e8a5ae160056b2b728a444b88eda0ac4c202bdfa12361bafb.
+Old bare-entry ZIP retained under .tools/components/superseded-bare-entry, not for release.
+Current final packager includes3 verified corresponding-source archives and notices,
+Sharp/libvips native payload removed. Packager session30643; optimized QA33 finalbuild
+session17473. Logs managed-component-package-final.txt and managed-qa-release-build-33-final.txt.
+Final worktree sourcegate session54510 log managed-worktree-source-gate-33-final.txt.
+Do not confuse prior primary32 sourcegate with candidate33 verification.
+
+Four bounded import workers now retain every integrity/path/private-ACL/fsync/atomic
+promotion check. Cancellation correctly owns local inference turns: queued cancellation
+cannot stop another active model turn; active cancellation stops its own child. Test
+fixture validates actual owned processes. All five private voices remain unpublished.
+After final QA: integrate without discarding primary changes, build actual Windows/APK,
+verify artifacts, normal source push and private prerelease publication. No limit bypass.
+
+### Native setup passes; release33 builds in flight - 2026-10-20
+
+Root committed c5913ff then c4e3d9c on isolated managed worktree.91native tests still
+PASS after bounded parallel startup verification and corruption/cancel regressions
+(log managed-native-parallel-verify-final.txt). Production-entry native start succeeded
+in247005ms using reused isolated component; external connection unchanged and no proxy
+traffic. Harness then asserted provider before async click completed (local!=managed,
+line80), so no generation/lifecycle pass claimed. Added waitForFunction for actual
+managed+chat selection and listener/auth checks. Reused test profile safely retains
+current9db5 manifest; old backup is outside strict component inventory.
+
+19 application/doc files now integrated to primary after preflight all matched158501
+released baseline; no unrelated changes/index reset. Integration evidence:
+.tools/managed-integration-033.json; helper .tools/integrate-managed.py.
+Primary is now33 CANDIDATE, not yet published. docs/OMNIROUTE.md has candidate setup.
+Native harness remains primary/scripts/app-qa/omniroute-managed-native.mjs.
+
+Optimized QA rebuild with four-worker verify session79644 log
+managed-qa-parallel-verify-build.txt. Run native harness after it exits0, reuse profile
+first to verify startup/realgeneration/lifecycle, then fresh import as finalacceptance.
+Optional component finalZIP PASS CRC,345205331bytes,SHA256
+72f755f052d6d84b1752decb86fa3e4df929dc6e1e343628996dc583ab8f0e2b,
+report .tools/components/component-package-verification.json. Never use supersededZIP.
+
+Windows production pack:music session90065 log managed-windows-033-release-build.txt.
+Android actualrelease gate session94074 log managed-android-033-release-gate.txt.
+First Androidattempt failedonly because gradle.bat missingPATH; restartedwith
+.tools/android/gradle/gradle-9.4.1/bin and correct privateJava/Gradle/SDK dirs.
+Wait eachbuild exit0; nativeE2E andfullartifactverification required before source/tag/
+releasepublication. Release helper .tools/publish-verified-release.py still allows only
+7standardassets; extendexplicitreviewedcomponentvalidation before includingZIP+manifest.
+No33 release, no GitHub upload from these checkpoints yet. Do not bypass limits.
+
+### Shared target discovered; capacity checkpoint - 2026-10-20 13:14 UTC
+
+Android actual33 releasegate PASSED (94074 exit0), currentAPK/signature/alignment/source.
+QA worktree windows/target is a JUNCTION to primary/windows/target, so production
+pack must NOT run while nativeQA executable uses shared target/release. Root stopped
+only own queued Cargo PID47432 (exact hook build verified) to avoid overwritingQA;
+production session90065 exited1 intentionally. No installer33 produced yet.
+QAparallelbuild79644 stillinflight log managed-qa-parallel-verify-build.txt.
+Afterit exits0: COPY QA AnF.exe to a NEW .tools/managed-qa-bin-UUID folder and junction
+read-only resource folders local-ai/media/spotube to sharedrelease resources (or copy
+needed resources). KeepcopiedQAexe isolated, then production pack can rebuildsharedtarget.
+Runupdated nativeharness with copiedexe, currentmanifest, sourceRootprimaryorworktree33,
+reuseexistingprofile17053 first thenfreshprofile forreal4workerimport. NoE2Epassyet.
+
+Publisherhelper now supports explicit managedComponent version3.8.51/pin9db5 only,
+checks exactZIPinventory/sourcearchives/report before allowing10assets. SyntaxPASS.
+Report copied AnF/releases/omniroute-component-verification.json. NoGitHub33uploadyet.
+Sourceworktreec4e3d9c is latest; primary19files integrated, bothappsource33.
+Nativeall91testsPASSED,15ignored; nofullnativegenerationpassclaimed.
+Capacityordinarytrue99percentat13:13UTC,0credits. Neverbypass; resumeordinarycapacityonly.
+
+### Resume at normal capacity; managed single-listener profile - 2026-10-20
+
+Capacity reset normally (0percent at17:16UTC); no limit bypass. Copied QA executable
+AND physical local-ai/media/spotube resources to .tools/managed-qa-bin-a8c359a3-9271-422a-9b7f-6f91892f8214,
+currentpointer .tools/managed-qa-bin-current.json. Avoid shared-target exe forQA.
+First parallel-verify QA start116562ms passed but testfound2loopbacklisteners. Identified
+20131 as optional EmbedWsProxy, not APIrelay. ExplicitequalAPI/DASHBOARD/OMNIROUTE ports
+plus API_HOST127 retained fordeterminism, but actual fix is
+OMNIROUTE_DISABLE_BACKGROUND_SERVICES=true (also retainsENABLE_LIVE_WS=false).
+Isolated probe with this flag PASS:one127.0.0.1listener, allauthenticatedsetupendpoints.
+Log managed-background-disabled-probe.txt. Component payload/pin/archive unchanged9db5.
+Worktreelatest474bbeb; primarysourcefilecopiedmatches. Finaldeliverytests91pass/0fail/15ignored
+log managed-native-033-delivery-tests.txt. Android33 finalverification PASS after latest
+Windows-only changes (managed-android-033-final-verification.txt).
+
+QA single-listener rebuilt successfully4m31s; pipeline28826 copiedonlyQAexe into isolatedbin.
+That first E2E closedunexpectedly duringstartup and cleanupmaskedoriginalerror; no pass.
+Harness nowrecords originalfailure and childexit; cleanupcannotreplaceprimaryerror.
+Retry CURRENT session72671, log managed-single-listener-native-e2e-retry.txt;
+startupwas verifying612048262/872486553bytes at lastread, noerror yet. Oldfailedreports
+preserved by reuseharness. Keepreports honest; actualgeneration/lifecycle stillpending.
+Avoid extraCDPclients duringtest ifpossible. Productionfinalpacksession90961 nowrunning
+independently; log managed-windows-033-release-build-final.txt. It startswithactual91tests,
+thenpack:music. Await0, verifyfullZIP+installer beforepublication. Androidready local33.
+No33GitHubupload/tag/releaseyet. NextfullreuseE2Epass, fresh4workerimportE2E, artifactgates,
+source snapshot preservingprimaryindex, privateGitHub33release10explicitartifacts.
+
+### Managed native acceptance passed;33 draft uploading - 2026-10-20
+
+Root now has a complete PASS using existing isolated installed component:
+managed-native-reconnect-033.txt and profile17053/report.json passed=true,8checks,
+start140702ms,1recordedCDPtransportreconnect,0proxyrequests. GeneratedrealFastanswer,
+one127.0.0.1listener,unauthchatdenied,workspace-onlyIPC,stop/no-fallback,
+cancel/no-stalepublish,restartandexitcleanupALLPASS. Prior apparentappcrasheswere
+CDPtargetclosures: capturedchildAliveBeforeCleanup=true,noRustpanic,actualworkspace
+recoverable. Harnessreconnectsobservesoriginaloperationwithoutresubmittingstart;
+realanswerverifiedthroughactualChatUI. Capturelogapp-native.log isempty. No product
+crashclaim; reconnectrecordremainsinevidence.
+
+Freshprofile fullimport+sameacceptance NOW session99367,helpernodePID34020,
+logmanaged-native-fresh-033.txt; unreviewedmanifestrefusalPASS,importinflight.
+Waitfullpassbeforepublication. Reusehelper35692 exited; noparallelQAapps.
+Primaryandworktreecodeidentical474bbeb; all91native tests0fail15ignoredPASS.
+Windowsproductionpack90961 exited0; fullverifier32012PASS593portablefiles+CRCs+SHA,
+installer1816636066bytes,portable1820529029bytes. Android33finalverifierPASS.
+
+GitHubsourceSAVED via temporaryindex/commit-tree, normalfastforwardpush preserving
+primaryrealindex/HEAD:7d1672b7d269e877f749c275e08281e32feeeb7f oncodex/downloadable-releases,
+parent0f7ad2f,22scopedfiles,preflightexcludedprivate/binaryassetsandcredentialpatterns.
+.tools/source-033-preflight.json andsource-033-commit.json. PrimaryrealHEADstill7b39.
+
+DraftuploadNOWsession70424 logdraft-release-033-upload-retry.txt. Firstattempt404was
+helperapi('') trailing slash; fixedrootURL,authenticationworks. Uploadsetupfirstcurrently.
+Plan.tools/release-033-plan.json:10exactassets,source7d1672b,notesrelease-033-notes.md.
+PublisherallowshelddraftWITHOUTtag; immutablev0.1.33tagcreatedonlywith--publishafter
+acceptance. Privatevisibilityandlocal/remoteSHArequired;noclobber/force/voiceuploads.
+Waitdraftuploadall10verifiedANDfreshnativepass,thenrunpublisherplan--publish. Ifsource
+changesareactuallyneeded,newsource/planreviewrequired;currentappbinarysourceis7d.
+No33publishedreleaseyet. Existing32stilllatestuntilfinalpublish.
+
+### Release0.1.33 published - 2026-10-20
+
+https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.33
+Tag/application source7d1672b7d269e877f749c275e08281e32feeeb7f. Tenassets remotely
+SHAverified; evidence.tools/published-0.1.33.json andpublished-033-final.txt. RepoPRIVATE.
+Windowsinstaller1816636066bytes,portable1820529029bytes; Androidcurrent33debugAPK;
+optionalOmniRouteZIP345205331bytes,pin9db5 unchanged. No privatevoiceupload.
+
+Freshprofile4e7d1ddc-80f2-4972-b250-6ae6d7d45b19/report.json passed=true,9checks,
+import184706ms,start129526ms,proxy0. Allgeneration/auth/scope/stop/cancel/restart/
+ownedNodeexitchecksPASS. Freshharnesssession99367done. Reuse17053passed8checks,
+start140702ms,oneCDPtransportreconnectrecorded. BothactualmodelanswersverifiedUI.
+91native testsPASS/15ignored; Androidgate+finalverificationPASS; Windows593files/CRC/
+SHAverificationPASS. Publishedhelper45996done; draft70424done. Currentappstillinstalled32
+was deliberately untouched; user must runnewinstaller to update. No uninstalls.
+
+ForcedQAapptermination left2QAmodelchildren in the isolatedQAresourcefolder; root
+cleanedONLYthose exactpathprocesses8740/53040. Installeduserapp/modeluntouched.
+GatewayNodekill-on-closewasverified; localmodelownershipunderforcedterminationis a
+separateexistinggap,nowexplicitnextwork. Do not claim allpossiblechildprocesskill
+casescovered. KeepQAprofiles/evidence; don'tdeleteuserfiles or sharedtargetjunction.
+DocsIMPROVEMENTS-0.1.33.md andremainingplanupdated; appcodeunchangedsince7d.
+Next: savecompletiondocs normally onreleasebranch preservingindex; continuebacklog
+withlocalmodeljobownership/Homegatewaydiscoverability thenreader/mobile/servicework.
+Neverbypasslimits. Nextappcodechange needs newbuilds andnewrelease,not33assetclobber.
+
+### 0.1.34 model ownership candidate in flight - 2026-10-20
+
+Resumedordinarycapacity36percent; no agentcredits/no bypass. Worktree omniroute-managed
+nowcontainsgeneralOwnedProcess::start_args(executable,OsStringargs,cwd,optionalenv).
+Windowsmodel Engine uses existing suspended-create/assign-kill-on-closeJob/resume
+primitive; no process can run before containment. Nodewrapper retains all strict
+componentno-links checks and explicit allowlisted environment. GenericEngine inherits
+sameenvironmentasbefore and preservesUnicodepaths. Commandlinequotes empty/Unicode/
+embeddedquotes/trailingbackslashes and rejectsNUL/oversize. Linux Child path retained.
+Cancellationfixture nowusesownedWindowschild; queued/activecancellationteststillPASS.
+
+93native testsPASS/0fail/15ignored in model-ownership-034-native-tests.txt.
+Alsoearlyrefusecomponentalreadyinstalled beforefullsourceinventoryscan; secondcheck
+retainedafterprivatefoldercreation tocoverraces. Versions34preparedall5files.
+Eightscopedfilesintegratedtoprimary onlyafterbaseline7dcomparison. Record
+.tools/model-ownership-034-integration.json. Primaryindex/oldHEADpreserved.
+Worktreecommitrecordsnewcandidate; sourceGitHubbranchstill7445425 completiondocs33.
+
+QAresourcesphysicallymovedWITHIN.tools to path containing spaces+Unicode:
+read .tools/managed-qa-bin-current.json. OldQAfoldernolongerexists;noactiveQAprocesses
+werepresentatmove. CurrentQA34pipeline session97516 builds optimizedQAidentifier,
+thenCOPYexe fromsharedtarget to physicalQAfolder andrunsenhancedharnesslog
+model-ownership-034-native-e2e.txt. NewharnessrequiresonerealQAmodelafteranswer and
+ZEROQAmodels+gatewayNodesafterforcedapptermination. Actualmodelpathcontainsspaces/é.
+Currentbuildlog model-ownership-034-qa-build.txt; awaitexit/QAresult. Rememberworktree
+windows/target isjunctiontoprimarytarget. DoNOT productionbuilduntilQAcopycompleted
+(native-e2elogexists),thenisolatedexeallowsparallelproductionbuilds.
+
+Androidactual34gate session2242 log model-ownership-034-android-gate.txt.
+No34artifacts publishedyet. Latestpublished33 remainsvalid/private/10verifiedassets.
+NeedactualQAforcedexit+normalgenerationpass,Windowsinstaller/portablebuildfullverify,
+Androidgate,normalcandidate-sourcepushwithtempindexparent7445425,thennewv0.1.34
+release tenassets. Optionalcomponentpin9db5/runtimeZIPunchangedcanreuseexactbytes;
+never clobber33assets/tag; neveruploadprivatevoices; leaveinstalleduserappuntouched.
+
+### 0.1.34 QA encoding correction - 2026-10-20
+
+Worktreecandidate4b39251; primarycandidateSourcePUSHEDnormalbranch22694b1033361082ed477405c67124d36c95a395
+(parent7445425).93native testsPASS/15ignored; Androidactual34gatePASS. QA34optimizedbuild
+97516finished/copiedphysicalQAexe; productionWindowsbuild+verify85236inflightlog
+model-ownership-034-windows-build.txt and-windows-verification.txt. Currentappsource
+unchangedaftercandidatepush; physicalQAresourcepathcontainsspaces+é.
+
+Firstnative34E2Egenerated20wordanswer butfailedownedmodelcount0. Diagnosticconfirmed
+WindowsPowerShell5defaultstdoutcorruptsUnicodewhenNodeexpectsUTF8: literaléroundtrip
+legacyfalse,explicitConsole.OutputEncoding UTF8true. Thiswasprocess-queryencoding,
+notamodelstartfailure. HarnessnowexplicitUTF8forCIMqueries,waitsNewconversationready
+andemptyassistantlistbeforequestion,andcapturesactivitystatusonfailure.
+Noactualproductchangefromthiscorrection. Noexistinguserprocesswasterminated.
+Installed legacy model PID34576wasobservedandLEFTUNTOUCHED; itisnotourQApath.
+
+CurrentnativeUTF8retry session28436/helper43976, log
+model-ownership-034-native-e2e-utf8.txt. AwaitallpassesincludingoneactualQAmodelbefore
+forcedexitandZEROQAmodel/gatewayafter. Earlierfailedreportpreservedbyreuseharness.
+No34release/tagyet; latestpublished33stillavailable. Sourcehelperfix+handoffmustbe
+savedasnormalchildof22694b1before34tag; appbinarysourceunchanged. Privatecomponent
+3.8.51pin9db5ZIPsameexactpublicbytes,canreuse33componentassetfor34release.
+
+### 0.1.34 final native acceptance PASS - 2026-10-20
+
+ManagednativeE2E model-ownership-034-native-e2e-identity.txt PASSall8checks,
+report4e7d1ddc...passedtrue, start127249ms,proxy0. CIMmodelimagehasWindows\\?\prefix;
+parentPID+canonicalrealpathfileidentitycorrectlyverifytheactualisolatedmodel rather
+thanliteralpathstrings. RootCIMencodingroundtripalsoverifiedexplicitUTF8required.
+Noactualproductchangeforharnessfixes. ModelUIgeneratedfreshanswers; nooldhistory
+falsepositiveafterawaitingNewconversationready+emptyassistantlist.
+
+Focusedfresh-profileofflineacceptancePASS:
+.tools/local-model-qa-16c3ba8e-35fe-410d-ad36-94ff0bef1d16/report.json,
+model-ownership-034-forced-exit-default.txt. ModelconfirmedrunningIMMEDIATELYbefore
+forcekillapp; afterwardoriginalmodelgone. Actualimagepathcontains spaces+é. Noother
+userprocesskilled. FirstfocusedattemptonlyfailedtryingtointeractwithcollapsedLocal
+modeladvancedselector; testnowassertsdefaultFastselectionwithoutforcinghiddenUI.
+
+All93native testsPASS/15ignored; Androidactual34gatePASS; Windowsproductionbuild85236
+andfullverifierPASS593files/ZIPCRC/SHA. Setup1816638955bytes,portable1820530657bytes.
+No34releaseyet. Sourceappcode22694b1unchanged; sourcecurrent3ec9a78testcorrection;
+savefinalharnessparent/canonicalidentity+newfocusedtest+handoffchildbefore34tag.
+Component3.8.51same9db5pin, publicZIPsame345205331bytes. Nextgenerate10assetplan,
+draftupload/verify,thenpublishv0.1.34.33assets/tagremainimmutable/privatevoicesexcluded.
+
+### 0.1.34 delivery complete - 2026-10-20
+
+Published private preview: https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.34
+Tag and compiled source: 01d52097ac6d3453c87ee4fa0c0884d8d12d69f9. Ten assets verified by remote SHA-256.
+Source checkpoint .tools/source-034-commit.json; exact artifact plan
+.tools/release-034-plan.json; publication evidence .tools/published-0.1.34.json.
+Windows installer and portable ZIP, Android development APK, checksums/reports
+and unchanged optional OmniRoute 3.8.51 component are available.
+93 native tests passed, 15 ignored. Full native managed lifecycle passed;
+fresh Offline AI forced-owner-death test passed with model confirmed live
+immediately before app kill and cleanup in 1854 ms. Windows package verification
+matched 593 files and ZIP CRC/SHA. Android current artifact gate passed.
+No private recordings or private voice models uploaded. User installed app/model
+was left untouched. No Linux, physical Android or Strix verification claimed.
+
+Next: Home gateway setup discoverability, reviewed component upgrade/recovery,
+then reader/mobile/service gaps in docs/REMAINING-IMPLEMENTATION-PLAN.md.
+Real checkout HEAD/index remain preserved; publication uses temp-index commit-tree.
+Do not reset/pull or overwrite immutable release assets/tags. The docs-only child
+following this release does not change application source or require a new binary.
+
+### 0.1.35 Home gateway discoverability in progress - 2026-10-20
+
+Windows Home AI chat card now shows managed local gateway status outside the
+external connection disclosure. Missing/stopped/running/error states are separate
+from external credential-store failure. Setup opens Settings and focuses the
+managed gateway heading. Running state offers explicit use after native
+omniroute_use readiness validation; failure stays visible without provider fallback.
+Home status never starts/stops/installs a service or generates an answer.
+Existing Open AI chat selects Offline AI as before.
+TypeScript and home-managed-035-browser fixture passed all state/error/busy checks.
+Android 0.1.35 actual release artifact gate passed. Windows QA build in progress,
+then home-managed-native.mjs against isolated QA identifier; production pack and
+full verifier still required before publication. No35releaseyet;34remainsavailable.
+Files: four workspace TS modules, five version files, two scoped QA scripts,
+HANDOFF. Preserve all unrelated dirty/untracked source. Source parent for next
+normal temp-index commit: 5c655bebbc2361de6e5deb7140a81b7c90d7fa98.
+The Android initial gate caught an obsolete legacy-name mention in HANDOFF;
+wording corrected, scanner unchanged, full gate then passed.
+
+0.1.35 native Home acceptance PASS: missing-state setup opens managed settings
+and focuses its heading; existing offline Chat flow remains local and does not
+start generation/model. Evidence home-managed-035-native.txt; fresh-profile
+report home-managed-qa-41d85fc3-ca7f-417b-8550-6eb44253b417. Browser state checks and
+TypeScript passed. Production pack session75868 still in progress; do not publish
+until pack and .tools/verify-windows-release.py pass. No native model/gateway
+process changes since34; no repeated inference claim for35. Android35gate passed.
+
+### 0.1.35 delivery complete - 2026-10-20
+
+Published private preview: https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.35
+Tag and compiled source: 64d6547274e4cc4488ed20827e8eca3bf8934446. Ten assets verified by remote SHA-256.
+Source checkpoint .tools/source-035-commit.json; exact artifact plan
+.tools/release-035-plan.json; publication evidence .tools/published-0.1.35.json.
+Windows installer and portable ZIP, Android development APK, checksums/reports
+and unchanged optional OmniRoute 3.8.51 component are available.
+Home gateway browser state/error/busy tests and TypeScript passed. Native
+Home setup/settings focus and preserved offline Chat navigation passed in isolated
+QA profiles; no model launched by Home or provider selection. Windows complete
+portable-folder/ZIP/hash verification and current Android artifact gate passed.
+Native process behavior is unchanged from34; no repeated inference claim for35.
+No private recordings or private voice models uploaded. User installed app/model
+was left untouched. No Linux, physical Android or Strix verification claimed.
+
+Next: reviewed component upgrade/recovery,
+then reader/mobile/service gaps in docs/REMAINING-IMPLEMENTATION-PLAN.md.
+Real checkout HEAD/index remain preserved; publication uses temp-index commit-tree.
+Do not reset/pull or overwrite immutable release assets/tags. The docs-only child
+following this release does not change application source or require a new binary.
+
+### Next milestone reviewed - 2026-10-20 18:55 UTC heartbeat
+
+0.1.35 remains the latest complete release. Capacity check ordinaryAllowedtrue,
+primary99percentused,weekly47percentused,noextra credits; no bypass attempted.
+Read-only audit found startup says reimport after early exit, but installed-state
+import is refused and UI hides source selection. This repair/reimport mismatch
+is NOT fixed yet. Saved docs/OMNIROUTE-RECOVERY-PLAN.md with stopped-only pinned
+repair, stage-before-swap, durable journal/rollback, containment and failure gates.
+Do not accept arbitrary new manifests or remove installed components to work
+around the gap. Next implement/test this specification before version36.
+No application code/version/artifact changed in this documentation checkpoint;
+no replacement release required. Preserve all primary dirty/untracked state.
+
+### 0.1.36 pinned repair source candidate - 2026-10-20
+
+Latest published35 remains available. New source adds managed_repair.rs with
+private topology journal, full staged pin verification, retained previous copy,
+rollback on pre-accept interruption and acceptance-marker-last cleanup.
+New workspace-only omniroute_repair shares operation exclusion and refuses a
+running service. Start/import recover unfinished transactions. Repairable/pending
+status drives explicit settings actions, including damaged-manifest cases.
+Native suite101PASS/15ignored, eight new repair fixtures cover corrupt payload,
+interrupted swap phases, locked destination, changed source/cancel, ambiguous
+journal, accepted verification failure and protected cleanup ordering. Browser
+repair flow and Home regression passed; Androidactual36gatepassed.
+QA buildsession96444/logmanaged-repair-036-qa-build.txt; next copy QA exe to
+.tools/managed-qa-bin-current.json physical dir after buildexit0, run real suite
+with ANF_QA_REPAIR=1, ANF_QA_PROFILE=.tools/managed-native-qa-4e7d1ddc-80f2-4972-b250-6ae6d7d45b19
+and source manifest .tools/components/omniroute3.8.51-win32-x64/component.json.
+The suite damages only small RUNTIME-NOTICE.txt in exact isolated QA profile,
+checks failed startup/untrusted repair/concurrent exclusion, repairs it, then
+runs genuine generation/auth/cancel/restart/forced-exit gates.
+Production pack and full verifier still needed; no36release/tagyet.
+GitHub8recentjobs queried; same accountbilling/spending failure before steps.
+No YAML fix exists for that refusal. Account admin action required; keep CI
+remediation instruction open. docs/CI-STATUS.md records evidence.
+An accidental cargo fmt --all pass formatted31unrelated Rust files; exact parent
+bytes were restored ONLY after proving rustfmt(parent)==current normalized bytes.
+.tools/format-only-restoration-036.json recordsproof. lib.rs minimal two-line
+registration change likewiseproved. Do NOT run cargo fmt --all again; formatonly
+new/managed files with skip_children. Never reset primaryHEAD/index or userchanges.
+
+### 0.1.36 delivery complete - 2026-10-20
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.36
+Tag/app source 9f5fe4d4d32971b9dce7f5eea2078226e9463497; ten remote asset SHA-256 checks passed.
+Native101PASS/15ignored; eight repair fixtures. Browser repair/Homepassed.
+Actual native isolated damaged-runtime repair PASS, 593.5s; first start131.5s.
+Real generation/auth/permission/cancel/restart/forced-exit cleanup passed.
+Report .tools/managed-native-qa-4e7d1ddc-80f2-4972-b250-6ae6d7d45b19/report.json
+(native prior reports preserved before reuse). Log managed-repair-036-native-e2e.txt.
+Windows setup/portable/full593fileCRC/SHAverifierPASS; Androidactual36gatePASS.
+Exact plan .tools/release-036-plan.json; .tools/published-0.1.36.json.
+No private voices uploaded; no real installed application or model terminated.
+CIstillaccountbilling/refusedrunner; user/accountadminmustresolve. NoYAMLfixclaimed.
+Next: repair metadata/cleanup latency and clear finishing-progress phases, reviewed
+version upgrades and more storage-fault tests; then reader/mobile/service/TTSgaps.
+NoPowerloss/liveDiskFull/AndroidDevice/Strixclaim. No arbitrary new pins. Audit follow-up: a dead owned Running record can still
+block repair even while ready/running status is false; Settings hides Stop in
+that state. Exercise this case and add explicit stale-state handling without
+terminating unrelated processes. Quitting/reopening AnF clears native ownership.
+This docs-only checkpoint follows compiled source; primary HEAD/index preserved.
+
+### 0.1.37 stale owned-state reset candidate - 2026-10-20
+
+Status now distinguishes owned controller state from ready/listening state.
+Settings keeps explicit Stop available for a dead/unready owned gateway; hides
+source/repair/start until reset. Home explains Needs reset. No automatic process
+termination or provider switch. Native stale QA flag kills ONLY exact isolated
+gateway PID while native holds its original process handle, clicks UI Stop,
+checks ownership reset and restarts before the normal lifecycle suite.
+
+Browser stale/reset and Home flows passed; TypeScript passed; native101PASS/15ignored.
+Native+QA build pipeline session26288, logmanaged-stale-037-qa-build.txt. Android
+gate rerun99187/final log includes new version-collision check.
+An initial global version bump incorrectly changed tracing-core0.1.36 to0.1.37;
+compiler caught it. Cargo.lock restored from published36 after proving only our
+global replacement differed, then only anf/anf-hook versions bumped. JSlockroot
+versions updated independently. New scripts/bump-version.mjs and collision
+regressioncheck wired into source/release gate; use it for subsequent bumps.
+
+Old uncompressed34/35staging cleanup was rejected before execution by automatic
+approval review (blocked by policy); no deletion occurred and no alternate
+delete mechanism was attempted. Existing12.5GiB free is sufficient for this
+build; retain installers/ZIPs/private voice pack and all user changes.
+
+After QA buildexit0 copyexe to .tools/managed-qa-bin-current.json physicalfolder.
+Run managed-native harness with ANF_QA_STALE=1, ANF_QA_PROFILE=.tools/managed-native-qa-4e7d1ddc-80f2-4972-b250-6ae6d7d45b19,
+ANF_COMPONENT_MANIFEST=.tools/components/omniroute3.8.51-win32-x64/component.json;
+do NOT set ANF_QA_REPAIR (repaircodeunchanged, real damagedrepair passed36).
+Then production pack/fullverifier and publish37verified10assets.
+No37tag/releaseyet. Parent latestsource bec884875fa82587093b5819bb123cf5bc8c3e9b.
+HostedCIstillaccountbilling; no YAMLfixclaimed. PreserveprimaryHEAD/index and
+unrelatedchanges; no cargo fmt --all.
+
+0.1.37 finalnativePASS: realownedgatewayexit -> statusownedtrue/readyfalse,
+explicit UI Stop releasesownership, restartworks, externalconfigunchanged; all
+normalAIgeneration/auth/permissions/cancel/restart/forcedexitchecksPASS.
+managed-stale-037-native-e2e-final.txt, reusedQAprofile reportpassedtrue,0proxy.
+FirsttestfailedonlyimmediateStopvisibilityassertduringasyncRefreshbusy; waitFor
+visibleaddedbeforeclick, appcodeunchanged; failedreportpreservedbeforefreshretry.
+Windowsproductionpack+593files/ZIPCRC/SHA PASS, Androidactual37finalgatePASS incl
+versioncollisionguard. Saveharnesswait+handoffnormalchildbefore37tag.
+Userstoragequestionpending: C6.3GiB; K690GiBisNETWORK. Current37canpublishonC.
+Do not write future build outputs to K without explicit answer, and never copy
+private voice profiles/models there. Cachecleanupautoreviewrejected; noevading.
+
+### 0.1.37 delivery complete - 2026-10-20
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.37
+Tag/appsource 47595d84a2c843bd19f33d74e2145131739ee8fd; tenremoteSHAchecksPASS.
+Native101PASS/15ignored, browserreset/HomePASS, actualstaleownedgatewayexit ->
+UIStop -> ownershipreleased -> restartPASS. Allgeneration/auth/permissions/
+cancel/restart/forcedexitcleanupPASS;0proxy. Report reused4e7d1ddc profile;
+logmanaged-stale-037-native-e2e-final.txt; earlierfailurepreserved.
+Windowsproductionpack593files/ZIPCRC/SHA PASS; Androidactual37gatePASS incl
+versioncollisionguard. Publishplan .tools/release-037-plan.json, evidence
+.tools/published-0.1.37.json. No newfullrealrepairclaim (unchangedfrom36).
+Use scripts/bump-version.mjs; never globallyreplace versions (dependencycollision
+fixedbeforefinaltest). No third-partydependencyupgrade. No cargo fmt --all.
+Storagequestionpending unlesshumananswered: C6.3GiBfree,K690GiBNETWORK. Do not
+write future outputsKwithout explicitanswer; privatevoicefiles/modelsremainlocal.
+Autoapprovalrejectedolduncompressedstagingcleanup; no alternatedeleteattempt.
+Current37completedusingavailableCspace. Futurebuildsneedstoragedecision.
+Next repairperformance/finishingprogress, reviewedruntimeupgrades, thenlocalTTS/
+reader/mobile/servicegaps. CIaccountbilling remains externalaction; noYAMLfixclaim.
+PrimaryHEAD/index and allunrelatedchangespreserved; noappuninstall orprivatevoicesupload.
+
+### 2026-10-20 23:27 UTC heartbeat: repair audit checkpoint
+
+Ordinary capacity is available. Version 0.1.37 remains the current verified app
+release; no 0.1.38 code/binary/tag was created. Fresh latest CI run39514580304
+(source ffaed71) was refused before execution for account payments/spending.
+This is not a YAML failure; retain the workflow diagnosis automation instruction.
+C: remains about6.3GiB free. The previous storage question is unanswered. No K:
+writes, no cleanup retry, and no new full build were attempted.
+
+Reviewed managed_repair.rs and managed_component.rs. Updated recovery plan with
+specific measurement, truthful phase progress, metadata traversal, accepted
+verification and mapped-drive classification tasks plus required regression
+evidence. The plan distinguishes proposals from delivered behavior; no checks
+were weakened and no speedup is claimed. Before an optimization, preserve
+acceptance-marker-last, restart verification, cancellation rollback and safety
+against concurrent filesystem changes; the controller lock does not exclude
+external writers. Next app update still requires paired Windows/Android releases.
+
+### 0.1.38 progress candidate - 2026-10-21
+
+C: free space increased to about 11.4 GiB without any cleanup/move by this task.
+Release work resumed on C:; K: remains unauthorized and untouched. No rejected
+cleanup was retried. Candidate source 140f9b9444330a3c4f34b314ceaa0df0a5737689
+uploaded using temporary index; primary HEAD and index preserved.
+Repair progress shares counters/phase with an independent recovery cancellation
+epoch. Named inspection/copy/verification/promotion/acceptance/cleanup phases,
+indeterminate unknown work, no Ready at copy100%, no filesystem safety shortcut.
+Native102PASS/15ignored; browserphase/resetPASS; Android38 final gatePASS.
+First Android attempt correctly rejected a final UI change made during its build;
+settled-source rerun passed. Windows QA build session77818 in progress, then copy
+QA executable to existing physical QA-bin pointer. Run ANF_QA_REPAIR=1 and
+ANF_QA_STALE=1 with existing reused4e7d1ddc profile, report preserved by harness.
+Logs managed-progress-038-* under .tools/logs. Then productionpack/fullverifier,
+exact ten-asset release plan and immutable38 publication. No38release yet.
+
+First 0.1.38 native run restored the genuine damaged runtime in626871ms and
+passed progress/generation/auth/permissions/stale reset/stop, then failed a stale
+QA startup-cancellation label predicate. Inspection is now a distinct long phase,
+so the harness must accept inspecting|verifying|starting before cancellation.
+Updated only that harness predicate; application binary/code unchanged. Full
+real repair+lifecycle rerun63434 (managed-progress-038-native-e2e-final.txt).
+Earlier report preserved automatically before profile reuse. Do not claim full
+native success until corrected rerun completes. Windows593files/ZIPCRC/SHA PASS;
+installer1816640500bytes, ZIP1820538075bytes. Android final package gatePASS.
+
+### 0.1.38 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.38
+App/tag source 0be993155dc8435c747a5e7b9478a5499dfd7081; ten remote asset hashes verified.
+Native102PASS/15ignored, browserphase/resetPASS, genuine damaged runtime repair
+PASS (578.1s), copying/verification/cleanup phases observed.
+Full local generation/auth/permission/cancel/restart/stale reset/forcedexitPASS,
+zero proxy requests. Report reused4e7d1ddc profile; previous evidence preserved.
+Windows593files/ZIPCRC/SHA PASS, Android38 settled-source final gatePASS.
+Logs managed-progress-038-*; release plan .tools/release-038-plan.json.
+No speedup claim or safety-check removal. Independent recovery epoch shares only
+display state. Hosted CI account billing remains external action; no YAML fix.
+C: regained capacity allowed this release without cleanup/moves; check free space
+before next build. K: remains unauthorized. Private voices/models stay local.
+Primary HEAD/index preserved. Next measured performance/drive classification,
+then local TTS/reader/mobile/service backlog. No app uninstall or private upload.
+
+### Authorized old-build cleanup completed - 2026-10-21
+
+User answered the pending storage question: delete old AnF files. Removed ONLY
+16 redundant unpacked portable build folders, 0.1.21 through 0.1.36, after each
+file matched its retained ZIP by SHA-256. Rechecked absolute allowlisted paths,
+no links/reparse points, no executables running from those folders, and unchanged
+inventory/timestamps before deletion. No alternate-shell deletion or force fallback.
+All16 removed, no errors/skips; observed C: free-space increase 30.00 GiB,
+ending 35.42 GiB free. Storage blocker is cleared for further local builds.
+Keep outputs on C: and recheck capacity; K: remains unauthorized/untouched.
+Retained 0.1.38 current and0.1.37 fallback unpacked builds, EVERY release archive
+and installer, source/worktrees, app/user data, private voices/models/voice pack,
+and downloaded build runtimes. No app uninstall. Postcleanup0.1.38 verification
+PASS:593files/ZIPCRC/SHA, installer1816640500bytes, portableZIP1820538075bytes.
+Evidence .tools/old-portable-cleanup-{plan,result}.json and logs/old-portable-
+cleanup-{audit,delete}.txt; protected check cleanup-protected-038-verification.txt.
+No app code/version changed; latest verified published app remains0.1.38.
+Next resume OmniRoute progress-poll efficiency/drive classification, then local
+TTS/reader/mobile/service gaps. CI account billing remains independently blocked.
+Future cleanup should prefer redundant generated unpacked copies backed by exact
+archives; never expand into source/user data/private assets or uninstall apps.
+
+### 0.1.39 lightweight progress candidate - 2026-10-21
+
+Storage available C:~86GiB (further external free-space change after our cleanup).
+Primary capacity was ordinaryAllowed at92% primary used; do not bypass limits.
+Measured native38 status baseline with new scripts/app-qa/omniroute-status-benchmark.mjs:
+report .tools/benchmarks/managed-status-95a6be19-6b9c-4430-b47e-ba161f65740a.json.
+Manifest4556364bytes;30status calls read136713952logical bytes, medians87.4-94ms;
+transport-only controls0native reads. Logical I/O is not physical disk I/O.
+At2Hz ten-minute repair this implies~5.1GiB of manifest reads; not a measured repair
+speedup. Gateway stayed stopped, connections unchanged; only isolated QA used.
+
+Candidate39 adds workspace-only omniroute_progress (phase/done/total ONLY), no
+filesystem or owned-listener lookup. UI busy500ms polling uses it; initial/final
+full status and ALL execution integrity/ownership checks unchanged. UI epoch
+rejects stale progress replies. Browser test asserts no full-status polling while
+busy and passed. Native harness polls lightweight repair counters and denies new
+RPC outsideworkspace. Benchmark ANF_BENCH_PROGRESS=1 compares new progress/status.
+Versions bumped using safe tool to0.1.39. No39release/sourcecommit yet.
+Native102tests + QA pipeline2267, logsmanaged-poll-039-{native-tests,qa-build}.txt.
+Android gate30980, logmanaged-poll-039-android-gate.txt. BrowserPASS.
+After QAexit0 copyexe to .tools/managed-qa-bin-current.json physicalfolder (ensure
+notrunning). Run benchmark with ANF_BENCH_PROGRESS=1, QAexe/profile existing4e7d1ddc.
+Then full native ANF_QA_REPAIR=1 ANF_QA_STALE=1 lifecycle (same profile; preserve
+reports automatically), productionpack/fullverifier, source/tempindexcommit and
+verified paired39publication. Parent source488ac22d95f8ee9fc46ab296da4ba6e8e1ead02e.
+Do not mark candidate delivered or substitute38artifacts for39. No safety-check
+removal/caching, no K writes/private voice upload. Primary HEAD/index preserved.
+HostedCI latest39631838720 refused for account billing before runner; retain task.
+
+039native102PASS/15ignored; actualAndroid39finalgatePASS; browserlightpollPASS. QA release compile still in progress2267. Application source frozen; no39tag/release yet.
+
+### 0.1.39 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.39
+App/tag source 8e5f9f0be1fdacac69bcf2346d81db6b9d88982d; all ten remote asset hashes verified.
+Native102PASS/15ignored; browserlightpollPASS; actualAndroid39gatePASS;
+Windows593files/ZIPCRC/SHA PASS; genuine repair (604.0s)
+and generation/auth/permissions/cancel/restart/stalereset/forcedexit PASS,
+zero proxy requests. Evidence logs managed-poll-039-*. Benchmark report
+managed-status-097a4871-1671-4efa-a715-42cecf6d4b51: progress medians3.26-3.94ms,
+fullstatus97.64ms; logical reads, not physical I/O or overall repair speedup.
+App snapshot onlyphase/done/total, stale replies discarded, execution checks intact.
+QA physical exe is39; primaryHEAD/index preserved; private voices/models local.
+HostedCI39634456029 refused before runner for billing/spending; no YAML fix.
+Next: mapped network drive validation and measured traversal work, reviewed runtime
+upgrades, then remaining local TTS/reader/mobile/music/service roadmap. Check C:
+space before builds; K: network drive remains unauthorized. Old21..36 redundant
+unpacked portables were removed with explicit user permission and archive proof;
+all archives/installers/current38/fallback37 and private/user/source files retained.
+Unsigned Windows/development-signed Android; no device/Strix/Linux success claimed.
+
+### 0.1.40 mapped-drive candidate - 2026-10-21
+
+Adds GetDriveTypeW classification to every Windows no_links validation before
+source metadata access; normal/verbatim disk prefixes share an explicit terminated
+drive root. Reject remote/unknown/no-root/unsupported types; allow known local
+fixed/removable/optical/RAM disks. Existing reparse/ancestor checks and full file
+verification remain unchanged. No cached classification or K: file reads/writes.
+Tests104PASS/16ignored plus explicit actual K: mapped-network rejection testPASS;
+unknown kinds/drive aliases covered. Native QA harness adds remote repair-source
+rejection for normal/verbatim aliases and records remoteDriveRejected. No40release
+yet. Source frozen at40; QA/native repair/lifecycle, paired Windows/Android gates
+and verified publication still required. Logs managed-drive-040-*. Keep primary
+HEAD/index/private voices/user processes unchanged. Previous stable release39.
+HostedCI39659611829 on39docs still refused for account payment/spending before
+runner; no YAML fix or bypass. Do not drop its automation task as resolved.
+Next traversal measurements/reviewed upgrades, then remaining TTS/reader/mobile.
+
+### 0.1.40 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.40
+App/tag source db6240f17b6976a5bfc7c8e99d3c81aa450e4b84; all ten remote asset SHA hashes verified.
+Native104PASS/16ignored plus separately executed actualK rejection1PASS; browser
+PASS; actualAndroid40 current-source/signature/alignment gatePASS; Windows593
+files/ZIPCRC/SHA PASS. QA native remote repair-source aliases refused; genuine
+damaged-runtime repair615.6s; local generation/auth/workspace
+permissions/stalereset/stop/cancel/restart/forcedexitPASS; zero proxyrequests.
+Evidence managed-drive-040-*; .tools/managed-drive-040-network-fixture.json confirms
+K: network via read-only root classification. No K: file content or writes.
+GetDriveTypeW checked at each Windows no_links call, no cache, existing file/link
+verification retained. No atomic protection against hostile remapping claimed.
+QAphysicalexe40; primaryHEAD/index preserved, private voices/models retainedlocal.
+HostedCI https://github.com/mwalikokelvo/AnF/actions/runs/39661051104 refused before runner for billing/spending; no YAML fix.
+Next local TTS/reader usability work, plus measured repair traversal/runtime
+upgrade roadmap and mobile/service/music gaps. Recheck C: before full builds.
+UnsignedWindows/developmentAndroid; no physicaldevice/Strix/Linux success claimed.
+
+### 0.1.41 local voice isolation candidate - 2026-10-21
+
+Current stable release40; appsource41 frozen for verification. Adds embedded
+scripts/local-voice-job.py compatible with the existing private five-voice pack,
+random per-profile job output folders, bounded WAV read, exact-file cleanup that
+preserves unexpected entries, and native shutdown cancellation. Private pack's
+shared output.wav is never read/deleted/written by the new app worker. Pack model,
+reference and source validation retained; per-request Python/CPU synthesis remains
+one-shot, NOT a persistent worker or claimed latency improvement. Runtime caches
+remain in the private pack. Hard app death can retain a bounded scratch job folder
+for inspection; no arbitrary/stale-directory GC is introduced.
+Windows voice_process uses PROC_THREAD_ATTRIBUTE_JOB_LIST at creation plus an
+explicit stdin/NUL HANDLE_LIST, verifies job membership before resume, kill-on-close
+ownership, and an OS environment allowlist (no provider keys/proxy/Python overrides).
+Requests stay stdin, never shell or text files. Python -I -B, four-minute timeout,
+same five voices and existing readiness contract. Shared managed_process logic is
+unchanged except command_line visibility. No worker/model/reference pack rewrite.
+106 native testsPASS/17ignored; explicit process fixturePASS including actual
+descendant termination, Unicode stdin and excluded harmless environment sentinel.
+QA pipeline17663 logsvoice-isolation-041-{native-tests,process-fixture,qa-build}.
+Androidgate21470 logvoice-isolation-041-android-gate. Real fivevoice synthesis,
+cancel/reader/forced-owner-exit tests and combined OmniRoute/model/voice exit remain
+required, then production Windows verification and paired41publication. No41tag
+or release yet. NativevoiceQA uses unique .tools/native-voice-qa folders, port9238;
+combined managedQA port9224 runs sequentially against retained4e7d1ddc profile.
+Physical managedQAexe40 until current QA build completes; copy only QA binary.
+Privatepack .tools/local-voice stays local; do not upload QA WAVs/private recordings.
+Preserve primaryHEAD/index and unrelated work; no broad formatter, no K outputs.
+
+041 first native voice run synthesized all5 voices, completed cancellation and actual
+reader1.5x/highlight/end checks, then its forced-owner-exit probe missed the child
+because CIM reports a verbatim Windows executable path. Controlled read-only probe
+confirmed real owned Python at the same canonical pack path with a \\?\ prefix.
+Only the test comparison was fixed to normalize that prefix; app binary unchanged.
+Initial failed report native-voice-qa-f03cd6bd-d875-4e88-95a8-8853938f2860 retained,
+logvoice-isolation-041-native-voices-initial.txt; full native run repeated77294.
+No release claimed until forcedexit and combined ownership actually pass.
+
+### 0.1.41 delivery complete - 2026-10-21
+
+Private preview https://github.com/mwalikokelvo/AnF/releases/tag/v0.1.41
+App/tag source 05027566d7afb12751821edb64a7566dc6de1b34; all ten remote SHA hashes verified. Windows593files /
+ZIPCRC/SHA PASS; actualAndroid41 source/signature/alignment gatePASS.
+Native106PASS/17ignored plus explicit process descendant/env/Unicode fixture1PASS.
+Nativevoice report C:\Users\jhadfield\Downloads\Compressed\AnF-codex-downloadable-releases\.tools\native-voice-qa-ebebf5d6-7930-4c56-a7e6-b54f2aa1be59\voice-native-report.json; all5 actual new-text24k WAVs, no
+pack output modification, per-job cleanup/cancel/reader1.5x/highlight/end PASS;
+forced-owner-exit actual speech workerPASS. Combinedmanaged/localgeneration/auth/
+permission/stop/cancel/restart/forcedexit with simultaneous gateway/model/voice PASS,
+zero application-side proxy requests. Evidence .tools/voice-isolation-041-evidence.json
+and logsvoice-isolation-041-*. Private QA WAVs and pack .tools/local-voice staylocal.
+New public scripts/local-voice-job.py is embedded in app; existing private worker
+and pack unchanged. Native private jobs use profile/AnF/voice-jobs random folders,
+bounded WAVs; known-file cleanup preserves unexpected content. Hardkill may retain
+scratchfolders; no recursive/stale GC. Caches remain in private pack. Windows10+
+JOB_LIST at process creation and limited HANDLE_LIST, OS-env allowlist, Python-I-B.
+No persistent worker or latency speedup claimed. Measured values are in41notes.
+PrimaryHEAD/index preserved. HostedCIhttps://github.com/mwalikokelvo/AnF/actions/runs/39668486457 refused for account payment/spending
+before runner; no YAML workaround/fix. Signing/device/Strix/Linux limitations remain.
+Next local TTS controlled latency/persistent-worker design and stale scratch cleanup,
+then reader/mobile/music/service backlog. Existing optional OmniRoutepin3.8.51 intact.
+PhysicalmanagedQAexe41; optional local-voice junction there is QA-only and resolves
+to the existing private pack. Never recursively remove a linked QA pack target.
+
+### Local TTS profiling checkpoint - 2026-10-21
+Two isolated fresh-process/two-generation profiling runs PASS. Evidence C:\Users\jhadfield\Downloads\Compressed\AnF-codex-downloadable-releases\.tools\voice-stage-profile-acaa78283bfb458aa46b367ff1a33fb8\report.json; private harness .tools/profile-local-voice-stages.py; no private WAV/log upload. Same 48-character amazing-profile text, 24kHz finite/non-silent audio, network disabled, shared pack output unchanged. No concurrent build; caches not cleared. See docs/LOCAL-TTS-PERFORMANCE.md for stage timings and proposed bounded resident protocol. Production code/pack unchanged; 0.1.41 remains release. Next implement single owned resident process with per-request full integrity, output isolation, bounded protocol, cancel/idle/crash/exit tests; then paired verified release. Latest docs Actions run39670518637 still billing/spending refusal before runner. PrimaryHEAD/index preserved.
+
+### 0.1.42 resident speech candidate - 2026-10-21
+Release41 remains current until paired42 artifacts verified/published. New embedded
+local-voice-resident.py uses version1 bounded newline JSON stdin/response pipe,
+native random per-request IDs and isolated outputs. One owned model/pack at a time,
+full provenance/all-file streaming hashes EVERY request; changed provenance ends
+residency. Same private pack/model/references unchanged. Protocol stdout reserved
+before library imports; diagnostics discarded to NUL. Same Windows JOB_LIST at
+creation/limited handles/OS environment/-I-B and network-disabled offline policy.
+Cancellation, bad response/audio, worker failure and240s timeout destroy resident
+process; next request starts fresh. Idle60s checked with weak ownership watchdog;
+graceful/forced owner exit retains kill-on-close containment. No word timing claim.
+Native106PASS/18ignored; both explicit real process/env/Unicode/descendant and
+resident pipe/reuse/oversize fixturesPASS. Python8 parser/path/hash/entrypoint tests
+PASS. Logs .tools/logs/resident-042-*. QA/prod native actualfive voices/idle/cancel/
+reader/combined gateway-model-speech tests and Windows packaging verification still
+required. Android42 actualgate completed; recheck provenance if product source
+changes. QA binary42 build in progress. Keep all voice pack/QAaudio local. Shared
+OmniRoute component3.8.51 unchanged. Primary checkout/index and unrelated work
+preserved; outputs C only. Source freeze is candidate, not released functionality.
+
+### 0.1.42 acceptance investigation - 2026-10-21 19:19 local
+Candidate source5b2b6db74cdb7676dcff7d8f7a1816d6505248fc pushed but NOT released.
+Native runs436ddaab and3d3d5c03 under .tools/native-voice-qa stopped after two
+syntheses; browser connection lost on third. Second captured app exit code0,
+requestedStop=false, no Windows Application crash event found. Do not dismiss
+or publish until explained. Failed reports/WAVs/logs retained; initial/repeat logs
+.tools/logs/resident-042-native-voices-{initial,repeat}.txt.
+Direct Python real resident protocol probe ALL FIVE PASS and clean EOF exit0:
+.tools/resident-protocol-probe-7d5803e0029442e5800de3548e3818e3/report.json.
+Its timings are functional-only (QA trace build concurrent), not benchmarks.
+Added uncommitted static exit/quit origin logs in lib.rs/tray.rs, no prompt logging.
+Trace QA build session19075 logresident-042-qa-trace-build.txt compiling. Physical
+QA exe currently INITIAL42; copy traced QA exe only after build exits0. Harness
+now records early app exits and kills owner BEFORE closing browser for genuine
+forced termination. Same ordering correction in combined harness. These changes
+need a reviewed candidate child commit before tagging. Android42 gatepassed before
+lifecycle trace changes; recheck current-source gate before release. Native106PASS/
+18ignored, real process fixtures2PASS, Python8PASS. No production42 build or tag yet.
+Prepared make-release-042-plan.py/finalize-042-docs.py MUST NOT RUN until all actual
+native voice/idle/cancel/reader/combined tests and current packaging gates PASS.
+Preserve checkout/index, private pack/models/audio and failed evidence. Stable41.
+
+### CONFIRMED endpoint block for42 - 2026-10-21 19:36 local
+Apex One Misc/pccnt35.log has SEVEN exact AnF Unauthorized file encryption
+detections matching the QA/test paths at19:10,19:12,19:21,19:24(two),19:30,19:32.
+Original copied QA/test EXEs disappear; matching names/sizes in Security Agent/
+Suspect. No quarantine contents read/copied/restored/executed and no protection
+settings changed. Earlier WebView/process/idle hypotheses are superseded by
+confirmed detections. Local incident .tools/resident-042-security-incident.json
+retains project-only records and hash of original traced QA binary (still retained)
+c5b29d3890b12f95934cfd530bb29aed8772ad36a22f28500a35bde8241e4e46.
+See docs/SECURITY-REVIEW-0.1.42.md. User asked asynchronously for security admin
+review/outcome; reply REQUIRED before more affected candidate execution. Keep
+protection/quarantine unchanged; do not rebuild/rename/restore to evade detection.
+No vendor/admin messages sent. No42 release/tag/production Windows packages.
+Stable41 retained; do not count code0 partial logs asPASS. Current source has20
+ignored fixtures total anticipated; latest completed standard suite was106PASS/
+18ignored BEFORE two additional fixtures. Two short process fixturesPASS; separate
+70.23s long transport fixturePASS, owner outside private job. Real native allvoice/
+idle/cancel acceptance interrupted, NOT PASS. StandalonePython real all5probePASS,
+functional-only concurrent-build timings. Static Rust format / two JS syntax checks
+PASS after diagnostic cleanup. Test-only watchdog bypass/noisy probes REMOVED.
+No live owned test/Cargo/Python jobs left. Physical QAexe is TRACE42, not released.
+New full native-core fixture and long transport fixture retained; hardened voice
+harness logs app/browser/page failure state, and both QA harnesses now force-kill
+owned app BEFORE disconnecting browser. These need all gates after reviewed build.
+make-release-042-plan.py now blocks pending security review and requires explicit
+106PASS/20ignored, process3PASS, real-native-core1PASS plus all actualQA/packaging.
+Do NOT run prepared finalizer or publisher until review+all proof actually pass.
+Hosted Actions remains independent billing/spending refusal (run39697481054).
+Preserve changes/private assets/failed evidence; repeated heartbeats stay quiet if
+security/billing state unchanged. Do not claim all requirements or release complete.

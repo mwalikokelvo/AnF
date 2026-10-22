@@ -1,8 +1,9 @@
 # Release builds
 
 The build workflows create review artifacts; they do not publish a GitHub release.
-Windows, Linux and Android source currently uses version 0.1.21. The separate native
-macOS app retains version 0.1.4. No application data paths or identifiers change.
+Desktop Rust/Tauri source currently uses version 0.1.30. The last Android APK is
+0.1.21; Android builds read the desktop release version at build time. The separate
+native macOS app retains version 0.1.4. No production data paths or identifiers change.
 
 See [RECOVERY.md](RECOVERY.md) for the recovered build state, verified download
 identities, and the pending native Spotube integration. A source version is not
@@ -25,9 +26,22 @@ Preparation downloads the pinned llama.cpp runtime, Qwen weights and OCR models,
 checks their hashes, and quantizes Balanced weights with the pinned tool. A
 checksum mismatch stops packaging. FFmpeg 8.1.2 has a pinned archive checksum.
 No empty model files or runtime placeholders are used. The installer and complete
-portable folder appear under `windows/release/`. The portable folder contains
+portable folder appear under `windows/release/`. Packaging also creates
+`AnF-Windows-<version>-portable.zip` and `SHA256SUMS-Windows-portable`. The ZIP
+uses ZIP64 so it can include the large offline models. Extract the entire folder
+before launching `AnF.exe`; it still uses the existing per-user saved-data paths.
+The portable folder contains
 both models, runtime DLLs, OCR, audio conversion, hooks and third-party notices.
+Preparation verifies Microsoft's x64 redistributable DLL signatures and places
+those files beside the AI runtime. The hook statically links its Visual C++
+runtime because it is also copied into a separate per-user relay directory.
 The installer is unsigned; the existing Defender/signing publication hold remains.
+
+For the Windows build containing native Spotube, prepare it with
+`./scripts/build-spotube.ps1` in a Visual Studio Developer PowerShell, then use
+`npm run pack:music`. The helper requires Flutter 3.35.2 and checks the ATL
+component. Native startup/transport verification and the exact build commands
+are documented in [MUSIC-HUB.md](MUSIC-HUB.md#windows).
 
 ## Android
 
@@ -37,6 +51,13 @@ SQLCipher 4.19.0 and SQLite 2.7.0 now resolve from their official Maven reposito
 including native libraries; the historical external `encryption-tools/` directory
 is unnecessary. Compile SDK 37 satisfies SQLCipher metadata. Minimum SDK 26 and
 target SDK 35 remain unchanged.
+
+Install command-line tools 23 (16111833) under
+`$ANDROID_HOME/cmdline-tools/latest`, then run
+`node scripts/prepare-android-sdk.mjs`. This uses the current Android CLI's
+slash-separated package IDs and verifies the platform, build tools and ADB.
+The compatibility `sdkmanager` wrapper can report success after rejecting the
+older semicolon-separated IDs, so its exit code alone is insufficient.
 
 ```bash
 npm ci --prefix windows
@@ -83,7 +104,7 @@ install it separately. AppImage, `.deb`, `.rpm` and checksums appear under
 ## macOS
 
 The **Build** workflow runs the Swift regression checks and produces
-`Coucou-macOS-0.1.4-unsigned.zip`. This requires a macOS/Xcode runner; Linux cannot
+`AnF-macOS-0.1.4-unsigned.zip`. This requires a macOS/Xcode runner; Linux cannot
 build the SwiftUI/AppKit application. The ZIP has no Developer ID signature or
 notarization. Use the existing `scripts/release.sh` process with the original
 Developer ID certificate for a distribution build.
@@ -101,3 +122,9 @@ by current editor/media dependencies.
 Review exact artifact versions, checksum files, signatures and platform smoke
 results before publishing. Actions artifacts expire after seven days. Keep the
 Android production key and Apple signing credentials outside artifacts and Git.
+
+The user-requested final security gate includes Strix. Follow the scope,
+prerequisites and evidence checklist in [Connected features](CONNECTED-FEATURES.md#strix--required-final-release-check).
+This gate is pending until an actual scan and findings retest are recorded;
+ordinary regression checks do not satisfy it. Run `node scripts/check-workflows.mjs`
+when changing the shared reading/writing task picker or prompts.

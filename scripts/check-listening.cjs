@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const ts=require('../windows/node_modules/typescript');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../windows/src/workspace/listening-data.ts'),'utf8');
+const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const m={exports:{}};new Function('exports','require','module',js)(m.exports,require,m);
+const {heardSeconds,listeningState,recordListening,localMix,timedLyrics,playlistRecipe,matchPlaylist}=m.exports;
+assert.equal(heardSeconds(1,1,1),1);assert.equal(heardSeconds(1,2,2),1);assert.equal(heardSeconds(1,100,1),0);assert.equal(heardSeconds(4,4,1),0);assert.equal(heardSeconds(1,0,1),0);assert.equal(heardSeconds(1,-1,1),0);
+const state=listeningState({rate:99,positions:{a:5,b:-1,c:Infinity},seconds:{a:3,b:'3'}});assert.deepEqual(state,{rate:1,positions:{a:5},seconds:{a:3}});
+recordListening(state,'track',2,new Date(2026,1,1));recordListening(state,'track',NaN);assert.equal(state.seconds['2026|track'],2);
+assert.deepEqual(localMix([{id:'a'},{id:'b'}],'fresh',[],['a']),[{id:'b'}]);assert.deepEqual(localMix([{id:'a'},{id:'b'}],'liked',['a'],[]),[{id:'a'}]);
+assert.deepEqual(timedLyrics('[00:02.50][00:04.5]two\n[00:01]one\n[00:99]invalid'),[{time:1,text:'one'},{time:2.5,text:'two'},{time:4.5,text:'two'}]);
+const recipe=playlistRecipe({format:'anf-playlist-1',name:'Shared',tracks:[{title:'A',artist:'B',name:'a.wav'}]});assert.deepEqual(matchPlaylist(recipe,[{id:'1',title:'A',artist:'B',name:'a.wav'}]),{order:['1'],missing:0});assert.equal(matchPlaylist(recipe,[{id:'1',...recipe.tracks[0]},{id:'2',...recipe.tracks[0]}]).missing,1);assert.throws(()=>playlistRecipe({format:'other'}));assert.throws(()=>playlistRecipe({...recipe,tracks:[{title:1}]}));
+console.log('PASS: listening clock, seek exclusion, state validation, mixes, timed lyrics and safe playlist matching.');

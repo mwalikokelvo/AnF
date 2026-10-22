@@ -1,13 +1,13 @@
 # AnF — guide for AI coding agents
 
-AnF includes an Android workspace (`android/`) and a Windows/Linux Tauri workspace (`windows/src/workspace/`). Their shared design is in `windows/src/workspace/anf-design.css`; visible branding is AnF, but legacy identifiers and storage/cryptographic names must stay stable for updates. The upstream Coucou companion is a native macOS app (`NotchBuddy/`); `windows/` is the Tauri version for Windows and Linux. Mochi, a small animated character living in the MacBook notch, shows AI coding agent sessions (Claude Code, Gemini CLI, Antigravity and more) and a few integrations, and lets the user approve, answer, chat and drop files from the notch.
+AnF includes an Android workspace (`android/`) and a Windows/Linux Tauri workspace (`windows/src/workspace/`). Their shared design is in `windows/src/workspace/anf-design.css`; branding and native identifiers use AnF; escaped legacy storage and cryptographic constants retain existing data compatibility (see docs/IDENTITY-MIGRATION.md). The upstream AnF companion is a native macOS app (`NotchBuddy/`); `windows/` is the Tauri version for Windows and Linux. Mochi, a small animated character living in the MacBook notch, shows AI coding agent sessions (Claude Code, Gemini CLI, Antigravity and more) and a few integrations, and lets the user approve, answer, chat and drop files from the notch.
 
 ## Where things are
 - `NotchBuddy/Sources/App/` — all Swift code. `NotchBuddy/Resources/sounds/` — the 28 WAV sounds. `NotchBuddy/project.yml` — XcodeGen project (never edit the `.xcodeproj` by hand).
 - `NotchBuddy/Sources/App/PillCatalog.swift` — single source of truth for all declared pills (workspace tools, agents, AI providers, services). Every pill ID, color, category and subtitle lives here.
 - `docs/SPEC.md`, `docs/INTEGRATIONS.md` — behaviour, views, states, integrations (in French).
 - `design/prototype/notch-buddy.html` — original prototype, the visual source of truth. `design/captures/` — target screenshots.
-- `windows/` — the Tauri app for Windows and Linux: Rust in `src-tauri/`, TypeScript in `src/`, the `coucou-hook` relay in `hook/`. `windows/README.md` lists what differs from the Mac.
+- `windows/` — the Tauri app for Windows and Linux: Rust in `src-tauri/`, TypeScript in `src/`, the `anf-hook` relay in `hook/`. `windows/README.md` lists what differs from the Mac.
 - `docs/*.html` — the GitHub Pages site (privacy, terms, support, legal notice).
 
 ## Build

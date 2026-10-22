@@ -18,7 +18,7 @@ const SAMPLES = [
 
 const task = {
   id: "integration_claude",
-  name: "coucou",
+  name: "anf",
   source: "claudeCode",
   state: "working",
   color: "#f5f6f8",
@@ -30,7 +30,7 @@ const ticker = new Ticker();
 const who = h(
   "div",
   { class: "who" },
-  h("span", { class: "name", text: "coucou" }),
+  h("span", { class: "name", text: "anf" }),
   h("span", { class: "tool", text: "Claude Code" }),
 );
 const card = h("div", { class: "card" }, h("div", { class: "card-body" }, who, ticker.el));

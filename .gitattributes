@@ -3,3 +3,7 @@
 
 # PDF cross-reference tables use byte offsets; checkout must preserve the bytes.
 *.pdf binary
+
+# Upstream asset licenses are hash-pinned; preserve their downloaded bytes.
+windows/src/workspace/assets/*-*.txt text eol=lf
+windows/src/workspace/assets/*.ttf binary

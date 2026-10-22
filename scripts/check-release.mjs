@@ -33,3 +33,7 @@ for(let i=0;i<checks.length;i++) {
   run(script,[bundle]);
 }
 console.log('Passed 9 existing release regression checks.');
+run('scripts/check-workflows.mjs');
+run('scripts/check-skill-pack.mjs');
+
+run('scripts/check-listening.cjs');

@@ -1,0 +1,48 @@
+name: Required Android release package
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            windows/package-lock.json
+            android/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare and verify Android SDK
+        run: node scripts/prepare-android-sdk.mjs
+      - name: Install build dependencies
+        run: |
+          npm ci --prefix windows
+          npm ci --prefix android
+      - name: Build actual current APKs and run mandatory release gate
+        run: node scripts/verify-agent-gate.mjs --release
+      - name: Retain verified APKs and source, identity, signing evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnF-Android
+          path: |
+            releases/AnF-Android-*.apk
+            releases/android-release-verification.json
+            releases/SHA256SUMS-Android
+          if-no-files-found: error
+          retention-days: 7

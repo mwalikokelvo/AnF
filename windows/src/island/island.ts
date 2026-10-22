@@ -95,6 +95,7 @@ export class Island {
     this.build();
     this.wireFsm();
     this.wireInput();
+    window.addEventListener('resize',()=>{this.pushedRect={x:-1,y:-1,w:-1,h:-1};this.ensureRunning();});
     this.engine.onDizzy = () => this.handleDizzy();
     this.greeting.onComplete = () => this.fsm.greetComplete();
     State.subscribe(() => {
@@ -202,7 +203,6 @@ export class Island {
       { id: "island-clip" },
       this.greetingCanvas,
       this.uploadCanvas.el,
-      this.contentEl,
     );
     this.islandEl = h(
       "div",
@@ -211,6 +211,7 @@ export class Island {
       this.botGlow,
       this.botCanvas,
       this.miniGrid,
+      this.contentEl,
       this.countdown,
     );
 
@@ -234,17 +235,17 @@ export class Island {
           this.setMode("hidden");
           break;
         case "petit":
-          if (from === "coucou") this.greeting.interrupt();
+          if (from === "anf") this.greeting.interrupt();
           else if (from === "hidden") Sound.play("peek");
           this.setMode("compact");
-          if (from === "coucou") State.view = State.defaultView();
+          if (from === "anf") State.view = State.defaultView();
           if (!this.wasInIsland) this.fsm.mouseLeft();
           break;
         case "home":
           this.expand(State.defaultView());
           if (!this.wasInIsland) this.fsm.mouseLeft();
           break;
-        case "coucou":
+        case "anf":
           this.expand("greeting");
           this.greeting.start();
           break;
@@ -484,7 +485,7 @@ export class Island {
   private targetSize(): { w: number; h: number; r: number } {
     const { w, h } = islandSize(State.mode, State.view, State.chatHistory.length);
     const r = State.mode === "expanded" ? EXPANDED_CORNER : ROUNDED_CORNER;
-    return { w, h, r };
+    return { w:Math.min(w,Math.max(280,window.innerWidth-16)), h:Math.min(h,window.innerHeight-8), r };
   }
 
   private animateGeometry(shrinking: boolean) {
@@ -502,13 +503,16 @@ export class Island {
   }
 
   private applyGeometry() {
-    const w = this.width.value;
-    const hh = this.height.value;
-    const r = this.radius.value;
+    const scale = window.devicePixelRatio || 1;
+    const snap = (value: number) => Math.round(Math.max(0, value) * scale) / scale;
+    const w = snap(this.width.value);
+    const hh = snap(this.height.value);
+    const r = snap(this.radius.value);
     this.islandEl.style.width = `${w}px`;
     this.islandEl.style.height = `${hh}px`;
-    this.islandEl.style.borderRadius = `0 0 ${r}px ${r}px`;
+    this.islandEl.style.borderRadius = `${r}px`;
     this.islandEl.style.transform = `translateX(-50%)`;
+    this.clipEl.style.clipPath = `inset(0 round ${r}px)`;
     // These follow the island as it resizes, so they belong here rather than in
     // the state-driven DOM sync.
     this.miniGrid.style.left = `${w - 40 - 14.5}px`;
@@ -516,7 +520,7 @@ export class Island {
     this.greetingCanvas.style.left = `${(w - EXPANDED_W) / 2}px`;
     this.uploadCanvas.el.style.left = `${(w - EXPANDED_W) / 2}px`;
 
-    const rect = { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
+    const rect = { x: (window.innerWidth - w) / 2, y: 0, w, h: hh };
     const p = this.pushedRect;
     if (Math.abs(p.x - rect.x) > 0.5 || Math.abs(p.w - rect.w) > 0.5 || Math.abs(p.h - rect.h) > 0.5) {
       this.pushedRect = rect;
@@ -528,7 +532,7 @@ export class Island {
   private islandRect(): { x: number; y: number; w: number; h: number } {
     const w = this.width.value;
     const hh = this.height.value;
-    return { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
+    return { x: (window.innerWidth - w) / 2, y: 0, w, h: hh };
   }
 
   // ── Window collapse (hidden → tiny wake strip, zero polling) ────────────────
@@ -619,7 +623,7 @@ export class Island {
       y >= rect.y - HIT_MARGIN && y <= rect.y + rect.h + HIT_MARGIN;
 
     if (inIsland && !this.wasInIsland) {
-      if (this.fsm.state === "coucou") this.greeting.hover();
+      if (this.fsm.state === "anf") this.greeting.hover();
       this.fsm.mouseEntered();
       this.homeCollapseAt = null;
     }
@@ -880,6 +884,7 @@ export class Island {
     for (const [name, view] of this.views) {
       const on = name === State.view;
       view.el.classList.toggle("on", on);
+      view.el.inert = !on || !expanded;
       if (on) view.sync();
     }
 

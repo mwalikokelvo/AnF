@@ -15,7 +15,11 @@ concurrency:
   group: spotube-${{ github.ref }}-${{ inputs.platform }}
   cancel-in-progress: true
 jobs:
+  android-package:
+    uses: ./.github/workflows/android-release-gate.yml
+
   android:
+    needs: android-package
     if: inputs.platform != 'windows'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -42,23 +46,32 @@ jobs:
         with:
           toolchain: 1.99.0
       - name: Prepare pinned native music module
-        run: node integrations/spotube/prepare.mjs
+        run: |
+          node scripts/check-spotube-build-tools.mjs
+          node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
-        run: node integrations/spotube/build-android.mjs
+        run: node integrations/spotube/build-android.mjs --release-only
       - name: Build AnF with embedded music
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
           npm ci --prefix windows
           npm ci --prefix android
-          node scripts/build-android.mjs --with-spotube
+          node scripts/build-android.mjs --with-spotube --review
           node scripts/check-release.mjs
+          python scripts/check-music-apk.py --abi arm64-v8a releases/AnF-Android-*-music-preview-arm64-v8a.apk > releases/Android-music-inspection.json
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify releases/AnF-Android-*-music-preview-arm64-v8a.apk
+          (cd releases && sha256sum AnF-Android-*-music-preview-arm64-v8a.apk > SHA256SUMS-music-preview)
       - uses: actions/upload-artifact@v4
         with:
           name: AnF-Android-embedded-Spotube-review
-          path: releases/AnF-Android-*.apk
+          path: |
+            releases/AnF-Android-*-music-preview-arm64-v8a.apk
+            releases/Android-music-inspection.json
+            releases/SHA256SUMS-music-preview
           retention-days: 7
           if-no-files-found: error
   windows:
+    needs: android-package
     if: inputs.platform != 'android'
     runs-on: windows-latest
     timeout-minutes: 90
@@ -78,7 +91,9 @@ jobs:
           flutter-version: 3.35.2
           channel: stable
       - name: Prepare pinned embedded music
-        run: node integrations/spotube/prepare.mjs --windows
+        run: |
+          node scripts/check-spotube-build-tools.mjs
+          node integrations/spotube/prepare.mjs --windows
       - name: Build native child view
         working-directory: windows/spotube-native
         run: flutter build windows --release
@@ -91,7 +106,7 @@ jobs:
       - name: Build the AnF review installer and portable package
         working-directory: windows
         run: |
-          cargo build --release --locked -p coucou-hook
+          cargo build --release --locked -p anf-hook
           npm exec tauri -- build --features embedded-music --config src-tauri/tauri.spotube.conf.json
           node scripts/pack.mjs --with-spotube
       - uses: actions/upload-artifact@v4

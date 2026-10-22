@@ -24,11 +24,11 @@ and backup authentication stable. Signing keys remain outside Git and CI.
 The `Apk` release contains an asset named `AnF-Windows-0.1.20-setup.exe`.
 Its SHA-256 is
 `f0eab17e75a78b7c4f826067c9ecac38485804e68b941a4ebee3ddc41d433328`.
-This exactly matches the verified **Coucou 0.1.19** installer from Windows run
+This exactly matches the verified **AnF 0.1.19** installer from Windows run
 `38415985060`. Renaming the file did not rebuild it or add the AnF redesign.
 Do not describe this executable as a verified 0.1.20 build.
 
-The `Coucou-Windows-setup.zip` release asset matches that run's setup artifact:
+The `AnF-Windows-setup.zip` release asset matches that run's setup artifact:
 `e77df6ebf2cfd02530a8d9101c75d7e3123bf89c263e9a6b9a158071f4b8192b`.
 
 The Android release asset `AnF-Android-0.1.20.apk` matches the saved 0.1.20

@@ -1,13 +1,14 @@
 // Build runtime AARs, plugin binaries and source jars. API-doc jars are omitted:
 // old plugin Dokka compilers cannot read modern Kotlin metadata and exhaust RAM.
-import {spawnSync} from 'node:child_process';
+import {spawnTool} from './tool-process.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const module=path.join(root,'android/spotube-module');
-const flutter=process.env.FLUTTER_BIN||'flutter';
-const info=spawnSync(flutter,['--version','--machine'],{encoding:'utf8'});
+const flutter=process.env.FLUTTER_BIN||(process.platform==='win32'?'flutter.bat':'flutter');
+const info=spawnTool(flutter,['--version','--machine'],{encoding:'utf8'});
+if(info.error)throw info.error;
 if(info.status)throw Error('Flutter version could not be read.');
 const version=JSON.parse(info.stdout);
 if(version.frameworkVersion!=='3.35.2')throw Error('Use the pinned Flutter 3.35.2 toolchain.');
@@ -21,6 +22,10 @@ const script=path.join(module,'.android/anf_aar_init.gradle');
 const engineRepository=`
 allprojects { project ->
   if (project.rootProject.name != "android_generated") return
+  // Rebuild Rust plugins when the required Android ELF page alignment changes.
+  project.tasks.matching { it.name.startsWith("cargokitCargoBuild") }.configureEach {
+    inputs.property("anfAndroidPageAlignment", "16384-encoded-v1")
+  }
   def realm = new File(getFlutterRoot(project), "bin/cache/engine.realm").text.trim()
   def storage = System.getenv('FLUTTER_STORAGE_BASE_URL') ?: "https://storage.googleapis.com"
   def engineRepo = project.repositories.maven { url "$storage/" + (realm ? "$realm/" : "") + "download.flutter.io" }
@@ -32,11 +37,14 @@ allprojects { project ->
 `;
 await writeFile(script,original.replaceAll('withJavadocJar()','// Runtime review builds omit API documentation jars.')+engineRepository);
 const gradle=path.join(module,'.android',process.platform==='win32'?'gradlew.bat':'gradlew');
-for(const variant of ['Debug','Release']){
- const result=spawnSync(gradle,['--no-daemon','--max-workers=2','-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1024m',
+for(const variant of (process.argv.includes('--release-only') ? ['Release'] : ['Debug','Release'])){
+ const result=spawnTool(gradle,['--no-daemon','--max-workers=2','-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1024m',
   '-Pkotlin.compiler.execution.strategy=in-process',`-I=${script}`,`-Pflutter-root=${flutterRoot}`,
   `-Poutput-dir=${path.join(module,'build/host')}`,'-Pis-plugin=false','-PbuildNumber=1.0',
   '-Ptarget=lib/main.dart','-Ptarget-platform=android-arm64,android-x64',`assembleAar${variant}`],
- {cwd:path.join(module,'.android'),stdio:'inherit',env:{...process.env,PATH:path.join(flutterRoot,'bin')+path.delimiter+process.env.PATH},shell:process.platform==='win32'});
+ {cwd:path.join(module,'.android'),stdio:'inherit',env:{...process.env,
+  // Cargokit merges encoded flags with its NDK workaround and ignores RUSTFLAGS.
+  CARGO_ENCODED_RUSTFLAGS:[process.env.CARGO_ENCODED_RUSTFLAGS||'', ...(process.env.CARGO_ENCODED_RUSTFLAGS ? [] : (process.env.RUSTFLAGS||'').split(/\s+/).filter(Boolean)), '-C', 'link-arg=-Wl,-z,max-page-size=16384'].filter(Boolean).join('\x1f'),
+  PATH:path.join(flutterRoot,'bin')+path.delimiter+process.env.PATH}});
  if(result.error)throw result.error;if(result.status)process.exit(result.status);
 }

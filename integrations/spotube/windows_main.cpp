@@ -38,6 +38,14 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
   DWORD owner=0;
   GetWindowThreadProcessId(parent,&owner);
   if(!IsWindow(parent) || !parent_pid || owner!=parent_pid)return EXIT_FAILURE;
+  // Wry's WebView host uses WS_CLIPCHILDREN but omits WS_CLIPSIBLINGS.
+  // Without sibling clipping its accelerated surface paints over Flutter even
+  // when our child is above it in the native z-order.
+  SetWindowLongPtr(parent,GWL_STYLE,GetWindowLongPtr(parent,GWL_STYLE)|WS_CLIPCHILDREN);
+  for(HWND sibling=GetWindow(parent,GW_CHILD);sibling;sibling=GetWindow(sibling,GW_HWNDNEXT)){
+    DWORD sibling_owner=0;GetWindowThreadProcessId(sibling,&sibling_owner);
+    if(sibling_owner==parent_pid)SetWindowLongPtr(sibling,GWL_STYLE,GetWindowLongPtr(sibling,GWL_STYLE)|WS_CLIPSIBLINGS);
+  }
   HANDLE parent_process=OpenProcess(SYNCHRONIZE,FALSE,parent_pid);
   if(!parent_process)return EXIT_FAILURE;
   std::thread([parent_process](){WaitForSingleObject(parent_process,INFINITE);CloseHandle(parent_process);ExitProcess(0);}).detach();
@@ -90,13 +98,14 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
       std::unique_ptr<std::string> text(reinterpret_cast<std::string*>(message.lParam));
       std::istringstream input(*text);std::string command;input>>command;
       if(command=="SHOW"){
-        int x,y,width,height;if(input>>x>>y>>width>>height && width>0 && height>0 && width<=16384 && height<=16384 && x>=-16384 && x<=16384 && y>=-16384 && y<=16384){SetWindowPos(child,HWND_TOP,x,y,width,height,SWP_SHOWWINDOW|SWP_FRAMECHANGED);}
+        int x,y,width,height;if(input>>x>>y>>width>>height && width>0 && height>0 && width<=16384 && height<=16384 && x>=-16384 && x<=16384 && y>=-16384 && y<=16384){SetWindowPos(child,HWND_TOP,x,y,width,height,SWP_SHOWWINDOW|SWP_FRAMECHANGED|SWP_NOACTIVATE);}
       }else if(command=="HIDE")ShowWindow(child,SW_HIDE);
       else if(command=="CONTROL"){
         std::string id,operation;input>>id>>operation;
-        if(!id.empty() && id.size()<=20 && id.find_first_not_of("0123456789")==std::string::npos &&
-           (operation=="status" || operation=="play" || operation=="pause" || operation=="previous" || operation=="next")){
-          if(ready)control(id,operation);else if(waiting.size()<32)waiting.emplace_back(id,operation);else Reply(id+" ERROR");
+        if(!id.empty() && id.size()<=20 && id.find_first_not_of("0123456789")==std::string::npos){
+          const bool allowed=operation=="status" || operation=="play" || operation=="pause" || operation=="previous" || operation=="next" || operation=="retry" || operation=="light" || operation=="dark" || operation=="system";
+          if(!allowed)Reply(id+" ERROR");
+          else if(ready)control(id,operation);else if(waiting.size()<32)waiting.emplace_back(id,operation);else Reply(id+" ERROR");
         }
       }
       continue;

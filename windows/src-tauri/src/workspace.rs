@@ -495,11 +495,11 @@ pub fn save_document(title: &str, text: &str, format: &str) -> Result<String, St
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let extension = match format { "docx" => "docx", "txt" => "txt", "md" => "md", "html" => "html", "rtf" => "rtf", _ => return Err("Choose Word, plain text, Markdown, HTML, or RTF. Use Print to PDF for a PDF copy.".into()) };
+    let extension = match format { "docx" => "docx", "txt" => "txt", "ics" => "ics", "svg" => "svg", "json" => "json", "md" => "md", "html" => "html", "rtf" => "rtf", _ => return Err("Choose Word, plain text, Markdown, HTML, or RTF. Use Print to PDF for a PDF copy.".into()) };
     let path = dir.join(format!("AnF-{stamp}.{extension}"));
     if format != "docx" {
         let content = match format {
-            "txt" | "md" => text.to_string(),
+            "txt" | "md" | "ics" | "svg" | "json" => text.to_string(),
             "html" => format!("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>{}</title><style>body{{max-width:800px;margin:40px auto;font:17px/1.7 system-ui;padding:20px}}p{{white-space:pre-wrap}}</style><body><h1>{}</h1>{}</body></html>", html_escape(title), html_escape(title), text.lines().map(|l|formatted_line(l,"html")).collect::<String>()),
             "rtf" => format!("{{\\rtf1\\ansi\\deff0 {{\\fonttbl {{\\f0 Calibri;}}}}\\f0\\fs22 {}}}", text.lines().map(|l|formatted_line(l,"rtf")).collect::<String>()),
             _ => unreachable!(),
@@ -684,7 +684,7 @@ mod tests {
     }
     #[test]
     fn plain_html_and_rich_text_exports_preserve_content_safely() {
-        for format in ["txt", "md"] {
+        for format in ["txt", "md", "ics", "svg", "json"] {
             let path = save_document("Export test", "Hello & goodbye", format).unwrap();
             assert_eq!(std::fs::read_to_string(&path).unwrap(), "Hello & goodbye");
             std::fs::remove_file(path).unwrap();

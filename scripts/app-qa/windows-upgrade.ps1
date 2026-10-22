@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $testRoot=Join-Path $env:RUNNER_TEMP 'anf-app-upgrade'
 $env:APPDATA=Join-Path $testRoot 'roaming'
 $env:LOCALAPPDATA=Join-Path $testRoot 'local'
-$install=Join-Path $env:LOCALAPPDATA 'Coucou'
+$install=Join-Path $env:LOCALAPPDATA 'AnF'
 $env:ANF_QA_OUTPUT=Join-Path $testRoot 'results'
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
 # Apply the official WebView2 per-user override in this disposable runner too.
@@ -31,18 +31,18 @@ function Install-App([string]$installer, [bool]$upgrading=$false) {
   $arguments=if($upgrading){@('/S')}else{@('/S',"/D=$install")}
   $process=Start-Process -FilePath (Resolve-Path $installer) -ArgumentList $arguments -Wait -PassThru
   if($process.ExitCode -ne 0){throw "Installer failed with code $($process.ExitCode)"}
-  if(!(Test-Path "$install/coucou.exe") -and !(Test-Path "$install/AnF.exe")){throw 'Installer did not produce the application'}
+  if(!(Test-Path "$install/anf.exe") -and !(Test-Path "$install/AnF.exe")){throw 'Installer did not produce the application'}
   if($upgrading){
     if(!(Test-Path "$install/AnF.exe")){throw 'Renamed installer did not find the existing installation'}
-    $record=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Coucou'
+    $record=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AnF'
     if($record.DisplayName -ne 'AnF'){throw 'Installed application is not branded AnF'}
-    if(Test-Path "$install/coucou.exe"){throw 'Upgrade left the old application executable behind'}
+    if(Test-Path "$install/anf.exe"){throw 'Upgrade left the old application executable behind'}
   }
 }
 function Stop-TestProcesses {
   # A WebView browser may outlive its host. Stop only this test's executable and
   # browser profile, then wait for the profile's shared process to release it.
-  Get-Process coucou,AnF -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$install\coucou.exe" -or $_.Path -eq "$install\AnF.exe"} |
+  Get-Process anf,AnF -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$install\anf.exe" -or $_.Path -eq "$install\AnF.exe"} |
     ForEach-Object {taskkill /PID $_.Id /T /F | Out-Null}
   $deadline=(Get-Date).AddSeconds(20)
   do {
@@ -56,10 +56,10 @@ function Stop-TestProcesses {
 }
 function Exercise-App([string]$phase) {
   Stop-TestProcesses
-  $binary=if(Test-Path "$install/AnF.exe"){Join-Path $install 'AnF.exe'}else{Join-Path $install 'coucou.exe'}
+  $binary=if(Test-Path "$install/AnF.exe"){Join-Path $install 'AnF.exe'}else{Join-Path $install 'anf.exe'}
   $backup=Join-Path $testRoot "original-$phase.exe"
   Copy-Item $binary $backup
-  $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
+  $log=Join-Path $env:LOCALAPPDATA 'AnF/anf.log'
   $offset=if(Test-Path $log){(Get-Content $log -Raw).Length}else{0}
   # First prove the unmodified shipping executable opens its real workspace.
   $process=Start-Process -FilePath $binary -PassThru
@@ -88,9 +88,9 @@ function Exercise-App([string]$phase) {
     node scripts/app-qa/windows-ui.mjs $phase
     if($LASTEXITCODE){throw "Installed application $phase test failed"}
   }finally {
-    $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
+    $log=Join-Path $env:LOCALAPPDATA 'AnF/anf.log'
     if(Test-Path $log){Copy-Item $log (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-startup.log")}
-    Get-Process coucou,AnF,msedgewebview2 -ErrorAction SilentlyContinue |
+    Get-Process anf,AnF,msedgewebview2 -ErrorAction SilentlyContinue |
       Select-Object Id,ProcessName,Path | ConvertTo-Json |
       Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-processes.json")
     Get-CimInstance Win32_Process -Filter "name='msedgewebview2.exe'" |
@@ -107,4 +107,4 @@ Exercise-App 'seed'
 Install-App $Candidate $true
 Exercise-App 'verify'
 Exercise-App 'reopen'
-'PASS: Coucou to AnF installation, encryption, document import, offline AI and restart'
+'PASS: AnF to AnF installation, encryption, document import, offline AI and restart'

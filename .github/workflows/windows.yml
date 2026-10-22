@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       baseline_run:
-        description: 'Run containing the previous Coucou-Windows-setup artifact for installation upgrade QA'
+        description: 'Run containing the previous AnF-Windows-setup artifact for installation upgrade QA'
         required: false
         type: string
       candidate_run:
@@ -44,7 +44,11 @@ env:
   PUBLISH: 'false'
 
 jobs:
+  android-package:
+    uses: ./.github/workflows/android-release-gate.yml
+
   build:
+    needs: android-package
     if: inputs.candidate_run == '' && inputs.downloads_run == ''
     runs-on: windows-latest
     env:
@@ -100,7 +104,7 @@ jobs:
           if ($tag -ne $cargo) { $bad += "Cargo.toml says $cargo" }
           if ($bad) { throw "tag says $tag but $($bad -join '; ')" }
 
-      # `npm run build` (run by tauri as beforeBuildCommand) builds coucou-hook
+      # `npm run build` (run by tauri as beforeBuildCommand) builds anf-hook
       # first, which tauri.conf.json then bundles as a resource. `pack` then
       # copies the installer out of target/ under its shipping name.
       - name: Prepare verified offline AI and OCR assets
@@ -114,13 +118,13 @@ jobs:
       - name: Test native behavior
         shell: pwsh
         run: |
-          cargo build --release --locked -p coucou-hook
+          cargo build --release --locked -p anf-hook
           if ($LASTEXITCODE) { throw 'Hook build failed' }
-          cargo test --locked -p coucou --lib -- --test-threads=1
+          cargo test --locked -p anf --lib -- --test-threads=1
           if ($LASTEXITCODE) { throw 'Native tests failed' }
-          cargo test --locked -p coucou --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
+          cargo test --locked -p anf --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
           if ($LASTEXITCODE) { throw 'Offline model switching test failed' }
-          cargo test --locked -p coucou --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
+          cargo test --locked -p anf --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
           if ($LASTEXITCODE) { throw 'Offline cancellation test failed' }
           npm ci --prefix ../android
           if ($LASTEXITCODE) { throw 'Android frontend dependencies failed' }
@@ -150,7 +154,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         uses: actions/download-artifact@v4
         with:
-          name: Coucou-Windows-setup
+          name: AnF-Windows-setup
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-installer
@@ -191,11 +195,14 @@ jobs:
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-portable
-          path: windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-portable/
+          path: |
+            windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-portable.zip
+            windows/release/SHA256SUMS-Windows-portable
           if-no-files-found: error
           retention-days: 7
 
   installation:
+    needs: android-package
     if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != '' && inputs.downloads_run == ''
     runs-on: windows-latest
     steps:
@@ -205,7 +212,7 @@ jobs:
           node-version: 24
       - uses: actions/download-artifact@v4
         with:
-          name: Coucou-Windows-setup
+          name: AnF-Windows-setup
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-installer
@@ -233,7 +240,8 @@ jobs:
           retention-days: 7
 
   private-downloads:
-    if: github.event_name == 'workflow_dispatch' && inputs.downloads_run != ''
+    needs: android-package
+    if: false # Publication requires separate explicit approval.
     runs-on: ubuntu-24.04
     permissions:
       actions: read
