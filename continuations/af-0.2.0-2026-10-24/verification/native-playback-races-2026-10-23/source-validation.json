@@ -1,0 +1,9 @@
+{
+  "focusedSuites": 19,
+  "passingSuites": 19,
+  "scope": "Android native queue host JavaScript and bridge-double integration tests",
+  "windowsSourceChanged": false,
+  "nativeJavaSourceChanged": false,
+  "flutterSourceChanged": false,
+  "devicePlaybackAcceptance": "not run"
+}

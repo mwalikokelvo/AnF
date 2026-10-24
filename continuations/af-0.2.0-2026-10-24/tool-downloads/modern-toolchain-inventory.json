@@ -1,0 +1,9 @@
+[
+  {
+    "name": "platforms-android-37.0",
+    "url": "https://dl.google.com/android/repository/platform-37.0_r02.zip",
+    "checksum": "ed8ebf7f8822a4de5686d427f237d2fa30ff7410",
+    "algorithm": "sha1",
+    "archiveSha256": "840b23e827f96e64aea4c89a1194aac3dc5f6bad37edb231c5c795d890330e8d"
+  }
+]

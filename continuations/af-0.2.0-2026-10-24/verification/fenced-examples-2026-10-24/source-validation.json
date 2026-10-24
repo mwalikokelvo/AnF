@@ -1,0 +1,14 @@
+{
+  "focusedSuites": 24,
+  "passingSuites": 24,
+  "changedAppFiles": [
+    "windows/dev/dashboard-check.cjs",
+    "windows/dev/knowledge-check.cjs",
+    "windows/src/workspace/dashboard-data.ts",
+    "windows/src/workspace/knowledge-data.ts"
+  ],
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "hardwareAcceptance": "not run"
+}

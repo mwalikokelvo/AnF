@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "installableRelease": false,
+  "sourceManifest": {
+    "entriesChecked": 387,
+    "failures": []
+  },
+  "sourceCompatibility": {
+    "windows/src/workspace/encrypted-pack.ts": {
+      "unchanged": true,
+      "sha256": "b7054ab6e96cd9f795587a85bf5415885f7202da651d48b3a4d1d22985306e0a"
+    },
+    "windows/src-tauri/src/vault.rs": {
+      "unchanged": true,
+      "sha256": "47515d091af628597e75963687e8cf23cb4f5d5b5519a4c3a54946b5a4df4a75"
+    },
+    "android/java/com/coucou/workspace/VaultRepository.java": {
+      "unchanged": true,
+      "sha256": "47db8b5e2ccf89afb40df0a59ebac67fb9ab9f95b27c72c24db889adf80cabb3"
+    }
+  },
+  "windowsIdentifier": "fr.louisraille.coucou",
+  "androidApplicationId": "com.coucou.workspace",
+  "androidVersionCode": 2000,
+  "previousAndroidVersionCode": 1019,
+  "requiredOriginalAndroidCertificateSha256": "27789eee03090b2aa4c5fbf37737c8e4dbda61352c2557c076aec233ef4a7a2a",
+  "restoredSounds": 28,
+  "frontendTestSuitesPassed": 15,
+  "frontendCompilation": {
+    "windowsTypeScript": "passed",
+    "windowsVite": "passed",
+    "androidTypeScript": "passed",
+    "androidEsbuild": "passed"
+  },
+  "nativeCompilation": "not performed; compiler toolchains absent",
+  "installedUpgradeAcceptance": "not performed",
+  "physicalDeviceTesting": "not performed",
+  "priorReleases": [
+    {
+      "file": "Coucou-Workspace-0.1.19-setup.exe",
+      "bytes": 1773984381,
+      "sha256": "242bd1dbacd509b46cc2c598b855ea8a6967c285320ee56be6cbd367f2352170",
+      "hashMatchesPriorReport": true
+    },
+    {
+      "file": "Coucou-Android-0.1.19.apk",
+      "bytes": 13984158,
+      "sha256": "625f03a965c6d6262eb7c41d88be2b1a43e52dcf57c5ce10e2936ee7697d867e",
+      "hashMatchesPriorReport": true
+    }
+  ],
+  "blockers": [
+    "Repaired A&F archive contains no Spotube host, Flutter module, or later modified Spotube source described by the implementation report. Reports cannot reproduce the missing implementation.",
+    "Flutter/Dart, Rust/Cargo, MSVC/Windows SDK, JDK, Gradle and Android SDK/NDK are absent from the checked host locations. Network dependency retrieval works with escalation; this is not an unresolved network-access blocker.",
+    "Android SQLCipher/sqlite/Kotlin/annotation dependency files under work/encryption-tools are omitted; Windows llama runtime, GGUF/RTEN models and native build outputs referenced by Tauri resources are omitted.",
+    "Original Android private signing key is unavailable in supplied files and checked local task directories. A replacement key would not preserve existing installation upgrades.",
+    "Windows native Flutter host and Android Flutter module hosting, plugin registration, pause acknowledgement, lifecycle handling and on-device verification remain to be implemented and compiled.",
+    "Custom NSIS template is now restored with legacy keys and path defaults, but native packaging and installed-data upgrade acceptance remain unverified.",
+    "Spotube Git dependency pinning, TLS override removal and embedded lifecycle changes described in the report are absent from the uploaded upstream archive; desktop NewPipe runtime and redistribution provenance are also absent."
+  ]
+}

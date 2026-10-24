@@ -1,0 +1,13 @@
+{
+  "focusedSuites": 22,
+  "passingSuites": 22,
+  "changedExistingAppFiles": [
+    "windows/src/workspace/dashboard-data.ts",
+    "windows/src/workspace/quick-capture.ts"
+  ],
+  "newAppTest": "windows/dev/capture-ui-check.cjs",
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "nativeDailyLogAcceptance": "not run"
+}

@@ -1,0 +1,13 @@
+{
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "androidStrictTypeScript": "pass",
+  "focusedSuites": 19,
+  "focusedSuitesPassing": 19,
+  "apkAssetIdentity": "pass",
+  "flutterEngineAndAotThreeAbis": "pass",
+  "zipAlignment16K": "pass",
+  "androidDeviceAcceptance": "not run: no device connected",
+  "windowsNativeBuild": "not run: toolchain unavailable",
+  "productionRelease": false
+}

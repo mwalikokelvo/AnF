@@ -1,0 +1,27 @@
+- heading "A&F local writing verification" [level=1]
+- paragraph: Synthetic browser fixture. Content stays in memory.
+- button "Lock writing" [active]
+- button "Unlock writing"
+- button "Load host document"
+- combobox "Writing view":
+  - option "Live Markdown" [selected]
+  - option "Markdown source"
+  - option "Preview"
+  - option "Split view"
+- button "Focus mode"
+- generic "Writing tools":
+  - button "H1"
+  - button "Heading"
+  - button "Bold"
+  - button "Italic"
+  - button "Bullet list"
+  - button "Checklist"
+  - button "Quote"
+  - button "Wiki link"
+  - button "Code block"
+  - button "Undo"
+  - button "Redo"
+- textbox "Live Markdown writing":
+  - generic: Browser-verified locked writing
+- status: Writing is temporarily locked. Wait for the current operation to finish.
+- generic "Observed writing": "{\"text\":\"Browser-verified locked writing\",\"changes\":4}"

@@ -1,0 +1,12 @@
+{
+  "androidStrictTypeScript": "pass",
+  "androidDebugBuild": "pass",
+  "signatureV2": "pass",
+  "zipCrc": "pass",
+  "zipAlignment16K": "pass",
+  "packagedJsCssIdentity": "pass",
+  "threeFlutterEngineAotAbis": "pass",
+  "deviceTest": "not run: no device connected",
+  "windowsNative": "not run; toolchain unavailable",
+  "productionRelease": false
+}

@@ -1,0 +1,46 @@
+{
+  "path": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\af\\work\\coucou\\android\\gradle-build\\outputs\\apk\\debug\\CoucouAndroid-debug.apk",
+  "bytes": 15211245,
+  "sha256": "ea5d5bba6b168230dde3cf83e356b1272d1e61b0ed9dd41ebb31f3b9044b70be",
+  "crc": "pass",
+  "nativeLibraries": [
+    {
+      "file": "lib/arm64-v8a/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    }
+  ],
+  "embeddedFlutter": false,
+  "runtimeInstallTest": "not run: no connected Android device"
+}

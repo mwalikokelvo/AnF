@@ -1,0 +1,1 @@
+Studio checks passed: search filters, fenced-code exclusion, wiki relationships, UTF-8 limits, encrypted round trips, independent salts/nonces, wrong passwords, tamper rejection and size/KDF bounds.

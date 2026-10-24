@@ -1,0 +1,6 @@
+Sync refresh checks passed: unchanged saves do not overwrite remote work; reopening loads the latest saved draft.
+Responsive AI checks passed: writing and save remain available, request inputs are frozen before slow saves, results preserve newer edits, cancellation ignores late results and stale suggestions refuse replacement.
+Draft-safety checks passed: answers and continuations stay in chat; explicit append/replace support Undo; stale replacements and oversized appends preserve writing; evidence survives reopen.
+Web and follow-up checks passed: off blocks requests, only explicit terms sent, source load/saving, no automatic follow-up send, and ambiguous-question clarification.
+New feature checks passed: current-draft editing, five export formats, print cleanup, UTF-8 question limit and EPUB/Word picker.
+Workspace checks passed: project saves, full history, automatic memory, local defaults, preview/apply, changed-preview invalidation, and cancellation of stale replies.

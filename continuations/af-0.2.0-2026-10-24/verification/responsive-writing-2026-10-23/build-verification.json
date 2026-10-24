@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-23",
+  "scope": "Windows responsive writing during AI; shared editor revision-size and lazy read-only safeguards",
+  "windowsTypecheck": "pass",
+  "windowsViteBuild": "pass",
+  "androidTypecheck": "pass",
+  "regressionSuites": 16,
+  "regressionFailures": 0,
+  "androidGradleDebugBuild": "pass: 38 tasks, 4 executed / 34 up-to-date",
+  "apk": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\artifacts\\AF-0.2.0-embedded-music-development-responsive-2026-10-23.apk",
+  "apkBytes": 191776312,
+  "apkSha256": "edb6893b02ab5bb68398461b2a5c44db8a34ad5329c47215639be1b8222596b0",
+  "apkFrontendMatchesCurrentAssets": true,
+  "apkSignature": "pass: v2 development certificate",
+  "zipCrc": "pass",
+  "zipalign": "pass",
+  "windowsNativeBuild": "not run: toolchain remains unavailable",
+  "liveUiAndDeviceAcceptance": "not performed"
+}

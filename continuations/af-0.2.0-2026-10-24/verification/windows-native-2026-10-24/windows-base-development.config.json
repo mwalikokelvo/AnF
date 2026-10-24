@@ -1,0 +1,18 @@
+{
+  "build": {
+    "beforeBuildCommand": null
+  },
+  "bundle": {
+    "resources": {
+      "../local-ai/llama-server.exe": null,
+      "../local-ai/model.gguf": null,
+      "../local-ai/*LICENSE*": null,
+      "../local-ai/NOTICE.txt": null,
+      "../local-ai/*.dll": null,
+      "../local-ai/*.rten": null,
+      "C:/Users/jhadfield/.codex/af-native-target-01a16a65/release/coucou-hook.exe": "coucou-hook.exe",
+      "../target/release/coucou-hook.exe": null,
+      "../local-ai/model-fast.gguf": null
+    }
+  }
+}

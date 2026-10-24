@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');const k=require(process.argv[2]);
+const notes=[{id:'a',name:'Alpha',draft:'[[Beta]] #work/project #work/project #reading',sources:[{name:'A.pdf',text:'Source'}]},{id:'b',name:'Beta',draft:'[[Alpha]] #work/project/sub',sources:[]}];
+const tree=k.tagTree(notes);const work=tree.find(n=>n.tag==='work');assert.equal(work.count,2);assert.equal(work.children[0].count,2);assert.equal(work.children[0].children[0].count,1);assert.equal(tree.find(n=>n.tag==='reading').count,1);
+const graph=k.knowledgeGraph(notes);assert.equal(graph.nodes.filter(n=>n.kind==='document').length,1);assert.ok(graph.edges.some(e=>e.from==='note:a'&&e.to==='note:b'));assert.ok(graph.nodes.some(n=>n.kind==='tag'&&n.tag==='work/project'));const ids=new Set(graph.nodes.map(n=>n.id));assert.ok(graph.edges.every(e=>ids.has(e.from)&&ids.has(e.to)));assert.ok(k.knowledgeGraph(notes,2).omitted>0);assert.equal(k.knowledgeGraph(notes,2).nodes.length,2);assert.ok(k.matchesNote(notes[1],'tag:#work'));assert.ok(!k.references('`#hidden`\n```\n#hidden2\n```').tags.length);assert.equal(k.references('#'+Array(5000).fill('deep').join('/')).tags.length,0);console.log('Knowledge checks passed: nested tag counts, document/tag graph edges, bounded graph, code exclusion.');
+
+const examples=['- [x] #habit/read Real reading','````md','- [ ] #habit/read Example only','[[Beta]] #hidden','```','[[Alpha]] #stillhidden','`````','* [x] #habit/write Written','- [ ] #habit/read Later real state','~~~','[[Secret]] #unclosed'].join('\n');
+assert.deepEqual(k.habitState(examples),{read:false,write:true});assert.deepEqual(k.references(examples).links,[]);assert(!k.references(examples).tags.some(t=>['hidden','stillhidden','unclosed'].includes(t)));
+const exampleNotes=[{id:'example',name:'Examples',draft:'````\n[[Alpha]] #fake\n```\n[[Beta]] #fake2\n````',sources:[]},...notes];
+assert(!k.connections(exampleNotes).some(e=>e.from==='example'));assert(!k.matchesNote(exampleNotes[0],'has:task'));assert(!k.tagTree(exampleNotes).some(t=>t.tag==='fake'||t.tag==='fake2'));
+assert.equal(k.habitState('~~~\n- [x] #habit/reflect Example\n~~~\n- [ ] #habit/reflect Real').reflect,false);
+console.log('Knowledge fence checks passed: task-derived habits, last real habit state, unclosed examples, backlinks and tag trees exclude fenced examples.');

@@ -1,0 +1,106 @@
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:9.1.1'
+    }
+}
+apply plugin: 'com.android.application'
+def config = new groovy.json.JsonSlurper().parse(file('../windows/src-tauri/tauri.conf.json'))
+def components = config.version.tokenize('.').collect { it as int }
+def musicRepository = providers.gradleProperty('afMusicRepository').orNull
+def withMusic = musicRepository != null
+layout.buildDirectory = file('gradle-build')
+android {
+    namespace 'com.coucou.workspace'
+    compileSdk 37
+    buildToolsVersion '36.0.0'
+    buildFeatures { resValues true }
+    defaultConfig {
+        applicationId 'com.coucou.workspace'
+        minSdk 26
+        targetSdk 35
+        if (withMusic) {
+            // Match the real Flutter AOT engines in this repository. Avoid
+            // advertising 32-bit x86 when no embedded engine exists for it.
+            ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64' }
+        }
+        versionCode components[0] * 1000000 + components[1] * 1000 + components[2]
+        versionName config.version
+        resValue 'string', 'app_name', 'A&F'
+    }
+    sourceSets { main {
+        manifest.srcFile 'gradle-input/AndroidManifest.xml'
+        java.srcDirs = withMusic ? ['java','music-java'] : ['java']
+        res.srcDirs = ['res']
+        assets.srcDirs = ['build/assets']
+    } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled withMusic
+    }
+    signingConfigs {
+        debug {
+            storeFile file('../../../../tools/dev-keys/af-development.jks')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false }
+        debug {
+            applicationIdSuffix '.dev'
+            versionNameSuffix '-dev'
+            resValue 'string', 'app_name', 'A&F Development'
+        }
+    }
+    packaging {
+        resources { excludes += ['META-INF/DEPENDENCIES'] }
+        // MediaKit locates libmpv in the application's native library folder.
+        jniLibs { useLegacyPackaging = withMusic }
+    }
+}
+dependencies {
+    if (withMusic) {
+        implementation 'com.coucou.workspace.af_music:flutter_release:0.2.0'
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    }
+    implementation 'net.zetetic:sqlcipher-android:4.19.0'
+    implementation 'androidx.sqlite:sqlite-android:2.7.0'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.10'
+    implementation 'androidx.annotation:annotation:1.9.1'
+    implementation 'androidx.media3:media3-exoplayer:1.6.1'
+    implementation 'androidx.media3:media3-session:1.6.1'
+}
+tasks.register('prepareCoucouManifest') {
+    inputs.file 'AndroidManifest.xml'
+    inputs.property 'embeddedMusic', withMusic
+    outputs.file 'gradle-input/AndroidManifest.xml'
+    doLast {
+        def destination=file('gradle-input/AndroidManifest.xml');destination.parentFile.mkdirs()
+        def text = file('AndroidManifest.xml').getText('UTF-8').replaceFirst(/\s+package="[^"]+"/,'')
+        // SDK versions are defined in defaultConfig; AGP 9 rejects duplicates.
+        text = text.replaceAll(/<uses-sdk\b[^>]*\/>/, '')
+        if (withMusic) {
+            text = text.replace('</application>', '''
+    <activity android:name=".AFMusicActivity" android:exported="false" android:hardwareAccelerated="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"/>
+    <meta-data android:name="flutterEmbedding" android:value="2"/>
+    <service android:name="com.ryanheise.audioservice.AudioService" android:foregroundServiceType="mediaPlayback" android:exported="true"><intent-filter><action android:name="android.media.browse.MediaBrowserService"/></intent-filter></service>
+    <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.MEDIA_BUTTON"/></intent-filter></receiver>
+  </application>''')
+        }
+        destination.setText(text,'UTF-8')
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'prepareCoucouManifest' }
+
+// Record only the runtime artifacts actually resolved for the shipped app.
+tasks.register('audioRuntimeInventory') {
+    doLast {
+        def entries=configurations.releaseRuntimeClasspath.resolvedConfiguration.resolvedArtifacts.collect {
+            [group:it.moduleVersion.id.group,name:it.name,version:it.moduleVersion.id.version,file:it.file.absolutePath]
+        }.sort { a,b -> (a.group+':'+a.name) <=> (b.group+':'+b.name) }
+        file('gradle-build/audio-runtime.json').setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(entries)), 'UTF-8')
+    }
+}

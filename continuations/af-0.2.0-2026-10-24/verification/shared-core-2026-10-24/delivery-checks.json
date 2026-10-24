@@ -1,0 +1,20 @@
+{
+  "apkAssetsMatch": {
+    "main.js": true,
+    "main.css": true
+  },
+  "flutterEngineAndAot": {
+    "armeabi-v7a": true,
+    "arm64-v8a": true,
+    "x86_64": true
+  },
+  "windowsPayloadPeMachine": "0x8664",
+  "windowsStartupAcceptance": "not run",
+  "androidDeviceAcceptance": "not run",
+  "nativeTests": {
+    "passed": 55,
+    "failed": 0,
+    "ignored": 12
+  },
+  "focusedSuitesPassed": 25
+}

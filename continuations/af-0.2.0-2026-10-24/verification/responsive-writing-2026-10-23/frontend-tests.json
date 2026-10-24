@@ -1,0 +1,82 @@
+[
+  {
+    "name": "workspace",
+    "exitCode": 0,
+    "output": "Sync refresh checks passed: unchanged saves do not overwrite remote work; reopening loads the latest saved draft.\nResponsive AI checks passed: writing and save remain available, request inputs are frozen before slow saves, results preserve newer edits, cancellation ignores late results and stale suggestions refuse replacement.\nDraft-safety checks passed: answers and continuations stay in chat; explicit append/replace support Undo; stale replacements and oversized appends preserve writing; evidence survives reopen.\nWeb and follow-up checks passed: off blocks requests, only explicit terms sent, source load/saving, no automatic follow-up send, and ambiguous-question clarification.\nNew feature checks passed: current-draft editing, five export formats, print cleanup, UTF-8 question limit and EPUB/Word picker.\nWorkspace checks passed: project saves, full history, automatic memory, local defaults, preview/apply, changed-preview invalidation, and cancellation of stale replies."
+  },
+  {
+    "name": "audio-hub",
+    "exitCode": 0,
+    "output": "Audio hub checks passed: queue integrity, repeat/shuffle, noise attenuation, signal preservation, silence, bounds and cancellation."
+  },
+  {
+    "name": "speech",
+    "exitCode": 0,
+    "output": "Speech segmentation checks passed: punctuation, bounded native chunks, empty text and Unicode boundaries."
+  },
+  {
+    "name": "knowledge",
+    "exitCode": 0,
+    "output": "Knowledge checks passed: nested tag counts, document/tag graph edges, bounded graph, code exclusion."
+  },
+  {
+    "name": "reader",
+    "exitCode": 0,
+    "output": "Reader checks passed: lossless sectioning, Unicode boundaries, exact quote anchors, invalid metadata, duplicate IDs and bounded draft clipping."
+  },
+  {
+    "name": "library",
+    "exitCode": 0,
+    "output": "Library checks passed: format labels, empty sources, saved offsets, bounds and annotation counts."
+  },
+  {
+    "name": "dashboard",
+    "exitCode": 0,
+    "output": "Dashboard checks passed: fenced/quoted examples ignored, original task locations retained, local dates, append-only capture and size limits."
+  },
+  {
+    "name": "response-pages",
+    "exitCode": 0,
+    "output": "Response pagination passed: exact boundaries, lossless Unicode/whitespace, navigation and short replies."
+  },
+  {
+    "name": "followups",
+    "exitCode": 0,
+    "output": "Follow-up checks passed: clarification, document-specific suggestions, bounded relevant excerpts and source labels."
+  },
+  {
+    "name": "vault",
+    "exitCode": 0,
+    "output": "Vault tests passed: verified migration, plaintext source retained, encrypted write routing, concurrent autosave preserved, damaged copy blocks commit, unavailable key fails closed."
+  },
+  {
+    "name": "mobile-storage",
+    "exitCode": 0,
+    "output": "Storage checks passed: lightweight history, old-message search, one-project loading, unchanged-save detection, bounded backup and oversize refusal."
+  },
+  {
+    "name": "mobile-sync",
+    "exitCode": 0,
+    "output": "Sync conversion passed: Windows round-trip, page citations, local pending replies, document opt-out, byte limits and stable identities.\nReading-note sync checks passed: metadata round trip and document opt-out.\nAnswer-evidence sync checks passed: opt-in round trip, chat-only privacy and revision-matched local preservation."
+  },
+  {
+    "name": "mobile-project-data",
+    "exitCode": 0,
+    "output": "Android data checks passed: legacy restore, unfinished replies, safe copies, malformed backups, append/replace and full draft preservation.\nReading-note backup checks passed: anchored notes preserved and changed text rejected.\nSource-page and answer-evidence restore checks passed: exact snapshots, independent copies, UTF-8 limits and invalid metadata rejection."
+  },
+  {
+    "name": "mobile-playback-handoff",
+    "exitCode": 0,
+    "output": "PASS: delayed status, handoff polling, external resume and pause failure"
+  },
+  {
+    "name": "audio",
+    "exitCode": 0,
+    "output": "Audio PCM, clipping, bounds, waveform, levels and workflow-context tests passed. Three-second test tone generated."
+  },
+  {
+    "name": "studio",
+    "exitCode": 0,
+    "output": "Studio checks passed: search filters, fenced-code exclusion, wiki relationships, UTF-8 limits, encrypted round trips, independent salts/nonces, wrong passwords, tamper rejection and size/KDF bounds."
+  }
+]

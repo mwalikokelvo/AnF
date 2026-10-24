@@ -1,0 +1,287 @@
+A&F development continuity — 13 October 2026
+
+Authoritative working base: build-work/af/work/coucou (repaired 0.2.0 source plus this chat's audited fixes). Original sources/ and uploaded archives remain unchanged. Previous source archive build-work/AF-0.2.0-audited-source.zip is an earlier checkpoint, not the latest source.
+
+Verified earlier: 387 original Coucou source manifest entries; old 0.1.19 Windows/APK hashes match the supplied report; encryption/vault source byte-identical to 0.1.19; Windows/Android frontend compilation; 15 focused existing regression suites; restored 28 sounds and notices; pinned Tauri 2.12.0 installer template with legacy Coucou registry keys and directory defaults. Installer upgrade acceptance remains unverified.
+
+New work completed in source:
+- Provisioned checksum-verified JDK 21 and 17, Gradle 8.11.1 and 9.3.1, SDK 35 and 37.0, Build Tools 35 and 36, and platform tools inside build-work/tools. Metadata/inventories are in build-work/tool-downloads. Flutter official tag 3.35.2 checkout at 05db9689081f091050f01aed79f04dce0c750154 restored and started successfully (Dart 3.9.0).
+- Android published storage dependencies replace omitted private extracted jars: SQLCipher 4.19.0, SQLite Android 2.7.0, Kotlin 2.2.10, Annotation 1.9.1. SQLCipher requires compile API 37; host now uses AGP 9.1.1 / Gradle 9.3.1 / compile SDK 37. Target SDK 35 and min SDK 26 retained. Resource generation enabled for AGP 9. Development variant uses com.coucou.workspace.dev and a separate, local development key; release retains com.coucou.workspace and remains unsigned without original key.
+- Fixed Gradle startup: Java Unix-domain selector pipes fail on this host under both JDK 21 and 17. Changing selector/temp path did not solve it. Matching launcher memory/locale options and attaching Gradle's own instrumentation agent enables supported no-daemon execution. Gradle task configuration and dependency resolution then passed. Reproducible wrapper: build-work/Build-Android-Development.ps1.
+- Restored Spotube lifecycle safeguards with AF_EMBEDDED: no independent window controls, dragging/maximize, close shortcut, close notification, tray startup, high-refresh-rate forcing or titlebar preference changes. Removed activation of upstream invalid-certificate override. Sleep timer now pauses rather than exits; Android task removal no longer exits the host.
+- Read-only bounded folder scanner: no symlinks, duplicate/nested root handling, 10k tracks / 100k entries, cancellable traversal and four metadata jobs maximum. Wired into localTracksProvider. Windows/folder scanner does not yet implement Android MediaStore-wide discovery or incremental metadata caching.
+- Pinned all seven media-kit dependencies to uploaded revision d310049f24196250d876efb02b9ff56fa9ef5068. Source uses credential-free .env; full code generation completed (858 outputs). Source dependency resolution passed. Full Flutter analysis exited 0 with no errors and existing warning/info findings; newly unused imports removed afterward.
+- Generated supported Flutter module build-work/af/work/af_music, version 0.2.0, Android package com.coucou.workspace.af_music. Preparation helper copies 490 source/asset files from modified Spotube. Module-only vendor copy of NewPipe plugin retains revision 41cbd821ce49b9343136f67d83d3117e582dad75, excludes desktop assets, and leaves shared cache untouched. Native file copying requires Windows extended paths; fixed missing plugin-class copy. Offline module pub get subsequently passed, removing six test-only packages including integration_test.
+- Added actual Android Flutter host source in android/music-java and narrow Java/Dart/TypeScript music bridge. Conditional host Gradle dependency uses -PafMusicRepository=<real Flutter AAR Maven repository>, coordinate com.coucou.workspace.af_music:flutter_release:0.2.0. Manifest adds host activity, audio service and receiver only with embedded build. Native host code is now compiled in the combined APK; runtime verification is still pending (see RELEASE-STATUS.txt). Browser/native queue playback requires acknowledged embedded-player pause; opening Music Hub pauses old browser/native playback first. Embedded host is internal, not an external application launcher.
+
+New verification:
+- Pure Dart scanner checks PASS: supported formats, bounds, duplicate/nested roots, pre/mid-batch cancellation, metadata concurrency.
+- Pure Dart timer checks PASS: replacement, cancellation and disposal; no process exit.
+- Android-only module Flutter widget suite PASS (two tests) with AF_EMBEDDED=true; close shortcut and window controls preserve host.
+- New music bridge regression PASS: availability, acknowledged pause, failed pause refusal, validated open, absent module and stale reply.
+- Existing native media handoff regression PASS after wiring new pre-play guard.
+- Latest Android frontend typecheck and production bundle PASS.
+- Final focused Dart analysis exited 0 with no issues; log build-work/verification/spotube-focused-analyze.log. No analysis process remains active.
+
+Earlier SDK blocker (resolved; see verified host result below):
+Native host compilation previously stopped at Android SDK license acceptance. The user initially declined but immediately corrected the accidental choice and explicitly restored permission to accept Google's Android SDK License Agreement on 13 October 2026. Official SDK acceptance and package registration are now authorized. Do not synthesize acceptance records or bypass the check. When user approves, install official SDK command-line tools and use sdkmanager to accept the agreement and register/install API 37.0 correctly. Its manually extracted source.properties has ApiLevel=37.0; proper local package.xml metadata is also needed. Latest failure is recorded in build-work/verification/android-native-build.log. At that checkpoint no APK, AAR or Windows installer had been produced; subsequent host APK results are recorded below.
+
+Next after license approval:
+1. Complete SDK registration/accepted installation using official tools; retry isolated native host build and fix actual errors.
+2. Resolve module only as needed, then reapply bounded .android/gradle.properties after any flutter pub get (Flutter regenerates it to an 8GB heap). Build release AAR with AF_EMBEDDED=true, no debug/profile; exclude integration_test and desktop binaries, validate ABI/content/CRC/hash before setting afMusicRepository.
+3. Compile and test combined host, media-service configuration, player handoff, Android media discovery/permissions, on-device lifecycle and install.
+4. Provision Windows Rust/MSVC/SDK toolchain and actual native Flutter child host; restore local-AI runtime/models; build and validate NSIS upgrade behavior.
+5. Original Android private release key remains unavailable. Required certificate SHA256: 27789eee03090b2aa4c5fbf37737c8e4dbda61352c2557c076aec233ef4a7a2a. Development signing is separate; never label it an upgrade-compatible production release.
+
+Never repeat the old Flutter-settings blocker: it is resolved in this working environment. No public publishing, credential disclosure, system security weakening, purchases or original-data changes are authorized.
+
+
+Update after corrected permission, 13 October 2026:
+- User explicitly reversed the accidental SDK denial. Google's official SDK tools recorded android-sdk-license acceptance. Official Android CLI 23 registered platforms 37.0 and 36; license blocker is resolved.
+- Native host reached successful Java source compilation. Gradle worker IPC fails on this Windows host (UnixDomainSockets connect Invalid argument), so android-commandline-javac.gradle uses the installed normal javac executable without bypassing checks. Wrapper includes this init script.
+- AGP 9 rejected duplicate uses-sdk declarations; generated manifest preparation now removes the obsolete tag because defaultConfig retains min 26 / target 35.
+- Host packaging and embedded music AAR are currently being retried. Build-Android-Music.ps1 uses Flutter's official aar_init_script and assembleAarRelease with AF_EMBEDDED=true, build number 0.2.0, three Android ABIs, bounded memory and no debug/profile artifacts. Neither attempt should be claimed successful until its final log and output checks pass.
+
+Verified host result:
+- Base-host Gradle build SUCCESSFUL (84 tasks), assembleDebug + assembleRelease + audioRuntimeInventory.
+- Deliverable: build-work/artifacts/AF-0.2.0-base-host-development.apk, 15,211,245 bytes, SHA256 ea5d5bba6b168230dde3cf83e356b1272d1e61b0ed9dd41ebb31f3b9044b70be.
+- Official apksigner verification PASS, APK v2 signing; development certificate SHA256 1eba0eecb2e5056058d8a244d228e3636acac8e8ac514a6dccc26940b53de95f. This is deliberately NOT the original production certificate.
+- Package com.coucou.workspace.dev, version 0.2.0-dev / 2000, min SDK 26, target 35. ZIP CRC and zipalign -c -P 16 4 PASS; SQLCipher ELF load alignments are 16KB for arm64, armv7, x86 and x86_64.
+- Release base-host output CoucouAndroid-release-unsigned.apk retains com.coucou.workspace / 0.2.0 / 2000; CRC pass, SHA256 dbe1ca87c136a7f74827c59c9427a66791bcec34d3d4cf0ba38b635fc073aec5. It cannot install until signed with the original key and is not delivered as a finished release.
+- These APKs exclude Flutter/Spotube: Music Hub combined host still requires a successful AAR and native lifecycle acceptance.
+- adb devices found no device; installation, app startup and upgrade behavior remain untested.
+
+
+
+LATEST VERIFIED RESULT: combined embedded-music Android development APK and music AAR built successfully. See build-work/verification/RELEASE-STATUS.txt for final hashes, completed checks and exact remaining production-release work. The earlier no-APK/no-AAR and pending-license statements describe historical checkpoints, not current status.
+23 October 2026 — first reliability implementation checkpoint
+
+The user confirmed balanced product scope: reading, writing, AI help, Music Hub and Audio Studio. Work is authorized to continue implementing and improving A&F; an hourly continuation is active in this chat (automation ID continue-a-f-development-hourly).
+
+Current source remains build-work/af/work/coucou. New source-only export: build-work/AF-0.2.0-reliability-checkpoint-2026-10-23.zip. Read AF-Implementation-Checkpoint-2026-10-23.md before continuing. Earlier October 13 archives and delivered artifacts are preserved.
+
+Implemented: Windows answers/continuations remain in Chat; explicit append and reviewed replacement protect writing with Undo and stale-draft/size guards. Per-answer excerpt snapshots added to frontend and optional Rust Turn schema with validation. Android restore preserves source page metadata and evidence; document-enabled sync preserves evidence, while document-disabled sync omits excerpt snapshots and retains only matching local evidence. Paired-PC replies record evidence when supplied. Stable source IDs/version anchoring and background job concurrency remain future work.
+
+Verification: Windows TypeScript and Vite production frontend PASS. Android strict TypeScript/bundle PASS. All 16 focused regression suites PASS including updated workspace integration and page/evidence backup/sync tests. Evidence lives in build-work/verification/reliability-2026-10-23/. Rust/Cargo remain absent; newly added native schema/privacy tests were NOT RUN. Do not claim native Windows storage/installer acceptance from frontend mocks.
+
+New Android combined development build PASS (38 tasks, 4 executed / 34 up-to-date), using existing Flutter AAR repository. APK build-work/artifacts/AF-0.2.0-embedded-music-development-2026-10-23.apk, 191776331 bytes, SHA256 8d8c346b416518216e96ae199c562fd16934ff68fc72c8ed6cdc9df3b2179d2c. Signature v2, ZIP CRC, alignment and exact packaged JS/CSS comparison PASS. Same separate development certificate/package/version as October 13. No device connected; no runtime or production upgrade acceptance. Original release key remains unavailable. Windows native compile/Flutter hosting and Android MediaStore work remain open.
+
+Next: provision/validate Windows native tooling and test serde/disk/vault/sync behavior; run Android hardware acceptance; implement revision-safe background jobs; prove Windows embedding; complete Android discovery/progress controls. Preserve truthful distinctions between implementation, frontend tests, packaging, runtime verification and release readiness.
+
+23 October 2026 — hourly continuation: responsive Windows writing
+
+Latest source-only export: build-work/AF-0.2.0-responsive-writing-checkpoint-2026-10-23.zip. Read AF-Responsive-Writing-Checkpoint-2026-10-23.md. Authoritative working source remains build-work/af/work/coucou; prior delivered source ZIPs and APK/AAR files remain preserved.
+
+Implemented the first bounded AF-07 slice: during Windows AI operations, writing/title/format controls stay enabled, autosave and Ctrl+S remain usable, request context is copied before a potentially delayed save, and results remain in Chat. Editing suggestions still require their original draft to match before acceptance. Cancellation retains new edits and ignores late responses. Busy accessibility state is scoped to the conversation while writing remains usable. This is not a full multi-project background job scheduler; project switching and other operations remain guarded.
+
+Shared editor now retains read-only state across lazy live-editor initialization. Fixed false-success feedback for oversized revision acceptance: the draft and proposal remain intact and the refusal is reported. Android receives shared editor guards, but its paired-PC busy behavior was not made concurrent in this pass.
+
+Verification: Windows TypeScript and Vite build PASS; Android strict TypeScript/bundle PASS; all 16 focused suites PASS including delayed-save context freezing, writing/Ctrl+S during inference, completed/late/cancelled answers, stale revision refusal and oversized revision feedback. Evidence: build-work/verification/responsive-writing-2026-10-23/. Tests use DOM/IPC doubles with Markdown-source fallback; live CodeMirror/UI, native Windows and hardware acceptance remain open. No Android device connected.
+
+New Android debug build PASS (38 tasks, 4 executed / 34 up-to-date). APK build-work/artifacts/AF-0.2.0-embedded-music-development-responsive-2026-10-23.apk, 191776312 bytes; SHA256 edb6893b02ab5bb68398461b2a5c44db8a34ad5329c47215639be1b8222596b0. Signature v2, ZIP CRC, alignment and packaged JS/CSS identity PASS. Same separate development identity/version; no production or device-acceptance claim. Native Windows toolchain/signing/device dependencies remain as recorded, without being treated as reasons to stop independent implementation.
+
+23 October 2026 — hourly continuation: Android responsive paired-PC workspace
+
+Latest source-only export: build-work/AF-0.2.0-android-responsive-checkpoint-2026-10-23.zip. Read AF-Android-Responsive-Checkpoint-2026-10-23.md. Current working source remains build-work/af/work/coucou. Earlier exported archives and APK/AAR files remain unchanged.
+
+Android now permits writing/formatting and Chat/Writing navigation during paired-PC inference waits, freezes request context before the initial save, and flushes background autosave while waiting. PC answers stay in Chat with validated evidence; explicit Append to writing / Review replacement actions and Undo protect drafts. Browser-pasted replacement is also reviewed. Stop waiting is LOCAL: it cleans up this phone's pending callback/timer and ignores late replies, but does not cancel the native network request or PC inference. The native single-connection guard remains; retries can be refused until the previous native request ends. No remote-cancellation claim. Invalid/oversized responses and invalid evidence are rejected before history mutation.
+
+Verification: Android strict typecheck, interface bundle and debug packaging PASS (38 tasks, 4 executed / 34 up-to-date). All 17 focused suites PASS. New Android workspace test bundles actual app/repository/link code with DOM and native IPC doubles, models the native single-request guard, and covers writing during waiting, delayed-save input freezing, background autosave, opt-out, reviewed placement/Undo, stop before/after dispatch, late replies across conversation changes, valid retries, malformed responses and synchronous native failures. This does not establish live CodeMirror/IME, actual network/SQLCipher engine or device acceptance. Native Windows verification remains pending; no Windows native code changed in this pass.
+
+New development APK: build-work/artifacts/AF-0.2.0-embedded-music-development-android-responsive-2026-10-23.apk; 191776797 bytes; SHA256 6ea3a325e956928265013508e4a861dde688c9cbdf83ea100ebaeed9cd42c015. Signature v2, ZIP CRC, alignment, expected Flutter engines and exact packaged JS/CSS checks PASS. Evidence: build-work/verification/android-responsive-2026-10-23/. No Android device connected; production signing access remains unavailable; no production release is declared.
+
+Continue independent work on native Windows validation/embedding feasibility and Android MediaStore discovery/progress, alongside hardware acceptance when possible. Balanced product scope remains confirmed. Full job scheduling, stable source anchoring and production release gates remain open.
+
+23 October 2026 — hourly continuation: audio and read-aloud handoff safety
+
+Current source remains build-work/af/work/coucou. New source export: build-work/AF-0.2.0-audio-ownership-checkpoint-2026-10-23.zip. Read AF-Audio-Ownership-Checkpoint-2026-10-23.md before resuming. Earlier source exports, APK/AAR files and synced references remain preserved.
+
+Implemented bounded AF-10 safeguards: reader utterance ownership, unique callback IDs and cancellation/error guards; Android writing/reader speech waits for Music Hub/native queue pause and honours Stop during preparation; native queue validates playback replies and requires confirmed non-playing state; browser playback rejects superseded/stopped preparation; Windows host paths stop competing reader/Studio speech/audio. Native stopSpeaking still has no acknowledgement. Background embedded media-session resume, native transfer/play races, audio focus, interruptions and lifecycle acceptance remain open. No native or Flutter source changed in this pass.
+
+Verification: Windows TypeScript/Vite and Android strict TypeScript/interface build PASS. All 19 focused suites PASS, including actual Android read-aloud control handoff checks with bridge doubles, shared speech lifecycle checks, browser Audio Studio controls with IDB/audio doubles, and native queue malformed/still-playing pause rejection. Evidence: build-work/verification/audio-ownership-2026-10-23/. Android debug build PASS, 38 tasks (4 executed / 34 up-to-date). Signature v2, CRC, ZIP alignment, three Flutter engine/AOT ABI payloads and exact packaged JS/CSS identity PASS. Existing 32-bit SQLite ELF alignment caveat remains; no universal runtime alignment claim.
+
+New development APK: build-work/artifacts/AF-0.2.0-embedded-music-development-audio-ownership-2026-10-23.apk, 191777418 bytes; SHA256 c77a21ddf9f681b30bad37086837484adb5a5f65d51aabef3f8d9f93364ac504. Same separate development package/version/certificate. No Android device connected; no audible playback or service lifecycle acceptance. Windows native toolchain remains unavailable; native schema/storage tests not run. Original production signing access remains unavailable. No production release declared.
+
+Next: complete native audio coordination/discovery improvements, run Android transition/lock-screen/interruption acceptance when hardware is available, provision Windows native tooling and validate storage/embedding, then continue revision-safe background jobs/source anchoring/collaboration baseline. Maintain balanced product scope and separate implemented source, automated doubles, packaging, device verification and release readiness.
+
+
+23 October 2026 — hourly continuation: pending native playback races
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-native-playback-races-checkpoint-2026-10-23.zip. Read AF-Native-Playback-Races-Checkpoint-2026-10-23.md. Earlier source/packages and synced references preserved.
+
+Android host now invalidates pending queue imports and asynchronous Play preparation when another owner suspends playback, native Stop/Previous/Next is selected, or transfer is cancelled. Only the newest Play dispatches; stale queue replies cannot advertise success. Concurrent handoff counter prevents polling restarting before all pauses settle. Cancel transfer remains effective through final preparation and is disabled once queue dispatch begins. Already-dispatched native commands are not remotely cancelled. No Java, Flutter or Windows source changed.
+
+All 19 focused suites PASS with expanded actual host/bridge-double race checks. Android strict TypeScript/interface bundle/debug build PASS: 38 tasks (4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact packaged JS/CSS identity PASS. Evidence: build-work/verification/native-playback-races-2026-10-23/. New development APK: build-work/artifacts/AF-0.2.0-embedded-music-development-native-playback-races-2026-10-23.apk; 191777533 bytes; SHA256 307c5a4cc6337cd7eb34eb0e60d2ebfc77cdc3600764b2667cbcb03c036b2d2f. Same separate development package/version/certificate. No Android device connected; no audible/service lifecycle or production acceptance. Existing 32-bit SQLite alignment caveat persists. Windows toolchain and original signing access still unavailable.
+
+Next: device acceptance including already-dispatched native operations followed by pause; native audio focus/TTS acknowledgement and background embedded-player coordination; Android MediaStore scanning/progress; Windows native storage/embedding validation. Balanced reading/writing/AI/music/Studio scope stays confirmed. Continue to separate source changes, automated doubles, packaged builds, hardware acceptance and release status.
+
+
+23 October 2026 — hourly continuation: Unicode backup restore
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-unicode-restore-checkpoint-2026-10-23.zip. Read AF-Unicode-Restore-Checkpoint-2026-10-23.md. Earlier source/packages and synced references preserved.
+
+Android restore now validates UTF-8 byte limits for drafts/prompts/pending replies/answer text/source names/source text. Previously Unicode could pass a character count then fail the native writing byte limit. Conversation names and roles keep their previous character limits; legacy backups/page/evidence/reading-note metadata remain compatible. Invalid later conversations reject before any imported batch is sent. No truncation or active-draft overwrite. Shared validator also serves encrypted backups and versions, but new workspace integration exercised plain JSON restore only. Only Android validator and two test files changed; no native Java/Flutter/Windows source changes.
+
+All 19 focused suites PASS. Boundary tests cover emoji/non-Latin exact bytes and overflow. Actual workspace restore controls with storage doubles prove invalid second-project rejection with no saved-copy changes, plus byte-exact Unicode restoration as a new copy. These are host validation/dispatch tests, not SQLCipher/device acceptance. Android strict TypeScript/interface bundle/debug build PASS: 38 tasks (4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact JS/CSS identity PASS. Evidence: build-work/verification/unicode-restore-2026-10-23/.
+
+New development APK: build-work/artifacts/AF-0.2.0-embedded-music-development-unicode-restore-2026-10-23.apk; 191777507 bytes; SHA256 4953cdbfccf9e0a3a8f887314a67010241b6e0a61b1d9429479eda730ff9a396. Same separate development identity/version/certificate. No Android device connected; no native restore/device or production acceptance. Existing 32-bit SQLite ELF alignment caveat remains. Native Windows tooling and original production signing access remain unavailable.
+
+Next: hardware Unicode backup export/restore including encrypted backups/historical versions; Android music discovery/audio coordination; Windows native validation/embedding; stable source anchoring, revision-safe background jobs and collaboration baseline. AF-13 broader protection/recovery acceptance is not complete. Preserve balanced scope and distinguish source, automated doubles, packages, hardware and released status.
+
+
+23 October 2026 — hourly continuation: incoming sync validation
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-sync-validation-checkpoint-2026-10-23.zip. Read AF-Sync-Validation-Checkpoint-2026-10-23.md. Prior source/packages and synced references preserved.
+
+Android now validates inbound sync text/metadata types, UTF-8 bounds, history roles/shapes, source/history counts, model, pages/reading/evidence before producing saved state. Normal exchange and new pull identities must match the requested conversation. Windows legitimate conflicts rename the primary identity and return the requested ID as other; explicit pair checks preserve both copies. Malformed conflict pairs are rejected. Document opt-out still ignores remote documents/evidence and preserves matching local evidence; pending reply/preferences retained. Validation finishes before new local ID allocation and does not mutate prior objects. No native Java/Flutter/Windows source or protocol changes.
+
+All 19 focused suites PASS. Actual workspace/storage/link doubles prove malformed replies leave local content/revision unchanged, mismatched new pulls cannot import data, and legitimate conflicts retain both copies. Unit tests cover Unicode boundaries, invalid shapes/roles/models, limits, opt-out and immutable failures. This is host validation/dispatch verification; native Windows merge/storage, authenticated network and SQLCipher/hardware acceptance remain unverified. Sync remains incremental; earlier successful exchanges and deliberate pre-send identity saves are retained on later failure. No whole-library rollback or independently recomputed revision-hash claim.
+
+Android strict TypeScript/interface bundle/debug build PASS: 38 tasks (4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact packaged JS/CSS PASS. Evidence: build-work/verification/sync-validation-2026-10-23/. APK: build-work/artifacts/AF-0.2.0-embedded-music-development-sync-validation-2026-10-23.apk; 191777969 bytes; SHA256 ade24a9854fd12243cabc1adbebb94bd6aee9c371de6a3b71c6d2edc5611ddab. Same separate development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Windows toolchain and original production signing access unavailable. No production release declared.
+
+Next: run real PC/Android normal/conflict/opt-out/Unicode/interrupted sync and backup acceptance; provision Windows native tools and run merge/storage tests; continue Android music discovery/audio coordination plus source anchoring/background-job/collaboration baseline. Maintain confirmed balanced scope and evidence distinctions.
+
+
+24 October 2026 — hourly continuation: PC sync inventory validation
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-sync-inventory-checkpoint-2026-10-24.zip. Read AF-Sync-Inventory-Checkpoint-2026-10-24.md. Earlier source/packages and synced references preserved.
+
+Android validates all PC inventories before use: max 200 entries, unique lowercase 64-hex IDs, minimal independent ID copies. Covers initial sync capabilities/list, later remote-only pull list and Check connection. Initial invalid lists stop before sync identity assignment/exchange dispatch. Feature support for document sharing now requires an array containing reading-v1 rather than accepting a string. No native Java/Flutter/Windows source or wire protocol changes. Sync remains incremental; a rejected later list does not roll back earlier successful exchanges.
+
+All 19 focused suites PASS. Unit coverage includes empty/exact-200/201-entry inventories, malformed/missing/duplicate IDs and copy isolation. Workspace controls with storage/link doubles prove duplicate initial inventories and malformed capabilities leave saved work unchanged and issue no exchanges/pulls; invalid Check connection lists cannot report success. Existing conflict/pull/Unicode/draft safeguards remain passing. No native network/SQLCipher/Windows merge/device claim.
+
+Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact JS/CSS identity PASS. Evidence: build-work/verification/sync-inventory-2026-10-24/. New development APK: build-work/artifacts/AF-0.2.0-embedded-music-development-sync-inventory-2026-10-24.apk; 191778080 bytes; SHA256 0761049cf607a3333de10b2cb7ffb7743589aee9f627008b9c02567456f8f640. Same separate development identity/version/certificate. No Android device connected; Windows native tools and original production signing unavailable. Existing 32-bit SQLite alignment caveat persists. No production release declared.
+
+Next: hardware PC/Android normal/conflict/empty/200-entry/opt-out/interrupted sync and backup acceptance; Windows native validation/embedding; Android music discovery/audio coordination; source anchoring/background jobs/collaboration baseline. Balanced product direction and evidence distinctions remain confirmed.
+
+
+24 October 2026 — hourly continuation: shared reader transitions
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-reader-transitions-checkpoint-2026-10-24.zip. Read AF-Reader-Transitions-Checkpoint-2026-10-24.md. Prior exports/packages and synced references remain preserved.
+
+Shared reader now saves old scroll and stops old speech/preparation when opening another valid document. It keeps the original external focus target across open-overlay document switches; close no longer returns to a hidden reader button. Invalid new sources leave the current reader intact. Exact end-of-text offsets/bookmarks choose the last section, including its bookmark label, instead of section zero. Changed shared reader/section helper, added reader UI checks and registered suite. No Java/Rust/Flutter or storage-schema changes.
+
+All 20 focused suites PASS. Actual reader/speech components with DOM/local-storage/native-voice doubles cover switch cancellation/stale completions/pending preparations, scroll save/restore, external focus, end offset/bookmark and invalid-source isolation. These do not establish layout, screen-reader, keyboard/touch selection, audible voice or native hardware. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact packaged JS/CSS identity PASS. Evidence: build-work/verification/reader-transitions-2026-10-24/.
+
+APK: build-work/artifacts/AF-0.2.0-embedded-music-development-reader-transitions-2026-10-24.apk; 191778056 bytes; SHA256 5d5f8c326c9eb9fe2cf94d87170c89f29c1618587a78de2a98f02ab007336a90. Same separate development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Native Windows toolchain and original production signing access unavailable. No production release declared.
+
+Next: device reader switch/voice/scroll/focus/bookmark acceptance alongside pending PC sync/backup acceptance; Windows native validation/embedding; Android music discovery/audio ownership; stable source anchoring/background jobs/collaboration baseline. Maintain balanced scope and distinguish source, doubles, build/package, hardware and released status.
+
+
+24 October 2026 — hourly continuation: snapshot conversation ownership
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-snapshot-ownership-checkpoint-2026-10-24.zip. Read AF-Snapshot-Ownership-Checkpoint-2026-10-24.md. Earlier source/packages and synced references preserved.
+
+Snapshot list returns captured owner/title. Restore controls close over that owner and pass it explicitly to Windows/Android restore callbacks, replacing mutable shared snapshotOwner variables. Conversation switches cannot retarget old controls. Refresh clears prior buttons before awaiting, so a failed refresh leaves no stale visible restore actions. Existing busy/allowed guards retained. Restore creates a separate copy. Changed shared panel/platform call sites, new snapshot UI suite and verification wrapper; no Java/Rust/Flutter or schema/protocol changes.
+
+All 21 focused suites PASS. Actual component with DOM/list/restore doubles covers owner capture, delayed listing, failed-refresh removal, restore failure, busy/repeated-click/allowed guards and empty histories. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact packaged JS/CSS PASS. Evidence: build-work/verification/snapshot-ownership-2026-10-24/. These do not establish native snapshot lookup/copy creation, SQLCipher recovery or device acceptance.
+
+APK: build-work/artifacts/AF-0.2.0-embedded-music-development-snapshot-ownership-2026-10-24.apk; 191778120 bytes; SHA256 e11b659df8f2b68206d96ef83876c6a32ad4a5522520ee740219a24f71d6ab6f. Same separate development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Native Windows tools and original production signing unavailable. No production release declared.
+
+Next: native Windows/Android snapshot A-to-B transition and separate-copy recovery tests plus pending reader/sync/backup device acceptance; Windows native validation/embedding; Android music discovery/audio coordination; stable source anchoring/background jobs/collaboration baseline. Maintain balanced scope and evidence distinctions.
+
+
+24 October 2026 — hourly continuation: quick-note safety
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-capture-safety-checkpoint-2026-10-24.zip. Read AF-Capture-Safety-Checkpoint-2026-10-24.md. Earlier source/packages and synced references preserved.
+
+Quick capture and daily-log append share the existing 8,000-character limit (dialog previously accepted 10,000). Oversized programmatic input refuses before save; shared-text prefix uses the same bound with warning and avoids split surrogate pairs. Pending saves freeze input and refuse open/prefill calls, so another open cannot replace input then be erased by old completion. Sync exceptions/rejected promises retain note and unlock controls. Existing Cancel/Escape/workspace guards remain. Busy incoming shares are not queued/persisted; Android already asks user to finish operation and retry Quick note. No crash-recovery or persistent scratch-note claim. Changed shared capture/dashboard data, added UI suite and registered verification. No native/schema/protocol changes.
+
+All 22 focused suites PASS, including actual component with DOM/save doubles for frozen pending input, repeated open/save/cancel/Escape, sync/async errors, retained failures, exact/overflow bounds, Unicode-safe prefix, existing-note and workspace guards. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact packaged JS/CSS PASS. Evidence: build-work/verification/capture-safety-2026-10-24/. Native share delivery, dialog/IME and daily-log persistence/hardware acceptance not established.
+
+APK: build-work/artifacts/AF-0.2.0-embedded-music-development-capture-safety-2026-10-24.apk; 191778233 bytes; SHA256 51dc3feae3bc65d3914072137eedf6971acef7bdc28199c77575bf85eed74f0b. Same separate development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Native Windows tools and original production signing access unavailable. No production release declared.
+
+Next: device manual/shared capture and delayed/failed-save acceptance; pending reader/snapshot/sync/backup journeys; Windows native validation/embedding; Android music discovery/audio coordination; stable source anchoring/background jobs/collaboration baseline. Maintain balanced scope and evidence distinctions.
+
+
+24 October 2026 — hourly continuation: search session isolation
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-search-sessions-checkpoint-2026-10-24.zip. Read AF-Search-Sessions-Checkpoint-2026-10-24.md. Prior exports/packages and synced references preserved.
+
+Shared search checks session immediately after every awaited note load, preventing old load completions entering a reopened session. Delayed navigation completions/errors only affect their original current dialog; graph-document navigation uses the same guard. Closing clears query timer; repaint checks visibility/session. Wiki-link query only applies after successful visible opening; repeated visible open retains external focus target. These isolate UI effects, not cancel/undo already-dispatched adapter navigation. Changed shared Studio component, added UI suite and verification registration; no native/schema/protocol changes.
+
+All 23 focused suites PASS. Actual component with DOM/list/load/navigation doubles covers cancelled/reopened loads, stale navigation/errors, focus, refused wiki opens and normal navigation failure/success. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact JS/CSS PASS. Evidence: build-work/verification/search-sessions-2026-10-24/. No live graph/layout/accessibility/native cancellation or device claim.
+
+APK: build-work/artifacts/AF-0.2.0-embedded-music-development-search-sessions-2026-10-24.apk; 191778302 bytes; SHA256 dcae4e7868bdf8348456c62a158edc8661df750fafd8223233121d4f9fe7c21e. Same separate development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Native Windows tools and original production signing unavailable. No production release declared.
+
+Next: real search/load/close/reopen/wiki/graph/navigation acceptance and pending capture/reader/snapshot/sync/backup journeys; Windows native validation/embedding; Android music discovery/audio ownership; stable source anchoring/background jobs/collaboration baseline. Maintain balanced scope and evidence distinctions.
+
+
+24 October 2026 — hourly continuation: Home refresh safety
+
+Current source: build-work/af/work/coucou. Latest source export: build-work/AF-0.2.0-home-refresh-checkpoint-2026-10-24.zip. Read AF-Home-Refresh-Checkpoint-2026-10-24.md. Earlier source/packages and synced references preserved.
+
+Shared Home now checks refresh generation immediately after awaited draft loads, preventing older tasks entering a newer list. Scratch capture and habit saves handle synchronous exceptions through existing promise failure paths: failed scratch retains text/unlocks button; failed habit reverts checkbox/enables retry/reports error. Existing edited-scratch preservation and duplicate/workspace guards retained. Changed dashboard component, added UI suite and verification registration. No native/schema/protocol changes.
+
+All 24 focused suites PASS, including actual component with DOM/storage/list/load/capture doubles for out-of-order refresh, stale-task exclusion, double clicks, edited scratch, sync/async failures, habit rollback and allowed guards. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, ZIP CRC/alignment, three Flutter engine/AOT ABI payloads and exact JS/CSS PASS. Evidence: build-work/verification/home-refresh-2026-10-24/. No native persistence/live layout/IME/cross-process daily-log or hardware acceptance claim.
+
+APK: build-work/artifacts/AF-0.2.0-embedded-music-development-home-refresh-2026-10-24.apk; 191778315 bytes; SHA256 237758df813900a50506739fee11cdcd58fb20bce7c8c6a2686944c22e86c81a. Same separate development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Windows native tooling and original production signing unavailable. No production release declared.
+
+Next: device Home refresh/task-link/scratch/habit failure acceptance plus pending search/capture/reader/snapshot/sync/backup journeys; Windows native validation/embedding; Android music discovery/audio coordination; stable source anchoring/background jobs/collaboration baseline. Maintain balanced scope and evidence distinctions.
+
+
+24 October 2026 — fenced example handling
+
+Current source: build-work/af/work/coucou. Latest export: build-work/AF-0.2.0-fenced-examples-checkpoint-2026-10-24.zip. Read AF-Fenced-Examples-Checkpoint-2026-10-24.md. Prior packages/references preserved. Tasks, habit state and knowledge references now share a fence filter requiring matching character, sufficient closing length and no trailing information. Unclosed examples remain excluded; task lines and last real habit state preserved. Limited extractor, not full Markdown/container/indented-code semantics. Four shared source/test files changed; no native/schema/protocol changes.
+
+All 24 suites PASS with extended boundary/example tests. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, CRC, ZIP alignment, three Flutter engine/AOT ABIs and exact packaged JS/CSS PASS. Evidence: build-work/verification/fenced-examples-2026-10-24/. APK: build-work/artifacts/AF-0.2.0-embedded-music-development-fenced-examples-2026-10-24.apk; 191778429 bytes; SHA256 4088c65c786bf3f0d001211fb3135c24282af12e73698abf8273ec181b1bebea. Same development identity/version/certificate. No device connected; no native/hardware or production acceptance. Existing 32-bit SQLite alignment caveat persists. Windows native tooling/original production signing unavailable.
+
+Next: device task/habit/backlink/tag examples and prior journey acceptance; Windows native validation/embedding; Android music discovery/audio coordination; source anchoring/background jobs/collaboration baseline. Maintain balanced scope and evidence distinctions.
+
+
+24 October 2026 — live writing lock
+
+Current source: build-work/af/work/coucou. Latest export: build-work/AF-0.2.0-writing-lock-checkpoint-2026-10-24.zip. Read AF-Writing-Lock-Checkpoint-2026-10-24.md. Earlier artifacts/references preserved. Live editor sets CodeMirror state readOnly and DOM editable together. Transaction guard rejects locked ordinary edits, retains selection and trusted host sync; custom Undo/Redo bindings check lock. Existing 200,000-byte guard retained. This enforces existing requested locks, not new locks during supported AI waits. No native/schema/protocol changes.
+
+All 25 suites PASS. New suite uses real installed CodeMirror EditorState for raw edits, lock/unlock, selection, trusted sync, Unicode exact/overflow and shortening existing oversized content. Live EditorView/IME/shortcut/completion interaction acceptance NOT RUN; other workspace tests still use Markdown-source fallback/doubles. Windows TypeScript/Vite PASS. Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Signature v2, CRC, ZIP alignment, three Flutter engine/AOT ABIs and exact JS/CSS PASS. Evidence: build-work/verification/writing-lock-2026-10-24/. APK: build-work/artifacts/AF-0.2.0-embedded-music-development-writing-lock-2026-10-24.apk; 191778528 bytes; SHA256 674c397c856befc5f6e80a1c36adc465edabd39c871752eaac802a85efb91e78. Same development identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Native Windows tooling/original production signing unavailable; no production release.
+
+Next: real EditorView keyboard/IME/completion/selection and load/migration-lock acceptance, confirming editable AI waits; pending device journeys; native Windows validation/embedding, Android music discovery/audio coordination, source anchoring/background jobs/collaboration. Maintain balanced scope and evidence distinctions.
+
+
+24 October 2026 — browser-verified writing controls
+
+Current source: build-work/af/work/coucou. Latest export: build-work/AF-0.2.0-writing-controls-checkpoint-2026-10-24.zip. Read AF-Writing-Controls-Checkpoint-2026-10-24.md. Real in-app browser EditorView fixture reproduced toolbar Bold bypassing locked writing through trusted host sync. Fixed shared tool/commit guards and source textarea readOnly. Host disabled-control bookkeeping unchanged. Added memory-only dev fixture/checklist; no IPC/user data. Closed tab/stopped localhost server. Export helper retains browser-proof screenshots. No native/schema/protocol changes.
+
+All 25 suites, Windows TypeScript/Vite and Android strict TypeScript/interface/debug build PASS (38 tasks, 4 executed / 34 up-to-date). Real browser verifies live input, locked Bold/Undo no changes, source readonly, host load retaining live lock, unlocked editing/keyboard Undo. Evidence: build-work/verification/writing-controls-2026-10-24/ browser-checks.json, browser-state.txt, browser-proof.jpg. Locked keyboard press could not be sent to non-focusable element; NOT RUN. IME, completion popup, native Windows/Android WebView/hardware unverified.
+
+Signature v2/CRC/ZIP alignment/three Flutter engine-AOT ABIs/exact JS-CSS PASS. APK: build-work/artifacts/AF-0.2.0-embedded-music-development-writing-controls-2026-10-24.apk; 191778595 bytes; SHA256 9a6a5896f034a75c60733cb7d9ae41301540927c70d7a0e97b9ee9d63ea5a2e9. Same dev identity/version/certificate. No Android device connected. Existing 32-bit SQLite alignment caveat persists. Native Windows tools/original signing unavailable; no production release.
+
+Next: native EditorView/IME/keyboard/completion acceptance and prior journeys; Windows native validation/embedding; Android music discovery/audio coordination; source anchoring/background jobs/collaboration baseline. Maintain balanced scope/evidence distinctions.
+
+24 October 2026 — persistent user delivery requirement
+
+Read AF-Delivery-Requirements.md. The user requires updated Windows .exe AND Android .apk with every update. Prioritize closing the Windows native build/installer gap; explicitly identify a missing platform instead of treating frontend/source output as that platform release. Latest APK remains writing-controls-2026-10-24, 0.2.0-dev/2000. A native build attempt confirmed cargo missing. Microsoft Visual Studio 2022 C++ Build Tools were found using vswhere (despite cl not being on PATH); provisioning an isolated Rust toolchain is now being attempted. Earlier blanket 'Windows toolchain unavailable' notes are historical, not a completed current inventory. Do not claim a Windows installer until successfully built and checked.
+
+24 October 2026 — native Windows delivery and shared-core architecture baseline
+
+Latest source export: build-work/AF-0.2.0-native-shared-core-checkpoint-2026-10-24.zip. Read AF-Windows-Native-Checkpoint-2026-10-24.md, AF-Architecture-Unification-Audit-2026-10-24.md and AF-Delivery-Requirements.md. Latest architectural mandate is a shared Rust core and responsive workspace shell across Windows/Android. This remains a staged migration, not completed parity. Existing SQLCipher schemas, native key custody, recovery, sync and audio algorithms were preserved. Extracted spectral DSP and queue logic byte for byte into shared/audio/; old imports re-export the same implementations. Audio Studio uses the neutral DSP path. No broad legacy deletion without baseline verification.
+
+Provisioned isolated Rust/Perl and used existing MSVC. Resolved Windows OpenSSL long-path build failure using a checked short target and compiled static OpenSSL. Added Build-Windows-Development.ps1 with real hook staging, direct frontend tools, explicit base development resources and isolated test profile. Native check PASS; 55 Rust tests PASS, 12 ignored (real inference/OCR/migration/network/interop still pending). After extraction 25 focused suites PASS; Windows frontend/native release/NSIS PASS; Android strict interface/debug build PASS, 38 tasks (4 executed / 34 up-to-date). APK signature v2, CRC, ZIP alignment, exact JS/CSS and Flutter three-ABI engine/AOT checks PASS. Windows x64 PE/product/version verified. No installation/startup, Android hardware or production acceptance claimed. Existing 32-bit SQLite ELF alignment caveat remains.
+
+Windows artifact: build-work/artifacts/AF-0.2.0-Windows-base-development-shared-core-2026-10-24-setup.exe; 51447102 bytes; SHA256 10dd99837888d1687d528a7222b356caa3ccfa1e82c247428beebe525efc23d9. Unsigned 0.2.0 base development installer, existing Coucou identity/data paths. Windows offline-AI pack absent; base overlay removes its mappings. Windows Spotube embedding absent. No original signing or GUI/upgrade acceptance.
+
+Android artifact: build-work/artifacts/AF-0.2.0-embedded-music-development-shared-core-2026-10-24.apk; 191778600 bytes; SHA256 6145a10bca8b06494fd11614107f0ead6f9ac354b076ed33fd7e3af1eb06454a. Same separate dev identity com.coucou.workspace.dev, 0.2.0-dev/2000 and development signer. Embedded music retained. Original production signing unavailable.
+
+Evidence: build-work/verification/windows-native-2026-10-24/ and shared-core-2026-10-24/. Working tree has no .git and neither requested A&F workflow exists; no commits, pushes, cloud CI runs or passing CI tags. Upstream Spotube workflows are dependency material, not A&F CI. Sources and original releases preserved.
+
+Next milestones: shared versioned storage/sync/audio-job contracts and neutral frontend extraction; responsive workspace shell; Android native shared Rust integration with encrypted migration fixtures; native installation/device recovery/audio acceptance; reproducible real-repository CI and both-platform artifacts. Piper/Kokoro/Whisper/custom voice models and feature/aesthetic parity remain unimplemented goals. Continue independent work while hardware, original signing and model assets are unavailable. Every update must supply current EXE and APK or identify the concrete missing-platform blocker.
+
+24 October 2026 — GitHub saving authorized and Tauri chat plugin
+
+User explicitly authorized resuming source saves to GitHub and clarified that Tauri should be documentation/tools for this chat. Read AF-GitHub-Continuation-2026-10-24.md. Verified mwalikokelvo/AnF reachable; main at discovery 5d8c73fe77b8a7e78c1c903145ba12ad264054d6; Git push dry run passed. Remote main has divergent native Spotube controls, shared design, _core and CI absent from local export. Preserve it; save local source under continuations/af-0.2.0-2026-10-24 on codex/af-checkpoint-2026-10-24. Push completion must be checked separately. No force push, release or main replacement.
+
+Private AnF Tauri Toolkit 0.1.0 created, Plugin_dad55eb1ebf08191a51c4e274da6310d / pluginrel_6adce77fdcac81919b47f6d4cff08336. Contains official docs workflow and tested read-only manifest/resource inspector; saved component file listing verified. Not claimed installed/active; no hosted MCP server. Source build-work/plugins/anf-tauri-toolkit. Root guide AF-Tauri-Project-Guide.md. Latest native/shared-core EXE/APK unchanged; this is documentation/plugin/source-saving work. Both-platform artifact requirement persists for app changes. Source push authorization supersedes the old blanket no-publish instruction only for requested GitHub source saving, not production/public releases or communications.
+
+GitHub save completion verified: source checkpoint 01aa86d192c5bbbb7ac719e235e6782d11eaa7dc is present on origin/codex/af-checkpoint-2026-10-24; main remains 5d8c73fe77b8a7e78c1c903145ba12ad264054d6. All 1877 original snapshot manifest entries match staged Git blobs after preserving original line endings with snapshot attributes. Only continuations/ and plugins/ were added; main app/workflows unchanged. Source and plugin save succeeded, not merely prepared locally. No release published. Continue saving future authorized source updates on named branches and reconcile divergent app code before merging.
+
+24 October 2026 — shared domain architecture migration
+
+Read AF-Shared-Domain-Checkpoint-2026-10-24.md. Current source build-work/af/work/coucou; latest export build-work/AF-0.2.0-shared-domain-checkpoint-2026-10-24.zip. User authorized continuing the attached architecture brief. Used installed AnF Tauri Toolkit. Preserved six implementations byte for byte into shared/domain: evidence, reading state, tasks/habits, knowledge, document metadata, follow-ups. Old paths contain compatibility re-exports only; ten Windows/Android source consumers now import neutral modules directly. Added neutral public entry and architecture test requiring an independently bundled platform-free dependency closure and identical legacy runtime exports. Audio core unchanged. No native/schema/key/sync-protocol changes.
+
+All 26 focused suites PASS. Windows strict frontend/native release/NSIS PASS. Android strict interface/debug build PASS: 38 tasks, 1 executed / 37 up-to-date. APK signature v2/CRC/ZIP alignment/exact JS-CSS/three ABI Flutter engine+AOT PASS; Windows payload x64 PE, unsigned installer. Evidence shared-domain-2026-10-24/. Prior native 55 pass/12 ignored remains historical; not rerun since native source unchanged. No install/upgrade/native GUI/Android hardware acceptance. Existing 32-bit SQLCipher ELF alignment caveat persists.
+
+EXE build-work/artifacts/AF-0.2.0-Windows-base-development-shared-domain-2026-10-24-setup.exe; 51447101 bytes; SHA256 7dfd8cd9073c8ecbf4abd0f26bfab9eb3ca89709d5462843648e94a7924e7130. APK build-work/artifacts/AF-0.2.0-embedded-music-development-shared-domain-2026-10-24.apk; 191778600 bytes; SHA256 6145a10bca8b06494fd11614107f0ead6f9ac354b076ed33fd7e3af1eb06454a. Android rebuild byte-identical to previous shared-core package, expected for behavior-preserving relocation. Same dev identity/version/signer; no production release. Windows still lacks offline-AI pack and embedded Spotube. Earlier artifacts preserved.
+
+Refreshed origin/main remains 5d8c73fe77b8a7e78c1c903145ba12ad264054d6. Six domain comparisons show four missing/different modules. Main's _core/README describes an unfinished ThingsBook checkpoint; do not assume integrated AnF vault or replace SQLCipher blindly. Main has divergent native music/design/CI; preserve it. Save this local migration on existing codex/af-checkpoint-2026-10-24 continuation branch, verify push separately. Next: versioned platform adapters/contracts, responsive shared shell/state, reconcile safeguards with main's native music/CI, encrypted migration and paired-device acceptance, neural assets/Windows music. Full architectural mandate remains unfinished.
+
+Shared-domain GitHub save verified: application checkpoint a987db17b389a68bba359c6af81c034464b0bc8b pushed on codex/af-checkpoint-2026-10-24; all 1938 snapshot manifest entries hash-checked; main remains 5d8c73fe77b8a7e78c1c903145ba12ad264054d6. Only continuation checkpoint files changed. Additional Vite development-server check PASS: transformed desktop entry and five directly imported shared-domain modules return HTTP 200; temporary loopback server closed. Evidence shared-domain-2026-10-24/github-save.json and development-server.json. This tests module serving, not GUI interaction or a new native acceptance run. Source export SHA256 0f4d92043bfada06ed9367770b3794bef789302c2b023120f929f5872852820b; 86240813 bytes.

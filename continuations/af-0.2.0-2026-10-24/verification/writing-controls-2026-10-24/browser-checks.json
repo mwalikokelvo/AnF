@@ -1,0 +1,18 @@
+{
+  "browser": "Codex in-app browser",
+  "fixture": "dev/writing-preview.html",
+  "checks": [
+    "Live input accepted; locked Bold and Undo retained text and change count",
+    "Markdown-source textarea has readonly attribute while locked",
+    "Host document loads while locked and live editor remains non-editable",
+    "Unlock accepts live editing and Control+z restores host document"
+  ],
+  "scope": "Real EditorView and browser DOM; synthetic memory-only host",
+  "notRun": [
+    "IME",
+    "Android WebView",
+    "native Windows app",
+    "completion popup",
+    "locked keyboard input (non-focusable DOM refused browser press)"
+  ]
+}

@@ -1,0 +1,15 @@
+import '../src/style.css';
+import {buildPrompt} from '../src/views/chat';
+import {buildUpload} from '../src/views/upload';
+import {State} from '../src/core/state';
+import {Bridge} from '../src/core/bridge';
+import {Sound} from '../src/core/sound';
+Sound.setEnabled(false);
+const report=document.createElement('p');report.id='report';report.textContent='Sent requests: 0';let sent=0;
+State.settings.chatProvider='claude';State.settings.chatMode='api';
+Bridge.chatSend=async()=>{report.textContent='Sent requests: '+(++sent);return{text:'Sample reply; no cloud call was made.'};};
+Bridge.ingestBytes=async(_bytes,name)=>({name,path:'C:/test/'+name,size:10});
+const prompt=buildPrompt(()=>{});prompt.el.style.opacity='1';prompt.el.style.pointerEvents='auto';prompt.el.style.position='relative';
+State.subscribe(()=>prompt.sync());prompt.sync();
+const upload=buildUpload({chooseAttachment:(accept:string)=>{report.textContent='Picker filter: '+accept;}} as any);upload.el.style.opacity='1';upload.el.style.pointerEvents='auto';upload.el.style.position='relative';upload.el.style.height='160px';
+document.body.replaceChildren(report,upload.el,prompt.el);

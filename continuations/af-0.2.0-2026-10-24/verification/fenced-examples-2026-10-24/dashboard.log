@@ -1,0 +1,2 @@
+Dashboard checks passed: fenced/quoted examples ignored, original task locations retained, local dates, append-only capture and size limits.
+Fence boundary checks passed: longer/shorter runs, closing information, mixed markers, unclosed blocks and original task line numbers.

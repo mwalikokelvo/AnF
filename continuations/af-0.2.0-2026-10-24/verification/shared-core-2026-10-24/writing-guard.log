@@ -1,0 +1,1 @@
+CodeMirror state checks passed: real transaction lock/unlock, command/completion refusal, selection, trusted sync, exact Unicode byte limit, overflow refusal and shortening existing content.

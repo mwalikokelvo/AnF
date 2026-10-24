@@ -1,0 +1,25 @@
+// Use the installed JDK's normal compiler process. This host cannot create
+// Gradle worker IPC pipes; no compiler checks or networking protections change.
+allprojects {
+    // Optional dependency documentation uses an incompatible legacy Dokka
+    // reflector on JDK 17. Source jars and application compilation remain.
+    tasks.configureEach { task ->
+        if (task.name.startsWith('javaDoc') && task.name.endsWith('Generation')) {
+            task.enabled = false
+        }
+    }
+    // JitPack serves GitHub coordinates. Avoid querying it for Android and
+    // Kotlin artifacts that are published in Google Maven / Maven Central.
+    [repositories, buildscript.repositories].each { repositorySet ->
+        repositorySet.all { repository ->
+            if (repository instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository && repository.url.host == 'jitpack.io') {
+                repository.content { includeGroupByRegex('com\\.github\\..*') }
+            }
+        }
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.fork = true
+        options.forkOptions.executable = new File(System.getenv('JAVA_HOME'), 'bin/javac.exe').absolutePath
+        options.forkOptions.memoryMaximumSize = '768m'
+    }
+}

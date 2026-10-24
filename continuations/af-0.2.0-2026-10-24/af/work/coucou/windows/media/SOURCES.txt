@@ -1,0 +1,6 @@
+FFmpeg N-127256-g538d10d18
+FFmpeg source: https://github.com/FFmpeg/FFmpeg/tree/538d10d18
+Binary and build project: https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20261009
+Build recipes and dependency sources: https://github.com/shinchiro/mpv-winbuild-cmake
+GPL version 3 or later. See FFMPEG-LICENSE.txt. This binary is a separate command-line executable; Coucou invokes it with local-only protocol and format allowlists.
+Archive SHA256: ed3ff1a6a28b1eb83cd6e82f024b9a40b2cbbc040130c9e40ae2c306c88eff86
