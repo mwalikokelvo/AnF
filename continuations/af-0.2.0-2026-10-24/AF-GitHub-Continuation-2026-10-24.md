@@ -2,13 +2,13 @@
 
 User authorization, 24 October 2026: resume saving project updates on GitHub, and provide Tauri documentation/tools for this chat. This authorizes source checkpoint pushes; it does not request public release publication.
 
-Canonical repository verified with Git: `https://github.com/mwalikokelvo/AnF.git`. Remote `main` at discovery: `5d8c73fe77b8a7e78c1c903145ba12ad264054d6`. Local clone: `build-work/github/AnF`. Git write access passed a dry run. The earlier inaccessible-repository findings are historical.
+Canonical repository verified with Git: `https://github.com/mwalikokelvo/AnF.git`. Remote `main` at discovery: `5d8c73fe77b8a7e78c1c903145ba12ad264054d6`. Local clone: `build-work/github/AnF`. Source checkpoint pushed successfully and verified remotely at `01aa86d192c5bbbb7ac719e235e6782d11eaa7dc` on `codex/af-checkpoint-2026-10-24`. All 1,877 snapshot manifest entries were hash-checked against the Git index; existing main files remain unchanged. The earlier inaccessible-repository findings are historical.
 
 ## Divergence and preservation
 
 Remote main contains substantial work absent from the local 0.2.0 export: `_core`, native Spotube playback controls/adapters, shared design changes, integration preparation and Windows/Android CI workflows. Local source has its own writing/reader/sync safeguards, native build verification and first shared DSP/queue extraction. Version numbers do not establish that either tree supersedes all of the other.
 
-Save the local checkpoint in `continuations/af-0.2.0-2026-10-24/` on branch `codex/af-checkpoint-2026-10-24`, preserving existing main files. It is a recoverable source checkpoint, not a merge of both implementations. Future implementation should compare the two sources and port behavior deliberately with tests before replacing the active GitHub app. No force push or release tag is requested.
+The local checkpoint is saved in `continuations/af-0.2.0-2026-10-24/` on branch `codex/af-checkpoint-2026-10-24`, preserving existing main files. It is a recoverable source checkpoint, not a merge of both implementations. Future implementation should compare the two sources and port behavior deliberately with tests before replacing the active GitHub app. No force push or release tag was performed. Snapshot attributes preserve exact bytes instead of normalizing mixed line endings; the follow-up commit above verifies the corrected hashes.
 
 Signing material, tool/dependency caches, generated native outputs, installers/APKs and large model/runtime binaries are excluded from Git. The exact EXE/APK hashes remain in the native checkpoint document. No new app build was required for this documentation/plugin/Git-save update; the native/shared-core EXE and APK remain current.
 
