@@ -1,0 +1,47 @@
+{
+  "desktopPath": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\af\\work\\coucou\\windows",
+  "productName": "A&F",
+  "version": "0.2.0",
+  "pluginDependencies": [
+    "tauri-plugin-autostart",
+    "tauri-plugin-single-instance"
+  ],
+  "pluginRegistrationSymbols": [
+    "tauri_plugin_autostart::",
+    "tauri_plugin_single_instance::"
+  ],
+  "capabilities": [
+    {
+      "identifier": "default",
+      "windows": [
+        "island",
+        "settings",
+        "workspace"
+      ],
+      "permissions": [
+        "core:default",
+        "autostart:default"
+      ]
+    }
+  ],
+  "missingDefaultResourcePatterns": [
+    "../local-ai/*.dll",
+    "../local-ai/llama-server.exe",
+    "../local-ai/model.gguf",
+    "../local-ai/model-fast.gguf",
+    "../local-ai/*.rten",
+    "../local-ai/*LICENSE*",
+    "../local-ai/NOTICE.txt"
+  ],
+  "npmScripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "icons": "node scripts/gen-icons.mjs",
+    "tauri": "tauri",
+    "predev": "cargo build --release -p coucou-hook",
+    "prebuild": "cargo build --release -p coucou-hook",
+    "pack": "tauri build && node scripts/pack.mjs"
+  },
+  "scope": "Static source inspection only; no compile, installation, device or security acceptance claim."
+}

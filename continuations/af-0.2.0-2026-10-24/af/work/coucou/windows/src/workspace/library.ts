@@ -1,6 +1,6 @@
 import {h} from '../views/dom';
-import {documentInfo} from './library-data';
-import type {ReadingSource} from './reader-data';
+import {documentInfo} from '../../../shared/domain/library-data';
+import type {ReadingSource} from '../../../shared/domain/reader-data';
 import './library.css';
 const refreshers=new WeakMap<HTMLElement,()=>void>();
 const sorts=new WeakMap<HTMLElement,HTMLSelectElement>();

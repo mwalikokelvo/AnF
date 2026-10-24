@@ -1,6 +1,6 @@
 import {createSpeechPlayer} from './speech-player';
 import {h} from '../views/dom';
-import {sections,sectionIndex,readingState,addHighlight,type ReadingSource,type ReadingSection,type Highlight} from './reader-data';
+import {sections,sectionIndex,readingState,addHighlight,type ReadingSource,type ReadingSection,type Highlight} from '../../../shared/domain/reader-data';
 import './reader.css';
 
 export function createReader(changed:()=>void,clip:(text:string,source:string)=>void,notify:(s:string)=>void,ask?:(text:string,source:string)=>void,beforeSpeech?:()=>Promise<void>){

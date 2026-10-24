@@ -1,0 +1,17 @@
+{
+  "preservedDomainModules": 6,
+  "focusedSuitesPassed": 26,
+  "apkBuiltAssetsMatch": {
+    "main.js": true,
+    "main.css": true
+  },
+  "flutterEngineAndAot": {
+    "armeabi-v7a": true,
+    "arm64-v8a": true,
+    "x86_64": true
+  },
+  "windowsPayload": "x64 PE",
+  "nativeGuiAcceptance": "not run",
+  "androidDeviceAcceptance": "not run",
+  "productionReady": false
+}

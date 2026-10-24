@@ -1,6 +1,6 @@
-import {habitState} from './knowledge-data';
+import {habitState} from '../../../shared/domain/knowledge-data';
 import {h} from '../views/dom';
-import {draftTasks,dayName} from './dashboard-data';
+import {draftTasks,dayName} from '../../../shared/domain/dashboard-data';
 import './dashboard.css';
 type Source=import('./reader-data').ReadingSource;
 type Draft={id:string;name:string;draft:string;sources:Source[]};

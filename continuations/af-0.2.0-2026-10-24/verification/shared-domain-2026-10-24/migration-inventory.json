@@ -1,0 +1,46 @@
+{
+  "preservedModules": [
+    {
+      "old": "windows/src/workspace/answer-evidence.ts",
+      "shared": "shared/domain/answer-evidence.ts",
+      "sha256": "c4fe129ac51ab3493d24b9d48d2b2d9e01b0876d7330e810da7d8348119af28b"
+    },
+    {
+      "old": "windows/src/workspace/reader-data.ts",
+      "shared": "shared/domain/reader-data.ts",
+      "sha256": "5f85debda7fffd7021fa27cbb396cd4e14110141dd0b5b4b8ed820e9036867d4"
+    },
+    {
+      "old": "windows/src/workspace/dashboard-data.ts",
+      "shared": "shared/domain/dashboard-data.ts",
+      "sha256": "7f39777b3135c59cfeb7ab22a3109312e21559b8a2ed9d0bdd7d5f296671fc91"
+    },
+    {
+      "old": "windows/src/workspace/knowledge-data.ts",
+      "shared": "shared/domain/knowledge-data.ts",
+      "sha256": "c19dd1e5e103c8ac523e95bf32e91ecb936744bf15d39a9c6408979e64ed99e8"
+    },
+    {
+      "old": "windows/src/workspace/library-data.ts",
+      "shared": "shared/domain/library-data.ts",
+      "sha256": "d9621b91346ca79f62d58cbbfde54871a39562aeb10a00e561f8ea597c845ead"
+    },
+    {
+      "old": "windows/src/workspace/followups.ts",
+      "shared": "shared/domain/followups.ts",
+      "sha256": "af3d003b7210bd8528de0ebaf0cccea7f2f3daeaddca09636f1fef3b0387311c"
+    }
+  ],
+  "directConsumersUpdated": [
+    "windows/src/workspace/dashboard.ts",
+    "windows/src/workspace/library.ts",
+    "windows/src/workspace/main.ts",
+    "windows/src/workspace/quick-capture.ts",
+    "windows/src/workspace/reader.ts",
+    "windows/src/workspace/studio.ts",
+    "windows/src/workspace/workflows.ts",
+    "android/web/main.ts",
+    "android/web/project-data.ts",
+    "android/web/sync.ts"
+  ]
+}

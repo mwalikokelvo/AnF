@@ -1,11 +1,7 @@
-# Local A&F 0.2.0 continuation checkpoint
+# Local A&F continuation checkpoint
 
-This preserves the tested local source independently of the divergent AnF app at repository root. It does not replace or merge main. Read AF-GitHub-Continuation-2026-10-24.md and AF-Windows-Native-Checkpoint-2026-10-24.md first.
+Latest source: shared-domain migration, 24 October 2026. Read AF-Shared-Domain-Checkpoint-2026-10-24.md and AF-GitHub-Continuation-2026-10-24.md. The tested local source is preserved separately from the divergent app at repository root; it does not replace or merge main.
 
-- `af/work/coucou`: local Windows, Android, shared core and preserved macOS sources.
-- `spotube/spotube-master`: source used by the local embedded music build.
-- Root build scripts were originally used from a `build-work` directory; restore this layout on a new computer before invoking them. Tools, dependencies, signing keys and runtime/model binaries require separate provisioning.
-- `verification`: existing evidence, not cloud CI or device acceptance.
-- `checkpoint-manifest.json`: per-file source hashes and excluded binary inventory. No EXE/APK, signing keys or model binaries are stored in ordinary Git. Exact delivered artifact hashes are in the native checkpoint.
+`af/work/coucou` contains Windows, Android and shared domain/audio sources. `spotube/spotube-master` preserves the source used by the local music module. Root helpers originally ran from a build-work directory; restore that layout and provision the documented tools/dependencies/signing before builds. `verification` holds local evidence, not cloud CI/device acceptance. Source hashes and excluded binaries are listed in checkpoint-manifest.json. Installers/APKs, model/runtime binaries and signing keys are not stored in ordinary Git; exact delivered artifact hashes are in the checkpoint document.
 
-The private chat plugin source is versioned at repository root under `plugins/anf-tauri-toolkit`.
+Chat plugin source: repository-root plugins/anf-tauri-toolkit. Next reconcile local protections with main's native music/design/CI before merging.

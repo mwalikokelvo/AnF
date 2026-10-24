@@ -1,5 +1,5 @@
-import {readingState,type ReadingState} from '../../windows/src/workspace/reader-data';
-import {copyEvidence,type Evidence} from '../../windows/src/workspace/answer-evidence';
+import {readingState,type ReadingState} from '../../shared/domain/reader-data';
+import {copyEvidence,type Evidence} from '../../shared/domain/answer-evidence';
 import type {SyncMeta} from './sync';
 export type Source={reading?:ReadingState|null;name:string;text:string;pages?:{number:number;text:string;ocr:boolean}[]};
 export type Note={role:string;text:string;evidence?:Evidence[]};

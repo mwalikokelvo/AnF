@@ -1,0 +1,5 @@
+[codex/af-checkpoint-2026-10-24 9dd7100] Record verified GitHub checkpoint and Tauri toolkit inspection
+ 6 files changed, 3987 insertions(+), 3858 deletions(-)
+ create mode 100644 continuations/af-0.2.0-2026-10-24/verification/github-checkpoint-precommit.json
+ create mode 100644 continuations/af-0.2.0-2026-10-24/verification/tauri-toolkit-github-inspection.json
+ create mode 100644 continuations/af-0.2.0-2026-10-24/verification/tauri-toolkit-local-inspection.json

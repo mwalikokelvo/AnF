@@ -1,5 +1,5 @@
 import {h} from '../views/dom';
-import {matchesNote,references,knowledgeGraph,tagTree,templates,type KnowledgeNote,type TagBranch,type GraphNode} from './knowledge-data';
+import {matchesNote,references,knowledgeGraph,tagTree,templates,type KnowledgeNote,type TagBranch,type GraphNode} from '../../../shared/domain/knowledge-data';
 import './studio.css';
 export type StudioAdapter={list:()=>Promise<{id:string;name:string}[]>;load:(id:string)=>Promise<KnowledgeNote>;current:()=>KnowledgeNote;open:(id:string)=>Promise<void>;append:(text:string)=>void;view:(id:string)=>void;health:()=>string;allowed:()=>boolean};
 export function createStudio(a:StudioAdapter){

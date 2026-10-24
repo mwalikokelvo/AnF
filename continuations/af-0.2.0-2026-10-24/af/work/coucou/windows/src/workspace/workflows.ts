@@ -1,5 +1,5 @@
 import {h} from '../views/dom';
-import type {ReadingSource} from './reader-data';
+import type {ReadingSource} from '../../../shared/domain/reader-data';
 export type Workflow='highlights'|'polish'|'actions'|'compare';
 export function workflowPrompt(kind:Workflow,sources:ReadingSource[],draft:string){
   if(kind==='highlights'){

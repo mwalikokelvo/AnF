@@ -1,5 +1,7 @@
 # A&F 0.2.0 — build status
 
+Latest source migration, 24 October 2026: six neutral domain modules now serve Windows and Android directly. All 26 focused suites and both native packages rebuilt successfully; see `AF-Shared-Domain-Checkpoint-2026-10-24.md`. This preserves behavior and does not establish full parity, device acceptance or production readiness.
+
 Latest continuation, 24 October 2026: a Windows base development NSIS installer and embedded-music Android development APK have been built separately from this source tree. Read the exported `AF-Windows-Native-Checkpoint-2026-10-24.md` for exact names, hashes and limitations, and `AF-Architecture-Unification-Audit-2026-10-24.md` for the shared-core migration. Native tests: 55 passed, 12 ignored; 25 focused suites passed. Install/device acceptance and production release remain unverified. The source archive itself is not an installable release.
 
 The following original repair-pass notes are historical and are superseded by that checkpoint where they describe current tooling or missing artifacts.

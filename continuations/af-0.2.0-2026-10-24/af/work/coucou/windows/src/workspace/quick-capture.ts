@@ -1,5 +1,5 @@
 import {h} from '../views/dom';
-import {quickCaptureLimit} from './dashboard-data';
+import {quickCaptureLimit} from '../../../shared/domain/dashboard-data';
 export function quickCapture(save:(text:string)=>Promise<void>,allowed:()=>boolean){
   const root=h('dialog',{'aria-label':'Quick note',class:'capture-dialog'}),text=h('textarea',{'aria-label':'Quick note text',maxlength:quickCaptureLimit,placeholder:'Capture a thought…'}),status=h('p',{role:'status'});
   let saving=false;

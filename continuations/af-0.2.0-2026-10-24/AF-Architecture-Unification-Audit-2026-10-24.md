@@ -1,6 +1,6 @@
 # A&F / AnF architecture unification audit
 
-24 October 2026. Working source: `build-work/af/work/coucou`. This records the architectural mandate and the first completed migration, not a completed rewrite or production release.
+24 October 2026. Working source: `build-work/af/work/coucou`. This records the architectural mandate and completed migration stages, not a completed rewrite or production release. Latest stage: `AF-Shared-Domain-Checkpoint-2026-10-24.md` adds six neutral domain modules with direct Windows/Android consumers and a tested platform-dependency boundary. GitHub saving has resumed on the continuation branch; earlier no-repository statements below describe the original exported tree, not the separate Git clone.
 
 ## Confirmed source state
 

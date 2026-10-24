@@ -1,0 +1,1 @@
+Snapshot UI checks passed: immutable conversation ownership, delayed listing, failed-refresh stale-control removal, restore failure, busy/allowed guards and empty history.

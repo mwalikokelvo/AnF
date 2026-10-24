@@ -1,6 +1,8 @@
 # A&F project handoff — formerly Coucou
 
-Prepared: 23 October 2026; continued: 24 October 2026 (America/Chicago). Latest local checkpoint: native Windows installer and first shared-core extraction.
+Prepared: 23 October 2026; continued: 24 October 2026 (America/Chicago). Latest local checkpoint: shared-domain architecture migration.
+
+**Latest continuation entry:** Read `AF-Shared-Domain-Checkpoint-2026-10-24.md`: six domain implementations moved unchanged into a neutral shared layer, direct desktop/mobile consumers, a dependency-boundary check and 26 passing focused suites. Both development packages rebuilt. Current source export: `build-work/AF-0.2.0-shared-domain-checkpoint-2026-10-24.zip`. Continue GitHub reconciliation; full UI/core parity and device/production acceptance remain pending.
 
 **Latest continuation entry:** Read `AF-Windows-Native-Checkpoint-2026-10-24.md` and `AF-Architecture-Unification-Audit-2026-10-24.md`. Both Windows base development EXE and embedded-music Android APK are built. Native Rust tests: 55 pass / 12 ignored; 25 focused suites pass. Source export: `build-work/AF-0.2.0-native-shared-core-checkpoint-2026-10-24.zip`. Device/installation acceptance, full parity, offline neural speech assets and production signing remain pending. Follow `AF-Delivery-Requirements.md` for both-artifact delivery.
 

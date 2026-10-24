@@ -1,0 +1,54 @@
+{
+  "main": "5d8c73fe77b8a7e78c1c903145ba12ad264054d6",
+  "comparisons": [
+    {
+      "module": "answer-evidence",
+      "remotePath": "windows/src/workspace/answer-evidence.ts",
+      "remotePresent": false,
+      "remoteSha256": null,
+      "sharedSha256": "c4fe129ac51ab3493d24b9d48d2b2d9e01b0876d7330e810da7d8348119af28b",
+      "sameIgnoringLineEndings": false
+    },
+    {
+      "module": "reader-data",
+      "remotePath": "windows/src/workspace/reader-data.ts",
+      "remotePresent": true,
+      "remoteSha256": "6af9b6589067b0ceed0de934c33e6ebd10cf8b6283faf2d46a3c3535e77523e7",
+      "sharedSha256": "5f85debda7fffd7021fa27cbb396cd4e14110141dd0b5b4b8ed820e9036867d4",
+      "sameIgnoringLineEndings": false
+    },
+    {
+      "module": "dashboard-data",
+      "remotePath": "windows/src/workspace/dashboard-data.ts",
+      "remotePresent": true,
+      "remoteSha256": "b9bfa60d059a2d9f0add97a38548304c0685ba9967f3761d70a71e1c64e76cea",
+      "sharedSha256": "7f39777b3135c59cfeb7ab22a3109312e21559b8a2ed9d0bdd7d5f296671fc91",
+      "sameIgnoringLineEndings": false
+    },
+    {
+      "module": "knowledge-data",
+      "remotePath": "windows/src/workspace/knowledge-data.ts",
+      "remotePresent": true,
+      "remoteSha256": "a917197fd53af261bc04cda955522ac6f6aef52054990cc432806c0febadba5c",
+      "sharedSha256": "c19dd1e5e103c8ac523e95bf32e91ecb936744bf15d39a9c6408979e64ed99e8",
+      "sameIgnoringLineEndings": false
+    },
+    {
+      "module": "library-data",
+      "remotePath": "windows/src/workspace/library-data.ts",
+      "remotePresent": true,
+      "remoteSha256": "c6a9fa5064901f18d84b7a6dbeaa64ada36bee38cac7c664abb545724b01cb0c",
+      "sharedSha256": "d9621b91346ca79f62d58cbbfde54871a39562aeb10a00e561f8ea597c845ead",
+      "sameIgnoringLineEndings": true
+    },
+    {
+      "module": "followups",
+      "remotePath": "windows/src/workspace/followups.ts",
+      "remotePresent": true,
+      "remoteSha256": "af3d003b7210bd8528de0ebaf0cccea7f2f3daeaddca09636f1fef3b0387311c",
+      "sharedSha256": "af3d003b7210bd8528de0ebaf0cccea7f2f3daeaddca09636f1fef3b0387311c",
+      "sameIgnoringLineEndings": true
+    }
+  ],
+  "integrationPolicy": "Preserve divergent native music, design and CI. These modules are a local shared-domain migration; no automatic main overwrite or encrypted-core adoption."
+}

@@ -1,8 +1,8 @@
 {
-  "sourceArchive": "AF-0.2.0-native-shared-core-checkpoint-2026-10-24.zip",
-  "sourceArchiveSha256": "51ad395a017a318b35488b47aee3663d69f1504639c4fadf08b345994eb42fa3",
+  "sourceArchive": "AF-0.2.0-shared-domain-checkpoint-2026-10-24.zip",
+  "sourceArchiveSha256": "0f4d92043bfada06ed9367770b3794bef789302c2b023120f929f5872852820b",
   "baselineMain": "5d8c73fe77b8a7e78c1c903145ba12ad264054d6",
-  "purpose": "Divergent local checkpoint; active main preserved; not a merged or production release",
+  "purpose": "Local shared-domain source checkpoint; divergent main preserved; not a production release",
   "excludedBinaries": [
     {
       "path": "af/work/coucou/windows/media/ffmpeg.exe",
@@ -157,8 +157,8 @@
     },
     {
       "path": "af/work/coucou/android/web/main.ts",
-      "bytes": 40086,
-      "sha256": "609310621aeeb45da9ad68fd54e095eb0f403712beffe1f17a898d000e63a6ce"
+      "bytes": 40046,
+      "sha256": "c060e085f625875e875703839e43b93d6fd8aff10cf92b2e551fe4ac5b23c58f"
     },
     {
       "path": "af/work/coucou/android/web/native-media.ts",
@@ -177,8 +177,8 @@
     },
     {
       "path": "af/work/coucou/android/web/project-data.ts",
-      "bytes": 3293,
-      "sha256": "3fff00d4d41c3d868842e3ed1246fb8cfa0ecad41107b3217d56443e8f1b787b"
+      "bytes": 3277,
+      "sha256": "b0b558d506196499c1d826a398ff38b88f9821892da941a0ea84b395724d375a"
     },
     {
       "path": "af/work/coucou/android/web/storage.ts",
@@ -192,8 +192,8 @@
     },
     {
       "path": "af/work/coucou/android/web/sync.ts",
-      "bytes": 5246,
-      "sha256": "14b142135a58b9fc66e3de4bb49b05986565385b95adba32f005ae6d8ea21a86"
+      "bytes": 5290,
+      "sha256": "a83465aebe3edabf13d672db68866dde99f54f745845375071e209409a7c9f1d"
     },
     {
       "path": "af/work/coucou/android/web/THIRD-PARTY-LICENSES.txt",
@@ -212,8 +212,8 @@
     },
     {
       "path": "af/work/coucou/BUILD-STATUS.md",
-      "bytes": 2282,
-      "sha256": "4c97be7634666d3809cacf45ef32d69e3300bc453c548106b0b7c4228bcce994"
+      "bytes": 2613,
+      "sha256": "c27706bff6905c79ac7b6043b770ca009a4c37530075c7e7252bf881bb93517f"
     },
     {
       "path": "af/work/coucou/LICENSE",
@@ -376,9 +376,44 @@
       "sha256": "d539fb940e82e6a151a794acd48237c83f0dfff58349fc27849677ad5c3d0cb9"
     },
     {
+      "path": "af/work/coucou/shared/domain/answer-evidence.ts",
+      "bytes": 977,
+      "sha256": "c4fe129ac51ab3493d24b9d48d2b2d9e01b0876d7330e810da7d8348119af28b"
+    },
+    {
+      "path": "af/work/coucou/shared/domain/dashboard-data.ts",
+      "bytes": 1703,
+      "sha256": "7f39777b3135c59cfeb7ab22a3109312e21559b8a2ed9d0bdd7d5f296671fc91"
+    },
+    {
+      "path": "af/work/coucou/shared/domain/followups.ts",
+      "bytes": 1950,
+      "sha256": "af3d003b7210bd8528de0ebaf0cccea7f2f3daeaddca09636f1fef3b0387311c"
+    },
+    {
+      "path": "af/work/coucou/shared/domain/index.ts",
+      "bytes": 350,
+      "sha256": "2921e7abfc88ca2de6c9e0926d44f732fc3bec6ded2b637170a1830858b4c0bd"
+    },
+    {
+      "path": "af/work/coucou/shared/domain/knowledge-data.ts",
+      "bytes": 4822,
+      "sha256": "c19dd1e5e103c8ac523e95bf32e91ecb936744bf15d39a9c6408979e64ed99e8"
+    },
+    {
+      "path": "af/work/coucou/shared/domain/library-data.ts",
+      "bytes": 659,
+      "sha256": "d9621b91346ca79f62d58cbbfde54871a39562aeb10a00e561f8ea597c845ead"
+    },
+    {
+      "path": "af/work/coucou/shared/domain/reader-data.ts",
+      "bytes": 2872,
+      "sha256": "5f85debda7fffd7021fa27cbb396cd4e14110141dd0b5b4b8ed820e9036867d4"
+    },
+    {
       "path": "af/work/coucou/shared/README.md",
-      "bytes": 1203,
-      "sha256": "78946a257331528d81a39e79afe15209b7629b9e89a8d6d3c650f2066fa42934"
+      "bytes": 1979,
+      "sha256": "8495eb60afe3bfbd05e8713db429412e341fadcd2fe5424b16d4d51adb6ddbb0"
     },
     {
       "path": "af/work/coucou/windows/.gitignore",
@@ -484,6 +519,16 @@
       "path": "af/work/coucou/windows/dev/search-ui-check.cjs",
       "bytes": 3652,
       "sha256": "d6af2e93ff89a6addf4ce465a761baeccc0a2a6f623e23ea8cf7eb0c432af27c"
+    },
+    {
+      "path": "af/work/coucou/windows/dev/shared-domain-check.cjs",
+      "bytes": 1771,
+      "sha256": "8bb381d214e47a18592b6b1b2d6694179b583a82fb5041ed16ba74331da93109"
+    },
+    {
+      "path": "af/work/coucou/windows/dev/shared-domain-entry.ts",
+      "bytes": 620,
+      "sha256": "7884d87ab1e1f47f1f9b50159178cb10d46cd9dbe5f5f4ffb2e885e48ea0bae5"
     },
     {
       "path": "af/work/coucou/windows/dev/snapshot-ui-check.cjs",
@@ -777,8 +822,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/answer-evidence.ts",
-      "bytes": 977,
-      "sha256": "c4fe129ac51ab3493d24b9d48d2b2d9e01b0876d7330e810da7d8348119af28b"
+      "bytes": 134,
+      "sha256": "1d909e7c0405df1b6237077935f9458d598e1db3272692e0f53341b3a2c4df90"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/audio-data.ts",
@@ -822,8 +867,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/dashboard-data.ts",
-      "bytes": 1703,
-      "sha256": "7f39777b3135c59cfeb7ab22a3109312e21559b8a2ed9d0bdd7d5f296671fc91"
+      "bytes": 133,
+      "sha256": "5d64f78fb90daa4903ab4eb033a575c43d8c7379fa5999bd3521117ac8521a5a"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/dashboard.css",
@@ -832,8 +877,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/dashboard.ts",
-      "bytes": 6484,
-      "sha256": "b52637219c2df908802ddc7bc6b963ea4695260ed20395aec98e3e60118b2770"
+      "bytes": 6526,
+      "sha256": "9d7fde8bc2092fdee93f3fe51f91d181fed498a9780a91c1dfbdfc32775d34a4"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/encrypted-pack.ts",
@@ -842,18 +887,18 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/followups.ts",
-      "bytes": 1950,
-      "sha256": "af3d003b7210bd8528de0ebaf0cccea7f2f3daeaddca09636f1fef3b0387311c"
+      "bytes": 128,
+      "sha256": "487e6a07ae843c7ee141894b0b45e8ee5ae3b8d3a730e2a2713caaa224c99b8e"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/knowledge-data.ts",
-      "bytes": 4822,
-      "sha256": "c19dd1e5e103c8ac523e95bf32e91ecb936744bf15d39a9c6408979e64ed99e8"
+      "bytes": 133,
+      "sha256": "3eb3612334e7f1eacbde1d8a23a3e06857c99c50bdd916bad796c0410f92ac80"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/library-data.ts",
-      "bytes": 659,
-      "sha256": "d9621b91346ca79f62d58cbbfde54871a39562aeb10a00e561f8ea597c845ead"
+      "bytes": 131,
+      "sha256": "5b0e801b7330eb58e261442db52802d2352d8e2e23be50c381bc1f6cfaa65a7f"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/library.css",
@@ -862,8 +907,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/library.ts",
-      "bytes": 2167,
-      "sha256": "fb094284cfaf9a35efe02a80cb9728bc44c06bb4af3230af55594af14c4c60a2"
+      "bytes": 2209,
+      "sha256": "5476ea9d30eb20f394ea86385edf688b2916a394680c183d3be230a26870371c"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/live-editor.ts",
@@ -872,18 +917,18 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/main.ts",
-      "bytes": 47225,
-      "sha256": "96be3943b0999d43be5c1d08303c5fbe45d6eeaad353410cfd2cbe9c8f35e41e"
+      "bytes": 47330,
+      "sha256": "bde6aae12b0fb891dab3933885c4985aad169c1e424a051f7eb28839d0f3ec0b"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/quick-capture.ts",
-      "bytes": 1821,
-      "sha256": "eca6d698378065a40ee7109b89e46cce297c88049ea1e885dc1a547e2c289093"
+      "bytes": 1842,
+      "sha256": "cc7f0014f579b7ff37afcdc51f2ef43d476be3b805bb83a521401770559d5e39"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/reader-data.ts",
-      "bytes": 2872,
-      "sha256": "5f85debda7fffd7021fa27cbb396cd4e14110141dd0b5b4b8ed820e9036867d4"
+      "bytes": 130,
+      "sha256": "6669e08aa0432d531badc788c0c8bed535b4f9d75197d3e53cc591795f17785e"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/reader.css",
@@ -892,8 +937,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/reader.ts",
-      "bytes": 10668,
-      "sha256": "6125ec6edce8a1afbd6ffbeee94f3fe2ec81255b0e9dc4ed8cec127392c2cdba"
+      "bytes": 10689,
+      "sha256": "fce4019af2e1e33b2ad54afae267c27cae3bee1766b64ea53ba1e73c537bdcc3"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/response-pages.css",
@@ -922,8 +967,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/studio.ts",
-      "bytes": 7578,
-      "sha256": "fd892cdd1d1038f7fcb56949e2283c0a714895bd049cd102e96111900b3264e5"
+      "bytes": 7599,
+      "sha256": "be15aaed2ff2736e180d8ab0730b410bf4b0a8921ed4eb3c0cf928c25a915fe5"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/vault-panel.ts",
@@ -932,8 +977,8 @@
     },
     {
       "path": "af/work/coucou/windows/src/workspace/workflows.ts",
-      "bytes": 2796,
-      "sha256": "4af632d5f81029ba040cf86231da3b573a32021bfbc5bf948d8236a18ec81b9c"
+      "bytes": 2836,
+      "sha256": "258799fd1fbb297e5f576a8b05728b9b80c820e216f6b5d3c05f408c7bb1403b"
     },
     {
       "path": "af/work/coucou/windows/src/workspace/workspace.css",
@@ -1242,8 +1287,8 @@
     },
     {
       "path": "AF-Architecture-Unification-Audit-2026-10-24.md",
-      "bytes": 6056,
-      "sha256": "86cf6904e42ddd3ea4bbc2fcc235009b9c00c0073fc1c14996589d1d0cea5bb2"
+      "bytes": 6382,
+      "sha256": "eafa04bdc39f5a478c98529fff722fe324ee8789f1adb2ab994ab1e01181abd4"
     },
     {
       "path": "AF-Audio-Ownership-Checkpoint-2026-10-23.md",
@@ -1292,8 +1337,8 @@
     },
     {
       "path": "AF-Project-Handoff-2026-10-23.md",
-      "bytes": 27386,
-      "sha256": "32f95ee36db54c76a3c8bcaabae60c2bf5aa7a1320d735d2ae63b5f71d585f24"
+      "bytes": 27835,
+      "sha256": "939417a5ac6dde2c92e4d3bf1859e29b19cdfba9b0bb35c997f9a79e315a6166"
     },
     {
       "path": "AF-Reader-Transitions-Checkpoint-2026-10-24.md",
@@ -1309,6 +1354,11 @@
       "path": "AF-Search-Sessions-Checkpoint-2026-10-24.md",
       "bytes": 3712,
       "sha256": "32bc5ec74ab77fa3296e403afc9ed24451b972b196799fa5a2a31e7d1d57cee0"
+    },
+    {
+      "path": "AF-Shared-Domain-Checkpoint-2026-10-24.md",
+      "bytes": 5146,
+      "sha256": "f2e61ee652dcfb73ba22b3ed251ac86c56bb0ceb587fda2d320ac2cee67e82fa"
     },
     {
       "path": "AF-Snapshot-Ownership-Checkpoint-2026-10-24.md",
@@ -1387,8 +1437,8 @@
     },
     {
       "path": "Project-Continuity.txt",
-      "bytes": 52860,
-      "sha256": "5445ea35e65b6b9f1525c67da879c966afea549d4754f829f16dd7618cdb7611"
+      "bytes": 55506,
+      "sha256": "7426ae6bdca0af45ae7566c0e4d827ff9548d4876ed5eac4d2938e337dcdee1f"
     },
     {
       "path": "provision-android.py",
@@ -1397,8 +1447,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 1057,
-      "sha256": "ef283d24741df0cb18d291e24a4bd574c288b439718ee6fb73f106faee4a999e"
+      "bytes": 1065,
+      "sha256": "f9b87e9aa5a23518334b4ac6cfe8edb3f27a7bf81b4577e98e72676f91552776"
     },
     {
       "path": "spotube/spotube-master/.dockerignore",
@@ -6526,6 +6576,11 @@
       "sha256": "b6eabdbf6c15607ece3c145731d29273ee0aa623797d775755aa65c554836662"
     },
     {
+      "path": "verification/AF-0.2.0-native-shared-core-checkpoint-2026-10-24-sha256.txt",
+      "bytes": 121,
+      "sha256": "9b8bd65977fe04e5fa8602f8be328fbb30c03f226a359e6005310c15b5bed224"
+    },
+    {
       "path": "verification/AF-0.2.0-reader-transitions-checkpoint-2026-10-24-sha256.txt",
       "bytes": 121,
       "sha256": "e26c17b3fc9662e2b7442037d7c4a9e7ccfaae379278c1a3dece3ac48090807f"
@@ -6629,6 +6684,11 @@
       "path": "verification/android-AF-0.2.0-embedded-music-development-shared-core-2026-10-24-inventory.json",
       "bytes": 4401,
       "sha256": "7eb3493ca767368cba8c7bfb18737b7b4302760e0abb4ea3a8775dd6798d9621"
+    },
+    {
+      "path": "verification/android-AF-0.2.0-embedded-music-development-shared-domain-2026-10-24-inventory.json",
+      "bytes": 4403,
+      "sha256": "2a7c07ee5405148556ce1e229837c0b5fab36c862c1581a3b41fc4e1d5bd19ee"
     },
     {
       "path": "verification/android-AF-0.2.0-embedded-music-development-snapshot-ownership-2026-10-24-inventory.json",
@@ -7316,9 +7376,24 @@
       "sha256": "cb4b48e6ae9e287d3f8a2490ea2dbe2a78097094f520f022487aa689e1d98d1f"
     },
     {
+      "path": "verification/github-checkpoint-commit.log",
+      "bytes": 216530,
+      "sha256": "3cee1d2916e9459f6c5e2c6cbde743dbcef40d1a2f3484878f0e317f1766921c"
+    },
+    {
+      "path": "verification/github-checkpoint-normalization.log",
+      "bytes": 166,
+      "sha256": "d3d9b97620b655199e5b3d714d183dcd18f3215c72969452114d406bf6239cbe"
+    },
+    {
       "path": "verification/github-checkpoint-precommit.json",
       "bytes": 135,
       "sha256": "d855b103a2c4a7bd3f1b1e3596c75cc1d6008ac572a9ddfc1c27c3461b9084e1"
+    },
+    {
+      "path": "verification/github-checkpoint-record.log",
+      "bytes": 467,
+      "sha256": "58b45334e215c2873f53313a600e5b0302153e3b6bb8ed075e0c20a4804a609e"
     },
     {
       "path": "verification/gradle-inprocess.log",
@@ -8386,6 +8461,201 @@
       "sha256": "b48e78f015b804a811d94511b6274e0c2a57bf1f98b37ad8f1041446566df95f"
     },
     {
+      "path": "verification/shared-domain-2026-10-24/android-native-build.log",
+      "bytes": 3180,
+      "sha256": "c57992d0125d40906d93cbacbcb445c3101c294aee4b03859fe97043987c82a7"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/apk-alignment.txt",
+      "bytes": 214545,
+      "sha256": "f341f934cc7a7e22996e69fd1f27cdc95f91ae180af6327634789dfa7be4d92c"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/apk-inventory.json",
+      "bytes": 4405,
+      "sha256": "87110c2fd2f66437d5c2d5e19f04e4749785101f4ce214dbb9cb9bf43bef9a08"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/apk-signature.txt",
+      "bytes": 986,
+      "sha256": "c9c218f7b82c6a570d35bdfa757f5a4f441de2bb93a6c07457abc6f877d671dc"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/audio-hub.log",
+      "bytes": 133,
+      "sha256": "fde14826522388c164c34713343388affbb75c932f2997825d0c6f514a314e48"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/audio-player.log",
+      "bytes": 162,
+      "sha256": "29ebcad80384e81d4d0df92ee19039e266098082d40fa5ce48e6395d1d3a7170"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/audio.log",
+      "bytes": 116,
+      "sha256": "aac7ca763073486eb34345ebfefc81da8aa71dca22de9ab2c99a35007b29c77d"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/capture-ui.log",
+      "bytes": 190,
+      "sha256": "b2fdf1f83ab2c7f43d95cf58f9aa4ea3e6c6878c3f3c79c5ec508fb17fa9fb0a"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/dashboard-ui.log",
+      "bytes": 176,
+      "sha256": "37474b047630a9373518b555a9a1175e44de959de523f13e9e6e84dbdcf9b955"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/dashboard.log",
+      "bytes": 278,
+      "sha256": "4854aa94a48fbcd988602f164a18a548ccef05a9fe88347dfa4f49d0ff4ce8a5"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/delivery-checks.json",
+      "bytes": 385,
+      "sha256": "e01a80c55973c203f90d57b7f26ef630118bfbc2a1de50463f8b008edd3c57ca"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/delivery-hashes.json",
+      "bytes": 629,
+      "sha256": "e2dca7d5325c4cd72d1332a183e174991f2899a3000818196310c8043670644f"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/followups.log",
+      "bytes": 117,
+      "sha256": "a1496b4284eee01c3cd1bea0770d7ff19327a59d9585a51b7782956781e8a596"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/frontend-tests.json",
+      "bytes": 8102,
+      "sha256": "1bafeed02ed04995522a5e5c7eb98b651907bfc6aaa6e5ca68295a5005fc9391"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/github-domain-comparison.json",
+      "bytes": 2380,
+      "sha256": "44a70e9dfea8a57f7d1c9819a7593b6bca201692c0e4062799b45d48506965bd"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/knowledge.log",
+      "bytes": 246,
+      "sha256": "0126dff96bd9d7be93eed5c4df90dc42cb8af024cf6abedf68a6911e9c2f9773"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/library.log",
+      "bytes": 99,
+      "sha256": "20f2457bb51b262e3b04189f88e42627b8a7e4efc8e9475d28e19da84a7ba184"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/migration-inventory.json",
+      "bytes": 1683,
+      "sha256": "34a2afdfde1138d7a6245271e4737a6fb6f25604027e0e13214641c58136046b"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/mobile-playback-handoff.log",
+      "bytes": 144,
+      "sha256": "5950a5a7ab27942d06e2d1bb4c05d39e35a81a510f79ee845d09e1f3e9963972"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/mobile-project-data.log",
+      "bytes": 530,
+      "sha256": "feeee3487a70b29ee93cc9364eee9fad8d9d2af5c24304901ad8056911e1cb2d"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/mobile-storage.log",
+      "bytes": 149,
+      "sha256": "4084e19bb2795276fefe5b4c277680b5228f7ceff065be326d60277c745ce73f"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/mobile-sync.log",
+      "bytes": 754,
+      "sha256": "daa0711bd1c231d5217b149c793d3204a23c825706cad0c6b2c16be81832daa2"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/mobile-workspace.log",
+      "bytes": 178,
+      "sha256": "b366030453ce981f438ac1ef3d6186d1374b6d027b1cbadb306d58d37b6735fe"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/native-music.log",
+      "bytes": 121,
+      "sha256": "4c8b7a1e8b129457ba43eb6ed08209673695b11b0c35dae7f07536567321e044"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/reader-ui.log",
+      "bytes": 176,
+      "sha256": "89d4cab56c295347722fe577df2d0461e8f2a83acf5bf87adbb14265723bbd64"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/reader.log",
+      "bytes": 145,
+      "sha256": "ac5700fb58489469eb00dfafaefcf5542b1e400b42993c184fe80bfa42bd886b"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/response-pages.log",
+      "bytes": 106,
+      "sha256": "bb876cebb397c644e9279f456ab6aa9fe8a982be82423bc3127dec82770df821"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/search-ui.log",
+      "bytes": 172,
+      "sha256": "5740ddeacefc1e54d0a116c0e11be648ee497f719753500db39c8df5a9e93d71"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/shared-domain.log",
+      "bytes": 125,
+      "sha256": "fb4ed611a0cab46ae1787d6cb494c563caccfe95aca52c533e47ac397d7a247b"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/snapshot-ui.log",
+      "bytes": 173,
+      "sha256": "a64b10461eff9d9a2ab6626a731ebeec9ec10de610b5fe735506d42fc24afc9a"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/speech.log",
+      "bytes": 301,
+      "sha256": "f763d9da38f28790435dd6390ec1edee0a7c818a48b48065a301692e8c326156"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/studio.log",
+      "bytes": 200,
+      "sha256": "ce177b9479325dbbef0e1e63223aded0cca2aae703fe20efbfcae6aceedc952c"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/vault.log",
+      "bytes": 182,
+      "sha256": "909716edef401928f58416ba8d10e7263f638cbfeb9c6af1324972656515d4ac"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/windows-package.log",
+      "bytes": 3383,
+      "sha256": "f40462724c4bb2d3bba3586f9f2c15e4deddf6bfce59db3dc918dbeb8678b4f5"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/windows-signature.json",
+      "bytes": 224,
+      "sha256": "5b7b9a16543368a50fd39610a28ba9411f5a0e5fa5d06d308cd4c8d9a5264e94"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/workspace.log",
+      "bytes": 990,
+      "sha256": "15151d3cc80381c918c8b70994cef1452c252e289336a88429f85c5c4c217277"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/writing-guard.log",
+      "bytes": 192,
+      "sha256": "5672f1f6c62fdcf0bb00a699a7f70707e3b78d77fc182ae51fd88964d83c26b0"
+    },
+    {
+      "path": "verification/shared-domain-android.log",
+      "bytes": 93,
+      "sha256": "b96733f8f3af4f3208fb227a0d6b0001e9b467e4ac79cd484ff88b05fb1a754c"
+    },
+    {
+      "path": "verification/shared-domain-checks.log",
+      "bytes": 3535,
+      "sha256": "0009381436bdcbc255d385eb6eba0a52910e2a4c904ba2a3a6ccd5fe5a3ea80f"
+    },
+    {
       "path": "verification/snapshot-ownership-2026-10-24/android-native-build.log",
       "bytes": 3136,
       "sha256": "755ee1e551a063de583849afbb3b215a2db32ff12ed2d3eb53df411a47fda4c1"
@@ -8826,12 +9096,22 @@
       "sha256": "15151d3cc80381c918c8b70994cef1452c252e289336a88429f85c5c4c217277"
     },
     {
+      "path": "verification/tauri-plugin-diff-check.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "path": "verification/tauri-toolkit-github-inspection.json",
       "bytes": 1503,
       "sha256": "3711dd8f359301e85f9ce388235f8a911de7ed863222410dd54d83b2390dc85b"
     },
     {
       "path": "verification/tauri-toolkit-local-inspection.json",
+      "bytes": 1384,
+      "sha256": "1e4390e7b2e69f8da71c1fb7ed75afdb92d83f12ee8e2fa1c20a6eae17916f68"
+    },
+    {
+      "path": "verification/tauri-toolkit-resume-inspection.json",
       "bytes": 1384,
       "sha256": "1e4390e7b2e69f8da71c1fb7ed75afdb92d83f12ee8e2fa1c20a6eae17916f68"
     },
@@ -9043,7 +9323,7 @@
     {
       "path": "verification/windows-native-2026-10-24/windows-base-development.config.json",
       "bytes": 533,
-      "sha256": "645dad1ab3fdc7c206b49e6a99d3d3a6e09627f209be65d0c92245f04b7f4e26"
+      "sha256": "c05a833bba84ea14c072c44b5a092bee4319daa9320fdc787a4fdb88588905e9"
     },
     {
       "path": "verification/windows-native-2026-10-24/windows-binaries.json",
@@ -9417,8 +9697,8 @@
     },
     {
       "path": "verify-frontend.ps1",
-      "bytes": 5502,
-      "sha256": "f3c65111a5e489b3d25a26968d1af06d759596bebc9db68b9299894ed96c4806"
+      "bytes": 5612,
+      "sha256": "334c64f3d957f32f3613b79feeaeb12922849c43b1cae0ac95e685f578fd12ac"
     }
   ]
 }

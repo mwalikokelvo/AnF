@@ -10,6 +10,7 @@ if ($EvidenceDirectory) { $taskEvidence = [IO.Path]::GetFullPath($EvidenceDirect
 New-Item -ItemType Directory -Force $taskEvidence | Out-Null
 $taskEsbuild = Join-Path $taskWindows 'node_modules/@esbuild/win32-x64/esbuild.exe'
 $taskChecks = @(
+  @('shared-domain', "$taskWindows/dev/shared-domain-check.cjs", "$taskWindows/dev/shared-domain-entry.ts"),
   @('workspace', "$taskWindows/dev/workspace-check.cjs", "$taskWindows/src/workspace/main.ts"),
   @('mobile-workspace', "$taskAndroid/workspace-check.cjs", "$taskAndroid/web/main.ts"),
   @('audio-hub', "$taskWindows/dev/audio-hub-check.cjs", "$taskEvidence/audio-hub-entry.ts"),

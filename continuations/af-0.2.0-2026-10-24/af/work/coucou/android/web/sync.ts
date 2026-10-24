@@ -1,4 +1,4 @@
-import {copyEvidence,type Evidence} from '../../windows/src/workspace/answer-evidence';
+import {copyEvidence,type Evidence} from '../../shared/domain/answer-evidence';
 import {restoreProjects,restoreSource,type Project,type Source} from './project-data';
 export type Wire={id:string;name:string;title:string;question:string;draft:string;history:{role:string;content:{text:string}[];evidence?:Evidence[]}[];sources:(Source&{path:null;pages:{number:number;text:string;ocr:boolean}[]})[];memory:string;model:string};
 export type Snapshot={project:Wire;revision:string};
