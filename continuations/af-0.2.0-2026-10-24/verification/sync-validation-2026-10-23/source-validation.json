@@ -1,0 +1,15 @@
+{
+  "focusedSuites": 19,
+  "passingSuites": 19,
+  "changedFiles": [
+    "android/sync-check.cjs",
+    "android/workspace-check.cjs",
+    "android/web/main.ts",
+    "android/web/sync.ts"
+  ],
+  "scope": "Android received sync conversion, identity checks and host storage dispatch with doubles",
+  "windowsSourceChanged": false,
+  "nativeJavaSourceChanged": false,
+  "flutterSourceChanged": false,
+  "nativeSyncNetworkDeviceAcceptance": "not run"
+}

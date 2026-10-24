@@ -1,0 +1,12 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "10DD99837888D1687D528A7222B356CAA3CCFA1E82C247428BEEBE525EFC23D9",
+    "Path": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\artifacts\\AF-0.2.0-Windows-base-development-shared-core-2026-10-24-setup.exe"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6145A10BCA8B06494FD11614107F0EAD6F9AC354B076ED33FD7E3AF1EB06454A",
+    "Path": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\artifacts\\AF-0.2.0-embedded-music-development-shared-core-2026-10-24.apk"
+  }
+]

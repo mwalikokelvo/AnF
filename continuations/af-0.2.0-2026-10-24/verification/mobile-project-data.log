@@ -1,0 +1,2 @@
+Android data checks passed: legacy restore, unfinished replies, safe copies, malformed backups, append/replace and full draft preservation.
+Reading-note backup checks passed: anchored notes preserved and changed text rejected.

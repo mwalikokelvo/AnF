@@ -1,0 +1,11 @@
+   Compiling openssl-sys v0.9.117
+   Compiling libsqlite3-sys v0.38.2
+    Checking rusqlite v0.40.2
+    Checking coucou v0.2.0 (C:\Users\jhadfield\.codex\.chatgpt-projects\g-p-6acd87885670819194650fb31b8c786a\build-work\af\work\coucou\windows\src-tauri)
+error: couldn't read `C:\Users\jhadfield\.codex\.chatgpt-projects\g-p-6acd87885670819194650fb31b8c786a\build-work\af\work\coucou\windows\src-tauri/../target/release/coucou-hook.exe`: The system cannot find the path specified. (os error 3)
+   --> src-tauri\src\hooks.rs:388:34
+    |
+388 |             const RELAY: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../target/release/coucou-hook.exe"));
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: could not compile `coucou` (lib) due to 1 previous error

@@ -1,0 +1,2 @@
+Speech segmentation checks passed: punctuation, bounded native chunks, empty text and Unicode boundaries.
+Speech lifecycle checks passed: acknowledged preflight, cancellation races, rejected handoffs, unique callbacks, owner isolation, sentence continuity, voice failures and browser stale replies.

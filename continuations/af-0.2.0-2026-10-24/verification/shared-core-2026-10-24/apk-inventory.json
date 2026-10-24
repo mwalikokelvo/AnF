@@ -1,0 +1,205 @@
+{
+  "path": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\artifacts\\AF-0.2.0-embedded-music-development-shared-core-2026-10-24.apk",
+  "artifactType": "APK",
+  "bytes": 191778600,
+  "sha256": "6145a10bca8b06494fd11614107f0ead6f9ac354b076ed33fd7e3af1eb06454a",
+  "crc": "pass",
+  "nativeLibraries": [
+    {
+      "file": "lib/arm64-v8a/libapp.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/arm64-v8a/libdatastore_shared_counter.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/arm64-v8a/libflutter.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/arm64-v8a/libmediakitandroidhelper.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/arm64-v8a/libmpv.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/arm64-v8a/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/arm64-v8a/libsqlite3.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libapp.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libdatastore_shared_counter.so",
+      "loadAlignment": [
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libflutter.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libmediakitandroidhelper.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libmpv.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/armeabi-v7a/libsqlite3.so",
+      "loadAlignment": [
+        4096,
+        4096,
+        4096
+      ],
+      "supports16KAlignment": false
+    },
+    {
+      "file": "lib/x86_64/libapp.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libdatastore_shared_counter.so",
+      "loadAlignment": [
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libflutter.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libmediakitandroidhelper.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libmpv.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libsqlcipher.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "lib/x86_64/libsqlite3.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    }
+  ],
+  "embeddedFlutter": true,
+  "containsFlutterAot": true,
+  "runtimeInstallTest": "not run: no connected Android device"
+}

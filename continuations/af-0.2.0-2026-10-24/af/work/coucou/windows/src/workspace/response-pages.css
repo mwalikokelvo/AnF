@@ -1,0 +1,1 @@
+.response-navigation{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:12px 0;font-size:12px}.response-navigation button{font:inherit;padding:7px 10px;border-radius:8px;cursor:pointer}.response-pages pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:0}.response-navigation button:disabled{opacity:.4;cursor:default}

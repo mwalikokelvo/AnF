@@ -1,0 +1,5 @@
+Sync conversion passed: Windows round-trip, page citations, local pending replies, document opt-out, byte limits and stable identities.
+Reading-note sync checks passed: metadata round trip and document opt-out.
+Answer-evidence sync checks passed: opt-in round trip, chat-only privacy and revision-matched local preservation.
+Inbound sync validation passed: protocol shapes, Unicode byte boundaries, requested identities, immutable failures, bounded history/sources and document opt-out.
+Exchange identity checks passed: normal replies, legitimate renamed conflict pairs and unrelated/malformed identity rejection.

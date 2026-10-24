@@ -1,0 +1,97 @@
+// Android workspace integration against native storage/link doubles, not a device test.
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+class Element{
+ constructor(tag='audio'){this.tag=tag;this.children=[];this.attrs={};this.listeners={};this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.files=[];this.style={};this.dataset={};this.classList={toggle(){},add(){},remove(){}};}
+ setAttribute(k,v){this.attrs[k]=v;if(k==='value')this.value=v;if(k==='disabled')this.disabled=true;if(k==='hidden')this.hidden=true;}
+ getAttribute(k){return this.attrs[k];}hasAttribute(k){return Object.hasOwn(this.attrs,k);}
+ removeAttribute(k){delete this.attrs[k];if(k==='disabled')this.disabled=false;if(k==='hidden')this.hidden=false;}
+ append(...items){for(const item of items){item.remove();item.parent=this;}this.children.push(...items);if(this.tag==='select'&&!this.value)this.value=this.children.find(x=>x.tag==='option')?.value??'';}
+ prepend(...items){for(const item of items){item.remove();item.parent=this;}this.children.unshift(...items);}
+ replaceChildren(...items){this.children=[];this.append(...items);}remove(){if(this.parent)this.parent.children=this.parent.children.filter(c=>c!==this);}
+ get nextSibling(){return this.parent?.children[this.parent.children.indexOf(this)+1];}
+ closest(selector){for(let node=this;node;node=node.parent)if(selector.startsWith('.')&&node.className?.split(' ').includes(selector.slice(1)))return node;return null;}
+ contains(item){for(let n=item;n;n=n.parent)if(n===this)return true;return false;}
+ addEventListener(k,fn){(this.listeners[k]??=[]).push(fn);}dispatch(k){if(k==='click'&&this.disabled)return;for(const fn of this.listeners[k]??[])fn({target:this});}
+ querySelector(s){return this.querySelectorAll(s)[0];}querySelectorAll(s){const selectors=s.split(',');const matches=n=>selectors.some(x=>x.startsWith('.')?n.className?.split(' ').includes(x.slice(1)):x===n.tag);return this.children.flatMap(n=>[...(matches(n)?[n]:[]),...n.querySelectorAll(s)]);}
+ focus(){}setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;}getContext(){return null;}pause(){}load(){}
+}
+const root=new Element('div'),body=new Element('body');body.append(root);
+const documentEvents={},windowEvents={},requests=[],projects=new Map();
+const initial={id:'00000000-0000-4000-8000-000000000001',name:'Existing conversation',draft:'Original writing',prompt:'',notes:[],sources:[],updated:1};projects.set(initial.id,structuredClone(initial));
+let context,pausePut=false,pendingPut,throwLink=false,nativeActiveLink;
+const musicRequests=[],spoken=[];
+const native={
+ vaultRequest(id,operation,json){const args=JSON.parse(json);const answer=()=>{let result;
+  if(operation==='status')result={encrypted:true,projects:projects.size,legacy_retained:true};
+  else if(operation==='list')result=[...projects.values()].map(p=>({id:p.id,name:p.name,updated:p.updated}));
+  else if(operation==='get')result=projects.get(args.id)||null;
+  else if(operation==='put'){for(const p of args.projects)projects.set(p.id,structuredClone(p));result=null;}
+  else throw Error('Unexpected native storage operation: '+operation);
+  context.window.vaultResult(id,JSON.stringify(result),'');
+ };if(operation==='put'&&pausePut)pendingPut=answer;else queueMicrotask(answer);},
+ linkRequest(id,code,path,json){if(throwLink)throw Error('Simulated connection failure');if(nativeActiveLink){queueMicrotask(()=>context.window.linkResult(id,'','Another connection request is running.'));return;}nativeActiveLink=id;requests.push({id,code,path,value:JSON.parse(json)});},
+ musicRequest(id,op){if(op==='available')queueMicrotask(()=>context.window.coucouMusicResult(id,JSON.stringify({available:true}),''));else musicRequests.push({id,op});},
+ export(){},copy(){},speak(text){spoken.push(text);},stopSpeaking(){},openProvider(){},searchWeb(){}
+};
+const document={body,documentElement:new Element('html'),hidden:false,addEventListener:(name,fn)=>(documentEvents[name]??=[]).push(fn),getElementById:id=>id==='app'?root:undefined,createElement:t=>new Element(t),createTextNode:t=>Object.assign(new Element('text'),{textContent:t})};
+context={document,window:{CoucouAndroid:native,addEventListener:(name,fn)=>(windowEvents[name]??=[]).push(fn),location:{href:'https://app.test/'}},navigator:{},indexedDB:{open:()=>({})},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},Audio:Element,DOMMatrix:class{},URL,Blob,AbortController,TextEncoder,TextDecoder,structuredClone,crypto:require('node:crypto').webcrypto,console,setTimeout,clearTimeout,setInterval,clearInterval,requestAnimationFrame:()=>0,cancelAnimationFrame(){}};
+vm.runInNewContext(fs.readFileSync(process.argv[2],'utf8'),context);
+const buttons=label=>root.querySelectorAll('button').find(e=>e.textContent===label),input=label=>root.querySelectorAll('input,textarea,select').find(e=>e.attrs['aria-label']===label);
+const flush=()=>new Promise(resolve=>setImmediate(resolve));
+async function until(condition,message){for(let i=0;i<200;i++){await flush();if(condition())return;}throw Error(message);}
+const ready=()=>until(()=>!buttons('Ask my Windows PC').disabled,'Workspace did not become ready');
+const respond=(request,value)=>{if(nativeActiveLink===request.id)nativeActiveLink=undefined;context.window.linkResult(request.id,JSON.stringify({ok:value}),'');};
+const status=()=>root.querySelectorAll('p').find(e=>e.className==='status').textContent;
+(async()=>{
+ await ready();assert.equal(input('Your writing').value,'Original writing');
+ // Actual writing controls must await music pause and honour Stop while waiting.
+ const musicReply=(request,playing)=>context.window.coucouMusicResult(request.id,JSON.stringify({playing}),'');
+ buttons('Read aloud').dispatch('click');await until(()=>musicRequests.length===1,'Expected speech handoff');assert.equal(spoken.length,0);buttons('Stop reading').dispatch('click');musicReply(musicRequests.shift(),false);await flush();assert.equal(spoken.length,0,'Stopped preparation cannot start TTS');
+ buttons('Read aloud').dispatch('click');await until(()=>musicRequests.length===1,'Expected refused pause');musicReply(musicRequests.shift(),true);await flush();assert.equal(spoken.length,0);assert(status().includes('could not be paused'));
+ buttons('Read aloud').dispatch('click');await until(()=>musicRequests.length===1,'Expected acknowledged pause');musicReply(musicRequests.shift(),false);await until(()=>spoken.length===1,'Expected TTS after pause');assert.equal(spoken[0],'Original writing');buttons('Stop reading').dispatch('click');
+ input('Windows pairing code').value='test-only-pairing';input('Include document text when syncing').checked=true;input('AI context').value='draft';
+ input('Your question').value='Explain my current draft';input('Your writing').value='Context before save';input('Your writing').dispatch('input');
+ pausePut=true;buttons('Ask my Windows PC').dispatch('click');await until(()=>pendingPut,'Expected a delayed save');
+ assert(!input('Your writing').disabled);assert(!buttons('Writing').disabled);assert(input('Your question').disabled);assert(buttons('＋ New conversation').disabled);
+ buttons('Writing').dispatch('click');input('Your writing').value='New typing while waiting';input('Your writing').dispatch('input');pausePut=false;pendingPut();
+ await until(()=>requests.length===1,'Expected a PC request');const first=requests[0];assert.equal(first.value.sources[0].text,'Context before save');
+ document.hidden=true;for(const fn of documentEvents.visibilitychange||[])fn();await until(()=>projects.get(initial.id).draft==='New typing while waiting','Background save must preserve new typing');document.hidden=false;
+ respond(first,{text:'An answer for the earlier draft',notice:'PC replied.',evidence:[{id:1,sourceName:'Stored excerpt',page:2,text:'Original supporting text',ocr:false}]});await ready();
+ assert.equal(input('Your writing').value,'New typing while waiting');assert.equal(projects.get(initial.id).notes.at(-1).evidence[0].page,2);assert.equal(projects.get(initial.id).draft,'New typing while waiting');
+ buttons('Append to writing').dispatch('click');assert(input('Your writing').value.includes('An answer for the earlier draft'));buttons('Undo').dispatch('click');assert.equal(input('Your writing').value,'New typing while waiting');
+ buttons('Review replacement').dispatch('click');assert.equal(input('Your writing').value,'New typing while waiting');input('Your writing').value='Another newer edit';input('Your writing').dispatch('input');buttons('Accept changes').dispatch('click');assert.equal(input('Your writing').value,'Another newer edit');buttons('Keep original').dispatch('click');
+ input('Your question').value='A request to stop';buttons('Ask my Windows PC').dispatch('click');await until(()=>requests.length===2,'Expected second request');const stopped=requests[1],before=projects.get(initial.id).notes.length;input('Your writing').value='Keep edits after stop';input('Your writing').dispatch('input');buttons('Stop waiting').dispatch('click');await ready();assert(status().includes('PC may still be processing'));
+ input('Your question').value='Retry while the old connection is running';buttons('Ask my Windows PC').dispatch('click');await ready();assert(status().includes('Another connection request is running'));assert.equal(requests.length,2,'Respect the native bridge single-connection guard');
+ respond(stopped,{text:'Late unwanted reply',notice:'Late',evidence:[]});await flush();assert.equal(input('Your writing').value,'Keep edits after stop');assert.equal(projects.get(initial.id).notes.length,before);
+ // A late reply from a stopped request cannot affect a newer request either.
+ input('Your question').value='A fresh request';buttons('Ask my Windows PC').dispatch('click');await until(()=>requests.length===3,'Expected third request');respond(stopped,{text:'Still late',notice:'Late',evidence:[]});assert(buttons('Ask my Windows PC').disabled);respond(requests[2],{text:'Fresh answer',notice:'Ready',evidence:[]});await ready();assert.equal(projects.get(initial.id).notes.at(-1).text,'Fresh answer');assert.equal(input('Your writing').value,'Keep edits after stop');
+ // Pasted replies also require review before replacing the working draft.
+ input('Browser reply').value='Pasted replacement';input('Save reply into writing').value='replace';buttons('Save pasted reply').dispatch('click');await ready();assert.equal(input('Your writing').value,'Keep edits after stop');buttons('Accept changes').dispatch('click');assert.equal(input('Your writing').value,'Pasted replacement');buttons('Undo').dispatch('click');assert.equal(input('Your writing').value,'Keep edits after stop');
+ throwLink=true;input('Your question').value='A connection failure';buttons('Ask my Windows PC').dispatch('click');await ready();assert(status().includes('Simulated connection failure'));assert.equal(input('Your writing').value,'Keep edits after stop');assert(buttons('Stop waiting').hidden);
+ // Stop before the save completes: no PC request should be dispatched.
+ throwLink=false;pausePut=true;pendingPut=undefined;input('Your writing').value='Preserve a pre-dispatch edit';input('Your writing').dispatch('input');input('Your question').value='Stop before sending';const requestCount=requests.length;buttons('Ask my Windows PC').dispatch('click');await until(()=>pendingPut,'Expected pre-dispatch save');buttons('Stop waiting').dispatch('click');pausePut=false;pendingPut();await ready();assert.equal(requests.length,requestCount);assert.equal(input('Your writing').value,'Preserve a pre-dispatch edit');
+ // Document opt-out also excludes evidence snapshots from the request history.
+ input('Include document text when syncing').checked=false;input('AI context').value='draft';input('Your question').value='A general question without documents';buttons('Ask my Windows PC').dispatch('click');await until(()=>requests.length===requestCount+1,'Expected opted-out request');const optedOut=requests.at(-1);assert.equal(optedOut.value.sources.length,0);assert(!JSON.stringify(optedOut.value).includes('Original supporting text'));respond(optedOut,{text:'A general answer',notice:'Ready',evidence:[]});await ready();assert.equal(input('Your writing').value,'Preserve a pre-dispatch edit');
+ const notesBeforeInvalid=projects.get(initial.id).notes.length;
+ for(const invalid of [null,{text:7},{text:'🙂'.repeat(50001)},{text:'A reply',evidence:[{id:1,sourceName:'Invalid',page:-1,text:'Quote',ocr:false}]}]){
+  const count=requests.length;input('Your question').value='Check an invalid reply';buttons('Ask my Windows PC').dispatch('click');await until(()=>requests.length===count+1,'Expected validation request');respond(requests.at(-1),invalid);await ready();assert.equal(input('Your writing').value,'Preserve a pre-dispatch edit');assert.equal(projects.get(initial.id).notes.length,notesBeforeInvalid,'Invalid replies must not corrupt saved history');
+ }
+ const stoppedCount=requests.length;input('Your question').value='Stop before changing conversations';buttons('Ask my Windows PC').dispatch('click');await until(()=>requests.length===stoppedCount+1,'Expected final stopped request');const oldConversationRequest=requests.at(-1);buttons('Stop waiting').dispatch('click');await ready();buttons('＋ New conversation').dispatch('click');await ready();assert.equal(input('Your writing').value,'');respond(oldConversationRequest,{text:'Reply for the old conversation',notice:'Late',evidence:[]});await flush();assert.equal(input('Your writing').value,'');assert([...projects.values()].some(p=>p.id!==initial.id&&p.notes.length===0),'Late answers must not enter a different conversation');
+ // A malformed sync exchange must fail before replacing its saved conversation.
+ let syncRequestIndex=requests.length;buttons('Sync now').dispatch('click');await until(()=>requests.length>syncRequestIndex,'Expected sync capabilities');assert.equal(requests[syncRequestIndex].path,'/v1/list');respond(requests[syncRequestIndex++],{features:['reading-v1'],entries:[]});await until(()=>requests.length>syncRequestIndex,'Expected sync exchange');
+ const badSync=requests[syncRequestIndex++],beforeBadSync=JSON.stringify([...projects.entries()]);assert.equal(badSync.path,'/v1/sync');respond(badSync,{project:{...badSync.value.project,draft:'🙂'.repeat(50001)},revision:'b'.repeat(64),conflict:false,other:null});await ready();assert(status().includes('Invalid or mismatched conversation'));assert.equal(JSON.stringify([...projects.entries()]),beforeBadSync,'Malformed exchange cannot update local content or revision');
+ // A newly pulled conversation must match the identity requested from the PC.
+ syncRequestIndex=requests.length;const localSyncCount=projects.size;buttons('Sync now').dispatch('click');await until(()=>requests.length>syncRequestIndex,'Expected second sync');respond(requests[syncRequestIndex++],{features:['reading-v1'],entries:[]});
+ for(let i=0;i<localSyncCount;i++){await until(()=>requests.length>syncRequestIndex,'Expected local exchange');const req=requests[syncRequestIndex++];assert.equal(req.path,'/v1/sync');if(i===0)respond(req,{project:{...req.value.project,id:'f'.repeat(64),name:'Conflict copy'},revision:'b'.repeat(64),conflict:true,other:{project:req.value.project,revision:'e'.repeat(64)}});else respond(req,{project:req.value.project,revision:'b'.repeat(64),conflict:false,other:null});}
+ await until(()=>requests.length>syncRequestIndex,'Expected remote list');assert.equal(requests[syncRequestIndex].path,'/v1/list');assert.equal(projects.size,localSyncCount+1,'A legitimate conflict keeps both copies');assert([...projects.values()].some(p=>p.sync?.id==='f'.repeat(64)));respond(requests[syncRequestIndex++],{entries:[{id:'c'.repeat(64)}]});await until(()=>requests.length>syncRequestIndex,'Expected remote pull');const pull=requests[syncRequestIndex++];assert.equal(pull.path,'/v1/pull');assert.equal(pull.value.id,'c'.repeat(64));const beforeBadPull=JSON.stringify([...projects.entries()]);respond(pull,{project:{...badSync.value.project,id:'d'.repeat(64)},revision:'e'.repeat(64)});await ready();assert(status().includes('Invalid or mismatched conversation'));assert.equal(JSON.stringify([...projects.entries()]),beforeBadPull,'Mismatched pull cannot create or overwrite local work');assert.equal(input('Your writing').value,'');
+ // Reject duplicate remote identities before assigning identities or exchanging work.
+ syncRequestIndex=requests.length;const beforeDuplicateList=JSON.stringify([...projects.entries()]);buttons('Sync now').dispatch('click');await until(()=>requests.length>syncRequestIndex,'Expected inventory validation');respond(requests[syncRequestIndex++],{features:['reading-v1'],entries:[{id:'a'.repeat(64)},{id:'a'.repeat(64)}]});await ready();assert(status().includes('duplicate PC conversation identity'));assert.equal(requests.length,syncRequestIndex,'Invalid inventory must not dispatch exchanges or pulls');assert.equal(JSON.stringify([...projects.entries()]),beforeDuplicateList);
+ input('Include document text when syncing').checked=true;syncRequestIndex=requests.length;buttons('Sync now').dispatch('click');await until(()=>requests.length>syncRequestIndex,'Expected capability validation');respond(requests[syncRequestIndex++],{features:'reading-v1',entries:[]});await ready();assert(status().includes('Update Windows'));assert.equal(requests.length,syncRequestIndex,'A string is not a valid advertised feature list');assert.equal(JSON.stringify([...projects.entries()]),beforeDuplicateList);
+ syncRequestIndex=requests.length;buttons('Check connection').dispatch('click');await until(()=>requests.length>syncRequestIndex,'Expected connection inventory');respond(requests[syncRequestIndex++],{entries:[{id:'invalid'}]});await ready();assert(status().includes('Invalid or duplicate PC conversation identity'));
+ // Reject a backup containing an invalid second project before writing either copy.
+ const restore=input('Restore a Coucou backup'),beforeRestore=JSON.stringify([...projects.entries()]);
+ const saved={name:'Copy',draft:'Valid writing',prompt:'',notes:[],sources:[]};
+ restore.files=[{size:300000,text:async()=>JSON.stringify({kind:'coucou-mobile-backup',projects:[saved,{...saved,draft:'🙂'.repeat(50001)}]})}];restore.dispatch('change');await ready();assert(status().includes('invalid conversations'));assert.equal(JSON.stringify([...projects.entries()]),beforeRestore,'Invalid restore must not write even its valid first conversation');assert.equal(restore.value,'');
+ restore.files=[{size:200500,text:async()=>JSON.stringify({kind:'coucou-mobile-backup',projects:[{...saved,name:'界'.repeat(160),draft:'🙂'.repeat(50000)}]})}];restore.dispatch('change');await ready();assert(status().includes('Restored 1 conversations as new copies.'));assert.equal(projects.size,JSON.parse(beforeRestore).length+1);assert([...projects.values()].some(p=>p.draft==='🙂'.repeat(50000)),'Byte-exact Unicode writing must restore without truncation');assert.equal(input('Your writing').value,'','Restored copies must not overwrite the active writing');
+ console.log('Android workspace checks passed: editable waiting, guarded answers, stopped/stale requests, malformed sync and mismatched pull rejection, and atomic Unicode restore validation.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

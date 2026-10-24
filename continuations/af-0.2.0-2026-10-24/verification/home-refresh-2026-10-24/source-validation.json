@@ -1,0 +1,12 @@
+{
+  "focusedSuites": 24,
+  "passingSuites": 24,
+  "changedExistingAppFiles": [
+    "windows/src/workspace/dashboard.ts"
+  ],
+  "newAppTest": "windows/dev/dashboard-ui-check.cjs",
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "hardwareAcceptance": "not run"
+}

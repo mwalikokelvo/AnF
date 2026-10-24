@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-23",
+  "windowsTypecheck": "pass",
+  "windowsViteBuild": "pass",
+  "androidTypecheck": "pass",
+  "androidFrontendBundle": "pass",
+  "regressionSuites": 16,
+  "regressionFailures": 0,
+  "androidGradleDebugBuild": "pass",
+  "apkSha256": "8d8c346b416518216e96ae199c562fd16934ff68fc72c8ed6cdc9df3b2179d2c",
+  "apkFrontendMatchesCurrentAssets": true,
+  "apkSignature": "pass: v2, development certificate",
+  "zipCrc": "pass",
+  "zipalign": "pass",
+  "windowsNativeRustTests": "not run: toolchain absent",
+  "physicalDeviceAcceptance": "not run: no connected device"
+}

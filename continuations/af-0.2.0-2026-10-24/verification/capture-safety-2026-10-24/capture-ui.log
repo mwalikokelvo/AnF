@@ -1,0 +1,1 @@
+Quick capture UI checks passed: frozen pending save, busy/open refusal, sync/async failure retention, shared 8,000 limit, Unicode-safe prefix, existing-note protection and workspace guard.

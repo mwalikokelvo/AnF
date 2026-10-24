@@ -1,0 +1,1 @@
+Vault tests passed: verified migration, plaintext source retained, encrypted write routing, concurrent autosave preserved, damaged copy blocks commit, unavailable key fails closed.

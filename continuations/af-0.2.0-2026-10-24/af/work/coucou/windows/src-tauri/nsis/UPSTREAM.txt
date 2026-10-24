@@ -1,0 +1,3 @@
+Upstream: https://raw.githubusercontent.com/tauri-apps/tauri/tauri-cli-v2.12.0/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi
+SHA256: dabed59013b1d78b879a1a85bc7f2eed2993b33a9a90cdabe5946de3d3950597
+Local changes: legacy Coucou uninstall/product registry keys and installation-directory defaults; display product stays A&F. Source checked only. Installer compilation and installed upgrade acceptance remain pending.

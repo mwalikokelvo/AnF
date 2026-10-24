@@ -1,0 +1,17 @@
+{
+  "focusedSuites": 25,
+  "passingSuites": 25,
+  "changedExistingAppFiles": [
+    "windows/src/workspace/live-editor.ts"
+  ],
+  "newFiles": [
+    "windows/src/workspace/writing-guard.ts",
+    "windows/dev/writing-guard-entry.ts",
+    "windows/dev/writing-guard-check.cjs"
+  ],
+  "testEngine": "installed real CodeMirror EditorState",
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "liveEditorViewAndHardwareAcceptance": "not run"
+}

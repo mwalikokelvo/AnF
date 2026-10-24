@@ -1,0 +1,14 @@
+{
+  "focusedSuites": 21,
+  "passingSuites": 21,
+  "changedExistingAppFiles": [
+    "android/web/main.ts",
+    "windows/src/workspace/main.ts",
+    "windows/src/workspace/snapshot-panel.ts"
+  ],
+  "newAppTest": "windows/dev/snapshot-ui-check.cjs",
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "nativeSnapshotAcceptance": "not run"
+}

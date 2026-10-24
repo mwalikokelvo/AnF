@@ -1,0 +1,12 @@
+// This is a generated file; do not edit or check into version control.
+FLUTTER_ROOT=C:\Users\jhadfield\.codex\.chatgpt-projects\g-p-6acd87885670819194650fb31b8c786a\build-work\tools\flutter
+FLUTTER_APPLICATION_PATH=C:\Users\jhadfield\.codex\.chatgpt-projects\g-p-6acd87885670819194650fb31b8c786a\build-work\spotube\spotube-master
+COCOAPODS_PARALLEL_CODE_SIGN=true
+FLUTTER_BUILD_DIR=build
+FLUTTER_BUILD_NAME=5.1.2
+FLUTTER_BUILD_NUMBER=45
+FLUTTER_CLI_BUILD_MODE=debug
+DART_OBFUSCATION=false
+TRACK_WIDGET_CREATION=true
+TREE_SHAKE_ICONS=false
+PACKAGE_CONFIG=.dart_tool/package_config.json

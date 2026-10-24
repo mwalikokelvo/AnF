@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"What Coucou's windows are allowed to do. Everything that touches the OS goes through Coucou's own commands.","local":true,"windows":["island","settings","workspace"],"permissions":["core:default","autostart:default"]}}

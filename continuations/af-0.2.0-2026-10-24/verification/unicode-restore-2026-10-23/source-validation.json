@@ -1,0 +1,10 @@
+{
+  "focusedSuites": 19,
+  "passingSuites": 19,
+  "scope": "Android restore validation and workspace restore dispatch with bridge doubles",
+  "windowsSourceChanged": false,
+  "nativeJavaSourceChanged": false,
+  "flutterSourceChanged": false,
+  "actualSqlCipherRestore": "not run",
+  "deviceAcceptance": "not run"
+}

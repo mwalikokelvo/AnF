@@ -1,0 +1,24 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling windows-link v0.1.3
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling windows-strings v0.4.2
+   Compiling windows-result v0.3.4
+   Compiling windows-threading v0.1.0
+   Compiling syn v2.0.119
+   Compiling windows-interface v0.59.3
+   Compiling windows-implement v0.60.2
+   Compiling windows-core v0.61.2
+   Compiling windows-numerics v0.2.0
+   Compiling windows-collections v0.2.0
+   Compiling windows-future v0.2.1
+   Compiling windows v0.61.3
+   Compiling coucou-hook v0.2.0 (C:\Users\jhadfield\.codex\.chatgpt-projects\g-p-6acd87885670819194650fb31b8c786a\build-work\af\work\coucou\windows\hook)
+    Finished `release` profile [optimized] target(s) in 18.98s
+    Checking coucou v0.2.0 (C:\Users\jhadfield\.codex\.chatgpt-projects\g-p-6acd87885670819194650fb31b8c786a\build-work\af\work\coucou\windows\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.26s

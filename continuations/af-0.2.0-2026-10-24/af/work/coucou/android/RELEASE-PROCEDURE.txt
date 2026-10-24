@@ -1,0 +1,26 @@
+Coucou release procedure
+
+User preference: produce matching Windows and Android packages for future updates.
+Build-Release.ps1 builds both. Build-Coucou.ps1 and Build-Android.ps1 can also run separately.
+Both read the version in windows/src-tauri/tauri.conf.json. Keep Cargo and frontend
+package versions in sync. Android versionCode is derived from the same version.
+
+Windows preserves the existing app identity and data paths. Use the same install
+folder and select Do not uninstall when upgrading. Save work and quit first.
+
+Android uses package com.coucou.workspace. Always reuse the original signing key
+in the workspace's work/android-tools/signing directory. Back that directory up
+privately; do not publish it with the release or source repository. Losing the key
+prevents compatible in-place updates. Build-Android.ps1 refuses to silently create
+a new key. Export a conversation backup before uninstalling or changing devices.
+
+Before release: run Windows native and frontend regression checks, check the
+Android frontend, verify APK signatures and package version, and test the UI with
+sample data at phone and tablet widths. Physical Android device testing is still
+required for full validation of the native file picker, read-aloud, and export.
+Do not claim on-device Android AI, OCR, automatic browser replies, or cloud quota
+bypasses. The first Android edition intentionally uses external browser accounts.
+
+Build tools are installed only in this workspace. The Android setup uses verified
+Microsoft OpenJDK 21 and Google Android command-line SDK tools, platform 35 and
+build-tools 35.0.0. No global Java installation is required.

@@ -1,0 +1,1968 @@
+{
+  "upstreamVersion": "5.1.2+45",
+  "moduleVersion": "0.2.0",
+  "newPipeRevision": "41cbd821ce49b9343136f67d83d3117e582dad75",
+  "desktopAssetsExcluded": true,
+  "copiedFiles": [
+    {
+      "path": "lib/generated_plugin_registrant.dart",
+      "sha256": "e39f036ae8939d5f4700890d835233419956a9e5387e995e6a44439ec58fec92"
+    },
+    {
+      "path": "lib/main.dart",
+      "sha256": "97a541a251722cd04fcc5e042f26ac347d56211cf883c245368c969362ac026b"
+    },
+    {
+      "path": "lib/collections/assets.gen.dart",
+      "sha256": "f085f945ef54dcddcddac6ea0c30e8e22cce34ad900109dcd8f0e79b2c5098f6"
+    },
+    {
+      "path": "lib/collections/env.dart",
+      "sha256": "981669776dad8120999b27b8e6380dde79c464dc736698538e47c0b46880b2f5"
+    },
+    {
+      "path": "lib/collections/env.g.dart",
+      "sha256": "d7f288a2698f9ca78765e44bf4a1779909d9b4080724f17f095cd8fbab378ae5"
+    },
+    {
+      "path": "lib/collections/fake.dart",
+      "sha256": "6b8d8fbb1d821eb557ed287072b086226f62a6f28bc0b3eef165283f04a1066e"
+    },
+    {
+      "path": "lib/collections/fonts.gen.dart",
+      "sha256": "1e747a3de656b914a226f41649afd010fb8fa71268f5c61d000d47958d9809a4"
+    },
+    {
+      "path": "lib/collections/formatters.dart",
+      "sha256": "918134412a0a9ed9658ea3f596911bcf9543fc27bd6e8dabf8091fbe523a4314"
+    },
+    {
+      "path": "lib/collections/gradients.dart",
+      "sha256": "729d482aa2198eef4428a0568539b263e842e287e59dee1504ee9c4652e3f414"
+    },
+    {
+      "path": "lib/collections/http-override.dart",
+      "sha256": "8e8a2b750a0c1bf8ce51a5d2b6d51ea0587523277e5a8d38d90f651f0592eafa"
+    },
+    {
+      "path": "lib/collections/initializers.dart",
+      "sha256": "d518e0d2f625af85487b62912b12b3a999cad903184862862027b9e9c694dca0"
+    },
+    {
+      "path": "lib/collections/intents.dart",
+      "sha256": "4b90a28fe41c82557da39e9302f529f1171fb4915bff4f132ed88f08a5a1fcce"
+    },
+    {
+      "path": "lib/collections/language_codes.dart",
+      "sha256": "86688e0427f3da7c9c1d23c8d4c9278243a8a227b5b4496695639b53ef5e50d3"
+    },
+    {
+      "path": "lib/collections/markets.dart",
+      "sha256": "1540269b79dc06271f310390e02b5f259b59d1b7aa9ca59e57a2e58f699afe1a"
+    },
+    {
+      "path": "lib/collections/routes.dart",
+      "sha256": "16cdb262f9a25cb93d8dae34604c1f768821488aec3cd39ab38ace213433c4e3"
+    },
+    {
+      "path": "lib/collections/routes.gr.dart",
+      "sha256": "59b40b3773dc1a0b5fca9424dc6f44b9384b82b06b2a98e1d6b9b20e2398a0e4"
+    },
+    {
+      "path": "lib/collections/side_bar_tiles.dart",
+      "sha256": "626501e59f65478de5e6f525d0daaf57b78c1c96eaa2dc8d3c998df2d6af2519"
+    },
+    {
+      "path": "lib/collections/spotube_icons.dart",
+      "sha256": "0c27d868a4df13c2e9824859e5a1d83ef3b192c57d37528bb9d14a46168bdbb6"
+    },
+    {
+      "path": "lib/components/hover_builder.dart",
+      "sha256": "0766034e3640a277aadeaf8bc56137a87dcc1f74303c07c7cdaa769b7a6eba22"
+    },
+    {
+      "path": "lib/components/waypoint.dart",
+      "sha256": "34a52e9348d3c0f3cfe8de4004134e1bc0a26bf73800df472ea4bfb7d8489496"
+    },
+    {
+      "path": "lib/extensions/button_variance.dart",
+      "sha256": "c5f72fe544cf102a4bd8de1f6ef080ec626307fec25d0f61dbcd0ff9a656b19b"
+    },
+    {
+      "path": "lib/extensions/color.dart",
+      "sha256": "2f8b04f6a4b49b529bd56329aec21a1c52626276ffe91b2a5bef9442fcf9a7ab"
+    },
+    {
+      "path": "lib/extensions/constrains.dart",
+      "sha256": "343022b3792a5faa48a7ff22037efd01edcc0b1c7dc40374a7330992db86547f"
+    },
+    {
+      "path": "lib/extensions/context.dart",
+      "sha256": "2a9c197bc2048d5556f1ef923511fc65574c1ffdb46c975df4bbaac1c10df214"
+    },
+    {
+      "path": "lib/extensions/dio.dart",
+      "sha256": "a048a0e071b25d3b57a22548eaf379ecfd674d30e261d372aa2563b2dc3bd215"
+    },
+    {
+      "path": "lib/extensions/duration.dart",
+      "sha256": "fbec99b0c30177db20ea972212bd2eacf74932d55bf6ba91b1726f2413cc7e0e"
+    },
+    {
+      "path": "lib/extensions/list.dart",
+      "sha256": "3d36a9f127eacd1cdbadebfe5358881ab0a1b759ccda846aa6d9db836fafa24d"
+    },
+    {
+      "path": "lib/extensions/map.dart",
+      "sha256": "21a3223bb1d8e7c491cfc126136ecf1fff3460677d1568822fc6e69e542b26ed"
+    },
+    {
+      "path": "lib/extensions/string.dart",
+      "sha256": "ac2d5839ccd32b37ece94a6a0e77de11d1cff74062424083066c8056bfbc8dc4"
+    },
+    {
+      "path": "lib/l10n/app_ar.arb",
+      "sha256": "b4b906f49d2497d1bccdab65c35b80f5403d3df10abc701ce7ef0529ac478d0e"
+    },
+    {
+      "path": "lib/l10n/app_bn.arb",
+      "sha256": "071466051e03843fd527a56cdbfa1d970863088232fccc7a9b015735a14f31f4"
+    },
+    {
+      "path": "lib/l10n/app_ca.arb",
+      "sha256": "fce848c7cc59b95bd1f29ece3492c3e8a6d5ba66708e4eeacc183d2901516502"
+    },
+    {
+      "path": "lib/l10n/app_cs.arb",
+      "sha256": "bc7eeef51140595a9a5f366c704b47881dd5bbd700136e9a77e29546b6aefc5b"
+    },
+    {
+      "path": "lib/l10n/app_de.arb",
+      "sha256": "4150f18abd090b0fab55f05a9eb828ebd5831ef3ff8392aefc3c73e3b0c92eca"
+    },
+    {
+      "path": "lib/l10n/app_en.arb",
+      "sha256": "4914963703391c9d04001010ff3d59e2d593dfaab79384485a42c1617293f5a6"
+    },
+    {
+      "path": "lib/l10n/app_es.arb",
+      "sha256": "85516051a53b6af210b192c4f7037a8828b56e4bbb72743f3f669e2ea6f45fee"
+    },
+    {
+      "path": "lib/l10n/app_eu.arb",
+      "sha256": "a82dcda3babd78b4d52f3be18f9b42e3797b3472c45c94f37286f3455c0ed121"
+    },
+    {
+      "path": "lib/l10n/app_fa.arb",
+      "sha256": "d2827cd9a203fc8a70cad1ee1ae1d08c9bfda6a3325c00501e009e846b2be877"
+    },
+    {
+      "path": "lib/l10n/app_fi.arb",
+      "sha256": "3492f305c0bc56703f44da36bf09d15fc3816cec8e9591e96ed65bf0cd00d1fd"
+    },
+    {
+      "path": "lib/l10n/app_fr.arb",
+      "sha256": "bcd885938ad39598b1751f5e9f294b701f95e9f2f15cd0890f01762df84e599b"
+    },
+    {
+      "path": "lib/l10n/app_hi.arb",
+      "sha256": "1f985b3a0f50bc0d37e0f45a0e10a9afe4da1e7884d9d2aa52866fbd3e236522"
+    },
+    {
+      "path": "lib/l10n/app_id.arb",
+      "sha256": "6760af52d42666ea145bf9f307d8d4a8a0e24a073e058b262aa6ce240199ff1d"
+    },
+    {
+      "path": "lib/l10n/app_it.arb",
+      "sha256": "cc418a06edb5ad3ab95ae60d51aaaace4b1a64aee5637043b02fc3109c77a4fe"
+    },
+    {
+      "path": "lib/l10n/app_ja.arb",
+      "sha256": "a62d88ef9a5252407c4ad53eaf9412b82e9ced57cca582021e7469d462a7cc56"
+    },
+    {
+      "path": "lib/l10n/app_ka.arb",
+      "sha256": "d2e3799498f3a654231e250a0891babbbcf024c8e4906ce5ff25b43a0fe87221"
+    },
+    {
+      "path": "lib/l10n/app_ko.arb",
+      "sha256": "724c5a81419af5d49e9d8003355f51757fe7b182512f9a24b55ec6c533906b50"
+    },
+    {
+      "path": "lib/l10n/app_ne.arb",
+      "sha256": "a08150f2b0d0e0684729a302e66bd9f69d9ecfbe34ca949a6cb4cb4d3c3e645c"
+    },
+    {
+      "path": "lib/l10n/app_nl.arb",
+      "sha256": "40154ca74c837501422e0a7422e1e96cff3b795a54b200e8a3962080f854cfa6"
+    },
+    {
+      "path": "lib/l10n/app_pl.arb",
+      "sha256": "9b226fddac7a8688a799e4b0dccaa5f19f3f2c11086452af3a23880d25127020"
+    },
+    {
+      "path": "lib/l10n/app_pt.arb",
+      "sha256": "4f603e183975d19e50524a1e5d05675f3031e32c17d8e60218e2b9dc0c46faec"
+    },
+    {
+      "path": "lib/l10n/app_ru.arb",
+      "sha256": "b2413e082a399d1ab290a4c6c50f93d344f7e1e9fd7f15d0dbb633b21a292b57"
+    },
+    {
+      "path": "lib/l10n/app_ta.arb",
+      "sha256": "a7f310322ce290a911e9f0b0a8c4b08142c0a374375e0d5d56f210c43f146965"
+    },
+    {
+      "path": "lib/l10n/app_th.arb",
+      "sha256": "1035466d669f5c10eda51c7fa94002ffe5dcff5c9f7ac48bf720e935582f124c"
+    },
+    {
+      "path": "lib/l10n/app_tl.arb",
+      "sha256": "8391b128556d18a48c3bd065660112d61e7de73b86e598bdda837980353600e6"
+    },
+    {
+      "path": "lib/l10n/app_tr.arb",
+      "sha256": "037f2fad3107a1917afc9bafab699d85052e78e7502f034de00dc05ed7634866"
+    },
+    {
+      "path": "lib/l10n/app_uk.arb",
+      "sha256": "bf670993dd0931af6ff79c13240482d0fb3e88af918abd39ca880f2701b03d66"
+    },
+    {
+      "path": "lib/l10n/app_vi.arb",
+      "sha256": "d9159daaf42f3f500fa15b05bb31ba582c3d165cb2e7c355892521cc1a9a6ee2"
+    },
+    {
+      "path": "lib/l10n/app_zh.arb",
+      "sha256": "9ecf597a6e5b27c490585efdea8a42aeacd6ddce3a5ed4655d10b4178255df56"
+    },
+    {
+      "path": "lib/l10n/app_zh_TW.arb",
+      "sha256": "7c0f873d0a3d3def889ca4985695d11f82979eb01d607ac402f7f21e7ce1c4b4"
+    },
+    {
+      "path": "lib/l10n/l10n.dart",
+      "sha256": "fe5826879810c941d3017de989385bcedd5aa21c1e196d6efbd1277bd29bb4a8"
+    },
+    {
+      "path": "lib/models/lyrics.dart",
+      "sha256": "18923992c356fcb090b7d007155b7a121d48fb5c1e9176d8c24d2dc9e46beb97"
+    },
+    {
+      "path": "lib/provider/blacklist_provider.dart",
+      "sha256": "5e3e6305b327a112a15c8a76dac9bb5b03c43f10b341b886170f559035fcd411"
+    },
+    {
+      "path": "lib/provider/discord_provider.dart",
+      "sha256": "86f76ae92fd9b7ed2d8b1039f5e75b3fa37061693d5ed91d9965412fe3f5ba9d"
+    },
+    {
+      "path": "lib/provider/download_manager_provider.dart",
+      "sha256": "157cc3449379dd53b6e78ccd9b6cac609415b806987da803d9502ee58f0fc3be"
+    },
+    {
+      "path": "lib/provider/sleep_timer_provider.dart",
+      "sha256": "0e6b6d0f5b4e61effb1246cca0a68fa96689e41797204e4a84f56e9118972744"
+    },
+    {
+      "path": "lib/provider/volume_provider.dart",
+      "sha256": "2b24dc733030ff68b200d2a91add52e5c0e0bb505b5128ed43aaada1fe93859d"
+    },
+    {
+      "path": "lib/services/af_music_host.dart",
+      "sha256": "55cdc7cfe08ce79ca01bde518f8d4d240fe1ce0220d1e4085fee557a1ebabc81"
+    },
+    {
+      "path": "lib/services/connectivity_adapter.dart",
+      "sha256": "f0e9054563d98a36ed592141c374cbd33aab2f475960edad7f3310af37f07ee0"
+    },
+    {
+      "path": "lib/services/local_music_scan.dart",
+      "sha256": "fc9aa7120be0025eab425cc548ddcbfaabaf8f3b97a5efb5e5be0a9eff29fe42"
+    },
+    {
+      "path": "lib/services/music_sleep_timer.dart",
+      "sha256": "cb38eb2faaf5547d09f684ddd3440cb0bb6b3a6e7b52c3f200709be256f00611"
+    },
+    {
+      "path": "lib/utils/duration.dart",
+      "sha256": "21e794f77e8577be8d09b9d6532e2c7309a026a7c41fdc940b4e8d97f34f9f0e"
+    },
+    {
+      "path": "lib/utils/embedding.dart",
+      "sha256": "4d1d3ecab419b5ea60ab5ca356d093c29e96554aaa3c1fbf127c49964c51b054"
+    },
+    {
+      "path": "lib/utils/platform.dart",
+      "sha256": "228dd3b93feaef94b4f57cbbdcd8c7d49d3e61c7c56bdb09688dec42107aa338"
+    },
+    {
+      "path": "lib/utils/primitive_utils.dart",
+      "sha256": "4e4cbd9d3f3b148efa1fff6bf11277ecdcd284cf6e943361a923785df7dd4c23"
+    },
+    {
+      "path": "lib/utils/service_utils.dart",
+      "sha256": "390b9e9b7e23d37ac385b7d9c7185149a8d0da401bcce9abd95680a5dbc89aee"
+    },
+    {
+      "path": "lib/components/adaptive/adaptive_list_tile.dart",
+      "sha256": "cd396356cf787c51c00defe6862542c0194c25e217e0a05a5866de2ef87ef62e"
+    },
+    {
+      "path": "lib/components/adaptive/adaptive_pop_sheet_list.dart",
+      "sha256": "1cf6b94b92837c9649872a2b1bc8adac9f01aa52c706af724cf339f56abb7442"
+    },
+    {
+      "path": "lib/components/adaptive/adaptive_select_tile.dart",
+      "sha256": "72eed83161a4a2c1d2f3bdad6690420e13f8d042e896fbbfb21390c5cf674cdf"
+    },
+    {
+      "path": "lib/components/button/back_button.dart",
+      "sha256": "5e1033e98e1d4e8322b23638fdb33b138d28945584cd66cd1ab1838fd6bbe601"
+    },
+    {
+      "path": "lib/components/dialogs/confirm_download_dialog.dart",
+      "sha256": "86dc2c7b90f6cf315093f865991dad6ec564a9f691ed5ff0338322c8d8d816c1"
+    },
+    {
+      "path": "lib/components/dialogs/link_open_permission_dialog.dart",
+      "sha256": "dd9a128f6976cb804a178cfc3ae1c5e71944253a76a0148b278943564e518dc3"
+    },
+    {
+      "path": "lib/components/dialogs/playlist_add_track_dialog.dart",
+      "sha256": "dfd62edc9a48df79b1d6a99fce88725abefb35113b750b210335953666f29287"
+    },
+    {
+      "path": "lib/components/dialogs/prompt_dialog.dart",
+      "sha256": "7f98aca908e5a22e059550e327be0e2d66aa6061edd83c4d4382897566e1a3ac"
+    },
+    {
+      "path": "lib/components/dialogs/replace_downloaded_dialog.dart",
+      "sha256": "9e191fe4dc12c9bb3eda56eabcacb6aa4174de844f02d429201c8c3052c41e47"
+    },
+    {
+      "path": "lib/components/dialogs/select_device_dialog.dart",
+      "sha256": "be3d39e0acc3724704f5272f0ab5c7aba3998482a6e08e827509d85517c15a10"
+    },
+    {
+      "path": "lib/components/dialogs/track_details_dialog.dart",
+      "sha256": "cdf42ad2f97bbe7171015b11cf0f5dce5f1b1784a5bda7a1447eb47a9bc7bc95"
+    },
+    {
+      "path": "lib/components/expandable_search/expandable_search.dart",
+      "sha256": "c674fa6c33490d613f7c9f011efdfed1b6dba3e06ca6a580d305b001a94f0892"
+    },
+    {
+      "path": "lib/components/fallbacks/anonymous_fallback.dart",
+      "sha256": "04eee40fcab639a9350d8f2494de80df55d406cb6436a0895d35dbfec2443bda"
+    },
+    {
+      "path": "lib/components/fallbacks/error_box.dart",
+      "sha256": "57098728f1dbafe77b43b68b5ac5db055007d804f6643a9252d97a0bcd23c803"
+    },
+    {
+      "path": "lib/components/fallbacks/not_found.dart",
+      "sha256": "9fe0e2dd1773f3962071c8e44656a1f851c713b52d15535ab51a793eb76fd6b7"
+    },
+    {
+      "path": "lib/components/fallbacks/no_default_metadata_plugin.dart",
+      "sha256": "29f18c8506a38c7f9705a2cbd3f910b48609eca83cfb3e477b958320c15b6ece"
+    },
+    {
+      "path": "lib/components/form/checkbox_form_field.dart",
+      "sha256": "400645313c2fafcaec89aa43f45dbe8e8429be8584b9e009ce42bda870e49934"
+    },
+    {
+      "path": "lib/components/form/text_form_field.dart",
+      "sha256": "88b5dc9d7f055f3fd18440cf7f059d182de5d527ebfb04aac64d7fdd069fa55d"
+    },
+    {
+      "path": "lib/components/framework/app_pop_scope.dart",
+      "sha256": "d75c056a2f024200a0ee8752e28d92283b76e2d67982fc173eac3e2be28f8363"
+    },
+    {
+      "path": "lib/components/heart_button/heart_button.dart",
+      "sha256": "74dc437241db6be7999c522249306fbc9bd72c266fa3142e1d09e476e35d11ea"
+    },
+    {
+      "path": "lib/components/heart_button/use_track_toggle_like.dart",
+      "sha256": "3f247dd7059b1a0ce8954cfbdad858879986199afbfc80205de0aa2e4ddbc6b9"
+    },
+    {
+      "path": "lib/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart",
+      "sha256": "bdde26fd09f4d5482ce34f9e856b87fd9ba316108f5d8edea79f84205856c0e0"
+    },
+    {
+      "path": "lib/components/image/universal_image.dart",
+      "sha256": "14d7921edf992c536a66101987cf6e5d483a87dee9f6f25bf5b3cc660e3414de"
+    },
+    {
+      "path": "lib/components/inter_scrollbar/inter_scrollbar.dart",
+      "sha256": "00ecef5da703044c8014a7a0ed64765cd8e1a10b1a604a7ece24879f543f6883"
+    },
+    {
+      "path": "lib/components/links/anchor_button.dart",
+      "sha256": "2c92a21c45d691e739687bca1f5790af342d01979326796cc7b365f43a8129e2"
+    },
+    {
+      "path": "lib/components/links/artist_link.dart",
+      "sha256": "1a7646500dd02f436e6f7568790a516d2f31eb19d96d8ee6a695e8795319d99a"
+    },
+    {
+      "path": "lib/components/links/hyper_link.dart",
+      "sha256": "dfb87d698fe67f9554e20822a6d8df7c1d69f245d8438c862fc07ffc81b06fd8"
+    },
+    {
+      "path": "lib/components/links/link_text.dart",
+      "sha256": "d8d8a46ab8095c96e42968051c94a9f94b75562719cef02adcd3cb8ba4601bc3"
+    },
+    {
+      "path": "lib/components/markdown/markdown.dart",
+      "sha256": "5892134d5f0dc160ee31718a5a7860d926bd3bfd80809d8e0c87b3fa748be456"
+    },
+    {
+      "path": "lib/components/playbutton_view/playbutton_card.dart",
+      "sha256": "6b0778a0bfdf5e625c0d69a1b48f15326d68a08b784ae25b03269999cb87c7ac"
+    },
+    {
+      "path": "lib/components/playbutton_view/playbutton_tile.dart",
+      "sha256": "91f0f85f124221bd4de7a46e787b5ea7eb169ca22dd235f79cb89f333071dec7"
+    },
+    {
+      "path": "lib/components/playbutton_view/playbutton_view.dart",
+      "sha256": "69a8528ad41bb44a6f49675cc98191cf50d659b402fa6310e9416c49d41ea3f1"
+    },
+    {
+      "path": "lib/components/shimmers/shimmer_lyrics.dart",
+      "sha256": "0660d35fb58e8bdf586996727638ba1e8cdd40e710b0f7563cc0237210b60e5f"
+    },
+    {
+      "path": "lib/components/titlebar/titlebar.dart",
+      "sha256": "5ac4ffe28927efc24987886477afbf86c5e97a107f43f8ad3d4802b3f4f4348a"
+    },
+    {
+      "path": "lib/components/titlebar/titlebar_buttons.dart",
+      "sha256": "8c9b5d0dd79ca4cd396a8782311cd9e4596fbd85ab613cc3542ccd3a92919a75"
+    },
+    {
+      "path": "lib/components/titlebar/titlebar_icon_buttons.dart",
+      "sha256": "6d26a3431c75aa8add092b8f2c869bb8eebe2f6525f5d784dac27996c1423e17"
+    },
+    {
+      "path": "lib/components/track_presentation/presentation_actions.dart",
+      "sha256": "b81e7b1fbcd125e6917afb8bf31b840721f8410936433faa5eb9365cb8ac3cb1"
+    },
+    {
+      "path": "lib/components/track_presentation/presentation_list.dart",
+      "sha256": "3219ec9afd63da91de730fe1c69ec369f8e45a00fb79f5d83cbf7bed6f17c80f"
+    },
+    {
+      "path": "lib/components/track_presentation/presentation_modifiers.dart",
+      "sha256": "9593e0ae19ad7364bcd76223a16ed86287a342cc8a61e75578503484048b32b4"
+    },
+    {
+      "path": "lib/components/track_presentation/presentation_props.dart",
+      "sha256": "f98f4cecf9d89de2f794fd1ba1b5286a313cf9ca62283dc828bc8002f3b244f6"
+    },
+    {
+      "path": "lib/components/track_presentation/presentation_state.dart",
+      "sha256": "162c7d8761bab03ea9c4b3a415b0be9bd87338d72943a3620c1a8fd314e55575"
+    },
+    {
+      "path": "lib/components/track_presentation/presentation_top.dart",
+      "sha256": "b0c7a0b0d51622e44f64e466990053e64237f8df41a157a93e34f837ce256047"
+    },
+    {
+      "path": "lib/components/track_presentation/sort_tracks_dropdown.dart",
+      "sha256": "651eacdc3a2061e4f9058856c3e5913d97311830d78179d387fbad271e51155e"
+    },
+    {
+      "path": "lib/components/track_presentation/track_presentation.dart",
+      "sha256": "eeeedc05bd1853a03355d57653453071e0cec4ae98ea9bb6393678ce5cd99215"
+    },
+    {
+      "path": "lib/components/track_presentation/use_action_callbacks.dart",
+      "sha256": "167fb36f848591bef5a51315373a51d3df0549c80469a15c34cca60cc2e8c08d"
+    },
+    {
+      "path": "lib/components/track_presentation/use_is_user_playlist.dart",
+      "sha256": "2a4078e01fd71eced710fe63326b806168cc9bff1411d4714ad3d5b1dd3803bc"
+    },
+    {
+      "path": "lib/components/track_presentation/use_track_tile_play_callback.dart",
+      "sha256": "a71c31d27aac9324bf4c6f1688c7c9a283f79c5cd35f73c6764dae76195dc470"
+    },
+    {
+      "path": "lib/components/track_tile/track_options.dart",
+      "sha256": "4afdb456f0fdd7372f3b9ba5b39e01e6195b5db1f6e070769ffe0c4e0bde1fa0"
+    },
+    {
+      "path": "lib/components/track_tile/track_options_button.dart",
+      "sha256": "2c6fcf4286bf85b440eaf1c40c545b8948d28c0adf1e0dfabc15040c02f39b96"
+    },
+    {
+      "path": "lib/components/track_tile/track_tile.dart",
+      "sha256": "2592656b6d6df9db81999ef182d7c4260da05b9cf8abdd1223bea93c45940097"
+    },
+    {
+      "path": "lib/components/ui/button_tile.dart",
+      "sha256": "faa5910d71488dffa7e4d95b3519c3173c36cd4aa2c98b514aef927743691344"
+    },
+    {
+      "path": "lib/hooks/configurators/use_check_yt_dlp_installed.dart",
+      "sha256": "eb64a765e3d08a11e85985c947440f37518d22b05d169fe9b7e1f6e310901fb0"
+    },
+    {
+      "path": "lib/hooks/configurators/use_close_behavior.dart",
+      "sha256": "4ea4dfb3602087352a85d855665dcb8b6ed521f094ed9ab18906d2290b5b37fd"
+    },
+    {
+      "path": "lib/hooks/configurators/use_deep_linking.dart",
+      "sha256": "ea98c81c766ed72a029c2265d2a71567d7ebeced105183a088b10b9975b8a461"
+    },
+    {
+      "path": "lib/hooks/configurators/use_disable_battery_optimizations.dart",
+      "sha256": "0fa5ca0b4ef8f62a1499ad5c650f996b0228e62bd434b59fd599fbdb10242658"
+    },
+    {
+      "path": "lib/hooks/configurators/use_endless_playback.dart",
+      "sha256": "47fa43d58580b18bbf4d4fb44bb5aaf412f2f2f5ca5e0bd2099e6664a19d00e2"
+    },
+    {
+      "path": "lib/hooks/configurators/use_fix_window_stretching.dart",
+      "sha256": "b11d57d020f1988a0c20fbce6fa85a4e99abfe5e4e071b3a75716df8ba7f6be8"
+    },
+    {
+      "path": "lib/hooks/configurators/use_get_storage_perms.dart",
+      "sha256": "83ad26fffcbc90678ddb91b0b01e28d0eb01fc5deb0d06a3e86a7415829af78f"
+    },
+    {
+      "path": "lib/hooks/configurators/use_has_touch.dart",
+      "sha256": "32df70530a329a899551092acb8bad48f52d07011527fa662ef1312d8dddc4ad"
+    },
+    {
+      "path": "lib/hooks/configurators/use_window_listener.dart",
+      "sha256": "8f8e426afae2a2d2bcd06fb34494c92caaa871e30a12249a78a384a9b10f8149"
+    },
+    {
+      "path": "lib/hooks/controllers/use_auto_scroll_controller.dart",
+      "sha256": "3aa1069de2c34ba5ab0ce3522b26b88c79d8fb117b89beb85a8c59554b1c8321"
+    },
+    {
+      "path": "lib/hooks/controllers/use_package_info.dart",
+      "sha256": "618e2f3507d5e979aabcc5a0481ae6b5a579ff9f01af7336f03abcf23ebefd65"
+    },
+    {
+      "path": "lib/hooks/controllers/use_shadcn_text_editing_controller.dart",
+      "sha256": "53ddaa41030f7cd9dc6085607584132995cbc38b9112b0f81a12b9c1754de9f2"
+    },
+    {
+      "path": "lib/hooks/utils/use_async_effect.dart",
+      "sha256": "a473f35a980d049ff13b10cb028dd4a89a4732c1ab9bd7554d3b46ca97d9d804"
+    },
+    {
+      "path": "lib/hooks/utils/use_breakpoint_value.dart",
+      "sha256": "62bfc8845253fb9ec9bd0c037003f09e40f2b682b96f1b0a8778636e36d00e28"
+    },
+    {
+      "path": "lib/hooks/utils/use_brightness_value.dart",
+      "sha256": "e497930f1bd4de988e5663ed1650d36e73d918d9a9d412e62f2f11af82613343"
+    },
+    {
+      "path": "lib/hooks/utils/use_custom_status_bar_color.dart",
+      "sha256": "539800585ffc77b0e57621a23e204e566e4bc1335d18ea499770e673fb7aefa2"
+    },
+    {
+      "path": "lib/hooks/utils/use_debounce.dart",
+      "sha256": "1e6e140a89fd237c019c4d1675ba225654fb9b7f061d8b52a3015468a0848791"
+    },
+    {
+      "path": "lib/hooks/utils/use_force_update.dart",
+      "sha256": "950d3febf47f2470bc2b45a66d3deb5da6df319ea5b2967f97e1cadff80a99fe"
+    },
+    {
+      "path": "lib/hooks/utils/use_palette_color.dart",
+      "sha256": "c8adf2e2282db529c8ce1d89b6f8539967583dfab0d35965e4f3f89af165959a"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations.dart",
+      "sha256": "0c97080a8003020878a75d365b21e69bf7dca5cd42f30af6393b9e49211fbb18"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ar.dart",
+      "sha256": "e508b6485a06a7cc6a94a01d9d613c62e28fb4d8b63820927ca0801c9c187813"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_bn.dart",
+      "sha256": "4d5a72a4d79f9ab4910365ece9d6ab45fc5f4fb1e8bef4e67d886b0ec9a4638a"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ca.dart",
+      "sha256": "62b1d1b52e74f2f0b132ad21c340a710bcb75f99c96a1bdb3937e484ad5a22f2"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_cs.dart",
+      "sha256": "49058c74374e31c8db4ae0ae6084c9bb3d50ef13544e8339c27e53158e053c08"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_de.dart",
+      "sha256": "05f70a77f476d7fc380384a67b10e98cfa7fa66276ed4f5b92e6c5ef704d324d"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_en.dart",
+      "sha256": "a74532f2e5e1c8969dc38bc1ebc6f58403bcd6ae4e384a542e6a599f451e4b1c"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_es.dart",
+      "sha256": "4e014f0294a8d5f53e6081aaa42c3a6349617ecca2ec28c5a937b1c94dd6acbb"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_eu.dart",
+      "sha256": "43791eb0fefb4271aff534c901d79ab7551e659afce820916a8be4bbf6141837"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_fa.dart",
+      "sha256": "c83286d172b659c8b1bb9c9dd9f629ddc22896cde68ab6900b408be90266f32c"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_fi.dart",
+      "sha256": "493c60eed3d897598b21b3011125866c76a52d4383771dca31a1ac577bbccbbe"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_fr.dart",
+      "sha256": "d34e139b41b0276f976f861d87ad31f4e9144f101d329e2c58fb68c3a3ac82ca"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_hi.dart",
+      "sha256": "b8ea672d6dcaa88da2333abc70b08a5efd7bfeef33cb6e3d2013811a15369c54"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_id.dart",
+      "sha256": "5eb1133ad477a21a012d4d27265ef9298a1b7bb1ac55d2a879bb3ecf62ce2ccd"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_it.dart",
+      "sha256": "b24694679659c516ff7b4d39120ff6c5156bc170e8bb2040348398d2efda2379"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ja.dart",
+      "sha256": "8978c408d753d4290356389ea4c542bd9e8cd8464dbb8e68826373d14c645cb6"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ka.dart",
+      "sha256": "9a1a086a14df6a06fa3477e1030395be0a1883be3c46f91d980d61e80676599d"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ko.dart",
+      "sha256": "6885effaab6ed879cf5e63b668ef00472268dec13de0945fc5b3d63d1238ded3"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ne.dart",
+      "sha256": "ea7e496cf9fa81c4813b1a6bc0d098d9b343ae935fd85a3c46c7cb499de2f424"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_nl.dart",
+      "sha256": "20a59a74905194964696c4e54139a866567df805d7cfead1472831a22c05edf5"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_pl.dart",
+      "sha256": "193d8efdc11106d3417892e4a5c8e65fc2c843e8bd04a3799eaca957efd2f82e"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_pt.dart",
+      "sha256": "0313205723b24280d52c6023752af2c7376713605c16a7246163e8e412175c2f"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ru.dart",
+      "sha256": "8ee7944668bd3d90b1c022fe2a7c70f6fe4fcdd070959c7e4ccc7f3ef9a7d52e"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_ta.dart",
+      "sha256": "bc99affb38ef97bb8a24ee3f21ee4abeb552a54be27a7417c6aacb79cc8d1f75"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_th.dart",
+      "sha256": "646bebac26434faef220fce4ec9e5361be09dfff43402c28ea06a4ea611eba38"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_tl.dart",
+      "sha256": "82e65b345c7be837322254205bd7d57727ddf66881e67551edb1d521d581a7b5"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_tr.dart",
+      "sha256": "59248e0b9284d1bb7b4a64a52c4e538ef59d0840da2035f522c382dd81fc3b8a"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_uk.dart",
+      "sha256": "452f12034364c6bd5efe7c716aca8ad2985cb4cd5681760b4830517659a77f8b"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_vi.dart",
+      "sha256": "eeaf5814ce2754574ee9c6447ad3e1e552c05774f8b727a524620446390b6873"
+    },
+    {
+      "path": "lib/l10n/generated/app_localizations_zh.dart",
+      "sha256": "dd581fadb25baca4446a46b5e0260df38f165261b4a9d4a4022a2a51e8f7461a"
+    },
+    {
+      "path": "lib/models/connect/connect.dart",
+      "sha256": "fdc6f5513c97c248762f2e43f316804118485045e5b8e55f606da13cb84b35c7"
+    },
+    {
+      "path": "lib/models/connect/connect.freezed.dart",
+      "sha256": "1cb514e253aa7fad3147e99e6738330677b97947ead4fe3d9489c7962899bc8b"
+    },
+    {
+      "path": "lib/models/connect/connect.g.dart",
+      "sha256": "61f8f4a43a3f9f9eeaf0be3ae29699d5308e6befffe619af087fd898cba447dd"
+    },
+    {
+      "path": "lib/models/connect/load.dart",
+      "sha256": "e43f554d1d6317ff2ea6dfa8d59242f2c377da4884851f96608915f6549f4d84"
+    },
+    {
+      "path": "lib/models/connect/ws_event.dart",
+      "sha256": "09b27ca238fe993569f8b43926a27976731b45336c7f33e0bb883116acacee23"
+    },
+    {
+      "path": "lib/models/database/database.dart",
+      "sha256": "1c44f8c82f0d5cb4032d3e0d3aeb8aff1eccec96306e5990b835c26c6d411c99"
+    },
+    {
+      "path": "lib/models/database/database.g.dart",
+      "sha256": "3b8e990e169bf54e9999d3beca6758542197d557220d0ebb8c3174efb328993a"
+    },
+    {
+      "path": "lib/models/database/database.steps.dart",
+      "sha256": "d3e0a03ba2c1205ed525611a2a78c025d7ea2e269c2fbcdc6c239e543c870ce5"
+    },
+    {
+      "path": "lib/models/metadata/album.dart",
+      "sha256": "b64bfdea461a25de047c609a058f9568f68ee197ad686436c0bc0f0b8e38a5bc"
+    },
+    {
+      "path": "lib/models/metadata/artist.dart",
+      "sha256": "122887f41aea6e392541f6bc8909dbc38c3bde949a60f7451c1f11c862c843d8"
+    },
+    {
+      "path": "lib/models/metadata/audio_source.dart",
+      "sha256": "a73e19dd960f3d2832d0f79d5b46c471159514073c76ceb688da0d355f0b1182"
+    },
+    {
+      "path": "lib/models/metadata/browse.dart",
+      "sha256": "9f0a501adef72eb4dd7d53998f8d761af27833c547e0071928fe93bed12dfb07"
+    },
+    {
+      "path": "lib/models/metadata/fields.dart",
+      "sha256": "ad5e8b028d0763d324e73295cfc7a565977f4aeb414b5dbb282edd7e526befd5"
+    },
+    {
+      "path": "lib/models/metadata/image.dart",
+      "sha256": "24d39160201a10da9d75fd50dcacdb54206f44ce95e07e0ceadabd403c025689"
+    },
+    {
+      "path": "lib/models/metadata/market.dart",
+      "sha256": "2f4425507d922e5c1e73c1abcfd0112147bf60a094d95c0c9ee0602656ddfbd4"
+    },
+    {
+      "path": "lib/models/metadata/metadata.dart",
+      "sha256": "0408553d01c6a96954262c23743fe7dc479b7546486583f63ddb4ace1fdb7af4"
+    },
+    {
+      "path": "lib/models/metadata/metadata.freezed.dart",
+      "sha256": "1ccdf1ebc740aee3cd1ffe395608712f970148bd11118333474fc0111b9f8c0a"
+    },
+    {
+      "path": "lib/models/metadata/metadata.g.dart",
+      "sha256": "66ac0f38103c17147a9b416dba2ef7e8a875f374d2e0ab257ca86af709ad9ffe"
+    },
+    {
+      "path": "lib/models/metadata/pagination.dart",
+      "sha256": "0aafc3f6e9b6a745a8412407373d26ed1a0e8637efaef5b369cf23f94f7a06b2"
+    },
+    {
+      "path": "lib/models/metadata/playlist.dart",
+      "sha256": "a753fe461931041cf4e372d6659b02c527c7049dfce1ea5b7072eb8a7967cde2"
+    },
+    {
+      "path": "lib/models/metadata/plugin.dart",
+      "sha256": "e92350042afe075e80e060db74acda37929cfbc343830cea6c1a510d04c35856"
+    },
+    {
+      "path": "lib/models/metadata/repository.dart",
+      "sha256": "fc2c64af74899894891faf2de3d701186653fffc62e22b3a2f564c3dcce105ba"
+    },
+    {
+      "path": "lib/models/metadata/search.dart",
+      "sha256": "6c0078542195b38cb0accf56d1e6f050c169bd850699af4a8bb8b9b7be649ca2"
+    },
+    {
+      "path": "lib/models/metadata/track.dart",
+      "sha256": "94dea12c9bb195b935e56f6089bbd18c1e6698e537accb8d79173c7750406165"
+    },
+    {
+      "path": "lib/models/metadata/user.dart",
+      "sha256": "03b5f894baa372112e12919082a35029be384d1f22126554c0ad44ae1d214f40"
+    },
+    {
+      "path": "lib/models/parser/range_headers.dart",
+      "sha256": "35b443d1327e8db47e09bf8af1d579cd7a68022c9f83945e23fb52189a87e7dc"
+    },
+    {
+      "path": "lib/models/playback/track_sources.dart",
+      "sha256": "d837a12d030fc5a30a55fc845ef073b2fa18a67ae19d7db574db3a3addc92788"
+    },
+    {
+      "path": "lib/models/playback/track_sources.g.dart",
+      "sha256": "a6dab2e84d1015c396296374929c9ae0c9d9c7c94964aa01a0a1f5410227236f"
+    },
+    {
+      "path": "lib/models/database/tables/audio_player_state.dart",
+      "sha256": "e810120a5f1654777515067e8c23c2c73bb63bfa3fbff2d91dfe27c66f7917c7"
+    },
+    {
+      "path": "lib/models/database/tables/authentication.dart",
+      "sha256": "dd45da1ffe48f1429f77584943cc4d9038b92252b059e560d45b88204672f9ba"
+    },
+    {
+      "path": "lib/models/database/tables/blacklist.dart",
+      "sha256": "35c7cfdeff2a6d6351ebf464b6d5c09a2e8fe88ae345aed46909812da9efa60c"
+    },
+    {
+      "path": "lib/models/database/tables/history.dart",
+      "sha256": "c859755aaf0b0556ad672fa5bfb3120df186929d55e54d9a1188398f1e408c1a"
+    },
+    {
+      "path": "lib/models/database/tables/lyrics.dart",
+      "sha256": "1352c9bf5854f81c6a560401a55180c5772bf70348bf9e92ae02fc3a935a2e32"
+    },
+    {
+      "path": "lib/models/database/tables/metadata_plugins.dart",
+      "sha256": "b2e732c8e6cfca9386113bf04d7d8fd29d98e98078e2f18aa9cc237d30d2ccbe"
+    },
+    {
+      "path": "lib/models/database/tables/preferences.dart",
+      "sha256": "7975952bda1ddd4865c0c6323b11f45c443390f0b276857467a298249bc6b1c5"
+    },
+    {
+      "path": "lib/models/database/tables/scrobbler.dart",
+      "sha256": "0866eb2e2bb3713e5ea734afdc99ce19019f441323d9deca073af8e73a3e4f8d"
+    },
+    {
+      "path": "lib/models/database/tables/skip_segment.dart",
+      "sha256": "7399bda4344f7e663c967a7c78392a191ffb87571cd868043f24e38e2697e192"
+    },
+    {
+      "path": "lib/models/database/tables/source_match.dart",
+      "sha256": "c3768ffa9a9fe48eda87ec86158c5081072ee4601824e811e1eb1f31237bfc03"
+    },
+    {
+      "path": "lib/models/database/typeconverters/color.dart",
+      "sha256": "ec2f1037e3068d12af3c7893b0afd40a72029dd0b02314ea5a5a57ae676cf1f1"
+    },
+    {
+      "path": "lib/models/database/typeconverters/encrypted_text.dart",
+      "sha256": "b6c3c53e495fd4979068e69fc7ca26f3535404e4ea924943d7b83875f7b6d3a4"
+    },
+    {
+      "path": "lib/models/database/typeconverters/locale.dart",
+      "sha256": "1e979a47a747bca9fab967cdffd21a1a34142587d74ef9f117ac6c096205bfd7"
+    },
+    {
+      "path": "lib/models/database/typeconverters/map.dart",
+      "sha256": "50033c5788169f70c041b5217bc58aed8ca3404347f5ebb431034bd0e16b01d2"
+    },
+    {
+      "path": "lib/models/database/typeconverters/map_list.dart",
+      "sha256": "814b0f0fb0fa3e0954e54ba9cbe8d4735cc5b9a47c48d450821bc1d47219a449"
+    },
+    {
+      "path": "lib/models/database/typeconverters/string_list.dart",
+      "sha256": "8ac895a7fd61f787244dd9e96055709d97768a818a7730e36063818a7d9ce2a1"
+    },
+    {
+      "path": "lib/models/database/typeconverters/subtitle.dart",
+      "sha256": "a9e2e0dc6d0a8dcd64cee2e4bb40d12058f28528195b7e4784bd35589a90ffef"
+    },
+    {
+      "path": "lib/modules/album/album_card.dart",
+      "sha256": "3c3b7ab8032ac02ffd8ccd60cb435ab149964fff88e46d1d18f121d2cf166948"
+    },
+    {
+      "path": "lib/modules/artist/artist_album_list.dart",
+      "sha256": "3dee9e567adaf15bd55e119b91af6e49e8eaefe76c1d3c5aadcda06611e06ac1"
+    },
+    {
+      "path": "lib/modules/artist/artist_card.dart",
+      "sha256": "fe30128c8481672550c8b6af22ac2d2916ce5ef5a788b680b74d4cbb94f85894"
+    },
+    {
+      "path": "lib/modules/connect/connect_device.dart",
+      "sha256": "25b00d6d0fa2b8e624b52b2f5b8a2a9e89e15003a19ea0d13c801b254017e278"
+    },
+    {
+      "path": "lib/modules/connect/local_devices.dart",
+      "sha256": "688ff64c613d995b22aced06e728501bce4421db071c1d77e6769c5d8e2e8e2b"
+    },
+    {
+      "path": "lib/modules/getting_started/blur_card.dart",
+      "sha256": "4bc9130191acd7838b387dcb0f0db4d8a2279c14fd22b08d08d9178d6429fe93"
+    },
+    {
+      "path": "lib/modules/lyrics/use_synced_lyrics.dart",
+      "sha256": "43646a2ac4659ec9717507bfeaf6df875a505f89be8e2c0a3293596235146fc4"
+    },
+    {
+      "path": "lib/modules/lyrics/zoom_controls.dart",
+      "sha256": "0a296add39b24c309ff11524d52749b1e58c0c4cb49b69d453cb95e909c74de7"
+    },
+    {
+      "path": "lib/modules/metadata_plugins/installed_plugin.dart",
+      "sha256": "a4758067c260cb4392f7b2bf58840c062d7d74130923226cce3c80e4618b1851"
+    },
+    {
+      "path": "lib/modules/metadata_plugins/plugin_repository.dart",
+      "sha256": "1c3749249989a9cce201cb3a55db484dbbf091d308720690cfbb9a733c341dc1"
+    },
+    {
+      "path": "lib/modules/metadata_plugins/plugin_update_available_dialog.dart",
+      "sha256": "6ec1b05471dd5c5d7a2d769fe7f9847641e8659df2fdff3bd0f0927ebc00d853"
+    },
+    {
+      "path": "lib/modules/player/player.dart",
+      "sha256": "99f1f6273fd678aa49fc5e96d7b61d1f4cc1dfd86bd8d1a3c67726e78f5dfe61"
+    },
+    {
+      "path": "lib/modules/player/player_actions.dart",
+      "sha256": "c666910d18eddcfe3db63f838c4eba42967ceb1684b87b85c4de0f84e3960c27"
+    },
+    {
+      "path": "lib/modules/player/player_controls.dart",
+      "sha256": "541be7e42330310d977fbcee3f8cbaa2050a227285a0a422fb2f14cf9848d0b1"
+    },
+    {
+      "path": "lib/modules/player/player_overlay.dart",
+      "sha256": "386f6e5ce9aed9d52164c2ba12632768697f7436f982754ca467b1e5ae86900d"
+    },
+    {
+      "path": "lib/modules/player/player_overlay_collapsed.dart",
+      "sha256": "a15e243ef61a6ecac2ef1738d112811892365221d2ad94b177a3cf5ce32279bc"
+    },
+    {
+      "path": "lib/modules/player/player_queue.dart",
+      "sha256": "dda9d6f8d87d8acdd082777a01344c4c5e4486bbaec71560152b0e32c42ab5f6"
+    },
+    {
+      "path": "lib/modules/player/player_queue_actions.dart",
+      "sha256": "2c22c8729415008f8d868a0d9ddd52940acdbaa94ff45e32d687d655e91d378a"
+    },
+    {
+      "path": "lib/modules/player/player_track_details.dart",
+      "sha256": "8aac4123dd0875a25b675b07f84deba8973a1d6798b280301f5db4c60f9dc81b"
+    },
+    {
+      "path": "lib/modules/player/sibling_tracks_sheet.dart",
+      "sha256": "cb752d25b2e7552f071552c038b369c8e6e4e37895f6fc7916f51646fbc6cf5c"
+    },
+    {
+      "path": "lib/modules/player/use_progress.dart",
+      "sha256": "603f2052f5fc053cabdd315ad7774f896c040967c16cd361db1564804d9d1dcc"
+    },
+    {
+      "path": "lib/modules/player/volume_slider.dart",
+      "sha256": "a46ab9851bd41f4847a1f076aba8b2ce2dd71ddbeae06b798293f321b54e7f65"
+    },
+    {
+      "path": "lib/modules/playlist/playlist_card.dart",
+      "sha256": "a0b5c2b7c30b19d3b2302e04964d19f75d496e0b9373d8abe5a255f3555aa12b"
+    },
+    {
+      "path": "lib/modules/playlist/playlist_create_dialog.dart",
+      "sha256": "d415a7f20132ce83f30dd19774274585a17509efcbcfc9c9b40917dd56bba6ff"
+    },
+    {
+      "path": "lib/modules/root/bottom_player.dart",
+      "sha256": "55c5ae3c4257d605bbaaa2e427b375a91b4ffcdea5a4e7e5f7993df94e5608e9"
+    },
+    {
+      "path": "lib/modules/root/spotube_navigation_bar.dart",
+      "sha256": "8907aafbc1e076bfd75102c25ce3e44fb32f033420099fa78189940df8239161"
+    },
+    {
+      "path": "lib/modules/root/update_dialog.dart",
+      "sha256": "c5a6f660680ffa17a3b3c5fbb07e83229ca26dcfe9b415816fc425f51d3a801d"
+    },
+    {
+      "path": "lib/modules/root/use_global_subscriptions.dart",
+      "sha256": "79d0cef418b1da7df4dd240c6997093c8611008b34c611fea5afae49030b0a3d"
+    },
+    {
+      "path": "lib/modules/search/loading.dart",
+      "sha256": "b636314a75ae3808f6116d2e920368faeb91b9f06d44d0317718add52c7bbaf0"
+    },
+    {
+      "path": "lib/modules/settings/color_scheme_picker_dialog.dart",
+      "sha256": "2a8054945bbcf5439fd978320206493b67a7850e39cecc240b1e82989d343335"
+    },
+    {
+      "path": "lib/modules/settings/section_card_with_heading.dart",
+      "sha256": "2e4ae6f1c3eafabd1b89bb852532825fbe88c97d14c41f43c7947d53c25f4c84"
+    },
+    {
+      "path": "lib/modules/settings/youtube_engine_not_installed_dialog.dart",
+      "sha256": "f133f512d372848a05ce26d6d73415b5d260eb9ba465a35c5151caa051a1499b"
+    },
+    {
+      "path": "lib/modules/home/sections/featured.dart",
+      "sha256": "33f8b24b0d5e96c8b9b940e558808d044c810bb732a33cc475aaeb145169d404"
+    },
+    {
+      "path": "lib/modules/home/sections/new_releases.dart",
+      "sha256": "ef9e74d9e8ea917fa4bd0a343c9d786505fdadab8387613ffb78affc703f41cf"
+    },
+    {
+      "path": "lib/modules/home/sections/recent.dart",
+      "sha256": "40037c5cde5201813a4dc8f88bbc55c86045c024c0797cf10e7e93532a99f84a"
+    },
+    {
+      "path": "lib/modules/home/sections/sections.dart",
+      "sha256": "f493295a5801472d00ab4ecef9aec04bf15aca927613ac707d4cd8107f7a46c6"
+    },
+    {
+      "path": "lib/modules/library/local_folder/cache_export_dialog.dart",
+      "sha256": "697df8c0efcc471801511a0580f2fb13ef1f2f513e61a93b6271033d1ef6fa3e"
+    },
+    {
+      "path": "lib/modules/library/local_folder/local_folder_item.dart",
+      "sha256": "40be81ef2c5acacae60fba9a5828b77aea60c9d1903b6076bb703b5113c2ad17"
+    },
+    {
+      "path": "lib/modules/library/user_downloads/download_item.dart",
+      "sha256": "517dd47de4a55ec39fb5e009823c93f3eb10a770c899762014dbf0b55ec534ab"
+    },
+    {
+      "path": "lib/modules/root/sidebar/sidebar.dart",
+      "sha256": "b6a38069bb39aa93e51925d7e89632c463608b0f4b67dad4f84be3c054939bce"
+    },
+    {
+      "path": "lib/modules/root/sidebar/sidebar_footer.dart",
+      "sha256": "58117fa8fe2785034c0502b05e079e0534a7b08ae480017b0f2bb9345ea507de"
+    },
+    {
+      "path": "lib/modules/search/sections/albums.dart",
+      "sha256": "45595083269fa8e2e65f7d71e23a13bb80b34d59787d3bc8671af9416ffc706d"
+    },
+    {
+      "path": "lib/modules/search/sections/artists.dart",
+      "sha256": "668ad1e37685226f6aaeb48cae14a2d30a56b678ea60caac6e32454144f72942"
+    },
+    {
+      "path": "lib/modules/search/sections/playlists.dart",
+      "sha256": "2ccf20cf068504d6e6e098e41a9eca9832c0191af0e473a28716a0f04f7840b0"
+    },
+    {
+      "path": "lib/modules/search/sections/tracks.dart",
+      "sha256": "d5295f37677a7cf8c8340612d2ff336535a41858519b9d625a7621bc52577b0c"
+    },
+    {
+      "path": "lib/modules/settings/playback/edit_connect_port_dialog.dart",
+      "sha256": "5fa3b3dcef288a2eb1a35390de0cd1deff07734ba7100a34df6b75d0fadce951"
+    },
+    {
+      "path": "lib/modules/settings/playback/edit_instance_url_dialog.dart",
+      "sha256": "c30ff7a18fc82e3c6c37e49b128dcdde44f328afba566fae3ebf79c11df9f58f"
+    },
+    {
+      "path": "lib/modules/stats/common/album_item.dart",
+      "sha256": "0577d04ff033c8c0c963f8d2024c3cfb366d60ad0a39ca277f3c63d7ace25184"
+    },
+    {
+      "path": "lib/modules/stats/common/artist_item.dart",
+      "sha256": "65ec1cceafed7510d819ed978a58c9a81d0649777ae61b5d7868181b6b4dd309"
+    },
+    {
+      "path": "lib/modules/stats/common/playlist_item.dart",
+      "sha256": "9e511df2f6b9122871bcceae9759bcfe521ef37c68bbc4e1cb5c537d55d8160b"
+    },
+    {
+      "path": "lib/modules/stats/common/track_item.dart",
+      "sha256": "aae3e47e8a80217dfb43e1ceb9a12d4eb275e4fb8feaa1490a332cc7e6aab686"
+    },
+    {
+      "path": "lib/modules/stats/summary/summary.dart",
+      "sha256": "06f0a1f383d3a6f1ca6d92a400a8d50a592ef5e93cd5369be9656b18ba2299ad"
+    },
+    {
+      "path": "lib/modules/stats/summary/summary_card.dart",
+      "sha256": "c35057dbd5d12bb01d3607aaa4fc06713af518eb3ee8d19cee66e0ebe6637260"
+    },
+    {
+      "path": "lib/modules/stats/top/albums.dart",
+      "sha256": "1000f72dca644a94da24417cbfe1a2b90c68a1746c7b77b064d5749af0a4c764"
+    },
+    {
+      "path": "lib/modules/stats/top/artists.dart",
+      "sha256": "363bccbe01f5feeffd15425c9ba39347770e054fc5b3223e853d23d280ec2005"
+    },
+    {
+      "path": "lib/modules/stats/top/top.dart",
+      "sha256": "b33b68df90c2f8bc88585dea4e80ff2d6628d459ed7f7101eacbfdfd0c83ebd5"
+    },
+    {
+      "path": "lib/modules/stats/top/tracks.dart",
+      "sha256": "72134565957bf23e25a36e00a237cc5bdc0539731d5d5e4839473e8fe00cbafe"
+    },
+    {
+      "path": "lib/pages/album/album.dart",
+      "sha256": "90c42805b8a481403e9b7100f227463a5a97cefc27d716598438e1975d1e6284"
+    },
+    {
+      "path": "lib/pages/artist/artist.dart",
+      "sha256": "ecf323e74292d526e40b2a1be10787b7b59238283bb0754817f2c735fe780ab4"
+    },
+    {
+      "path": "lib/pages/connect/connect.dart",
+      "sha256": "9347204888b9acf4cee9995bcc9d607ca4502fe894ea36374c4f98b576cf27a0"
+    },
+    {
+      "path": "lib/pages/getting_started/getting_started.dart",
+      "sha256": "2a4f9a0caa2cc7c4160706741616a08a19d13633d0403bf21681077e31da287e"
+    },
+    {
+      "path": "lib/pages/home/home.dart",
+      "sha256": "50403486dc157a97a19f4000ff86a6946c756419907b7eb2df106de38ca3ab85"
+    },
+    {
+      "path": "lib/pages/lastfm_login/lastfm_login.dart",
+      "sha256": "5aab7db235a848c2684273bd7f3271140f0d3e3ea581fc1d8226f7d23bf5a65f"
+    },
+    {
+      "path": "lib/pages/library/library.dart",
+      "sha256": "9de1b9f48037c605d6668fc494714f1190943a380ca85407e6cce2324cac5268"
+    },
+    {
+      "path": "lib/pages/library/user_albums.dart",
+      "sha256": "3a88f79b8b9724f0e9a549e1509b9df353f8af09aaaf45c3d82b24d61e4baae3"
+    },
+    {
+      "path": "lib/pages/library/user_artists.dart",
+      "sha256": "a79494c486d63397f2647632b7bf326b323bfe0d07cdae9f357d0e6ac0fe51bd"
+    },
+    {
+      "path": "lib/pages/library/user_downloads.dart",
+      "sha256": "d79547d93f8143694d2a504d4100670c406887eda866c090222e76c48e3d27b1"
+    },
+    {
+      "path": "lib/pages/library/user_playlists.dart",
+      "sha256": "4d753f12bd0c8d077920906215f18a24fd0c7673008d549fafc5e052728d61e8"
+    },
+    {
+      "path": "lib/pages/lyrics/lyrics.dart",
+      "sha256": "f0d9d1b58a8a42ce92bf2b1857124e645c9e0a4a49975d7223f737cddcf9aa6e"
+    },
+    {
+      "path": "lib/pages/lyrics/mini_lyrics.dart",
+      "sha256": "352411e8243b33c9bcd6ee648dee8b63c470b7da999dfd080c8ec8cb20312126"
+    },
+    {
+      "path": "lib/pages/lyrics/plain_lyrics.dart",
+      "sha256": "05f4a47b8564b923853a8cd141e99465a9e937c5f23bfe56443afbabe21e17a6"
+    },
+    {
+      "path": "lib/pages/lyrics/synced_lyrics.dart",
+      "sha256": "df32732b6d41ad8d7cc2e172ab9e3e584be19016811490d1ed16c0ad495a2508"
+    },
+    {
+      "path": "lib/pages/player/lyrics.dart",
+      "sha256": "8a340e241d971a92bc8b483e6cfd2c3a98203db2feffa0ac4be68c0b5ffc7585"
+    },
+    {
+      "path": "lib/pages/player/queue.dart",
+      "sha256": "aa881a71435796872440486d48192d37a5694840aac13f5442a4bba92e31c358"
+    },
+    {
+      "path": "lib/pages/player/sources.dart",
+      "sha256": "bf2a8836a538c82202af5c371b70fa365faca2200acd75810afe89598e78b2f8"
+    },
+    {
+      "path": "lib/pages/playlist/liked_playlist.dart",
+      "sha256": "84e940fc0a51e6017c67b6071b139694d2378cc8fedcde7d187afd34207445b1"
+    },
+    {
+      "path": "lib/pages/playlist/playlist.dart",
+      "sha256": "8cb53727033101e3101f561561947682022a7c5660073ba192b4bcacd8bee2b9"
+    },
+    {
+      "path": "lib/pages/profile/profile.dart",
+      "sha256": "4ea623d2790614be84c6c1a1487906914926da2cccff97dbb07867096a015997"
+    },
+    {
+      "path": "lib/pages/root/root_app.dart",
+      "sha256": "52545268d7dcea7d55571608572a484c0fbbc0667d3daf2923d7136d9eacea5a"
+    },
+    {
+      "path": "lib/pages/search/search.dart",
+      "sha256": "f463094f3f053dabacc559b6d0f15b1c0221cbb339f828f71199008483b947c3"
+    },
+    {
+      "path": "lib/pages/settings/about.dart",
+      "sha256": "6e72a22c509a36b8420df1507e68ad1df718e8a3a03128e1d51648c7bf96b7f0"
+    },
+    {
+      "path": "lib/pages/settings/blacklist.dart",
+      "sha256": "2427ff5ec37def17dabde85009bb57bf860d7377153b58246e23f8c364c7e9de"
+    },
+    {
+      "path": "lib/pages/settings/logs.dart",
+      "sha256": "8b47c6142b467e6e15f0eb6032c3c7d4924e5c51577f88c8ff5778295659f651"
+    },
+    {
+      "path": "lib/pages/settings/metadata_plugins.dart",
+      "sha256": "1b5017952c1ec5142e5d45202fda2f1725bafc5ba48669a70e7501036ea08bd3"
+    },
+    {
+      "path": "lib/pages/settings/settings.dart",
+      "sha256": "743de28087c193227c6029124facc4745010982061b175069cedfd1f2bfba28d"
+    },
+    {
+      "path": "lib/pages/stats/stats.dart",
+      "sha256": "75e2e5521fcb7e8d54ca10d359594e0fb48643a29e603fc036031c27f6464d2e"
+    },
+    {
+      "path": "lib/pages/track/track.dart",
+      "sha256": "214bb2413e6e4a50d81be46e3d8a735a21354ae8ac181f9c47cd0f843f96feae"
+    },
+    {
+      "path": "lib/pages/artist/section/footer.dart",
+      "sha256": "3e3719fb35fdfefd4fb63c372e79fc724b0a06eb265c121eff760754bd0c50dd"
+    },
+    {
+      "path": "lib/pages/artist/section/header.dart",
+      "sha256": "2a96a377c87034cd1328d1ca0aa1c4c10e665e780ebc8759c1ae5f1cb27beadc"
+    },
+    {
+      "path": "lib/pages/artist/section/related_artists.dart",
+      "sha256": "cdef67921d7dbe1c08150be5c92fde19add5aae679db0791eef21df84306d77c"
+    },
+    {
+      "path": "lib/pages/artist/section/top_tracks.dart",
+      "sha256": "87abbb82c355e824e584f81d4c50f2b2f667e97fdac78f74c2fbe442e01c0db2"
+    },
+    {
+      "path": "lib/pages/connect/control/control.dart",
+      "sha256": "a969199ca86edddcf6f165d377d3265d84b42c99ae38d57b87966a6cc01f0006"
+    },
+    {
+      "path": "lib/pages/getting_started/sections/greeting.dart",
+      "sha256": "8832d75410dfe7a6e9bcc1a018a907e9a36ff7e5c3279e0e10cad43584cc387d"
+    },
+    {
+      "path": "lib/pages/getting_started/sections/playback.dart",
+      "sha256": "4386743910ccf76db81038c16ce19705ec2e7cb346d31d64c9756c0387d66e2b"
+    },
+    {
+      "path": "lib/pages/getting_started/sections/region.dart",
+      "sha256": "28c8311c6e88db1d4a80ce33203dbe4e175c0882baee65d87b23c1e99daca7fd"
+    },
+    {
+      "path": "lib/pages/getting_started/sections/support.dart",
+      "sha256": "a6a7e9be1a64355838ee028c85d05c483fce9b561d943461d3b352822e91e64f"
+    },
+    {
+      "path": "lib/pages/home/sections/section_items.dart",
+      "sha256": "f9e87782e8a4212d67123c4f950f86f5843cb8cfc7805398b9ff7446898012bd"
+    },
+    {
+      "path": "lib/pages/library/user_local_tracks/local_folder.dart",
+      "sha256": "ebd501348363a3a0c0bdc02505b6eb9672e33d613096a084951852517e4952be"
+    },
+    {
+      "path": "lib/pages/library/user_local_tracks/user_local_tracks.dart",
+      "sha256": "ebb4d56280668fa8aa4f1770c6118ed59cf74426e2a543e96f525534ce57523c"
+    },
+    {
+      "path": "lib/pages/search/tabs/albums.dart",
+      "sha256": "faee5549cac4140e20dbf5fb0890cb502f22bafc6b4cadae905d030b266f3230"
+    },
+    {
+      "path": "lib/pages/search/tabs/all.dart",
+      "sha256": "685565bde52d8516722faeee692ead81a9afd50d7a6f3d8fc4a642572007adf8"
+    },
+    {
+      "path": "lib/pages/search/tabs/artists.dart",
+      "sha256": "73cd3663d6c3ce679f9f32ecc8b5e993c142b996a7e9dc4639ebb488e38ffe4f"
+    },
+    {
+      "path": "lib/pages/search/tabs/playlists.dart",
+      "sha256": "6770a98245339207a6331b1625c5feab1968751f47d5c4aca546ac61f25815c9"
+    },
+    {
+      "path": "lib/pages/search/tabs/tracks.dart",
+      "sha256": "289eedaad244e99bb28208763de845f48d4aa5e99a48ae2fc83124d5a6ca7034"
+    },
+    {
+      "path": "lib/pages/settings/metadata/metadata_form.dart",
+      "sha256": "a81bbc20dd8f0b5c6bd71ac36a18410875f8977901eab561591e4232228eee35"
+    },
+    {
+      "path": "lib/pages/settings/scrobbling/scrobbling.dart",
+      "sha256": "e5285c758437f08ec3f7b3e4dc25b9ad4f22d9f3ebf4b330710f4c4376fce3c6"
+    },
+    {
+      "path": "lib/pages/settings/sections/about.dart",
+      "sha256": "4c642c0d8c93d062732f166af4fb87d45846e3e844da4e8cffec2bd6a2a5ebfd"
+    },
+    {
+      "path": "lib/pages/settings/sections/accounts.dart",
+      "sha256": "c7f1ef98f3bdbd43a21f06f673cbc559ccc80e6c459133ced319de3de74eb4b3"
+    },
+    {
+      "path": "lib/pages/settings/sections/appearance.dart",
+      "sha256": "98e5fcb7f67bd8eeffda95a83eea2c5fab6045fb2ef383bae02e71fc42e08794"
+    },
+    {
+      "path": "lib/pages/settings/sections/desktop.dart",
+      "sha256": "a1823154a5ebc566547d97ed1a76599ff8cdb6aecb1b4963a86d7b069eefb836"
+    },
+    {
+      "path": "lib/pages/settings/sections/developers.dart",
+      "sha256": "bd62ce782e327cab1df2381b47ddbac5b9bce607bb16c5a278b6098047e80c7c"
+    },
+    {
+      "path": "lib/pages/settings/sections/downloads.dart",
+      "sha256": "13c0aea75d5ea9013e86f98ebb81965c83e2b7e566e65329eef3dda3832fad91"
+    },
+    {
+      "path": "lib/pages/settings/sections/language_region.dart",
+      "sha256": "ebe3278fce4ac3f7484c7e077fa5080d80e98fc63b17bbd637e78440ef0bd0a7"
+    },
+    {
+      "path": "lib/pages/settings/sections/playback.dart",
+      "sha256": "c78a97f82ef3fe89d95ffb84f3d24875b32dc70877a0097606377c917a99f843"
+    },
+    {
+      "path": "lib/pages/stats/albums/albums.dart",
+      "sha256": "4224631ad0ff9d1012aefd6bbd98b9c83126a5322af4ca6f2d38ceac60157f2b"
+    },
+    {
+      "path": "lib/pages/stats/artists/artists.dart",
+      "sha256": "8bf4d8e291897a6ead1c3a8eab20de105e811b643572806d9ced635a2bf67984"
+    },
+    {
+      "path": "lib/pages/stats/fees/fees.dart",
+      "sha256": "0a58b4e527dbce3fab6c57b93b6d6fb6bf4d58902a2eacf5aa7262c10eb51112"
+    },
+    {
+      "path": "lib/pages/stats/minutes/minutes.dart",
+      "sha256": "c5a63f953ab2a2c61ce63b59348d9b575409fe481f238b90ad4a48f4597304dd"
+    },
+    {
+      "path": "lib/pages/stats/playlists/playlists.dart",
+      "sha256": "ac8eb2eb950b8a4a4ab643551f9c2241b26548a96ab38abcc7207fd9b3e0089d"
+    },
+    {
+      "path": "lib/pages/stats/streams/streams.dart",
+      "sha256": "3c2b8b8c3dddfc53c738a25f5f62ff0693872221ebb594bd179a6e211e1649b1"
+    },
+    {
+      "path": "lib/provider/audio_player/audio_player.dart",
+      "sha256": "c872cc1424e34e23c71845a291d96dafd7870bbb7aaea28a11da71f1a1e66678"
+    },
+    {
+      "path": "lib/provider/audio_player/audio_player_streams.dart",
+      "sha256": "5f883458ec2f6326121a0a8b7ab9de80245a44075b9e9000acde2a53e8fcde15"
+    },
+    {
+      "path": "lib/provider/audio_player/querying_track_info.dart",
+      "sha256": "f3d863f988bd8b0bf4f36be02c2518091fa1c35bf38fe975d4916d655751e96f"
+    },
+    {
+      "path": "lib/provider/audio_player/state.dart",
+      "sha256": "44824c18ab59771fb14e1efec5cfc5737265fd7f24045bfa9372bb4201599bf2"
+    },
+    {
+      "path": "lib/provider/audio_player/state.freezed.dart",
+      "sha256": "a8cd0d02d25bb0083ecb9255cdc6fd7a17eb8e002135f5ebfa5c1f5f25265dee"
+    },
+    {
+      "path": "lib/provider/audio_player/state.g.dart",
+      "sha256": "78d2f041d8f2eca2ce242381009669eb196480d398acc8dd69dd69dd7f23750a"
+    },
+    {
+      "path": "lib/provider/connect/clients.dart",
+      "sha256": "8f1c79671abc0913ebfb4337c67acfefee04a74afcbbd5327a9740075c6236fa"
+    },
+    {
+      "path": "lib/provider/connect/connect.dart",
+      "sha256": "505445435095e645b006ca46256b1d3e234ec5d1ff9adcd4401df6ab2e894502"
+    },
+    {
+      "path": "lib/provider/database/database.dart",
+      "sha256": "25376796a97dc5f720e51cd0950f7392e6f4f905773bef471599998a47dbd398"
+    },
+    {
+      "path": "lib/provider/glance/glance.dart",
+      "sha256": "0b6b274b4bae6a66df969954c56b18216d82ed6600a5c0c652cdfaa006d44ef8"
+    },
+    {
+      "path": "lib/provider/history/history.dart",
+      "sha256": "1dc2c3ea5bc73b46065f9670d7b556b645115e660bc2fb786e6b8c2b6998fcfe"
+    },
+    {
+      "path": "lib/provider/history/recent.dart",
+      "sha256": "c97ceb893c6409425a0fa7a9f87a31cc48feb62674c1184b7194ea70cacf01b8"
+    },
+    {
+      "path": "lib/provider/history/summary.dart",
+      "sha256": "612174de2e2001d696a2480202683c8b8fabcc8d4445e1dc54344c1ca55b037b"
+    },
+    {
+      "path": "lib/provider/history/top.dart",
+      "sha256": "ce39ef7b588e2f38050213451993811417930d377a397123f9982ba8315032c5"
+    },
+    {
+      "path": "lib/provider/local_tracks/local_tracks_provider.dart",
+      "sha256": "2d34eeb35b3a993f1644522eb4a0148ee75ffc79702c403b5eb9d97edc2e2db7"
+    },
+    {
+      "path": "lib/provider/logs/logs_provider.dart",
+      "sha256": "c02fa162aff4f9a5c65d4aa65312b5b2926d12eb102e29cff517fe027500b046"
+    },
+    {
+      "path": "lib/provider/lyrics/synced.dart",
+      "sha256": "50a18e6b4022e3c0306df756e7eb679a5d18a1f9f87634affba7a6e0b1b01a26"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/metadata_plugin_provider.dart",
+      "sha256": "5869ffb2dbd19e3a685d710413ec650ee70a01a37bdadc7640fcc7f07cdeb328"
+    },
+    {
+      "path": "lib/provider/scrobbler/scrobbler.dart",
+      "sha256": "243bcad6d3a287dcb938357fe2b5b7defa1762a5571f156898f801f39cde3a31"
+    },
+    {
+      "path": "lib/provider/server/active_track_sources.dart",
+      "sha256": "6fd38d46f8e564fe464392aabd34d5b67bb6b7844c5397bd87fe60b5822fa089"
+    },
+    {
+      "path": "lib/provider/server/bonsoir.dart",
+      "sha256": "f038ce5e6b366f4f843501c2af67e800cfa2edf96cba6da5d7c59b460a78f7ad"
+    },
+    {
+      "path": "lib/provider/server/pipeline.dart",
+      "sha256": "3ab1caf66f4068300ca4da20b8bc1c4c783caea04cf6b9d7108651b562aae81d"
+    },
+    {
+      "path": "lib/provider/server/router.dart",
+      "sha256": "82e2b025aae1e415d4dc9dd8e2f4d21d39c9a379c2e058a3cb07016e4a978e86"
+    },
+    {
+      "path": "lib/provider/server/server.dart",
+      "sha256": "eda4683138c28e7f7a97e7de3a6b5afb4fd0762fcab2d95392f79ac77213a5eb"
+    },
+    {
+      "path": "lib/provider/server/sourced_track_provider.dart",
+      "sha256": "559150bae9805d2d37522a4a5b69d83d6be3f7966c7f96ab66bcce9d04cb71b8"
+    },
+    {
+      "path": "lib/provider/skip_segments/skip_segments.dart",
+      "sha256": "d21388b5490cc259970f7fc81448224993372dcad45d405418040aa51ea4d187"
+    },
+    {
+      "path": "lib/provider/track_options/track_options_provider.dart",
+      "sha256": "516d96ebe874c769a697ef5eb30f3ec4e53c98add4627754e8001a52d73cbf94"
+    },
+    {
+      "path": "lib/provider/tray_manager/tray_manager.dart",
+      "sha256": "e63285f327c6ee7925780d8171de2b74a47c425cdbf886ec1dd51aabae073e7c"
+    },
+    {
+      "path": "lib/provider/tray_manager/tray_menu.dart",
+      "sha256": "e2f274659abd15367c9e2550f1c31559c878b53cdb1dd0ff3f103c7ad85b6762"
+    },
+    {
+      "path": "lib/provider/user_preferences/user_preferences_provider.dart",
+      "sha256": "6a9d94cdc760dbf49ae396a445947f043a572548bdc20eee8cce855b7802f3ab"
+    },
+    {
+      "path": "lib/provider/youtube_engine/youtube_engine.dart",
+      "sha256": "84f97b0384900e894cb96308b9a342970b2bc683b585a414316f5ec320eabfe2"
+    },
+    {
+      "path": "lib/provider/history/top/albums.dart",
+      "sha256": "873d79f6e53a79a0894957361f011cdff288052b9add87820551444cec4bf828"
+    },
+    {
+      "path": "lib/provider/history/top/playlists.dart",
+      "sha256": "2933262b66ebc53e92f545fe59e6087164b50144f5e7166b867a8813892c8f91"
+    },
+    {
+      "path": "lib/provider/history/top/tracks.dart",
+      "sha256": "87f473e33726b4101a7c7b316001813f655c9b1e8a809f6fd7f3c13eeced946e"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/album/album.dart",
+      "sha256": "868cf33029da09c4e71e72007a5fea36da63b4ef0bd98ecf061ea211f5fe501c"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/album/releases.dart",
+      "sha256": "c3ae7dd150bbc3ab728030003da663d55ee9a8bdd00a815e345e88ece1a28c1a"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/artist/albums.dart",
+      "sha256": "9c5f3a59f15665e75083452daf45e0c0d06d1b0c211f496c236ea8b4160ad624"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/artist/artist.dart",
+      "sha256": "2f5827b64f76252b02639e625a7f61e94191a85bfb39312bbe8c31a599a31b73"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/artist/related.dart",
+      "sha256": "9aa94114da37128292e0b1062ab06fb3033c537940b059e8b2772291239aeb1b"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/artist/top_tracks.dart",
+      "sha256": "397d1b1abcc8553a2768cdef1472175fd0b37d3833850096d22d006ece9b8467"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/artist/wikipedia.dart",
+      "sha256": "bb690dff9a3066e6d017501c3e1eae8becd62c48c518da5fef47f73a64fc73d6"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/audio_source/quality_label.dart",
+      "sha256": "30f0b14da249b147941e1830c0ceb987739a33a1d580f2f01e55a640481ce39e"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/audio_source/quality_presets.dart",
+      "sha256": "9717f1e182ebef784c952fec9cf18ceb3a2091e5950648ec3e668a8eda5cc8c7"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/audio_source/quality_presets.freezed.dart",
+      "sha256": "33ea836852e777653222593354b7339cb49901ca192ab5ec78b0e8a9b00a8e81"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/audio_source/quality_presets.g.dart",
+      "sha256": "8abca3e9c477f14880eb84353ba062e4deeec3dc0df2aac19ae05973c20b537b"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/browse/sections.dart",
+      "sha256": "98e89c28465ac5d2950d7e9ea7862304990d1aef4634f5324edfd43ef8497115"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/browse/section_items.dart",
+      "sha256": "ee29f2c4544ffbda8261c6592237cd538eb3c56399505e0f930009d3203c93fe"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/core/auth.dart",
+      "sha256": "cecf4a3fe00528dac0e3ada86e10569b1f9401beebc7381cdbf6ce2243c67f73"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/core/repositories.dart",
+      "sha256": "82f3809fa158caa180f677c6fbcb07afec5d6036e8262a5abb15272b4e9c8492"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/core/scrobble.dart",
+      "sha256": "5f04197d5e15c4d29eba9ad9d7f8cba2c0e317e1acc6cf82849c1a0dcb4b58ed"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/core/support.dart",
+      "sha256": "65faeac387b083fdf7fab493400a0b26636a0ecc32f08919bb09c6fa2b0d0605"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/core/user.dart",
+      "sha256": "1a467643bcde4412b9438c937a29ac8d24ef46854834011cf7ecb58eca91494e"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/library/albums.dart",
+      "sha256": "1d18a8e2b7abf421f2691bb084e274dc61585b20402727bbb329eb6dc0efcd7b"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/library/artists.dart",
+      "sha256": "a000a31774bf124a2836d81190a64becb0025748c7ba1a00e6f6f771eb11cae8"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/library/playlists.dart",
+      "sha256": "4680a2f3b3ce90e10eba209c53cd340353fd3c7bef1a6f58eb363791bd36ff82"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/library/tracks.dart",
+      "sha256": "8c15ae7831f80d41278eb00896924dd46069ba7017e18ff721cdc15fd6665fb8"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/playlist/playlist.dart",
+      "sha256": "edd67275bf14c240256b328182afe0a49fe84b509ea9eeb08c3585af2a0bd91f"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/search/albums.dart",
+      "sha256": "7c0f2a3f6057bfe1bee461d6f6bd5790c4ed9fefb168338ea566073070058daf"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/search/all.dart",
+      "sha256": "817fd20f67abab52a47fbf3d93ca5e884916d9c6f24d075c0efef69afe528364"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/search/artists.dart",
+      "sha256": "6d4520e4842289819acf7e0495cd40bfb39ec614613eed8f0803e9885d6af0d6"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/search/playlists.dart",
+      "sha256": "f755d27f8ba9a20ad09475c1e6c764016cfc98f18cd0cdc8f44a6e86642a4e47"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/search/tracks.dart",
+      "sha256": "d7ae12270e0e4a158ac187a57c9b5e67f7af71fc688dcce6ef132378aa40d084"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/tracks/album.dart",
+      "sha256": "014fc8108a184572b50d752a70f3058c1732c3cf4bc75f40586e7bf7db77de4a"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/tracks/playlist.dart",
+      "sha256": "f54b7134c32eba7d2047cc4649e66132f0fb38e8312f2e47366aa39c599b7511"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/tracks/track.dart",
+      "sha256": "921e8495d0f09c033df0d4ff7717e02ba50d5283be50bf1f7119b7ef6d9bc317"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/updater/update_checker.dart",
+      "sha256": "9648c4117147cbdbafbe075b064d8caa37101fed8c2692e33c1b9b57057f762e"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/utils/common.dart",
+      "sha256": "047af07331c832e66893dd9d11622a85da9b346643b3848168bacd7bf614fba6"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/utils/family_paginated.dart",
+      "sha256": "b0e4326cfe00ff7722119a8efaafed908db96f681720f258ba3fefe5e9da7886"
+    },
+    {
+      "path": "lib/provider/metadata_plugin/utils/paginated.dart",
+      "sha256": "0801fbc5201ebb1b56d0d4d23360aad32e1fd167e2e06d334c4d78508b4b7c8e"
+    },
+    {
+      "path": "lib/provider/server/routes/connect.dart",
+      "sha256": "5697641de14843ece2970dc47a412bc13a5a81542c4731e97a8583c65ef63c3c"
+    },
+    {
+      "path": "lib/provider/server/routes/playback.dart",
+      "sha256": "0aef5d088ce367e3c62a7e7f2350e65f21db42a807fc4935d4257e5aeeb68ca2"
+    },
+    {
+      "path": "lib/services/audio_player/audio_player.dart",
+      "sha256": "054c792b6c2b6205fcc6b1237000d19df9ebf926b80a676f5d87f1f4bb5cadf9"
+    },
+    {
+      "path": "lib/services/audio_player/audio_players_streams_mixin.dart",
+      "sha256": "55220789cae156c8386c75eeffb90fc33317c6ba2992bfd6c31013c00eededaa"
+    },
+    {
+      "path": "lib/services/audio_player/audio_player_impl.dart",
+      "sha256": "234ddea208a203076a91c901fa3a75afcf3770c8517b6597f152fd353b0915d7"
+    },
+    {
+      "path": "lib/services/audio_player/custom_player.dart",
+      "sha256": "8f1036c4888472ba2e344376372bac7e94d02ec20ed932966045cbaae800f647"
+    },
+    {
+      "path": "lib/services/audio_player/playback_state.dart",
+      "sha256": "b4deafb846dd722df067761d5e2f3cd3ccf92719db27bd81cef4e17506bf4486"
+    },
+    {
+      "path": "lib/services/audio_services/audio_services.dart",
+      "sha256": "0ae1c61a1ff775924729b524e6b9ff3e514e3db95bc886954df09fa5529e74b1"
+    },
+    {
+      "path": "lib/services/audio_services/mobile_audio_service.dart",
+      "sha256": "8817acb719ceefb86992720a1d1ab2ccda7729cfb3074089f40922383b37c33b"
+    },
+    {
+      "path": "lib/services/audio_services/windows_audio_service.dart",
+      "sha256": "056c526c380865a7722c3f982cfe0e302d637e3a0d4901afbee2b4e86611a96e"
+    },
+    {
+      "path": "lib/services/cli/cli.dart",
+      "sha256": "6ae4bbcd5fa72751a5c5814e4d469dc5846b11b410f8f3436da0d3a5372fb81b"
+    },
+    {
+      "path": "lib/services/device_info/device_info.dart",
+      "sha256": "dc273a5e8e3831c3e71667d1b97d16ef2fefb40fbfb3737c427d73c59b52025e"
+    },
+    {
+      "path": "lib/services/dio/dio.dart",
+      "sha256": "59eee0dc0c31aefa9441b1c67f37dbb6989557a72e5a674e15dfabae70730d7e"
+    },
+    {
+      "path": "lib/services/kv_store/encrypted_kv_store.dart",
+      "sha256": "ab54bd9985f45ebae7b04ef342f947ebe0eab27a71a489a8956fdec6d81a963d"
+    },
+    {
+      "path": "lib/services/kv_store/kv_store.dart",
+      "sha256": "9162194f3eec0d7b0dff86e8c06f76e4981104b979ec120b01264a3d576e5332"
+    },
+    {
+      "path": "lib/services/logger/logger.dart",
+      "sha256": "213129556e3b5bdeb81169a91553c3385795a5ddf8ce11098a5342458ee494af"
+    },
+    {
+      "path": "lib/services/metadata/metadata.dart",
+      "sha256": "30a7eebc9fb7d22d5f672ab83138ce1d2ab3c70007b1dbda26bd28c64309fcfd"
+    },
+    {
+      "path": "lib/services/sourced_track/exceptions.dart",
+      "sha256": "674eb80392c2a8687bdc26dd984cf34139de6247350d7546848fddbd38725eb4"
+    },
+    {
+      "path": "lib/services/sourced_track/sourced_track.dart",
+      "sha256": "e195e34ce4ccf7ec570c30a9f1612fc4306c0645fd92f60ef7a3c0cbd4cb1508"
+    },
+    {
+      "path": "lib/services/wikipedia/wikipedia.dart",
+      "sha256": "5084b68078ea924291c760e70a6d8a4f20dc004b69ce0316345b0231ae1f1cfb"
+    },
+    {
+      "path": "lib/services/wm_tools/wm_tools.dart",
+      "sha256": "f249ebc7f3f0c8fbbadfc7524a7900c544a06888ce88cb51fcfce8d6d710b92b"
+    },
+    {
+      "path": "lib/services/youtube_engine/newpipe_engine.dart",
+      "sha256": "4069829da86e7ac4dcd8114372a27a5fc3aa3c5f96d5786afe30b6a6ead89ea0"
+    },
+    {
+      "path": "lib/services/youtube_engine/quickjs_solver.dart",
+      "sha256": "474973459471c1437e54fe230d866690a0355455e57b0772a45682c009c35a71"
+    },
+    {
+      "path": "lib/services/youtube_engine/youtube_engine.dart",
+      "sha256": "a7650e1dd06dd4715d6f878a57a4fa4cc72f3a889e01bbcacb8672f791599481"
+    },
+    {
+      "path": "lib/services/youtube_engine/youtube_explode_engine.dart",
+      "sha256": "eebe4bd126f44bc2d516f5dbd139122dcd74a44dfefef8cc539e77d062e42fee"
+    },
+    {
+      "path": "lib/services/youtube_engine/yt_dlp_engine.dart",
+      "sha256": "1d2f4f5c678b420d8b267a2dad599bb45233831594910f717c1c050a4b7e0664"
+    },
+    {
+      "path": "lib/services/metadata/apis/localstorage.dart",
+      "sha256": "6954df229ecfeb0d47c82e42712fb13ebe781daaa3956caf8a060b7dcc9366c0"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/album.dart",
+      "sha256": "2cefd06c7a13c1fa6568aa9ac357893396ff4efcc2e6c08520bf94e9c01c2463"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/artist.dart",
+      "sha256": "ceab4daf54ea1096f43f42141f8e2c410884a552efe812a803028969ad452bde"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/audio_source.dart",
+      "sha256": "eab8b91b61485a135417ab38f6fdb0d2d20a19ad5917a2245c0bd35c7b6d303f"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/auth.dart",
+      "sha256": "891df7e16ba8fd27dff19501606df676ccf952d8b1692c267596dc54abb229d8"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/browse.dart",
+      "sha256": "acb24cecc3ea894ba054dafbb3352abbba932d4f18eb7eb0841d7a1815bb7dad"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/core.dart",
+      "sha256": "9522b4cdd060ec644574ba6a445b145a40a6466d0712af54bbdf50f916016dfa"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/playlist.dart",
+      "sha256": "439f653d0a66dd7a54e97a36c6f3e6e8e216d84eec0b2fe27330258d19f782e8"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/search.dart",
+      "sha256": "82818e27925f9783369a8765b8fa066d0ed9fcae56d1c05214208e14934962ac"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/track.dart",
+      "sha256": "00f47128388a1de0bc9aa460016212de441b6313338d3b282797fe7049044213"
+    },
+    {
+      "path": "lib/services/metadata/endpoints/user.dart",
+      "sha256": "b667c6517401c3b49d97bfb4a2d6faa25b63b4d9ade728c53e364fd8b517db0d"
+    },
+    {
+      "path": "lib/services/metadata/errors/exceptions.dart",
+      "sha256": "11d16d43c018899d871cb8c8184a7dd6c6ada854b171c237a83c2e1c7fb7c0bd"
+    },
+    {
+      "path": "lib/utils/migrations/sandbox.dart",
+      "sha256": "b2714305f480fb4e8852db46d27f2ba425f74c2979ac9620dba717bf0d019737"
+    },
+    {
+      "path": "assets/branding/branding.png",
+      "sha256": "39b14a978a2fa0cf54beb90ff91a3e3cdf28f4ed06bc6f8531c160a943010abf"
+    },
+    {
+      "path": "assets/branding/spotube-hero-banner.png",
+      "sha256": "3b65d03fb7d578b2dc5ce2e809aa6671377ad7991886b63dccc77b174fffb8fe"
+    },
+    {
+      "path": "assets/branding/spotube-logo-foreground.png",
+      "sha256": "915c90254c7292a4fa5badfbe2ae5107dc883c4952dc0464409ef2997f80e26a"
+    },
+    {
+      "path": "assets/branding/spotube-logo-item.png",
+      "sha256": "0581b5da003bd58b9025dc13f7329ffeb228055779b72456822cf8d4e9be4d04"
+    },
+    {
+      "path": "assets/branding/spotube-logo-light.png",
+      "sha256": "4c9cafeb2189d9106b919995ac24e051dd25766ca076377f3f0cfe1508e5d121"
+    },
+    {
+      "path": "assets/branding/spotube-logo-macos.png",
+      "sha256": "94134c42391bf18c16dd70a8d893b7fa90280d4b85ac07b7a4990de54eea1e79"
+    },
+    {
+      "path": "assets/branding/spotube-logo.bmp",
+      "sha256": "5c05a0807bfceb20a2d04dd5e765267012f75727b407963e35ae804b1b5269cf"
+    },
+    {
+      "path": "assets/branding/spotube-logo.ico",
+      "sha256": "352799019bba89399b85db916f0cb91477e70e4bf69d6d9f30c130e209823eeb"
+    },
+    {
+      "path": "assets/branding/spotube-logo.png",
+      "sha256": "fb20f4a9f3cf9f743ba9ec24e4dfb689fe39233db7c04f63341c1f1d511f7739"
+    },
+    {
+      "path": "assets/branding/spotube-logo_android12.png",
+      "sha256": "7474ae0a60b790c8937da2752198f9f63a0478e3917ccaf528671d777c09d33a"
+    },
+    {
+      "path": "assets/branding/spotube-nightly-item.png",
+      "sha256": "9c288620d5d44d38c7e91c1b66eec3a5a7f4f721caf9a8e5a97d420c177ed784"
+    },
+    {
+      "path": "assets/branding/spotube-nightly-logo-foreground.png",
+      "sha256": "571048f8861212d6e2ba46fd9d5fd975b16b53d79a5d3ac1fd809a08df20248c"
+    },
+    {
+      "path": "assets/branding/spotube-nightly-logo-foreground.svg",
+      "sha256": "c32dc08614d0f96a10ae04e8efc28318b32f7688976773ef987c0d05b8d8ae45"
+    },
+    {
+      "path": "assets/branding/spotube-nightly-logo.png",
+      "sha256": "4ee0f139813b6bf8bd37ed137a56878e03e697ee1127e89f28312a77f9ec060f"
+    },
+    {
+      "path": "assets/branding/spotube-nightly-logo_android12.png",
+      "sha256": "9ff476a9e3b40bd650c083a88b50fb377c7a4ea5c696b827e43b91c66f3c89c8"
+    },
+    {
+      "path": "assets/branding/spotube-screenshot.png",
+      "sha256": "1b3698c3da42ac44b678c40bcce13edb48cebbcac105c4b17eb17b85040cec64"
+    },
+    {
+      "path": "assets/branding/spotube-tall-capsule.png",
+      "sha256": "6b00b91808409f51a17894e96c5d419a819c16db1a9631677d98b1c6a3131ae8"
+    },
+    {
+      "path": "assets/branding/spotube-wide-capsule-large.png",
+      "sha256": "7d2fda416e3237099bdba66bf521dcfcf2da4eb344b18ec4f578dc8a5e6e472a"
+    },
+    {
+      "path": "assets/branding/spotube-wide-capsule-small.png",
+      "sha256": "3d8906a7da6c4ce4f999fcb4164d9a1242054137c353da4c90fbb5c9ab43f585"
+    },
+    {
+      "path": "assets/branding/spotube_banner.png",
+      "sha256": "06c3a4d149cc236b48f90dbb8588186af9256a31d0a6d07042089445931cec5e"
+    },
+    {
+      "path": "assets/fonts/Cookie-Regular.ttf",
+      "sha256": "8fe7312ac5296376cb2e52e23255782b254c3c278fa297d89d606e711099f14c"
+    },
+    {
+      "path": "assets/images/album-placeholder.png",
+      "sha256": "91936ba8edf49663cbb05baf7600a1cfacf48db85a19ff96de6ec810bf349eb2"
+    },
+    {
+      "path": "assets/images/bengali-patterns-bg.jpg",
+      "sha256": "28fe2bd8deda1cc3d3f5887a881060bc8ba1695a8d560ac652fd2d579fc2e50d"
+    },
+    {
+      "path": "assets/images/liked-tracks.jpg",
+      "sha256": "dcee15b23289db4f94d033916906844f855237b889141da6ecea019ba71e8d2f"
+    },
+    {
+      "path": "assets/images/placeholder.png",
+      "sha256": "7df55e4a84a1466b1d668eea860785e5021e8ee9f0840958046d14a86370b02e"
+    },
+    {
+      "path": "assets/images/user-placeholder.png",
+      "sha256": "ac838699782e16617028e3bdfd44a39185f7c0bec747c57ffe884203d52926ee"
+    },
+    {
+      "path": "assets/branding/mobile-screenshots/android-1.jpg",
+      "sha256": "7ae798b71cc6b79ec30be069a8e7b9d6465f27c270d62c3491eb2f3ef1e07a13"
+    },
+    {
+      "path": "assets/branding/mobile-screenshots/android-2.jpg",
+      "sha256": "f88ba31829698511bba9bef049b0e60d305b4b7a2657eb9827c5178190931574"
+    },
+    {
+      "path": "assets/branding/mobile-screenshots/android-3.jpg",
+      "sha256": "1ad6c217c7ce3753b9429662bf80fa3e25ae2ac944c8a786bd7f4016195f609a"
+    },
+    {
+      "path": "assets/branding/mobile-screenshots/android-4.jpg",
+      "sha256": "141ded5e662d25977c5da17ed529e3015ac1d56ecdee0428488718d845496476"
+    },
+    {
+      "path": "assets/branding/mobile-screenshots/android-5.jpg",
+      "sha256": "394f2109c5122fa271c6f619827e9536d2138342b2029f53459399011f2ebbb2"
+    },
+    {
+      "path": "assets/branding/mobile-screenshots/combined.jpg",
+      "sha256": "d2072f47c92eeec63572cb28404c46e8a8bcd664b727d7602c8e9d7f134d5811"
+    },
+    {
+      "path": "assets/fonts/Ubuntu_Mono/UbuntuMono-Bold.ttf",
+      "sha256": "1130b30719d415917d0d49e5de18750e37d6fbbbe8b7433fd1d84e4423356dd2"
+    },
+    {
+      "path": "assets/fonts/Ubuntu_Mono/UbuntuMono-BoldItalic.ttf",
+      "sha256": "2a1cb3546412e5c797332c9044020bb1c2991a27d1a86698f5cf3bd4ab915047"
+    },
+    {
+      "path": "assets/fonts/Ubuntu_Mono/UbuntuMono-Italic.ttf",
+      "sha256": "7644342e94bb717c5cb88e811a9f79ac5a909f1ab8128a0b4e14631b0c0caa26"
+    },
+    {
+      "path": "assets/fonts/Ubuntu_Mono/UbuntuMono-Regular.ttf",
+      "sha256": "3b83b9ca3a1186b4bf8fbcbc8078b360bdb78a77a859f8eeabc9b14fb165da9a"
+    },
+    {
+      "path": "assets/fonts/Ubuntu_Mono/UFL.txt",
+      "sha256": "0cebe8aa1ba75c4fdf57946d6109ed0a8ce12ae6bb420bad4e4f302c5c147d78"
+    },
+    {
+      "path": "assets/images/logos/dab-music.png",
+      "sha256": "8a00e382c1a164c5c02f5c90a3e30c37802d928822069b6364192fc8b41f80ec"
+    },
+    {
+      "path": "assets/images/logos/invidious.jpg",
+      "sha256": "813c248f0bc3d62d3b914495f8e082d1262b626c1f67b31625c0ff3d483ff10e"
+    },
+    {
+      "path": "assets/images/logos/jiosaavn.png",
+      "sha256": "75167778eeed4a370be3d49f6f3377a9aa85fea347e7c34d6386ab76ba7d38e9"
+    },
+    {
+      "path": "assets/plugins/spotube-plugin-musicbrainz-listenbrainz/plugin.smplug",
+      "sha256": "c5c4c266f2aa58505a3b3ec4e70b764142408eabd5e259e0be0b3d7e115f7757"
+    },
+    {
+      "path": "assets/plugins/spotube-plugin-youtube-audio/plugin.smplug",
+      "sha256": "a06c79922207e935fc133bee9c97dcc59d940e413205266e52fda30940829c94"
+    }
+  ]
+}

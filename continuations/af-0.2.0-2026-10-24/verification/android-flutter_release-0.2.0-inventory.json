@@ -1,0 +1,37 @@
+{
+  "path": "C:\\Users\\jhadfield\\.codex\\.chatgpt-projects\\g-p-6acd87885670819194650fb31b8c786a\\build-work\\af\\work\\af_music\\build\\host\\outputs\\repo\\com\\coucou\\workspace\\af_music\\flutter_release\\0.2.0\\flutter_release-0.2.0.aar",
+  "bytes": 25609709,
+  "sha256": "ec6517efdb5d413454af53cc3d5483cc332b643e14f32c3240edc01aa59a94dc",
+  "crc": "pass",
+  "nativeLibraries": [
+    {
+      "file": "jni/arm64-v8a/libapp.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "jni/armeabi-v7a/libapp.so",
+      "loadAlignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16KAlignment": true
+    },
+    {
+      "file": "jni/x86_64/libapp.so",
+      "loadAlignment": [
+        65536,
+        65536,
+        65536
+      ],
+      "supports16KAlignment": true
+    }
+  ],
+  "embeddedFlutter": false,
+  "runtimeInstallTest": "not run: no connected Android device"
+}

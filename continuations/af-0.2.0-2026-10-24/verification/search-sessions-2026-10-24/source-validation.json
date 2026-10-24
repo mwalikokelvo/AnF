@@ -1,0 +1,12 @@
+{
+  "focusedSuites": 23,
+  "passingSuites": 23,
+  "changedExistingAppFiles": [
+    "windows/src/workspace/studio.ts"
+  ],
+  "newAppTest": "windows/dev/search-ui-check.cjs",
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "hardwareAcceptance": "not run"
+}

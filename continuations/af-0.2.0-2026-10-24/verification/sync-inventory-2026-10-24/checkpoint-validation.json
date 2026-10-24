@@ -1,0 +1,20 @@
+{
+  "focusedSuites": 19,
+  "passingSuites": 19,
+  "changedFiles": [
+    "android/sync-check.cjs",
+    "android/workspace-check.cjs",
+    "android/web/main.ts",
+    "android/web/sync.ts"
+  ],
+  "androidStrictTypeScript": "pass",
+  "androidDebugBuild": "pass",
+  "signatureV2": "pass",
+  "zipCrc": "pass",
+  "zipAlignment16K": "pass",
+  "packagedJsCssIdentity": "pass",
+  "threeFlutterEngineAotAbis": "pass",
+  "deviceTest": "not run: no device connected",
+  "windowsNative": "not run; unchanged source and toolchain unavailable",
+  "productionRelease": false
+}

@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-23",
+  "scope": "Android responsive paired-PC waiting and reviewed answer placement",
+  "androidStrictTypecheck": "pass",
+  "androidFrontendBundle": "pass",
+  "regressionSuites": 17,
+  "regressionFailures": 0,
+  "androidDebugBuild": "pass: 38 tasks, 4 executed and 34 up-to-date",
+  "apkBytes": 191776797,
+  "apkSha256": "6ea3a325e956928265013508e4a861dde688c9cbdf83ea100ebaeed9cd42c015",
+  "apkSignature": "pass: v2, separate development certificate",
+  "zipCrc": "pass",
+  "zipalign": "pass",
+  "apkFrontendMatchesCurrentAssets": true,
+  "nativeBridgeCancellation": "not implemented: stop waiting is local; existing single-request guard remains",
+  "deviceAcceptance": "not performed: no connected device",
+  "nativeWindowsValidation": "remains pending from earlier checkpoint"
+}

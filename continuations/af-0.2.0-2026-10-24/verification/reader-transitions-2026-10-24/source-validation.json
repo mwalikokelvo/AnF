@@ -1,0 +1,13 @@
+{
+  "focusedSuites": 20,
+  "passingSuites": 20,
+  "changedExistingAppFiles": [
+    "windows/src/workspace/reader-data.ts",
+    "windows/src/workspace/reader.ts"
+  ],
+  "newAppTest": "windows/dev/reader-ui-check.cjs",
+  "windowsTypeScript": "pass",
+  "windowsVite": "pass",
+  "nativeJavaRustFlutterSourceChanged": false,
+  "hardwareAcceptance": "not run"
+}

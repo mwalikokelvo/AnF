@@ -1,0 +1,210 @@
+import {nativeMediaPanel} from './native-media';
+import {nativeMusic} from './native-music';
+import {snapshotPanel,type SavedVersion} from '../../windows/src/workspace/snapshot-panel';
+import {createRepository,vaultCall} from './native-vault';
+import {vaultPanel} from '../../windows/src/workspace/vault-panel';
+import {workflowButtons} from '../../windows/src/workspace/workflows';
+import {quickCapture} from '../../windows/src/workspace/quick-capture';
+import {createAudioStudio} from '../../windows/src/workspace/audio-studio';
+import {backupTools} from '../../windows/src/workspace/backup-tools';
+import {createStudio} from '../../windows/src/workspace/studio';
+import {appendDraft} from '../../windows/src/workspace/knowledge-data';
+import {libraryCard,refreshLibrary,libraryControls} from '../../windows/src/workspace/library';
+import {createDashboard,foldGuidance} from '../../windows/src/workspace/dashboard';
+import {captureText,dayName} from '../../windows/src/workspace/dashboard-data';
+import {createReader} from '../../windows/src/workspace/reader';
+import {clipText} from '../../windows/src/workspace/reader-data';
+import {summaries,readProject,backupProjects,summary,signature,type Summary} from './storage';
+import {newSyncId,toWire,fromWire,exchangeIdentity,remoteEntries,type Snapshot} from './sync';
+import './style.css';
+import {h} from '../../windows/src/views/dom';
+import {createWritingEditor,renderWriting} from '../../windows/src/workspace/writing';
+import {readDocument} from './documents';
+import {paginatedResponse} from '../../windows/src/workspace/response-pages';
+import {followups,needsClarification,documentQuestion} from '../../windows/src/workspace/followups';
+import {restoreProjects,mergeReply,type Project} from './project-data';
+import {copyEvidence,type Evidence} from '../../windows/src/workspace/answer-evidence';
+declare global {interface Window {CoucouAndroid?:{mediaRequest?(id:string,operation:string,json:string):void;vaultRequest?(id:string,operation:string,json:string):void;exportAudio?(name:string,base64:string):void;quickCaptureReady?():void;haptic?():void;linkRequest(id:string,code:string,path:string,json:string):void;openProvider(id:string):void;searchWeb(query:string,enabled:boolean):void;copy(text:string):void;export(name:string,text:string,mime:string):void;speak(text:string):void;stopSpeaking():void};linkResult:(id:string,value:string,error:string)=>void;nativeNotice:(s:string)=>void;nativeBack:()=>boolean;nativeKeyboard:(visible:boolean)=>void;}}
+const native=window.CoucouAndroid;
+const root=document.getElementById('app')!;
+const status=h('p',{role:'status',class:'status',text:'Opening your workspace…'});
+window.nativeNotice=s=>{status.textContent=s;};
+const notify=window.nativeNotice;
+const dbReady=new Promise<IDBDatabase>((resolve,reject)=>{const req=indexedDB.open('coucou-mobile',1);req.onupgradeneeded=()=>req.result.createObjectStore('projects',{keyPath:'id'});req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
+const repository=createRepository(dbReady);
+function fresh():Project{return{id:crypto.randomUUID(),name:'New conversation',draft:'',prompt:'',notes:[],sources:[],updated:Date.now()};}
+let lastSaved:string|undefined;
+let project=fresh(),saveTimer:ReturnType<typeof setTimeout>|undefined,saveQueue=Promise.resolve(),active='home',busy=false,editingWhileBusy=false;
+let pcWait:AbortController|undefined;
+let speechEpoch=0;
+const title=h('input',{'aria-label':'Conversation title',class:'title-input',maxlength:160,value:project.name});
+const prompt=h('textarea',{'aria-label':'Your question',maxlength:100000,placeholder:'What would you like to explore?'});
+const draft=h('textarea',{'aria-label':'Your writing',maxlength:200000,placeholder:'Start writing here…'});
+const reply=h('textarea',{'aria-label':'Browser reply',maxlength:200000,placeholder:'Paste a reply from your browser here to keep it in this conversation.'});
+const followupHost=h('div',{class:'row','aria-label':'Suggested follow-up questions'});
+function renderFollowups(){followupHost.replaceChildren(...(project.notes.length||project.sources.length?followups(project.sources.length>0):[]).map(item=>button(item.label,()=>{prompt.value=item.question;documentReview.replaceChildren();autosave();show('chat');notify('Follow-up prepared. Use the same browser conversation for its recent context; review document excerpts before sharing.');})));}
+const historyList=h('div',{class:'history-list'}),sourceList=h('div',{class:'document-shelf'}),notes=h('div',{class:'notes'});
+const search=h('input',{type:'search',placeholder:'Find a conversation…','aria-label':'Search conversations'});
+const drawer=h('aside',{class:'drawer',hidden:true,'aria-label':'Conversation history'});
+const panels=new Map<string,HTMLElement>(),nav=h('nav',{'aria-label':'Workspace sections',class:'bottom-nav'}),host=h('main');
+const button=(label:string,action:()=>void,cls='')=>h('button',{text:label,type:'button',class:cls,onclick:action});
+const run=async(fn:()=>Promise<void>,allowWriting=false)=>{if(busy)return;busy=true;editingWhileBusy=allowWriting;editor.setReadOnly(!allowWriting);const controls=Array.from(root.querySelectorAll<HTMLInputElement>('button,input,textarea,select')).map(el=>({el,disabled:el.disabled}));controls.forEach(({el})=>{if(!allowWriting||!(editor.root.contains(el)||el===stopPCWait||el.dataset.view==='writing'||el.dataset.view==='chat'))el.disabled=true;});root.setAttribute('aria-busy',String(!allowWriting));notes.setAttribute('aria-busy',String(allowWriting));stopPCWait.disabled=!allowWriting;stopPCWait.hidden=!allowWriting;try{await fn();}catch(e){notify(String(e).replace(/^Error: /,''));}finally{busy=false;editingWhileBusy=false;editor.setReadOnly(false);controls.forEach(({el,disabled})=>el.disabled=disabled);root.setAttribute('aria-busy','false');notes.setAttribute('aria-busy','false');stopPCWait.disabled=true;stopPCWait.hidden=true;}};
+const editor=createWritingEditor(draft,()=>autosave(),notify);
+function collect(){project.name=title.value.trim()||'New conversation';project.prompt=prompt.value;project.draft=draft.value;project.pendingReply=reply.value;project.responseLength=responseLength.value;project.replyPlacement=replyPlacement.value;return structuredClone(project);}
+async function save(){if(saveTimer)clearTimeout(saveTimer);const snapshot=collect();const key=signature(snapshot);saveQueue=saveQueue.catch(()=>{}).then(async()=>{if(lastSaved===key)return;snapshot.updated=Date.now();await repository.put([snapshot]);lastSaved=key;if(project.id===snapshot.id)project.updated=snapshot.updated;});await saveQueue;notify('Saved on this device.');}
+function autosave(){if(saveTimer)clearTimeout(saveTimer);notify('Saving…');saveTimer=setTimeout(()=>void save().catch(e=>notify('Could not save: '+e)),600);}
+async function all():Promise<Project[]>{await saveQueue;return repository.backup();}
+async function projectSummaries(query=''){await saveQueue;return repository.list(query);}
+async function getProject(id:string){await saveQueue;return repository.get(id);}
+let searchEpoch=0;
+async function refreshHistory(){const epoch=++searchEpoch,query=search.value.trim().toLocaleLowerCase();const list=await projectSummaries(query);if(epoch!==searchEpoch)return;historyList.replaceChildren(...list.map(p=>button(p.name+'\n'+new Date(p.updated).toLocaleDateString(),()=>void run(async()=>{await save();const latest=await getProject(p.id);if(!latest)throw Error('Conversation could not be found.');project=latest;load();drawer.hidden=true;show('chat');}),'history-item')));if(!list.length)historyList.append(h('p',{text:'No saved conversations match.'}));}
+const reader=createReader(()=>{autosave();refreshLibrary(sourceList);},(text,source)=>{draft.value=clipText(draft.value,text,source);editor.refresh(project.id);autosave();},notify,(text,source)=>{prompt.value='Explain this excerpt from '+source+':\n\n'+text;show('chat');autosave();notify('Question prepared. Choose Ask my Windows PC when ready.');},()=>prepareSpeech());
+function renderSources(){reader.close();documentReview.replaceChildren();renderFollowups();sourceList.replaceChildren(...project.sources.map((s,index)=>libraryCard(s,button('Open reader',()=>reader.open(s)),h('details',{},h('summary',{text:'Read document text'}),h('pre',{text:s.text.slice(0,1200)+(s.text.length>1200?'\n... Open reader for the full text.':'')})),button('Use text in writing',()=>{try{draft.value=appendDraft(draft.value,s.text);editor.refresh(project.id);autosave();show('writing');notify('Text appended to writing.');}catch{notify('This document is too long for the draft. Open the reader and clip a section instead.');}}),button('Remove from conversation',()=>{project.sources.splice(index,1);renderSources();autosave();}))));if(!project.sources.length)sourceList.append(h('div',{class:'empty-state',text:'No documents.'}));refreshLibrary(sourceList);}
+let shownNotes=40;
+function useReply(text:string,placement:string){
+  let message:string;
+  if(placement==='replace'){editor.offer(draft.value,text,false);message='Review the replacement before accepting. Your writing is unchanged.';}
+  else{const merged=mergeReply(draft.value,text,'append');draft.value=merged.draft;editor.refresh(project.id);message=merged.full?'Writing is full. Your answer remains in Chat.':'Answer appended to writing. Use Undo to restore the previous draft.';}
+  show('writing');autosave();notify(message);return message;
+}
+function renderNotes(){renderFollowups();notes.replaceChildren(...project.notes.slice(-shownNotes).map(n=>h('article',{class:'note'},h('h3',{text:n.role}),n.role==='You'?h('pre',{text:n.text}):paginatedResponse(n.text),...(n.evidence||[]).map(e=>h('details',{},h('summary',{text:`[${e.id}] ${e.sourceName}${e.page?' · page '+e.page:''}${e.ocr?' · OCR':''}`}),h('pre',{text:e.text}))),...(n.role==='You'?[]:[h('div',{class:'row'},button('Append to writing',()=>{if(!busy)useReply(n.text,'append');}),button('Review replacement',()=>{if(!busy)useReply(n.text,'replace');}))]))));if(project.notes.length>shownNotes){const earlier=button('Show earlier messages',()=>{shownNotes+=40;renderNotes();});notes.prepend(earlier);}}
+function load(persisted=true){documentReview.replaceChildren();shownNotes=40;reply.value=project.pendingReply||'';responseLength.value=project.responseLength||'standard';replyPlacement.value=project.replyPlacement||'append';title.value=project.name;prompt.value=project.prompt;draft.value=project.draft;editor.refresh(project.id);renderSources();renderNotes();lastSaved=persisted?signature(collect()):undefined;notify('Opened saved conversation.');}
+function show(id:string){active=id;if(id==='home')void dashboard.refresh();for(const [key,panel]of panels)panel.hidden=key!==id;nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===id?'page':'false'));host.scrollTop=0;}
+function section(id:string,label:string,...children:Node[]){const p=h('section',{'aria-label':label,class:'panel'},...children);panels.set(id,p);host.append(p);const b=button(label,()=>show(id));b.dataset.view=id;nav.append(b);}
+const file=h('input',{type:'file',accept:'.pdf,.epub,.docx,.txt,.md,.csv,.json,.log','aria-label':'Choose a document'});
+file.addEventListener('change',()=>void run(async()=>{try{const selected=file.files?.[0];if(!selected)return;if(project.sources.length>=4)throw Error('Keep up to four documents per conversation.');notify('Reading '+selected.name+'…');const text=await readDocument(selected,notify);if(!text.trim())throw Error('No readable text found.');project.sources.push({name:selected.name,text});renderSources();await save();show('documents');notify('Document added. Read it here or use its text in Writing.');}finally{file.value='';}}));
+function exportText(name:string,text:string,mime:string){if(new TextEncoder().encode(text).length>16_000_000){notify('This export exceeds 16 MB. Export smaller conversations separately.');return;}if(native){native.export(name,text,mime);return;}const url=URL.createObjectURL(new Blob([text],{type:mime}));const a=h('a',{href:url,download:name});a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+const contextScope=h('select',{'aria-label':'AI context'},...[["loaded","Loaded documents"],["document","First document"],["draft","Active draft"],["none","General - no saved context"]].map(([value,text])=>h('option',{value,text})));
+const responseLength=h('select',{'aria-label':'Requested response length'},h('option',{value:'standard',text:'Standard response'}),h('option',{value:'long',text:'Aim for 1,700 words per part'}));
+function browserQuestion(){return prompt.value+(responseLength.value==='long'?'\n\nPlease aim for approximately 1,700 words in this part, with clear sections. I can ask for the next part afterward.':'');}
+const replyPlacement=h('select',{'aria-label':'Save reply into writing'},h('option',{value:'append',text:'Append to current writing'}),h('option',{value:'replace',text:'Review replacement for writing'}));
+const webSwitch=h('input',{type:'checkbox','aria-label':'Search the web'}),webQuery=h('input',{type:'search',maxlength:1000,'aria-label':'Public web search terms',placeholder:'Enter public search terms'});
+const webStatus=h('p',{class:'muted',text:'Off · Search opens only after you enable it and press Search.'});
+webSwitch.addEventListener('change',()=>{webStatus.textContent=webSwitch.checked?'On · Only your search terms go to DuckDuckGo.':'Off · Coucou will not start new searches. Existing browser tabs are separate.';});
+const webResearch=h('article',{class:'callout'},h('label',{},webSwitch,' Search the web'),webStatus,webQuery,button('Search in browser',()=>{if(!webSwitch.checked){notify('Turn on Search the web first.');return;}if(!webQuery.value.trim()){notify('Enter public search terms first.');return;}if(native)native.searchWeb(webQuery.value,true);else notify('External search opens from the installed Android app.');}),h('p',{class:'muted',text:'Search uses your browser. Coucou does not automatically retrieve results or send documents. Saved document text remains local.'}));
+const chosenProvider=h('select',{'aria-label':'Document question destination'},...['ChatGPT','Gemini','Claude','NotebookLM'].map(label=>h('option',{value:label,text:label})));
+const documentReview=h('div',{});
+const reviewQuestion=button('Review document question',()=>{if(!project.sources.length){notify('Add a document first.');return;}if(!prompt.value.trim()||needsClarification(prompt.value)){notify('Describe what you want: a summary, explanation, comparison, or draft.');return;}const destination=chosenProvider.value;const text=documentQuestion(browserQuestion(),project.sources);documentReview.replaceChildren(h('p',{text:'Review the exact text below before copying it for '+destination+'. Only paste it if you want that service to receive these excerpts.'}),h('pre',{text}),button('Copy excerpts for '+destination,()=>{if(native)native.copy(text);else void navigator.clipboard.writeText(text).then(()=>notify('Reviewed excerpts copied.')).catch(()=>notify('Clipboard is unavailable in this preview.'));documentReview.replaceChildren();}),button('Keep local',()=>{documentReview.replaceChildren();notify('Nothing copied. Your document remains local.');}));});
+prompt.addEventListener('input',()=>documentReview.replaceChildren());chosenProvider.addEventListener('change',()=>documentReview.replaceChildren());
+const format=h('select',{'aria-label':'Export format'},h('option',{value:'txt',text:'Plain text'}),h('option',{value:'md',text:'Markdown'}),h('option',{value:'html',text:'Formatted HTML'}));
+const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+const captureDaily=async (text:string)=>{let failure:unknown;await run(async()=>{try{await save();const entries=await projectSummaries(),entry=entries.find(p=>p.name===dayName());const daily=entry?await getProject(entry.id):{...fresh(),name:dayName()};if(!daily)throw Error('Daily log could not open.');daily.draft=captureText(daily.draft,text);daily.updated=Date.now();await putProjects([daily]);if(project.id===daily.id){project=daily;load();}}catch(e){failure=e;throw e;}});if(failure)throw failure;};
+const quickNote=quickCapture(captureDaily,()=>!busy);
+(window as unknown as {coucouQuickCapture:(value?:string)=>void}).coucouQuickCapture=value=>{if(!quickNote.open(value))notify('Finish the current operation, then use Quick note again.');};
+const dashboard=createDashboard({current:()=>({...project,draft:draft.value,name:title.value}),allowed:()=>!busy,notify,list:()=>projectSummaries(),load:async id=>{const p=await getProject(id);if(!p)throw Error('Draft no longer exists.');return p;},read:s=>reader.open(s),write:()=>show('writing'),
+ open:async(id,line)=>{await run(async()=>{await save();const p=await getProject(id);if(!p)throw Error('Draft no longer exists.');project=p;load();show('writing');if(line!==undefined)editor.reveal(draft.value.split('\n').slice(0,line).join('\n').length+(line?1:0));});},
+ capture:captureDaily
+});
+section('home','Home',dashboard.root,button('Connect my devices',()=>show('settings')));
+section('documents','Documents',h('h1',{text:'Documents'}),h('p',{class:'muted',text:'PDF · EPUB · Word · Text. Up to four documents, 50 MB each; 600 PDF pages and 2 MB of extracted text. Protected books and scanned PDFs are not supported in this edition.'}),file,libraryControls(sourceList),sourceList,webResearch);
+let nativeMedia:ReturnType<typeof nativeMediaPanel>|undefined;
+const embeddedMusic=nativeMusic();
+const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{stopAllSpeech();await embeddedMusic.suspend();await nativeMedia?.suspend();});
+if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,()=>{stopAllSpeech();audioStudio.stop();audioStudio.hideDock();},notify,async()=>{stopAllSpeech();await embeddedMusic.suspend();});audioStudio.root.append(nativeMedia.root);}
+const openEmbeddedMusic=button('Open Music Hub',()=>void run(async()=>{
+ stopAllSpeech();audioStudio.stop();audioStudio.hideDock();await nativeMedia?.suspend();await embeddedMusic.open();
+}));
+openEmbeddedMusic.disabled=true;
+void embeddedMusic.available().then(available=>{openEmbeddedMusic.disabled=!available;openEmbeddedMusic.hidden=!available;audioStudio.setMusicPlayerAvailable(available);}).catch(e=>notify(String(e)));
+function stopAllSpeech(){speechEpoch++;reader.stopAudio();}
+async function prepareSpeech(expected=++speechEpoch){
+ if(expected!==speechEpoch)throw Error('Read-aloud was cancelled.');
+ audioStudio.stop();audioStudio.hideDock();await embeddedMusic.suspend();
+ if(expected!==speechEpoch)throw Error('Read-aloud was cancelled.');
+ await nativeMedia?.suspend();if(expected!==speechEpoch)throw Error('Read-aloud was cancelled.');
+}
+async function readDraftAloud(){
+ const text=draft.value.trim();if(!text){notify('Write something first.');return;}if(!native?.speak){notify('Read-aloud is available in the Android app.');return;}
+ stopAllSpeech();const requested=speechEpoch;
+ try{await prepareSpeech(requested);if(requested!==speechEpoch)return;native.speak(text);}catch(e){if(requested===speechEpoch)notify(String(e).replace(/^Error: /,''));}
+}
+section('music','Music Hub',openEmbeddedMusic,audioStudio.musicRoot);
+section('audio','Audio Studio',audioStudio.root);
+section('writing','Writing',h('h1',{text:'Writing'}),h('p',{class:'muted',text:'Write freely. Preview your formatting and keep every draft local.'}),editor.root,h('div',{class:'row'},format,button('Export writing',()=>{if(!draft.value.trim()){notify('Write something first.');return;}const ext=format.value;let text=draft.value;const mime=ext==='html'?'text/html':ext==='md'?'text/markdown':'text/plain';if(ext==='html'){const preview=renderWriting(draft.value);text='<!doctype html><meta charset="utf-8"><title>'+escape(title.value)+'</title><body>'+ (preview?.innerHTML||'<pre>'+escape(text)+'</pre>')+'</body>';}exportText('Coucou-writing.'+ext,text,mime);},'primary')),h('div',{class:'row'},button('Read aloud',()=>void readDraftAloud()),button('Stop reading',()=>{stopAllSpeech();notify('Read-aloud stopped.');})));
+const stopPCWait=button('Stop waiting',()=>{stopPCWait.disabled=true;pcWait?.abort();});stopPCWait.disabled=true;stopPCWait.hidden=true;
+const askPC=button('Ask my Windows PC',()=>void run(async()=>{
+  const query=prompt.value.trim();if(!query||needsClarification(query))throw Error('Describe the task, audience or purpose first.');
+  if(!pairing.value.trim())throw Error('Connect to Windows in Settings first.');
+  if(new TextEncoder().encode(query).length>10000)throw Error('The local model accepts questions up to 10,000 bytes. Attach longer background material as a document.');
+  if(project.notes.length>998)throw Error('Export this conversation and start a new one before adding more messages.');
+  const recent=project.notes.slice(-10).map(n=>({role:n.role==='You'?'user':'assistant',content:[{text:Array.from(n.text).slice(-1000).join('')}]}));
+  const request={query,history:contextScope.value==='none'?[]:recent,sources:structuredClone(!syncDocuments.checked||contextScope.value==='none'?[]:contextScope.value==='draft'?[{name:title.value||'Active draft',text:draft.value,pages:[],path:null}]:(contextScope.value==='document'?project.sources.slice(0,1):project.sources).map(s=>({...s,pages:s.pages||[],path:null}))),longResponse:responseLength.value==='long'};
+  const controller=new AbortController();pcWait=controller;
+  try{
+    await save();if(controller.signal.aborted)throw Error('Stopped waiting on this phone.');
+    notify('Your PC is thinking locally. You can keep writing or stop waiting on this phone.');
+    const result=await linkCall<{text:string;notice:string;evidence?:Evidence[]}>('/v1/ask',request,controller.signal);
+    stopPCWait.disabled=true;
+    if(!result||typeof result.text!=='string'||!result.text.trim()||new TextEncoder().encode(result.text).length>200000)throw Error('Your PC returned an invalid or oversized answer. Your writing is unchanged.');
+    const evidence=copyEvidence(result.evidence);project.notes.push({role:'You',text:query},{role:'PC offline AI',text:result.text,...(evidence.length?{evidence}:{})});
+    renderNotes();await save();notify((typeof result.notice==='string'?result.notice:'PC replied.')+' Answer saved in Chat. Choose Append to writing or Review replacement to use it.');
+  }finally{if(pcWait===controller)pcWait=undefined;}
+},true),'primary');
+section('chat','Chat',workflowButtons(()=>({sources:project.sources,draft:draft.value}),(text,scope)=>{if(scope==='none'&&!syncDocuments.checked)throw Error('Enable document-text sharing in Settings before preparing highlights for your paired PC.');prompt.value=text;contextScope.value=scope;documentReview.replaceChildren();autosave();},notify,()=>!busy),h('h1',{text:'Chat'}),h('p',{class:'muted',text:'These buttons open your existing browser accounts. Coucou does not read their replies or bypass their limits. Nothing from your documents is sent automatically.'}),followupHost,contextScope,prompt,responseLength,h('article',{class:'callout'},h('div',{class:'row'},askPC,stopPCWait),h('p',{class:'muted',text:'Uses your paired PC’s Fast offline model, without an API subscription. Enable phone AI in Windows Settings. Questions and recent chat go to that PC; document text is included only when enabled in Android Settings. Windows stays awake while answering.'})),h('div',{class:'row'},button('Save question',()=>void run(async()=>{if(!prompt.value.trim())return;if(needsClarification(prompt.value)){notify('What would you like: a summary, explanation, comparison, or draft? Add the audience or purpose.');return;}if(project.notes.length>=1000)throw Error('This conversation has 1,000 messages. Export it and start a new conversation.');project.notes.push({role:'You',text:prompt.value});if(project.name==='New conversation')title.value=prompt.value.slice(0,60);renderNotes();await save();})),button('Copy question',()=>{if(native)native.copy(browserQuestion());else void navigator.clipboard.writeText(browserQuestion()).then(()=>notify('Question copied.')).catch(()=>notify('Clipboard is unavailable. Select and copy the question manually.'));})),button('Continue to next part',()=>{replyPlacement.value='append';prompt.value='Continue with the next part, picking up from your previous answer without repeating it.';autosave();notify('Choose Ask my Windows PC, or copy this question into the same browser conversation. PC answers stay in Chat; add them to writing when ready.');}),h('div',{class:'providers'},...['chatgpt','gemini','claude','notebooklm'].map(id=>button(({chatgpt:'ChatGPT',gemini:'Gemini',claude:'Claude',notebooklm:'NotebookLM'} as Record<string,string>)[id],()=>{if(native)native.openProvider(id);else notify('Browser account links open from the Android app.');}))),h('article',{class:'callout'},h('h2',{text:'Ask about your documents'}),h('p',{class:'muted',text:'Review a small selection of matching excerpts before copying them. Full documents are never sent automatically.'}),chosenProvider,reviewQuestion,documentReview),notes,reply,replyPlacement,button('Save pasted reply',()=>void run(async()=>{if(!reply.value.trim())return;if(project.notes.length>=1000)throw Error('This conversation has 1,000 messages. Export it and start a new conversation.');project.notes.push({role:'Browser reply',text:reply.value});const message=useReply(reply.value,replyPlacement.value);reply.value='';renderNotes();await save();notify(message);})));
+const appearance=h('select',{'aria-label':'Appearance'},h('option',{value:'dark',text:'Dark'}),h('option',{value:'light',text:'Light'}));appearance.value=localStorage.getItem('appearance')||'dark';document.documentElement.dataset.theme=appearance.value;appearance.addEventListener('change',()=>{document.documentElement.dataset.theme=appearance.value;localStorage.setItem('appearance',appearance.value);});
+const restore=h('input',{type:'file',accept:'.json','aria-label':'Restore a Coucou backup'});
+restore.addEventListener('change',()=>void run(async()=>{try{const f=restore.files?.[0];if(!f)return;if(f.size>16_000_000)throw Error('Backup must be under 16 MB.');const value=JSON.parse(await f.text());const valid=restoreProjects(value,()=>crypto.randomUUID());await save();await repository.put(valid);notify(`Restored ${valid.length} conversations as new copies.`);}finally{restore.value='';}}));
+const pairing=h('textarea',{'aria-label':'Windows pairing code',placeholder:'Paste the code from Windows Settings → Connect Android over Wi-Fi',autocomplete:'off',spellcheck:false});
+const connectionStatus=h('p',{class:'muted',role:'status',text:'Connection not checked. Your pairing code stays only in memory.'});
+const lastSync=h('p',{class:'muted'});
+function showLastSync(){let stamp='';try{stamp=localStorage.getItem('coucou-last-sync')||'';}catch{}const time=Number(stamp);lastSync.textContent=time&&Number.isFinite(time)?'Last completed sync on this device: '+new Date(time).toLocaleString():'No completed sync on this device yet.';}
+showLastSync();pairing.addEventListener('input',()=>{connectionStatus.textContent='Code changed. Check the connection before syncing.';});
+const syncDocuments=h('input',{type:'checkbox','aria-label':'Include document text when syncing'});
+let linkSequence=0;const linkPending=new Map<string,{resolve:(v:any)=>void;reject:(e:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
+window.linkResult=(id,value,error)=>{const pending=linkPending.get(id);if(!pending)return;clearTimeout(pending.timer);linkPending.delete(id);try{if(error)throw Error(error);const result=JSON.parse(value);if(result.error)throw Error(result.error);connectionStatus.textContent='PC responded at '+new Date().toLocaleTimeString()+'.';pending.resolve(result.ok);}catch(e){connectionStatus.textContent='Connection needs attention. Check the message below.';pending.reject(e instanceof Error?e:Error(String(e)));}};
+function linkCall<T>(path:string,value:unknown,signal?:AbortSignal):Promise<T>{return new Promise((resolve,reject)=>{
+  if(!native){reject(Error('Install the Android app to connect to Windows.'));return;}
+  if(signal?.aborted){reject(Error('Stopped waiting on this phone.'));return;}
+  const id=String(++linkSequence);
+  const cleanup=()=>{clearTimeout(timer);linkPending.delete(id);signal?.removeEventListener('abort',abort);};
+  const abort=()=>{cleanup();connectionStatus.textContent='Stopped waiting on this phone.';reject(Error('Stopped waiting on this phone. Your PC may still be processing.'));};
+  const timer=setTimeout(()=>{cleanup();connectionStatus.textContent='Connection timed out. Check Windows sharing and Wi-Fi.';reject(Error('Connection timed out. Keep Windows awake and sharing, then try again.'));},path==='/v1/ask'?940000:45000);
+  linkPending.set(id,{resolve:v=>{cleanup();resolve(v);},reject:e=>{cleanup();reject(e);},timer});
+  signal?.addEventListener('abort',abort,{once:true});
+  try{native.linkRequest(id,pairing.value.trim(),path,JSON.stringify(value));}catch(e){cleanup();reject(e);}
+});}
+
+async function putProjects(items:Project[]){await repository.put(items);}
+async function syncNow(){
+  await save();const documents=syncDocuments.checked;const currentId=project.id;let count=0,conflicts=0;
+  const list=await projectSummaries();if(list.length>200)throw Error('Sync supports up to 200 conversations. Export older work first.');
+  // Confirm the host before assigning persistent identities. Each identity is saved before sending.
+  const capabilities=await linkCall<{features?:unknown}>('/v1/list',{});remoteEntries(capabilities);if(documents&&(!Array.isArray(capabilities.features)||!capabilities.features.includes('reading-v1')))throw Error('Update Windows to 0.1.14 or later before syncing documents and reading notes. Chat-only sync is still available.');const seen=new Set<string>();let local=list;
+  try{
+    for(const entry of list){
+      const original=await getProject(entry.id);if(!original)throw Error('A conversation could not be opened. Retry the sync.');
+      connectionStatus.textContent='Syncing '+(count+1)+' of '+list.length+' saved Android conversations…';notify('Syncing '+original.name+'…');
+      if(!original.sync){original.sync={id:newSyncId(),title:'My document',memory:'',model:'fast'};await putProjects([original]);}
+      const result=await linkCall<Snapshot&{conflict:boolean;other:Snapshot|null}>('/v1/sync',{readerVersion:1,documents,project:toWire(original,documents),base:original.sync[documents?'documents':'chat']});
+      const received=fromWire(result,original,documents,()=>crypto.randomUUID(),exchangeIdentity(result,original.sync.id));const changes=[received];
+      local=local.filter(p=>p.id!==received.id);local.push(summary(received));seen.add(received.sync!.id);
+      if(result.other){const found=local.find(p=>p.syncId===result.other!.project.id);const previous=found?await getProject(found.id):undefined;const other=fromWire(result.other,previous,documents,()=>crypto.randomUUID());changes.push(other);local=local.filter(p=>p.id!==other.id);local.push(summary(other));seen.add(other.sync!.id);}
+      await putProjects(changes);count++;if(result.conflict)conflicts++;
+    }
+    const remote=remoteEntries(await linkCall<unknown>('/v1/list',{}));
+    for(const entry of remote){if(seen.has(entry.id))continue;const incoming=await linkCall<Snapshot>('/v1/pull',{id:entry.id,documents});const found=local.find(p=>p.syncId===entry.id);const previous=found?await getProject(found.id):undefined;const received=fromWire(incoming,previous,documents,()=>crypto.randomUUID(),entry.id);await putProjects([received]);count++;}
+  }catch(e){connectionStatus.textContent='Sync stopped after '+count+' exchanges. Previously saved conversations are retained.';throw e;}finally{const latest=await getProject(currentId);if(latest){project=latest;load();}}
+  try{localStorage.setItem('coucou-last-sync',String(Date.now()));}catch{}showLastSync();connectionStatus.textContent='Sync completed. You can continue on either device.';
+  notify('Synced '+count+' conversations. '+(conflicts?conflicts+' conflicting versions kept as separate copies.':'Saved conversations exchanged.')+(documents?' Document text included.':' Document text stayed on each device.'));
+}
+const connection=h('article',{class:'callout connection-card'},h('h2',{text:'Connect to Windows'}),h('p',{text:'On the same private Wi-Fi, start sharing in Windows Settings, then paste the pairing code below.'}),pairing,connectionStatus,button('Check connection',()=>void run(async()=>{if(!pairing.value.trim())throw Error('Paste the pairing code from Windows first.');const result=remoteEntries(await linkCall<unknown>('/v1/list',{}));notify('Connected securely. '+result.length+' saved Windows conversations available. Nothing has been synced yet.');})),lastSync,h('label',{},syncDocuments,' Include document text and reading notes'),h('p',{class:'muted',text:'Optional: exchange extracted document text, bookmarks and reading notes with your PC. Original files and API keys stay on their devices. Keep the pairing code private.'}),button('Sync now',()=>void run(syncNow),'primary'),button('Forget pairing code',()=>{pairing.value='';connectionStatus.textContent='Pairing code forgotten. Connection not checked.';notify('Pairing code removed from this device. Stop sharing on Windows to revoke access.');}),h('p',{class:'muted',text:'Press Sync now when switching devices. Windows must stay awake. Sharing stops when Coucou exits; start it again for a new code. If both versions changed, both are kept in History. Export a backup for long-term safekeeping.'}));
+const backups=backupTools({allowed:()=>!busy,collect:async every=>{await save();return{kind:'coucou-mobile-backup',version:1,projects:every?await all():[collect()]};},export:async text=>exportText('Coucou-backup.coucoupack',text,'application/octet-stream'),restore:async value=>{const valid=restoreProjects(value,()=>crypto.randomUUID());await save();await putProjects(valid);return valid.length;}});
+const vault=vaultPanel({platform:'android',allowed:()=>!busy,status:repository.status,enable:async()=>{let result:Awaited<ReturnType<typeof repository.enable>>|undefined;await run(async()=>{await save();result=await repository.enable();});if(!result)throw Error('Migration did not complete. See the workspace status.');return result;},key:()=>vaultCall<string>('recovery'),recover:key=>vaultCall<void>('recover',{key}),export:async text=>exportText('Coucou-recovery.coucoupack',text,'application/octet-stream')});
+const versions=snapshotPanel({allowed:()=>!busy,list:async()=>{const owner=project.id,title=project.name;return{owner,title,versions:await vaultCall<SavedVersion[]>('versions',{id:owner})};},restore:async(owner,seq)=>{const old=await vaultCall<Project>('version',{id:owner,seq});const valid=restoreProjects({kind:'coucou-mobile-backup',version:1,projects:[old]},()=>crypto.randomUUID());valid[0].name=valid[0].name.slice(0,149)+' (restored)';await repository.put(valid);}});
+section('settings','Settings',connection,vault,versions,backups,h('h1',{text:'Settings'}),h('h2',{text:'Appearance'}),appearance,h('h2',{text:'Your data'}),h('p',{text:'Conversations are saved only on this device. Export a backup before changing devices or uninstalling. Use Sync now above to exchange saved conversations with Windows.'}),button('Export this conversation',()=>void run(async()=>{await save();exportText('Coucou-conversation.json',JSON.stringify({kind:'coucou-mobile-backup',version:1,projects:[collect()]}),'application/json');})),button('Export all conversations',()=>void run(async()=>{await save();exportText('Coucou-backup.json',JSON.stringify({kind:'coucou-mobile-backup',version:1,projects:await all()}),'application/json');})),h('label',{text:'Restore a backup as new copies'},restore),h('h2',{text:'Coucou 0.1.19 · Android'}),h('p',{class:'muted',text:'No advertising or analytics. Device read-aloud voices may need installed language data. Browser AI services have their own accounts and terms.'}));
+drawer.append(h('div',{class:'row'},h('h2',{text:'Your conversations'}),button('Close',()=>drawer.hidden=true)),search,button('＋ New conversation',()=>void run(async()=>{await save();project=fresh();load(false);await save();drawer.hidden=true;show('home');}),'primary'),historyList);
+const studio=createStudio({list:()=>projectSummaries(),load:async id=>{const p=await getProject(id);if(!p)throw Error('Note not found.');return p;},current:()=>collect(),allowed:()=>!busy,view:show,
+ open:async id=>{await run(async()=>{await save();const p=await getProject(id);if(!p)throw Error('Note not found.');project=p;load();show('writing');});},append:text=>{draft.value=appendDraft(draft.value,text);editor.refresh(project.id);autosave();},health:()=>connectionStatus.textContent+'\n'+lastSync.textContent+'\nCheck encrypted conversation storage in Settings for the current protection status. Audio and original files remain outside this protection.'});
+const studioTools=h('div',{class:'studio-header-tools'},button('Quick note',()=>quickNote.open()),button('Local',()=>show('settings'),'studio-status'),button('Search',()=>void studio.open()));
+root.append(h('header',{},button('☰',()=>{drawer.hidden=false;void refreshHistory();}),title,studioTools),host,status,nav,drawer,reader.root,studio.root);
+for(const input of[title,prompt,draft,reply])input.addEventListener('input',autosave);
+let historyTimer:ReturnType<typeof setTimeout>|undefined;search.addEventListener('input',()=>{searchEpoch++;clearTimeout(historyTimer);historyTimer=setTimeout(()=>void refreshHistory().catch(e=>notify(String(e))),200);});
+responseLength.addEventListener('change',autosave);replyPlacement.addEventListener('change',autosave);
+let gesture:{x:number;y:number}|undefined;
+host.addEventListener('touchstart',e=>{const target=e.target as HTMLElement;if(e.touches.length!==1||target.closest('input,textarea,select,button,[contenteditable=true]')){gesture=undefined;return;}gesture={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+host.addEventListener('touchend',e=>{if(!gesture||busy)return;const start=gesture;gesture=undefined;const end=e.changedTouches[0],dx=end.clientX-start.x,dy=end.clientY-start.y;if(Math.abs(dx)>90&&Math.abs(dx)>Math.abs(dy)*2&&(start.x<32||start.x>window.innerWidth-32)){const views=['documents','writing','music','audio','chat'],index=views.indexOf(active);if(index>=0){show(views[Math.max(0,Math.min(views.length-1,index+(dx<0?1:-1)))]);native?.haptic?.();}}else if(dy>90&&Math.abs(dx)<35&&host.scrollTop===0&&start.y<110){void studio.open();native?.haptic?.();}},{passive:true});
+window.nativeKeyboard=visible=>document.documentElement.classList.toggle('keyboard-visible',visible);
+window.nativeBack=()=>{if(!reader.root.hidden){reader.close();return true;}if(busy){notify('Please wait for the current operation to finish.');return true;}if(!drawer.hidden){drawer.hidden=true;return true;}if(active!=='home'){show('home');return true;}return false;};document.addEventListener('visibilitychange',()=>{if(document.hidden&&(!busy||editingWhileBusy))void save().catch(e=>notify(String(e)));});
+foldGuidance(host);show(active);void run(async()=>{const previous=await projectSummaries();if(previous.length)project=(await getProject(previous[0].id))||project;load(previous.length>0);editor.refresh(project.id);notify('');void dashboard.refresh();native?.quickCaptureReady?.();});
+
+editor.setNoteProvider(()=>projectSummaries());

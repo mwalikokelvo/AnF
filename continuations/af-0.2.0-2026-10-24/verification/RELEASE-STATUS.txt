@@ -1,0 +1,36 @@
+A&F 0.2.0 — verified build status, 13 October 2026
+
+Completed:
+Google SDK agreement acceptance authorized by the user's corrected reply and recorded by official tools. Base host and combined host Gradle builds PASS. Embedded Spotube Flutter AAR build PASS (1,020 tasks), AF_EMBEDDED=true, pinned source/dependency revisions retained. Combined host includes actual AFMusicActivity, AFMusicHost and AudioServiceActivity DEX classes. Java compilation, AAR metadata and duplicate-class checks passed; NewPipe requires core-library desugaring and older dependencies require AndroidX Jetifier, both enabled. MediaKit native-library extraction is enabled and verified in the manifest. Optional incompatible Dokka dependency documentation generation is disabled; source jars and all application compilation checks remain.
+
+Development APK:
+build-work/artifacts/AF-0.2.0-embedded-music-development.apk
+Bytes: 191775895
+SHA256: f44c92dcdc48ee70ac620aa1c6c2ff1c7d19e946943343209ce9a5800ded6292
+Package: com.coucou.workspace.dev, version 0.2.0-dev / 2000, min SDK 26, target SDK 35.
+Signature verification, ZIP CRC and ZIP alignment PASS. Flutter AOT code and engines are present for arm64-v8a, armeabi-v7a and x86_64. Flutter release has no 32-bit x86 engine, so the combined variant excludes that architecture; the earlier base-host development APK still includes it.
+Separate development certificate: 1eba0eecb2e5056058d8a244d228e3636acac8e8ac514a6dccc26940b53de95f.
+Native alignment inventory records 4KB alignment for ARM32 libsqlite3.so; all bundled 64-bit libraries meet the checked 16KB ELF load alignment. On-device compatibility has not been tested.
+
+Music library:
+build-work/artifacts/AF-0.2.0-embedded-music-library.aar
+25,609,709 bytes; SHA256 ec6517efdb5d413454af53cc3d5483cc332b643e14f32c3240edc01aa59a94dc.
+CRC, expected AOT architectures/assets and absence of desktop binaries/private-key files PASS. Complete Maven repository remains in build-work/af/work/af_music/build/host/outputs/repo.
+
+Unsigned combined release:
+build-work/af/work/coucou/android/gradle-build/outputs/apk/release/CoucouAndroid-release-unsigned.apk
+Bytes: 171885187
+SHA256: 78fe0134c1da91ff2713c411cbf0ee54eb3b1b77addbff9d6d0c0c3976ec8d6a
+Release package com.coucou.workspace, 0.2.0 / 2000. CRC/Flutter contents PASS. Not installable while unsigned.
+
+Verification:
+Latest Android frontend typecheck and bundle PASS. Latest Windows interface typecheck and Vite production build PASS. Music bridge and native media handoff regressions PASS with correctly supplied module bundles. Prior scanner/timer/widget/focused Dart checks and 15 frontend regression suites remain recorded in Project-Continuity.txt and verification logs.
+Music Hub availability now hides the obsolete unavailable-player notice when the native host is present.
+
+Remaining before verified production releases:
+1. No Android device is connected: installation, startup, player handoff, background/service lifecycle, permissions and old-vault upgrade must be tested on a device. Static packaging checks are not runtime acceptance.
+2. Original Android signing key is still unavailable. Required production certificate SHA256: 27789eee03090b2aa4c5fbf37737c8e4dbda61352c2557c076aec233ef4a7a2a. Development signing cannot upgrade the existing production installation.
+3. Windows native Rust/MSVC/SDK toolchain, embedded Flutter child host, original local-AI resources and NSIS install/upgrade acceptance remain unfinished. Windows frontend success does not produce a Windows installer.
+4. Android-wide MediaStore discovery, scan UI progress/cancel controls and incremental metadata caching remain missing. Optional Last.fm credentials are unavailable; source uses blank values. Remaining desktop mini-player/mini-lyrics window ownership guards need implementation before Windows embedding.
+
+No APK is being labeled an upgrade-compatible production release. Uploaded/synced references and original releases remain unchanged.

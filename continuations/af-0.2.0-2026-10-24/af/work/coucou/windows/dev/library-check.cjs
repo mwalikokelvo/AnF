@@ -1,0 +1,4 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');const c={module:{exports:{}}};vm.runInNewContext(fs.readFileSync(process.argv[2],'utf8'),c);const {documentInfo}=c.module.exports;
+assert.equal(documentInfo({name:'Book.EPUB',text:'abcd'}).format,'EPUB');assert.equal(documentInfo({name:'https://example.org/page.pdf',text:'a'}).format,'WEB');assert.equal(documentInfo({name:'strange.exe',text:''}).format,'TEXT');assert.equal(documentInfo({name:'a.txt',text:''}).position,0);
+const s={name:'Book.pdf',text:'a'.repeat(100),reading:{offset:50,annotations:[{}],bookmarks:[0,50]}};assert.equal(documentInfo(s).position,50);assert.equal(documentInfo(s).notes,1);assert.equal(documentInfo(s).bookmarks,2);s.reading.offset=999;assert.equal(documentInfo(s).position,100);
+console.log('Library checks passed: format labels, empty sources, saved offsets, bounds and annotation counts.');

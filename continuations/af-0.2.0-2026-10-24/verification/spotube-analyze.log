@@ -1,0 +1,312 @@
+Analyzing spotube-master...                                     
+
+   info - The imported package 'crypto' isn't a dependency of the importing package - cli\commands\build\windows.dart:5:8 - depend_on_referenced_packages
+   info - 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre - lib\components\framework\app_pop_scope.dart:5:33 - deprecated_member_use
+   info - 'PopInvokedCallback' is deprecated and shouldn't be used. Use PopInvokedWithResultCallback instead. This feature was deprecated after v3.22.0-12.0.pre - lib\components\framework\app_pop_scope.dart:10:9 - deprecated_member_use
+   info - 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre - lib\components\framework\app_pop_scope.dart:60:7 - deprecated_member_use
+warning - Unused import: 'dart:async' - lib\hooks\configurators\use_deep_linking.dart:1:8 - unused_import
+warning - Unused import: 'package:flutter_hooks/flutter_hooks.dart' - lib\hooks\configurators\use_deep_linking.dart:4:8 - unused_import
+warning - Unused import: 'package:spotube/collections/routes.gr.dart' - lib\hooks\configurators\use_deep_linking.dart:7:8 - unused_import
+warning - Unused import: 'package:flutter_sharing_intent/flutter_sharing_intent.dart' - lib\hooks\configurators\use_deep_linking.dart:8:8 - unused_import
+warning - Unused import: 'package:flutter_sharing_intent/model/sharing_file.dart' - lib\hooks\configurators\use_deep_linking.dart:9:8 - unused_import
+warning - Unused import: 'package:spotube/services/logger/logger.dart' - lib\hooks\configurators\use_deep_linking.dart:10:8 - unused_import
+warning - Unused import: 'package:spotube/utils/platform.dart' - lib\hooks\configurators\use_deep_linking.dart:11:8 - unused_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:shadcn_flutter/shadcn_flutter.dart' - lib\hooks\utils\use_brightness_value.dart:1:8 - unnecessary_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:shadcn_flutter/shadcn_flutter.dart' - lib\hooks\utils\use_palette_color.dart:1:8 - unnecessary_import
+warning - Unused import: 'dart:io' - lib\main.dart:3:8 - unused_import
+   info - 'useDeepLinking' is deprecated and shouldn't be used. Deeplinking is deprecated. Later a custom API for metadata provider will be created - lib\main.dart:164:5 - deprecated_member_use_from_same_package
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\models\database\tables\preferences.dart:105:52 - deprecated_member_use
+   info - The constant name 'AD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:2:3 - constant_identifier_names
+   info - The constant name 'AE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:3:3 - constant_identifier_names
+   info - The constant name 'AF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:4:3 - constant_identifier_names
+   info - The constant name 'AG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:5:3 - constant_identifier_names
+   info - The constant name 'AI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:6:3 - constant_identifier_names
+   info - The constant name 'AL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:7:3 - constant_identifier_names
+   info - The constant name 'AM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:8:3 - constant_identifier_names
+   info - The constant name 'AO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:9:3 - constant_identifier_names
+   info - The constant name 'AQ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:10:3 - constant_identifier_names
+   info - The constant name 'AR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:11:3 - constant_identifier_names
+   info - The constant name 'AS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:12:3 - constant_identifier_names
+   info - The constant name 'AT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:13:3 - constant_identifier_names
+   info - The constant name 'AU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:14:3 - constant_identifier_names
+   info - The constant name 'AW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:15:3 - constant_identifier_names
+   info - The constant name 'AX' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:16:3 - constant_identifier_names
+   info - The constant name 'AZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:17:3 - constant_identifier_names
+   info - The constant name 'BA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:18:3 - constant_identifier_names
+   info - The constant name 'BB' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:19:3 - constant_identifier_names
+   info - The constant name 'BD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:20:3 - constant_identifier_names
+   info - The constant name 'BE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:21:3 - constant_identifier_names
+   info - The constant name 'BF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:22:3 - constant_identifier_names
+   info - The constant name 'BG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:23:3 - constant_identifier_names
+   info - The constant name 'BH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:24:3 - constant_identifier_names
+   info - The constant name 'BI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:25:3 - constant_identifier_names
+   info - The constant name 'BJ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:26:3 - constant_identifier_names
+   info - The constant name 'BL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:27:3 - constant_identifier_names
+   info - The constant name 'BM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:28:3 - constant_identifier_names
+   info - The constant name 'BN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:29:3 - constant_identifier_names
+   info - The constant name 'BO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:30:3 - constant_identifier_names
+   info - The constant name 'BQ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:31:3 - constant_identifier_names
+   info - The constant name 'BR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:32:3 - constant_identifier_names
+   info - The constant name 'BS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:33:3 - constant_identifier_names
+   info - The constant name 'BT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:34:3 - constant_identifier_names
+   info - The constant name 'BV' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:35:3 - constant_identifier_names
+   info - The constant name 'BW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:36:3 - constant_identifier_names
+   info - The constant name 'BY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:37:3 - constant_identifier_names
+   info - The constant name 'BZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:38:3 - constant_identifier_names
+   info - The constant name 'CA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:39:3 - constant_identifier_names
+   info - The constant name 'CC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:40:3 - constant_identifier_names
+   info - The constant name 'CD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:41:3 - constant_identifier_names
+   info - The constant name 'CF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:42:3 - constant_identifier_names
+   info - The constant name 'CG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:43:3 - constant_identifier_names
+   info - The constant name 'CH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:44:3 - constant_identifier_names
+   info - The constant name 'CI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:45:3 - constant_identifier_names
+   info - The constant name 'CK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:46:3 - constant_identifier_names
+   info - The constant name 'CL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:47:3 - constant_identifier_names
+   info - The constant name 'CM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:48:3 - constant_identifier_names
+   info - The constant name 'CN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:49:3 - constant_identifier_names
+   info - The constant name 'CO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:50:3 - constant_identifier_names
+   info - The constant name 'CR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:51:3 - constant_identifier_names
+   info - The constant name 'CU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:52:3 - constant_identifier_names
+   info - The constant name 'CV' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:53:3 - constant_identifier_names
+   info - The constant name 'CW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:54:3 - constant_identifier_names
+   info - The constant name 'CX' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:55:3 - constant_identifier_names
+   info - The constant name 'CY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:56:3 - constant_identifier_names
+   info - The constant name 'CZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:57:3 - constant_identifier_names
+   info - The constant name 'DE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:58:3 - constant_identifier_names
+   info - The constant name 'DJ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:59:3 - constant_identifier_names
+   info - The constant name 'DK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:60:3 - constant_identifier_names
+   info - The constant name 'DM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:61:3 - constant_identifier_names
+   info - The constant name 'DO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:62:3 - constant_identifier_names
+   info - The constant name 'DZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:63:3 - constant_identifier_names
+   info - The constant name 'EC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:64:3 - constant_identifier_names
+   info - The constant name 'EE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:65:3 - constant_identifier_names
+   info - The constant name 'EG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:66:3 - constant_identifier_names
+   info - The constant name 'EH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:67:3 - constant_identifier_names
+   info - The constant name 'ER' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:68:3 - constant_identifier_names
+   info - The constant name 'ES' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:69:3 - constant_identifier_names
+   info - The constant name 'ET' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:70:3 - constant_identifier_names
+   info - The constant name 'FI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:71:3 - constant_identifier_names
+   info - The constant name 'FJ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:72:3 - constant_identifier_names
+   info - The constant name 'FK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:73:3 - constant_identifier_names
+   info - The constant name 'FM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:74:3 - constant_identifier_names
+   info - The constant name 'FO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:75:3 - constant_identifier_names
+   info - The constant name 'FR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:76:3 - constant_identifier_names
+   info - The constant name 'GA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:77:3 - constant_identifier_names
+   info - The constant name 'GB' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:78:3 - constant_identifier_names
+   info - The constant name 'GD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:79:3 - constant_identifier_names
+   info - The constant name 'GE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:80:3 - constant_identifier_names
+   info - The constant name 'GF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:81:3 - constant_identifier_names
+   info - The constant name 'GG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:82:3 - constant_identifier_names
+   info - The constant name 'GH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:83:3 - constant_identifier_names
+   info - The constant name 'GI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:84:3 - constant_identifier_names
+   info - The constant name 'GL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:85:3 - constant_identifier_names
+   info - The constant name 'GM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:86:3 - constant_identifier_names
+   info - The constant name 'GN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:87:3 - constant_identifier_names
+   info - The constant name 'GP' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:88:3 - constant_identifier_names
+   info - The constant name 'GQ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:89:3 - constant_identifier_names
+   info - The constant name 'GR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:90:3 - constant_identifier_names
+   info - The constant name 'GS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:91:3 - constant_identifier_names
+   info - The constant name 'GT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:92:3 - constant_identifier_names
+   info - The constant name 'GU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:93:3 - constant_identifier_names
+   info - The constant name 'GW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:94:3 - constant_identifier_names
+   info - The constant name 'GY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:95:3 - constant_identifier_names
+   info - The constant name 'HK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:96:3 - constant_identifier_names
+   info - The constant name 'HM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:97:3 - constant_identifier_names
+   info - The constant name 'HN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:98:3 - constant_identifier_names
+   info - The constant name 'HR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:99:3 - constant_identifier_names
+   info - The constant name 'HT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:100:3 - constant_identifier_names
+   info - The constant name 'HU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:101:3 - constant_identifier_names
+   info - The constant name 'ID' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:102:3 - constant_identifier_names
+   info - The constant name 'IE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:103:3 - constant_identifier_names
+   info - The constant name 'IL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:104:3 - constant_identifier_names
+   info - The constant name 'IM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:105:3 - constant_identifier_names
+   info - The constant name 'IN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:106:3 - constant_identifier_names
+   info - The constant name 'IO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:107:3 - constant_identifier_names
+   info - The constant name 'IQ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:108:3 - constant_identifier_names
+   info - The constant name 'IR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:109:3 - constant_identifier_names
+   info - The constant name 'IS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:110:3 - constant_identifier_names
+   info - The constant name 'IT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:111:3 - constant_identifier_names
+   info - The constant name 'JE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:112:3 - constant_identifier_names
+   info - The constant name 'JM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:113:3 - constant_identifier_names
+   info - The constant name 'JO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:114:3 - constant_identifier_names
+   info - The constant name 'JP' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:115:3 - constant_identifier_names
+   info - The constant name 'KE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:116:3 - constant_identifier_names
+   info - The constant name 'KG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:117:3 - constant_identifier_names
+   info - The constant name 'KH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:118:3 - constant_identifier_names
+   info - The constant name 'KI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:119:3 - constant_identifier_names
+   info - The constant name 'KM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:120:3 - constant_identifier_names
+   info - The constant name 'KN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:121:3 - constant_identifier_names
+   info - The constant name 'KP' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:122:3 - constant_identifier_names
+   info - The constant name 'KR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:123:3 - constant_identifier_names
+   info - The constant name 'KW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:124:3 - constant_identifier_names
+   info - The constant name 'KY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:125:3 - constant_identifier_names
+   info - The constant name 'KZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:126:3 - constant_identifier_names
+   info - The constant name 'LA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:127:3 - constant_identifier_names
+   info - The constant name 'LB' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:128:3 - constant_identifier_names
+   info - The constant name 'LC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:129:3 - constant_identifier_names
+   info - The constant name 'LI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:130:3 - constant_identifier_names
+   info - The constant name 'LK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:131:3 - constant_identifier_names
+   info - The constant name 'LR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:132:3 - constant_identifier_names
+   info - The constant name 'LS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:133:3 - constant_identifier_names
+   info - The constant name 'LT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:134:3 - constant_identifier_names
+   info - The constant name 'LU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:135:3 - constant_identifier_names
+   info - The constant name 'LV' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:136:3 - constant_identifier_names
+   info - The constant name 'LY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:137:3 - constant_identifier_names
+   info - The constant name 'MA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:138:3 - constant_identifier_names
+   info - The constant name 'MC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:139:3 - constant_identifier_names
+   info - The constant name 'MD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:140:3 - constant_identifier_names
+   info - The constant name 'ME' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:141:3 - constant_identifier_names
+   info - The constant name 'MF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:142:3 - constant_identifier_names
+   info - The constant name 'MG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:143:3 - constant_identifier_names
+   info - The constant name 'MH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:144:3 - constant_identifier_names
+   info - The constant name 'MK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:145:3 - constant_identifier_names
+   info - The constant name 'ML' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:146:3 - constant_identifier_names
+   info - The constant name 'MM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:147:3 - constant_identifier_names
+   info - The constant name 'MN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:148:3 - constant_identifier_names
+   info - The constant name 'MO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:149:3 - constant_identifier_names
+   info - The constant name 'MP' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:150:3 - constant_identifier_names
+   info - The constant name 'MQ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:151:3 - constant_identifier_names
+   info - The constant name 'MR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:152:3 - constant_identifier_names
+   info - The constant name 'MS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:153:3 - constant_identifier_names
+   info - The constant name 'MT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:154:3 - constant_identifier_names
+   info - The constant name 'MU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:155:3 - constant_identifier_names
+   info - The constant name 'MV' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:156:3 - constant_identifier_names
+   info - The constant name 'MW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:157:3 - constant_identifier_names
+   info - The constant name 'MX' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:158:3 - constant_identifier_names
+   info - The constant name 'MY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:159:3 - constant_identifier_names
+   info - The constant name 'MZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:160:3 - constant_identifier_names
+   info - The constant name 'NA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:161:3 - constant_identifier_names
+   info - The constant name 'NC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:162:3 - constant_identifier_names
+   info - The constant name 'NE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:163:3 - constant_identifier_names
+   info - The constant name 'NF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:164:3 - constant_identifier_names
+   info - The constant name 'NG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:165:3 - constant_identifier_names
+   info - The constant name 'NI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:166:3 - constant_identifier_names
+   info - The constant name 'NL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:167:3 - constant_identifier_names
+   info - The constant name 'NO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:168:3 - constant_identifier_names
+   info - The constant name 'NP' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:169:3 - constant_identifier_names
+   info - The constant name 'NR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:170:3 - constant_identifier_names
+   info - The constant name 'NU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:171:3 - constant_identifier_names
+   info - The constant name 'NZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:172:3 - constant_identifier_names
+   info - The constant name 'OM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:173:3 - constant_identifier_names
+   info - The constant name 'PA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:174:3 - constant_identifier_names
+   info - The constant name 'PE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:175:3 - constant_identifier_names
+   info - The constant name 'PF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:176:3 - constant_identifier_names
+   info - The constant name 'PG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:177:3 - constant_identifier_names
+   info - The constant name 'PH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:178:3 - constant_identifier_names
+   info - The constant name 'PK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:179:3 - constant_identifier_names
+   info - The constant name 'PL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:180:3 - constant_identifier_names
+   info - The constant name 'PM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:181:3 - constant_identifier_names
+   info - The constant name 'PN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:182:3 - constant_identifier_names
+   info - The constant name 'PR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:183:3 - constant_identifier_names
+   info - The constant name 'PS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:184:3 - constant_identifier_names
+   info - The constant name 'PT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:185:3 - constant_identifier_names
+   info - The constant name 'PW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:186:3 - constant_identifier_names
+   info - The constant name 'PY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:187:3 - constant_identifier_names
+   info - The constant name 'QA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:188:3 - constant_identifier_names
+   info - The constant name 'RE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:189:3 - constant_identifier_names
+   info - The constant name 'RO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:190:3 - constant_identifier_names
+   info - The constant name 'RS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:191:3 - constant_identifier_names
+   info - The constant name 'RU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:192:3 - constant_identifier_names
+   info - The constant name 'RW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:193:3 - constant_identifier_names
+   info - The constant name 'SA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:194:3 - constant_identifier_names
+   info - The constant name 'SB' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:195:3 - constant_identifier_names
+   info - The constant name 'SC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:196:3 - constant_identifier_names
+   info - The constant name 'SD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:197:3 - constant_identifier_names
+   info - The constant name 'SE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:198:3 - constant_identifier_names
+   info - The constant name 'SG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:199:3 - constant_identifier_names
+   info - The constant name 'SH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:200:3 - constant_identifier_names
+   info - The constant name 'SI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:201:3 - constant_identifier_names
+   info - The constant name 'SJ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:202:3 - constant_identifier_names
+   info - The constant name 'SK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:203:3 - constant_identifier_names
+   info - The constant name 'SL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:204:3 - constant_identifier_names
+   info - The constant name 'SM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:205:3 - constant_identifier_names
+   info - The constant name 'SN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:206:3 - constant_identifier_names
+   info - The constant name 'SO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:207:3 - constant_identifier_names
+   info - The constant name 'SR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:208:3 - constant_identifier_names
+   info - The constant name 'SS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:209:3 - constant_identifier_names
+   info - The constant name 'ST' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:210:3 - constant_identifier_names
+   info - The constant name 'SV' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:211:3 - constant_identifier_names
+   info - The constant name 'SX' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:212:3 - constant_identifier_names
+   info - The constant name 'SY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:213:3 - constant_identifier_names
+   info - The constant name 'SZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:214:3 - constant_identifier_names
+   info - The constant name 'TC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:215:3 - constant_identifier_names
+   info - The constant name 'TD' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:216:3 - constant_identifier_names
+   info - The constant name 'TF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:217:3 - constant_identifier_names
+   info - The constant name 'TG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:218:3 - constant_identifier_names
+   info - The constant name 'TH' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:219:3 - constant_identifier_names
+   info - The constant name 'TJ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:220:3 - constant_identifier_names
+   info - The constant name 'TK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:221:3 - constant_identifier_names
+   info - The constant name 'TL' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:222:3 - constant_identifier_names
+   info - The constant name 'TM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:223:3 - constant_identifier_names
+   info - The constant name 'TN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:224:3 - constant_identifier_names
+   info - The constant name 'TO' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:225:3 - constant_identifier_names
+   info - The constant name 'TR' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:226:3 - constant_identifier_names
+   info - The constant name 'TT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:227:3 - constant_identifier_names
+   info - The constant name 'TV' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:228:3 - constant_identifier_names
+   info - The constant name 'TW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:229:3 - constant_identifier_names
+   info - The constant name 'TZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:230:3 - constant_identifier_names
+   info - The constant name 'UA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:231:3 - constant_identifier_names
+   info - The constant name 'UG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:232:3 - constant_identifier_names
+   info - The constant name 'UM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:233:3 - constant_identifier_names
+   info - The constant name 'US' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:234:3 - constant_identifier_names
+   info - The constant name 'UY' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:235:3 - constant_identifier_names
+   info - The constant name 'UZ' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:236:3 - constant_identifier_names
+   info - The constant name 'VA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:237:3 - constant_identifier_names
+   info - The constant name 'VC' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:238:3 - constant_identifier_names
+   info - The constant name 'VE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:239:3 - constant_identifier_names
+   info - The constant name 'VG' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:240:3 - constant_identifier_names
+   info - The constant name 'VI' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:241:3 - constant_identifier_names
+   info - The constant name 'VN' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:242:3 - constant_identifier_names
+   info - The constant name 'VU' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:243:3 - constant_identifier_names
+   info - The constant name 'WF' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:244:3 - constant_identifier_names
+   info - The constant name 'WS' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:245:3 - constant_identifier_names
+   info - The constant name 'XK' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:246:3 - constant_identifier_names
+   info - The constant name 'YE' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:247:3 - constant_identifier_names
+   info - The constant name 'YT' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:248:3 - constant_identifier_names
+   info - The constant name 'ZA' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:249:3 - constant_identifier_names
+   info - The constant name 'ZM' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:250:3 - constant_identifier_names
+   info - The constant name 'ZW' isn't a lowerCamelCase identifier - lib\models\metadata\market.dart:251:3 - constant_identifier_names
+warning - Unused import: 'package:flutter_undraw/flutter_undraw.dart' - lib\modules\home\sections\featured.dart:1:8 - unused_import
+warning - Unused import: 'package:shadcn_flutter/shadcn_flutter_extension.dart' - lib\modules\home\sections\featured.dart:4:8 - unused_import
+warning - Unused import: 'package:skeletonizer/skeletonizer.dart' - lib\modules\home\sections\featured.dart:5:8 - unused_import
+warning - Unused import: 'package:spotube/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart' - lib\modules\home\sections\featured.dart:6:8 - unused_import
+warning - Unused import: 'package:spotube/extensions/context.dart' - lib\modules\home\sections\featured.dart:7:8 - unused_import
+   info - 'destructiveForeground' is deprecated and shouldn't be used. Legacy color - lib\modules\root\use_global_subscriptions.dart:102:44 - deprecated_member_use
+   info - 'destructiveForeground' is deprecated and shouldn't be used. Legacy color - lib\modules\root\use_global_subscriptions.dart:107:46 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:29:29 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:30:28 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:31:28 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:32:31 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:33:29 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:34:27 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:35:30 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:36:30 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:37:29 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:38:28 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:39:30 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use toARGB32() instead - lib\modules\settings\color_scheme_picker_dialog.dart:40:28 - deprecated_member_use
+   info - The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:shadcn_flutter/shadcn_flutter.dart' - lib\modules\stats\summary\summary_card.dart:2:8 - unnecessary_import
+warning - The library 'package:shadcn_flutter/shadcn_flutter.dart' doesn't export a member with the hidden name 'Consumer' - lib\pages\artist\section\header.dart:4:58 - undefined_hidden_name
+   info - 'HomeFeaturedSection' is deprecated and shouldn't be used. Later a featured playlists API will be added for metadata plugins - lib\pages\home\home.dart:76:32 - deprecated_member_use_from_same_package
+warning - The library 'package:shadcn_flutter/shadcn_flutter.dart' doesn't export a member with the hidden name 'Consumer' - lib\pages\lyrics\lyrics.dart:3:58 - undefined_hidden_name
+warning - The library 'package:shadcn_flutter/shadcn_flutter.dart' doesn't export a member with the hidden name 'Consumer' - lib\pages\lyrics\mini_lyrics.dart:5:58 - undefined_hidden_name
+warning - The '!' will have no effect because the receiver can't be null - lib\pages\lyrics\mini_lyrics.dart:171:51 - unnecessary_non_null_assertion
+   info - 'destructiveForeground' is deprecated and shouldn't be used. Legacy color - lib\provider\connect\connect.dart:135:54 - deprecated_member_use
+   info - The private field _hasMore could be 'final' - lib\provider\metadata_plugin\core\repositories.dart:10:21 - prefer_final_fields
+warning - Unused import: 'dart:io' - lib\services\audio_services\mobile_audio_service.dart:2:8 - unused_import
+warning - Unused import: 'package:spotube/utils/platform.dart' - lib\services\audio_services\mobile_audio_service.dart:12:8 - unused_import
+warning - The receiver can't be null, so the null-aware operator '?.' is unnecessary - lib\services\audio_services\windows_audio_service.dart:87:27 - invalid_null_aware_operator
+warning - The receiver can't be null, so the null-aware operator '?.' is unnecessary - lib\services\audio_services\windows_audio_service.dart:88:32 - invalid_null_aware_operator
+   info - Statements in an if should be enclosed in a block - lib\services\local_music_scan.dart:41:5 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\services\local_music_scan.dart:52:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\services\local_music_scan.dart:71:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\services\local_music_scan.dart:83:13 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\services\local_music_scan.dart:94:17 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\services\local_music_scan.dart:117:5 - curly_braces_in_flow_control_structures
+   info - Can't use a relative path to import a library in 'lib' - test\af_local_music_scan_check.dart:2:8 - avoid_relative_lib_imports
+   info - Statements in a for should be enclosed in a block - test\af_local_music_scan_check.dart:13:7 - curly_braces_in_flow_control_structures
+   info - Don't invoke 'print' in production code - test\af_local_music_scan_check.dart:45:5 - avoid_print
+   info - Can't use a relative path to import a library in 'lib' - test\af_sleep_timer_check.dart:1:8 - avoid_relative_lib_imports
+   info - Don't invoke 'print' in production code - test\af_sleep_timer_check.dart:29:3 - avoid_print
+
+308 issues found. (ran in 59.7s)

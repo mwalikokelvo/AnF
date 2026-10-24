@@ -1,0 +1,3 @@
+C d 2	3	148	com.ryanheise.audioservice.AudioServiceActivity
+C d 9	9	661	com.coucou.workspace.AFMusicActivity
+C d 4	4	590	com.coucou.workspace.AFMusicHost

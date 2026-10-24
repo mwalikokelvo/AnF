@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "anf-tauri-toolkit",
+  "version": "0.1.0",
+  "description": "Project-specific Tauri v2 documentation and read-only source inspection for AnF development.",
+  "author": {"name": "AnF project"},
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "AnF Tauri Toolkit",
+        "shortDescription": "Tauri docs and source checks",
+        "longDescription": "Uses official Tauri v2 references and a bundled read-only Python inspector to check the real project's configuration, plugins, capabilities and missing resource mappings. No hosted server, credentials or app runtime changes. Independently maintained for AnF; not an official Tauri plugin.",
+        "developerName": "AnF project",
+        "category": "Developer Tools",
+        "capabilities": [],
+        "defaultPrompt": "Inspect this AnF checkout and use official Tauri v2 guidance to plan and verify the next change."
+      }
+    }
+  }
+}
