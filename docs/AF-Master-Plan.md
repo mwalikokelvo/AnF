@@ -12,7 +12,7 @@ Windows is a Tauri host. Android is a Java WebView host plus a Flutter music mod
 
 GitHub Actions builds the Windows base installer (no GGUF or DLL placeholders) and the current Android host with its embedded music module. Each run that is meant to be a delivery attaches both files. A missing model file must fail the full bundle only, not the base build. Do not publish those files as a production release: the Windows installer is unsigned, and the Android package stays `com.coucou.workspace.dev` until the original signing key is available.
 
-Status: not started in CI. Local Windows and Android build scripts remain the known path.
+Status: `.github/workflows/phase1-hosts.yml` is manual. It builds the Windows base installer without speech models, and the current Android host without the Flutter music module, which is not in this checkout. Run it with workflow dispatch. A green run is a development package, not a signed release.
 
 ### Phase 2 — One workspace, four destinations
 

@@ -1,0 +1,105 @@
+name: Phase 1 host builds
+
+# Base development packages only. This does not sign a production release and
+# does not download speech models. The Android job builds the current Java host
+# without the Flutter music module, because that module is not in this checkout.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase1-hosts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-base:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Prepare FFmpeg
+        shell: pwsh
+        run: ./scripts/prepare-media.ps1
+      - name: Build the hook relay
+        run: cargo build --release --locked -p coucou-hook
+      - name: Build the base installer without offline AI assets
+        shell: pwsh
+        run: |
+          $config = @{
+            build = @{ beforeBuildCommand = $null }
+            bundle = @{
+              resources = @{
+                '../local-ai/*.dll' = $null
+                '../local-ai/llama-server.exe' = $null
+                '../local-ai/model.gguf' = $null
+                '../local-ai/model-fast.gguf' = $null
+                '../local-ai/*.rten' = $null
+                '../local-ai/*LICENSE*' = $null
+                '../local-ai/NOTICE.txt' = $null
+              }
+            }
+          } | ConvertTo-Json -Depth 5
+          $path = Join-Path $env:RUNNER_TEMP 'windows-base.json'
+          Set-Content -LiteralPath $path -Value $config
+          npx tsc --noEmit
+          if ($LASTEXITCODE) { throw 'Typecheck failed' }
+          npx vite build
+          if ($LASTEXITCODE) { throw 'Frontend build failed' }
+          npx tauri build --bundles nsis --config $path
+          if ($LASTEXITCODE) { throw 'Installer build failed' }
+      - name: Upload the Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AF-Windows-base-setup
+          path: windows/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  android-host:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            windows/package-lock.json
+            android/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.4.1
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Install frontend dependencies
+        run: |
+          npm ci --prefix windows
+          npm ci --prefix android
+      - name: Build the current Android host
+        run: node scripts/build-android.mjs
+      - name: Upload Android packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: AF-Android-host
+          path: releases/*.apk
+          if-no-files-found: error
