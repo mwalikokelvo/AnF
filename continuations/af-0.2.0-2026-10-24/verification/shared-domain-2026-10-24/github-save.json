@@ -1,0 +1,12 @@
+{
+  "commit": "a987db17b389a68bba359c6af81c034464b0bc8b",
+  "branch": "codex/af-checkpoint-2026-10-24",
+  "pushVerified": true,
+  "snapshotFilesHashVerified": 1938,
+  "filesChanged": 81,
+  "workingTree": "clean",
+  "remoteRefs": [
+    "a987db17b389a68bba359c6af81c034464b0bc8b\trefs/heads/codex/af-checkpoint-2026-10-24",
+    "5d8c73fe77b8a7e78c1c903145ba12ad264054d6\trefs/heads/main"
+  ]
+}

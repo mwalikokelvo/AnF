@@ -1437,8 +1437,8 @@
     },
     {
       "path": "Project-Continuity.txt",
-      "bytes": 55506,
-      "sha256": "7426ae6bdca0af45ae7566c0e4d827ff9548d4876ed5eac4d2938e337dcdee1f"
+      "bytes": 56233,
+      "sha256": "6ccbc6d1f7f82b306ee70239b7bb79b54a07910d135227ec03012545f17d62b5"
     },
     {
       "path": "provision-android.py",
@@ -8521,6 +8521,11 @@
       "sha256": "e2dca7d5325c4cd72d1332a183e174991f2899a3000818196310c8043670644f"
     },
     {
+      "path": "verification/shared-domain-2026-10-24/development-server.json",
+      "bytes": 1046,
+      "sha256": "e8d6561fef200081104c30519865b38fcff11a6a0cc816b1f4246f7138b336aa"
+    },
+    {
       "path": "verification/shared-domain-2026-10-24/followups.log",
       "bytes": 117,
       "sha256": "a1496b4284eee01c3cd1bea0770d7ff19327a59d9585a51b7782956781e8a596"
@@ -8534,6 +8539,11 @@
       "path": "verification/shared-domain-2026-10-24/github-domain-comparison.json",
       "bytes": 2380,
       "sha256": "44a70e9dfea8a57f7d1c9819a7593b6bca201692c0e4062799b45d48506965bd"
+    },
+    {
+      "path": "verification/shared-domain-2026-10-24/github-save.json",
+      "bytes": 402,
+      "sha256": "700d16480bf8c82b7d39d4e631f7762f2cb8f74662d2b71f4fe0ad8fbc4d2cad"
     },
     {
       "path": "verification/shared-domain-2026-10-24/knowledge.log",
