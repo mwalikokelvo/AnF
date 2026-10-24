@@ -59,11 +59,14 @@ jobs:
           if ($LASTEXITCODE) { throw 'Frontend build failed' }
           npx tauri build --bundles nsis --config $path
           if ($LASTEXITCODE) { throw 'Installer build failed' }
+          Get-ChildItem target/release/bundle/nsis -ErrorAction SilentlyContinue | Format-Table Name, Length
       - name: Upload the Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: AF-Windows-base-setup
-          path: windows/src-tauri/target/release/bundle/nsis/*.exe
+          path: |
+            windows/target/release/bundle/nsis/*.exe
+            windows/target/release/AnF.exe
           if-no-files-found: error
 
   android-host:
