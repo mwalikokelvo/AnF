@@ -18,9 +18,12 @@ body.music-view #app>.mobile-header{display:none!important}
 .music-player .music-controls button[aria-pressed=true]{color:#79e4b4}
 
 .music-player .music-now-info{display:block;flex:1;min-width:0;text-align:left;border-radius:6px;padding:2px}
-.music-player.music-full-player{left:auto;right:auto;bottom:auto;inset:auto;width:min(92vw,640px);max-height:86vh;overflow:auto;display:flex;flex-direction:column;gap:24px;padding:24px;margin:auto}
-.music-full-player::backdrop{background:#000b;backdrop-filter:blur(8px)}
-.music-player.music-full-player .music-now{width:100%}.music-player.music-full-player .music-player-art{width:96px;height:96px}.music-player.music-full-player .music-transport{width:100%}
+.music-player.music-full-player{left:0;right:0;top:0;bottom:0;width:100%;max-width:none;height:100%;max-height:none;margin:0;border:0;border-radius:0;background:#0e1213;overflow:auto;display:flex;flex-direction:column;gap:20px;padding:28px 22px 40px;align-items:center}
+.music-full-player::backdrop{background:#000c}
+.music-player.music-full-player .music-now{width:min(100%,420px);flex-direction:column;align-items:center;text-align:center;gap:16px}
+.music-player.music-full-player .music-player-art{width:min(72vw,280px);height:min(72vw,280px);border-radius:18px;box-shadow:0 18px 50px #0008}
+.music-player.music-full-player .music-now-info{text-align:center}
+.music-player.music-full-player .music-transport{width:min(100%,420px)}
 .music-player.music-full-player .music-controls>button:not(.music-play),.music-player.music-full-player .music-now>button{display:grid!important}
 .music-player.music-full-player .music-controls{gap:16px}.music-player.music-full-player .music-extras{display:flex!important;width:100%;justify-content:center;gap:20px}
 .music-player.music-full-player .music-progress{position:static;height:auto;width:100%;margin-top:16px}.music-player.music-full-player .music-progress span{display:block!important}.music-player.music-full-player .music-progress input{height:24px!important;min-height:24px!important}

@@ -48,4 +48,4 @@ Playback is progressive download of the enclosure. Episodes are not copied into 
 
 ## Status
 
-Classification, podcast tabs, speed, and sleep timer are in Music Hub. Chapter list and native RSS proxy are next.
+Immersive full player, episode resume, speed, sleep timer, chapters, and native Android RSS fetch are in. Device-verify background playback next.
