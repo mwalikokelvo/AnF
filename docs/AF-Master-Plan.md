@@ -10,9 +10,9 @@ Windows is a Tauri host. Android is a Java WebView host plus a Flutter music mod
 
 ### Phase 1 — Build the hosts that already exist
 
-GitHub Actions builds the Windows base installer (no GGUF or DLL placeholders) and the current Android host with its embedded music module. Each run that is meant to be a delivery attaches both files. A missing model file must fail the full bundle only, not the base build. Do not publish those files as a production release: the Windows installer is unsigned, and the Android package stays `com.coucou.workspace.dev` until the original signing key is available.
+GitHub Actions builds the Windows base installer (no GGUF or DLL placeholders) and the current Android host. Each delivery run attaches both files. Do not publish those files as a production release: the Windows installer is unsigned, and the Android package stays a development host until the original signing key is available.
 
-Status: `.github/workflows/phase1-hosts.yml` is manual. It builds the Windows base installer without speech models, and the current Android host without the Flutter music module, which is not in this checkout. Run it with workflow dispatch. A green run is a development package, not a signed release.
+Status: **complete for development packages**. Workflow `.github/workflows/phase1-hosts.yml` succeeded on run 40140600169. Artifacts: `AF-Windows-base-setup` and `AF-Android-host`. Download from the run Artifacts section while signed into GitHub.
 
 ### Phase 2 — One workspace, four destinations
 
@@ -25,7 +25,7 @@ The existing sections stay. A mode rail groups them:
 
 Opening a section from code switches to its mode, so a hidden section is never the current one. Unavailable native pieces stay explicit. This is not a visual redesign and does not claim the same music engine on both platforms.
 
-Status: mode rail added in the Windows workspace shell. Android still uses its own navigation until that shell is shared.
+Status: mode rail on Windows and Android. Android shows an explicit notice when Spotube is not available in the current build. Rebuild the Android host to pick up the shell change.
 
 ### Phase 3 — Vault and sync contracts, then one Rust crate
 
