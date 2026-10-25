@@ -1,0 +1,6 @@
+:root,#workspace-root,#workspace-root[data-theme]{
+  --bg:#1e1e2e;--side:#181825;--surface:#252538;--panel:var(--surface);
+  --hover:#313244;--line:#45475a;--ink:#cdd6f4;--muted:#a6adc8;
+  --accent:#cba6f7;--accent-ink:#1e1e2e;--paper:#252538;--input:#181825;
+  color-scheme:dark;
+}
