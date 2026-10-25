@@ -130,6 +130,17 @@ pub fn open_url(url: &str) {
     let _ = Command::new("xdg-open").arg(url).spawn();
 }
 
+/// Open the installed Spotify app, or the official website if it is not installed.
+pub fn open_spotify() -> &'static str {
+    if let Some(bin) = find_on_path("spotify") {
+        if Command::new(bin).spawn().is_ok() {
+            return "Opened the Spotify app. Sign in there. AnF does not see the password.";
+        }
+    }
+    open_url("https://open.spotify.com");
+    "Spotify is not installed, so the Spotify website was opened. Sign in there."
+}
+
 pub fn reveal_folder(path: &str) {
     let _ = Command::new("xdg-open").arg(path).spawn();
 }

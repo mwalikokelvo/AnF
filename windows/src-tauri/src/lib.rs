@@ -160,6 +160,11 @@ fn open_url(url: String) {
     platform::open_url(&url);
 }
 
+#[tauri::command]
+fn open_spotify() -> String {
+    platform::open_spotify().to_string()
+}
+
 /// "Open terminal" opens the working folder in VS Code when `code` is on PATH,
 /// and falls back to the file manager otherwise.
 #[tauri::command]
@@ -463,6 +468,7 @@ pub fn run() {
             focus_window,
             reposition,
             open_url,
+            open_spotify,
             open_in_vscode,
             quit_app,
             hooks_status,

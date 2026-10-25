@@ -80,6 +80,25 @@ pub fn open_url(url: &str) {
         .spawn();
 }
 
+/// Open the installed Spotify app, or the official website if it is not installed.
+/// This does not log in, hide ads, or play Spotify audio inside AnF.
+pub fn open_spotify() -> &'static str {
+    let mut candidates = Vec::new();
+    if let Some(dir) = std::env::var_os("APPDATA") {
+        candidates.push(PathBuf::from(dir).join("Spotify").join("Spotify.exe"));
+    }
+    if let Some(dir) = std::env::var_os("LOCALAPPDATA") {
+        candidates.push(PathBuf::from(dir).join("Microsoft").join("WindowsApps").join("Spotify.exe"));
+    }
+    for path in candidates {
+        if path.is_file() && Command::new(&path).spawn().is_ok() {
+            return "Opened the Spotify app. Sign in there. AnF does not see the password.";
+        }
+    }
+    open_url("https://open.spotify.com");
+    "Spotify is not installed, so the Spotify website was opened. Sign in there."
+}
+
 pub fn reveal_folder(path: &str) {
     let _ = Command::new("explorer").arg(path).spawn();
 }
