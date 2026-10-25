@@ -48,7 +48,7 @@ jobs:
         run: |
           set -o pipefail
           node integrations/spotube/build-android.mjs 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
-            why=$(grep -m1 -A8 -E 'What went wrong|FAILURE:|error:|Exception' "$RUNNER_TEMP/aar.log" | cut -c1-200 | paste -sd'|' | sed 's/|/%0A/g')
+            why=$({ grep -m1 -A4 'What went wrong' "$RUNNER_TEMP/aar.log"; grep -m6 -E 'Caused by|OutOfMemory|No space left|timed out|Could not (GET|HEAD)|Unsupported' "$RUNNER_TEMP/aar.log"; df -h . | tail -1; } | cut -c1-260 | paste -sd'|' | sed 's/|/%0A/g')
             echo "::error title=Spotube Android libraries failed::${why:-no Gradle message, see log}"
             exit 1
           }
