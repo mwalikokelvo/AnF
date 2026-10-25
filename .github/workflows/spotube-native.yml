@@ -44,7 +44,14 @@ jobs:
       - name: Prepare pinned native music module
         run: node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
-        run: node integrations/spotube/build-android.mjs
+        # The Gradle "What went wrong" lines also go to an annotation, so the reason shows on the check.
+        run: |
+          set -o pipefail
+          node integrations/spotube/build-android.mjs 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
+            why=$(grep -m1 -A8 -E 'What went wrong|FAILURE:|error:|Exception' "$RUNNER_TEMP/aar.log" | cut -c1-200 | paste -sd'|' | sed 's/|/%0A/g')
+            echo "::error title=Spotube Android libraries failed::${why:-no Gradle message, see log}"
+            exit 1
+          }
       - name: Build AnF with embedded music
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
