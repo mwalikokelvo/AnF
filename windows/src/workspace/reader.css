@@ -2,3 +2,7 @@
 
 .reader-page{text-wrap:pretty;font-feature-settings:"kern" 1,"liga" 1}
 .reader-header h2{letter-spacing:-.03em}
+
+.reader-meter{height:3px;border-radius:99px;background:color-mix(in srgb,var(--reader-line) 70
+.reader-meter{height:3px;border-radius:99px;background:var(--reader-line);overflow:hidden;margin:2px 0 8px}
+.reader-meter>span{display:block;height:100%;width:0;background:#79e4b4;border-radius:99px}

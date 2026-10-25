@@ -103,3 +103,8 @@ body:has(#app) .native-music-source{display:none}
 
 .music-playlist{display:flex;flex-direction:column;gap:8px;margin:12px 0 22px;padding:12px;border:1px solid var(--music-line);border-radius:14px;background:#1c2224}
 .music-playlist h3{margin:0}
+
+.music-recent-track{position:relative}
+.music-ep-bar{position:absolute;left:12px;right:auto;bottom:6px;height:2px;background:#79e4b4;border-radius:99px;max-width:calc(100
+.music-recent-track{position:relative}
+.music-ep-bar{position:absolute;left:12px;bottom:6px;height:2px;background:#79e4b4;border-radius:99px;max-width:calc(100% - 24px);pointer-events:none}
