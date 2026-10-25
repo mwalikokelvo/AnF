@@ -83,8 +83,6 @@ jobs:
         working-directory: windows/spotube-native
         # The first error lines also go to an annotation, so the reason shows on the check.
         run: |
-          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -all -prerelease -format value -property displayName,installationVersion
-          Write-Host "::notice title=Runner $env:ImageOS $env:ImageVersion, Visual Studio::$($vs -join ' | ')"
           flutter build windows --release 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/flutter-build.log"
           if ($LASTEXITCODE -ne 0) {
             $lines = @(Get-Content "$env:RUNNER_TEMP/flutter-build.log")
