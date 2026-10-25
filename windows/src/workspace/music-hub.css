@@ -54,3 +54,8 @@ body:has(#app) .native-music-source{display:none}
 .music-player{backdrop-filter:blur(12px);background:#1a2122ee;border:1px solid #3a4543}
 .music-full-player .music-player-art{border-radius:22px}
 .music-notice{color:#79e4b4}
+
+.music-card-playing{border-color:var(--music-accent)!important;box-shadow:0 0 0 1px var(--music-accent)}
+.music-queue-row{display:flex;gap:8px;align-items:center}
+.music-queue-row button:first-child{flex:1;text-align:left}
+
