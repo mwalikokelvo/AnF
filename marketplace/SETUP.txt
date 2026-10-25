@@ -1,0 +1,54 @@
+AnF themes and extensions
+
+Open Windows Workspace > Settings > Themes & extensions.
+The two included samples work without internet. Install a theme to apply it.
+Enable/disable installed extensions using the same dialog. Extension actions appear
+in the workspace navigation. Restore default theme resets the selected colors.
+The active theme and enabled extensions restore on the next workspace launch.
+
+Publishing the catalog
+Commit marketplace/ to the main branch of mwalikokelvo/AnF to make Refresh online
+catalog available. Local setup does not publish GitHub changes. Every registry
+entry must include the SHA-256 of the exact UTF-8 entry file. Regenerate hashes
+after changing content. Hosted files must stay under:
+https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/
+Downloads have no redirects, a 20-second deadline and a 512 KB response limit.
+
+Storage and compatibility
+Add-ons use Tauri app_data_dir()/addons/themes|plugins/<id>/addon.json.
+Each atomic record contains its manifest and content together. This avoids
+partially updated manifest/script pairs. read_addon_file exposes manifest.json
+and the declared theme.css/index.js entry for compatibility with the guide.
+The existing AnF/Coucou application ID is preserved so existing data stays put.
+This is the Windows Tauri workspace integration; it does not add an Android
+marketplace or change the embedded music player's separate Flutter theme.
+
+Plugin API 1.0.0
+api.log(message)
+api.registerSidebarItem(id, title, icon, action)
+api.on("ready", callback)
+window.AnFAPI refers to this API only inside the isolated plugin document.
+No chat text, document contents, file access, network, app IPC, or main DOM is
+provided. The host only accepts messages from an enabled extension's frame.
+Disable removes its frame and UI. Plugin preference changes are persisted.
+Only 16 actions and 500 outbound messages per running plugin are accepted.
+
+The guide's main-window new Function approach is intentionally replaced with an
+opaque-origin iframe served through anf-addon, with sandbox allow-scripts and its
+own restrictive CSP. The main workspace never evaluates downloaded JavaScript.
+The existing workspace script policy is preserved; only the plugin frame origin
+is added to frame-src. No unsafe-eval is enabled for the main application.
+
+Themes contain one :root block with --anf-* tokens. Supported tokens: bg, surface,
+surface-hover, border, text-primary, text-secondary, accent (six-digit hex colors)
+and radius (0-32px). Themes cannot load remote resources or hide app controls.
+
+Checks from windows/
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/vite/bin/vite.js build
+node dev/marketplace-check.mjs
+cargo test --offline --locked -p coucou --lib addons::tests -- --test-threads=1
+
+Compilation and isolated-runtime unit checks do not replace final WebView/UI
+acceptance or an installer build. Earlier unfinished AnF features remain tracked
+in the project continuity and recovery audit.

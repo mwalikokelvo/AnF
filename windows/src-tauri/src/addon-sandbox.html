@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>AnF isolated plugin</title>
+<script>
+'use strict';
+const actions=new Map(), events=new Map();
+let sequence=0, sent=0;
+const send=(message)=>{if(++sent<=500)parent.postMessage({anfPlugin:1,...message},'*');};
+const api=Object.freeze({
+ version:'1.0.0',
+ log:message=>send({type:'log',message:String(message).slice(0,500)}),
+ registerSidebarItem:(id,title,icon,action)=>{
+  if(actions.size>=16||typeof action!=='function')return;
+  const key=String(++sequence);actions.set(key,action);
+  send({type:'register',key,id:String(id).slice(0,64),title:String(title).slice(0,80),icon:String(icon).slice(0,8)});
+ },
+ on:(event,callback)=>{if(event==='ready'&&typeof callback==='function'&&(events.get(event)||[]).length<16)events.set(event,[...(events.get(event)||[]),callback]);}
+});
+window.AnFAPI=api;
+addEventListener('message',event=>{
+ if(event.source!==parent||!event.data||event.data.anfHost!==1)return;
+ try {
+  if(event.data.type==='action')actions.get(event.data.key)?.();
+  if(event.data.type==='ready')for(const callback of events.get('ready')||[])callback(null);
+ }catch{send({type:'error',message:'Plugin action failed.'});}
+});
+try {new Function('api',__ANF_PLUGIN_CODE__)(api);send({type:'loaded'});}
+catch {send({type:'error',message:'Plugin could not start.'});}
+</script>

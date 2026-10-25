@@ -36,3 +36,7 @@ Same operation names; one library; two hosts. Music stays on the existing Flutte
 ## Status
 
 **Bridge contract written.** Shared library and device acceptance are blocked on resuming Phase 3 crate work (or an explicit decision to implement the crate without the encrypted fixture step).
+
+## 25 October update
+
+The earlier skipped-fixture status is historical: the encrypted fixture/recovery checks now pass locally. Phase 4 still requires Windows/Android adapters, native Android library packaging and device recovery acceptance. No production host path has been switched.

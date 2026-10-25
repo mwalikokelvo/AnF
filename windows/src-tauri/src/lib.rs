@@ -1,6 +1,7 @@
 // AnF for Windows — app wiring and the commands the island calls.
 
 mod actions;
+mod addons;
 mod ai;
 mod audio_native;
 mod music_native;
@@ -439,6 +440,22 @@ pub fn run() {
         env!("CARGO_PKG_VERSION")
     ));
     let built = tauri::Builder::default()
+        .register_uri_scheme_protocol("anf-addon", |ctx, request| {
+            let result = if request.method() == tauri::http::Method::GET && request.uri().query().is_none() {
+                addons::sandbox(ctx.app_handle(), request.uri().path())
+            } else { Err("Invalid plugin request".into()) };
+            let (status,body) = match result {
+                Ok(html) => (200,html),
+                Err(_) => (404,"Plugin unavailable. Disable and reinstall it from Marketplace.".to_string())
+            };
+            tauri::http::Response::builder().status(status)
+                .header("Content-Type","text/html; charset=utf-8")
+                .header("X-Content-Type-Options","nosniff")
+                .header("Cache-Control","no-store")
+                .header("Content-Security-Policy","default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; connect-src 'none'; base-uri 'none'; form-action 'none'; sandbox allow-scripts")
+                .body(body.into_bytes()).expect("static valid plugin response")
+        })
+
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             show_workspace_window(app);
             let _ = app.emit_to(island::WINDOW_LABEL, "tray", "open".to_string());
@@ -459,6 +476,7 @@ pub fn run() {
         .manage(actions::Plans::default())
         .manage(audio_native::AudioJobs::default())
         .invoke_handler(tauri::generate_handler![
+            addons::list_installed_addons,addons::read_addon_file,addons::save_addon,addons::fetch_addon_resource,
             audio_native::audio_convert,audio_native::audio_conversion_cancel,
             music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
             boot,

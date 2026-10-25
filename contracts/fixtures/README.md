@@ -30,3 +30,5 @@ The tool writes a SQLCipher database that:
 - re-opens with the documented test key and reads the project back
 
 That test key is **not** a production key. Do not reuse it in real installs.
+
+The tool additionally checks `cipher_version`, integrity, incorrect-key rejection, and recovery reopen. It refuses to overwrite any existing output. To repeat verification, choose a new fixture path. Cipher salt is random, so regenerated database hashes differ. The documented test key must never be used for personal data.

@@ -48,3 +48,7 @@ Status: not started. No model is claimed available.
 ## Out of scope until the phase that owns it
 
 Replacing the Android host, adopting `_core` as the vault, bundling dummy models, and signing a production upgrade.
+
+## 25 October verification update
+
+The encrypted Phase 3 fixture has now run locally with SQLCipher. Wrong-key rejection, recovery-key reopen, integrity, plaintext exclusion, and refusal to overwrite an existing fixture passed. The fixture tool now consumes `anf-vault` schema constants and matches the Windows rusqlite version. This clears the fixture verification gap; it does not move live Windows/Android databases into the shared crate or complete Phase 4. See `docs/AF-Marketplace-Vault-Checkpoint-2026-10-25.md`.

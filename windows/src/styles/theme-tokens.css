@@ -1,0 +1,10 @@
+:root {
+  --anf-bg: #121214;
+  --anf-surface: #202024;
+  --anf-surface-hover: #29292e;
+  --anf-border: #323238;
+  --anf-text-primary: #e1e1e6;
+  --anf-text-secondary: #a8a8b3;
+  --anf-accent: #8257e5;
+  --anf-radius: 8px;
+}
