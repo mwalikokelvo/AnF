@@ -40,12 +40,12 @@ Playback is progressive download of the enclosure. Episodes are not copied into 
 
 ## Implementation order
 
-1. Classify imports (music vs audiobook) and add Podcasts tab + RSS add.
-2. Sleep timer and speed on the existing player.
+1. Classify imports (music vs audiobook) and add Podcasts tab + RSS add. **Done.**
+2. Sleep timer and speed on the existing player. **Done.**
 3. Chapter list for M4B when metadata provides it.
 4. Reader “Listen” remembers last sentence (speech player already exists).
 5. Device-verify background playback on Android.
 
 ## Status
 
-Design accepted. Classification, podcast feed types, and Music Hub tabs land with this note.
+Classification, podcast tabs, speed, and sleep timer are in Music Hub. Chapter list and native RSS proxy are next.

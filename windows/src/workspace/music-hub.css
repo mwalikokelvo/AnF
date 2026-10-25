@@ -37,3 +37,6 @@ body.has-native-music-player .panel-host,body.has-native-music-player #app>main{
 @media(max-width:760px){.native-music-player .music-controls>button{display:grid!important;padding:6px;min-width:34px}.native-music-source{display:none}.native-music-player .music-now-info{padding:0}.native-music-player .music-progress{height:4px}}
 body:has(#app) .native-music-player .music-controls>button{display:grid!important;padding:6px;min-width:34px}
 body:has(#app) .native-music-source{display:none}
+
+.music-speed,.music-sleep{display:flex;align-items:center;gap:8px;font-size:11px;color:#a6afb5}
+.music-speed select,.music-sleep select{background:#22272a;color:#f3f5f4;border:1px solid #303739;border-radius:8px;padding:4px 8px}
