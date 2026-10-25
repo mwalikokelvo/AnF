@@ -12,7 +12,7 @@ Windows is a Tauri host. Android is a Java WebView host plus a Flutter music mod
 
 GitHub Actions builds the Windows base installer (no GGUF or DLL placeholders) and the current Android host. Each delivery run attaches both files. Do not publish those files as a production release: the Windows installer is unsigned, and the Android package stays a development host until the original signing key is available.
 
-Status: **complete for development packages**. Workflow `.github/workflows/phase1-hosts.yml` succeeded on run 40140600169. Artifacts: `AF-Windows-base-setup` and `AF-Android-host`. Download from the run Artifacts section while signed into GitHub. Re-run after shell changes when you want a new APK/installer. Android host with mode rail: Actions run [40147945248](https://github.com/mwalikokelvo/AnF/actions/runs/40147945248) artifact `AF-Android-host` (Windows job failed on FFmpeg download; fix in progress).
+Status: **complete for development packages**. Workflow `.github/workflows/phase1-hosts.yml` succeeded on run 40140600169. Artifacts: `AF-Windows-base-setup` and `AF-Android-host`. Download from the run Artifacts section while signed into GitHub. Re-run after shell changes when you want a new APK/installer. Android host with mode rail: Actions run [40147945248](https://github.com/mwalikokelvo/AnF/actions/runs/40147945248) artifact `AF-Android-host`. Phase 1 upload paths fixed to `releases/` + `gradle-build/`.
 
 ### Phase 2 — One workspace, four destinations
 
@@ -31,7 +31,7 @@ Status: **done** on Windows and Android sources. Rebuild the Android host to shi
 
 Write the versioned vault and sync contracts and an encrypted fixture. Only after a round trip and recovery check, move SQLCipher operations behind that crate and call it from Windows. Do not point either host at `_core`.
 
-Status: **contracts done; `crates/anf-vault` domain crate started** (validate, clean, revision, schema SQL, bridge op names). No SQLCipher inside the crate yet; hosts keep their stores. Encryption fixture still skipped. Not ThingsBook / `_core`.
+Status: **contracts done; `crates/anf-vault` started and linked from Windows** via `anf_vault_bridge`. Schema/ops constants shared; SQLCipher still host-local. Encryption fixture still skipped. Not ThingsBook / `_core`.
 
 ### Phase 4 — Android calls the same crate
 
