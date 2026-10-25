@@ -48,7 +48,7 @@ jobs:
         run: |
           set -o pipefail
           node integrations/spotube/build-android.mjs 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
-            why=$({ grep -m1 -A4 'What went wrong' "$RUNNER_TEMP/aar.log"; grep -m1 -A14 'Failed to transform' "$RUNNER_TEMP/aar.log" | tail -n +2 | cut -c900-1500; grep -m8 -iE 'Caused by|OutOfMemory|timed out|Could not (GET|HEAD)|Unsupported|jlink|JdkImage' "$RUNNER_TEMP/aar.log"; } | cut -c1-260 | paste -sd'|' | sed 's/|/%0A/g')
+            why=$({ grep -m1 -A12 'Failed to transform' "$RUNNER_TEMP/aar.log" | cut -c1-700 | grep -vE '^\s*$' | sed -E 's/.*(Caused by|Could not|Unsupported|java\.|Error)/\1/' | cut -c1-220; grep -m5 -iE 'Caused by|OutOfMemory|timed out|Could not (GET|HEAD)|Unsupported' "$RUNNER_TEMP/aar.log" | cut -c1-220; } | head -c 2500 | paste -sd'|' | sed 's/|/%0A/g') || true
             echo "::error title=Spotube Android libraries failed::${why:-no Gradle message, see log}"
             exit 1
           }
