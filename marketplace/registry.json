@@ -1,0 +1,24 @@
+[
+  {
+    "id": "catppuccin-mocha",
+    "name": "Catppuccin Mocha",
+    "version": "1.0.0",
+    "type": "theme",
+    "entry": "theme.css",
+    "description": "Soothing dark pastel colors for AnF.",
+    "author": "mwalikokelvo",
+    "downloadUrl": "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sample-theme/theme.css",
+    "sha256": "00ab28549d1b5b1fa95b264ecc1ba041a2b32b4b8637e46b9a837ff3d182776a"
+  },
+  {
+    "id": "hello-plugin",
+    "name": "Hello World Extension",
+    "version": "1.0.0",
+    "type": "plugin",
+    "entry": "index.js",
+    "description": "An isolated sample extension with a sidebar action and lifecycle events.",
+    "author": "mwalikokelvo",
+    "downloadUrl": "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sample-plugin/index.js",
+    "sha256": "0795749fa1c0f73ee8659e20869bb1c153b850701a85df113ab59c3f3685f497"
+  }
+]
