@@ -81,7 +81,14 @@ jobs:
         run: node integrations/spotube/prepare.mjs --windows
       - name: Build native child view
         working-directory: windows/spotube-native
-        run: flutter build windows --release
+        # The first error lines also go to an annotation, so the reason shows on the check.
+        run: |
+          flutter build windows --release 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/flutter-build.log"
+          if ($LASTEXITCODE -ne 0) {
+            $found = Select-String -Path "$env:RUNNER_TEMP/flutter-build.log" -Pattern 'error|fatal|FAILED' | Select-Object -First 12 | ForEach-Object { $_.Line.Trim() }
+            Write-Host "::error title=flutter build windows failed::$($found -join '%0A')"
+            exit 1
+          }
       - name: Prepare the existing offline AnF resources
         working-directory: windows
         run: |
