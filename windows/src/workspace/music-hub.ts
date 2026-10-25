@@ -3,7 +3,7 @@ import {audioLibrary,type AudioTrack,type AudioPlaylist} from './audio-library';
 import {readAudioMetadata} from './audio-metadata';
 import {durationText} from './audio-data';
 import {nextTrack,shuffled,reconcileQueue,type RepeatMode} from './audio-queue';
-import {kindFromFile,type MediaKind} from './media-kinds';
+import {kindFromFile} from './media-kinds';
 import {fetchFeed,loadFeeds,saveFeeds,substackFeedUrl,type PodcastFeed} from './podcast-feeds';
 import './music-hub.css';
 

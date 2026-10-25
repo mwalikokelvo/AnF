@@ -42,7 +42,7 @@ public class MainActivity extends Activity {
     });
     WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);
     s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-    web.addJavascriptInterface(new LocalActions(),"CoucouAndroid");
+    web.addJavascriptInterface(new LocalActions(),"AnFAndroid");
     web.setWebViewClient(new WebViewClient(){
       @Override public boolean shouldOverrideUrlLoading(WebView w,WebResourceRequest r){return !r.getUrl().toString().startsWith(origin);}
       @Override public WebResourceResponse shouldInterceptRequest(WebView w,WebResourceRequest r){

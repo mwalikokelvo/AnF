@@ -22,7 +22,7 @@ This product includes software developed by Kingkor Roy Tirtho.
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![GitHub stars](https://img.shields.io/github/stars/Louis-CFM/coucou?style=social)
 
-<img src="docs/media/demo.gif" width="760" alt="Coucou in action">
+<img src="docs/media/demo.gif" width="760" alt="AnF in action">
 
 </div>
 
@@ -31,7 +31,7 @@ This product includes software developed by Kingkor Roy Tirtho.
 ## Why
 
 Some studios showed off gorgeous notch companions… and never let anyone use them.
-**Coucou is the open version.** Every line of code, every animation, every sound — free to use, read, fork and remix.
+**AnF is the open version.** Every line of code, every animation, every sound — free to use, read, fork and remix.
 
 Meet **Mochi**: a soft little squircle with big eyes that pops out of your notch, waves hello, follows your cursor with its eyes, gets annoyed when you poke it (and dizzy if you insist), and tells you the moment Claude Code needs you.
 
@@ -134,7 +134,7 @@ npm run pack                # AppImage, .deb and .rpm land in windows/release/
 
 ## Setup
 
-Click the Coucou icon in the menu bar (macOS) or in the system tray (Windows, Linux) → **Settings…**
+Click the AnF icon in the menu bar (macOS) or in the system tray (Windows, Linux) → **Settings…**
 
 | What | Why | Where the key goes |
 |---|---|---|

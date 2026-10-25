@@ -99,7 +99,7 @@ export async function fetchFeed(url: string): Promise<PodcastFeed> {
 }
 
 async function fetchFeedText(url: string): Promise<string> {
-  const bridge = (window as unknown as { CoucouAndroid?: AndroidBridge }).CoucouAndroid;
+  const bridge = (window as unknown as { AnFAndroid?: AndroidBridge }).AnFAndroid;
   if (bridge?.fetchRss) {
     return new Promise((resolve, reject) => {
       const id = String(Date.now());

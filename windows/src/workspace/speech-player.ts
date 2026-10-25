@@ -2,7 +2,7 @@ import {h} from '../views/dom';
 export function sentences(text:string){return(text.match(/[^.!?\n]+(?:[.!?]+["”’']*|\n|$)/gu)||[text]).flatMap(s=>{const parts:string[]=[];for(let start=0;start<s.length;){let end=Math.min(s.length,start+1800);if(end<s.length&&/[\uD800-\uDBFF]/.test(s[end-1]))end--;parts.push(s.slice(start,end));start=end;}return parts;}).filter(s=>s.trim());}
 export function createSpeechPlayer(){
  let parts:string[]=[],index=0,playing=false,token=0;
- const native=(window as unknown as {CoucouAndroid?:{speakPart?:(text:string,rate:number,id:string)=>void;stopSpeaking?:()=>void}}).CoucouAndroid;
+ const native=(window as unknown as {AnFAndroid?:{speakPart?:(text:string,rate:number,id:string)=>void;stopSpeaking?:()=>void}}).AnFAndroid;
  const progress=h('input',{type:'range',min:0,max:0,value:0,'aria-label':'Read-aloud sentence'}),info=h('span',{role:'status',text:'Read aloud'}),rate=h('select',{'aria-label':'Reading speed'},...[.75,1,1.25,1.5,1.75,2,2.5].map(n=>h('option',{value:n,text:n+'×'})));rate.value='1';
  const button=(text:string,fn:()=>void)=>h('button',{text,type:'button',onclick:fn});
  function stop(){playing=false;token++;native?.stopSpeaking?.();window.speechSynthesis?.cancel();play.textContent='Play';}

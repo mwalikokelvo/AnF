@@ -27,8 +27,8 @@ import {readDocument} from './documents';
 import {paginatedResponse} from '../../windows/src/workspace/response-pages';
 import {followups,needsClarification,documentQuestion} from '../../windows/src/workspace/followups';
 import {restoreProjects,mergeReply,type Project} from './project-data';
-declare global {interface Window {CoucouAndroid?:{spotubeAvailable?():boolean;spotubeRequest?(id:string,operation:string):void;mediaRequest?(id:string,operation:string,json:string):void;vaultRequest?(id:string,operation:string,json:string):void;exportAudio?(name:string,base64:string):void;quickCaptureReady?():void;haptic?():void;linkRequest(id:string,code:string,path:string,json:string):void;openProvider(id:string):void;searchWeb(query:string,enabled:boolean):void;copy(text:string):void;export(name:string,text:string,mime:string):void;speak(text:string):void;stopSpeaking():void};linkResult:(id:string,value:string,error:string)=>void;nativeNotice:(s:string)=>void;nativeBack:()=>boolean;nativeKeyboard:(visible:boolean)=>void;}}
-const native=window.CoucouAndroid;
+declare global {interface Window {AnFAndroid?:{spotubeAvailable?():boolean;spotubeRequest?(id:string,operation:string):void;mediaRequest?(id:string,operation:string,json:string):void;vaultRequest?(id:string,operation:string,json:string):void;exportAudio?(name:string,base64:string):void;quickCaptureReady?():void;haptic?():void;linkRequest(id:string,code:string,path:string,json:string):void;openProvider(id:string):void;searchWeb(query:string,enabled:boolean):void;copy(text:string):void;export(name:string,text:string,mime:string):void;speak(text:string):void;stopSpeaking():void};linkResult:(id:string,value:string,error:string)=>void;nativeNotice:(s:string)=>void;nativeBack:()=>boolean;nativeKeyboard:(visible:boolean)=>void;}}
+const native=window.AnFAndroid;
 const root=document.getElementById('app')!;
 const status=h('p',{role:'status',class:'status',text:'Opening your workspace…'});
 window.nativeNotice=s=>{status.textContent=s;};

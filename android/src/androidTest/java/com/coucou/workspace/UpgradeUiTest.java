@@ -79,7 +79,7 @@ public class UpgradeUiTest {
     }finally{java.util.Arrays.fill(value,(byte)0);java.util.Arrays.fill(encoded,(byte)0);}
   }
   private void nativeCall(String operation,String json)throws Exception {
-    evaluate("window.__qaVaultResult=null;window.vaultResult=(id,value,error)=>window.__qaVaultResult=error?'ERROR:'+error:value;CoucouAndroid.vaultRequest('99001',"+JSONObject.quote(operation)+","+JSONObject.quote(json)+")");
+    evaluate("window.__qaVaultResult=null;window.vaultResult=(id,value,error)=>window.__qaVaultResult=error?'ERROR:'+error:value;AnFAndroid.vaultRequest('99001',"+JSONObject.quote(operation)+","+JSONObject.quote(json)+")");
     until("window.__qaVaultResult!==null");
     assertFalse("Native encrypted storage failed",evaluate("window.__qaVaultResult").contains("ERROR:"));
   }

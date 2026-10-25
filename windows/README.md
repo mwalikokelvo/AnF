@@ -90,7 +90,7 @@ that will be taken, and nothing is written until you click. Your own hooks are
 never touched, and uninstalling removes only AnF's entries.
 
 The relay is a tiny executable, `coucou-hook.exe`, copied to
-`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach AnF and
+`%LOCALAPPDATA%\AnF\bin\` at launch. It is given 300 ms to reach AnF and
 exits cleanly if the app is closed, slow or crashed — **a Claude Code session is
 never blocked or slowed down by AnF.** If nobody answers a permission request
 in time, AnF stays quiet and Claude Code asks in the terminal as usual.
@@ -279,6 +279,6 @@ Physical phone/tablet network testing remains separate from these checks.
 
 AnF 0.1.20 introduces a shared Android/Windows design with light, dark and system themes. New installers, shortcuts, exports and app icons use AnF. Internal package identifiers, database names, OS credential-store services, browser storage and encrypted-backup authentication remain stable so existing saved work is readable. Older `.coucoupack` backups remain supported; new encrypted exports use `.anfpack`.
 
-The Windows NSIS template is based on Tauri CLI 2.12.0 (MIT/Apache-2.0). It keeps the previous uninstall registry key and installation-location record, and retains the default `%LOCALAPPDATA%\Coucou` folder. The displayed product and executable are AnF; updates find the existing folder automatically. Keep these compatibility changes when updating the upstream installer template. Windows publication remains paused pending signing or Defender clearance.
+The Windows NSIS template is based on Tauri CLI 2.12.0 (MIT/Apache-2.0). It keeps the previous uninstall registry key and installation-location record, and retains the default `%LOCALAPPDATA%\AnF` folder. The displayed product and executable are AnF; updates find the existing folder automatically. Keep these compatibility changes when updating the upstream installer template. Windows publication remains paused pending signing or Defender clearance.
 
 For rendered interface checks, build the Windows frontend and Android assets, then run `node scripts/app-qa/appearance.mjs` from the repository root with Chromium available. This checks real browser rendering and Android browser storage; native installed-app tests run separately in the release workflows.
