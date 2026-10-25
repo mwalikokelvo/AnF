@@ -1,0 +1,12 @@
+[
+  {
+    "id": "catppuccin-mocha",
+    "name": "Catppuccin Mocha",
+    "version": "1.0.0",
+    "type": "theme",
+    "description": "Soothing dark pastel theme for AnF.",
+    "author": "mwalikokelvo",
+    "downloadUrl": "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/catppuccin-mocha/theme.css",
+    "sha256": "82d264b03225b5308fb75b13b6791fddc2841e8399055e418e85e89061e1ffb3"
+  }
+]
