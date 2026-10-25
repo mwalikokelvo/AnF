@@ -12,7 +12,7 @@ Windows is a Tauri host. Android is a Java WebView host plus a Flutter music mod
 
 GitHub Actions builds the Windows base installer (no GGUF or DLL placeholders) and the current Android host. Each delivery run attaches both files. Do not publish those files as a production release: the Windows installer is unsigned, and the Android package stays a development host until the original signing key is available.
 
-Status: **complete for development packages**. Workflow `.github/workflows/phase1-hosts.yml` succeeded on run 40140600169. Artifacts: `AF-Windows-base-setup` and `AF-Android-host`. Download from the run Artifacts section while signed into GitHub.
+Status: **complete for development packages**. Workflow `.github/workflows/phase1-hosts.yml` succeeded on run 40140600169. Artifacts: `AF-Windows-base-setup` and `AF-Android-host`. Download from the run Artifacts section while signed into GitHub. Re-run after shell changes when you want a new APK/installer.
 
 ### Phase 2 — One workspace, four destinations
 
@@ -25,13 +25,13 @@ The existing sections stay. A mode rail groups them:
 
 Opening a section from code switches to its mode, so a hidden section is never the current one. Unavailable native pieces stay explicit. This is not a visual redesign and does not claim the same music engine on both platforms.
 
-Status: mode rail on Windows and Android. Android shows an explicit notice when Spotube is not available in the current build. Rebuild the Android host to pick up the shell change.
+Status: **done** on Windows and Android sources. Rebuild the Android host to ship the mode rail in an APK.
 
 ### Phase 3 — Vault and sync contracts, then one Rust crate
 
 Write the versioned vault and sync contracts and an encrypted fixture. Only after a round trip and recovery check, move SQLCipher operations behind that crate and call it from Windows. Do not point either host at `_core`.
 
-Status: **contracts + JSON fixtures done; encrypted fixture tool in progress.** See `docs/contracts/`, `contracts/fixtures/`, `contracts/tools/vault-fixture/`, and `node scripts/verify-contracts.mjs`. Run the vault-fixture tool to emit `vault-v1-fixture.db` (AnF SQLCipher only). Shared Rust crate extraction comes after the fixture opens and recovers on Windows. Not ThingsBook / `_core`.
+Status: **contracts + JSON fixtures done; encryption skipped for now.** See `docs/contracts/`, `contracts/fixtures/`, and `node scripts/verify-contracts.mjs`. CI workflow `contracts.yml` runs the verify script on related path changes. SQLCipher binary fixture and shared Rust crate extraction wait until encryption work resumes. Not ThingsBook / `_core`.
 
 ### Phase 4 — Android calls the same crate
 

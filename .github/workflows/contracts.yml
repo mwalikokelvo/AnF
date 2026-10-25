@@ -1,0 +1,37 @@
+name: Contracts
+
+# AnF Phase 3 contract checks only. Does not touch ThingsBook/_core or SQLCipher.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'docs/contracts/**'
+      - 'scripts/verify-contracts.mjs'
+      - '.github/workflows/contracts.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'docs/contracts/**'
+      - 'scripts/verify-contracts.mjs'
+      - '.github/workflows/contracts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify vault and sync fixtures
+        run: node scripts/verify-contracts.mjs
