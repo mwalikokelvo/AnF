@@ -91,8 +91,33 @@ function parseDuration(value: string): number | undefined {
   return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
+type AndroidBridge = { fetchRss?: (id: string, url: string) => void };
+
 export async function fetchFeed(url: string): Promise<PodcastFeed> {
-  const response = await fetch(url);
-  if (!response.ok) throw Error(`Feed request failed (${response.status}).`);
-  return parseRss(await response.text(), url);
+  const xml = await fetchFeedText(url);
+  return parseRss(xml, url);
+}
+
+async function fetchFeedText(url: string): Promise<string> {
+  const bridge = (window as unknown as { CoucouAndroid?: AndroidBridge }).CoucouAndroid;
+  if (bridge?.fetchRss) {
+    return new Promise((resolve, reject) => {
+      const id = String(Date.now());
+      const win = window as unknown as { coucouFeedResult?: (id: string, text: string, error: string) => void };
+      win.coucouFeedResult = (rid, text, error) => {
+        if (rid !== id) return;
+        if (error) reject(Error(error));
+        else resolve(text);
+      };
+      try { bridge.fetchRss!(id, url); }
+      catch (e) { reject(e instanceof Error ? e : Error('Native feed fetch failed.')); }
+    });
+  }
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw Error(`Feed request failed (${response.status}).`);
+    return await response.text();
+  } catch {
+    throw Error('Could not load that feed. On Android the next build can fetch it natively. On desktop, the feed may block browser requests — try the direct /feed URL.');
+  }
 }

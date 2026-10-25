@@ -130,6 +130,30 @@ public class MainActivity extends Activity {
       if(!Arrays.asList("text/plain","text/markdown","text/html","application/json","application/octet-stream").contains(mime))return;
       runOnUiThread(()->{if(exportBytes!=null){notice("Finish the current export first.");return;}exportBytes=text.getBytes(StandardCharsets.UTF_8);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime).putExtra(Intent.EXTRA_TITLE,name.replaceAll("[^a-zA-Z0-9._ -]","_"));try{startActivityForResult(i,2);}catch(Exception e){exportBytes=null;notice("The export picker could not open.");}});
     }
+
+    @JavascriptInterface public void fetchRss(String id,String url){
+      if(id==null||!id.matches("[0-9]{1,16}")||url==null||url.length()>2000)return;
+      if(!url.startsWith("https://")){feedResult(id,"","Only https feeds are allowed.");return;}
+      vaultWorker.execute(()->{
+        HttpURLConnection conn=null;
+        try{
+          conn=(HttpURLConnection)new java.net.URL(url).openConnection();
+          conn.setConnectTimeout(12000);conn.setReadTimeout(20000);
+          conn.setRequestProperty("User-Agent","AnF/0.1");
+          conn.setInstanceFollowRedirects(true);
+          int code=conn.getResponseCode();
+          if(code<200||code>=300){feedResult(id,"","Feed request failed ("+code+").");return;}
+          int max=1500000;
+          java.io.InputStream in=conn.getInputStream();
+          ByteArrayOutputStream out=new ByteArrayOutputStream();
+          byte[] buf=new byte[8192];int n,total=0;
+          while((n=in.read(buf))>=0){total+=n;if(total>max){feedResult(id,"","Feed is too large.");return;}out.write(buf,0,n);}
+          feedResult(id,out.toString(StandardCharsets.UTF_8.name()),"");
+        }catch(Exception e){feedResult(id,"","Could not load that feed.");}
+        finally{if(conn!=null)conn.disconnect();}
+      });
+    }
+    private void feedResult(String id,String text,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.coucouFeedResult && window.coucouFeedResult("+JSONObject.quote(id)+","+JSONObject.quote(text)+","+JSONObject.quote(error)+")",null);});}
     @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(!speechReady){notice("Android read-aloud is not ready. Check installed voice data.");return;}speech.stop();int max=TextToSpeech.getMaxSpeechInputLength()-100;for(int start=0;start<text.length();){int end=Math.min(text.length(),start+max);if(end<text.length()){int stop=text.lastIndexOf('.',end);if(stop>start+max/2)end=stop+1;}speech.speak(text.substring(start,end),TextToSpeech.QUEUE_ADD,null,"coucou-"+start);start=end;}notice("Reading with your Android voice.");});}
     @JavascriptInterface public void speakPart(String text,float rate,String id){if(text.length()>2000||id.length()>30)return;runOnUiThread(()->{if(!speechReady){speechError(id);return;}speech.stop();speech.setSpeechRate(Math.max(.75f,Math.min(2.5f,rate)));if(speech.speak(text,TextToSpeech.QUEUE_FLUSH,null,id)==TextToSpeech.ERROR)speechError(id);});}
     @JavascriptInterface public void haptic(){runOnUiThread(()->web.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK));}
