@@ -37,7 +37,7 @@ Status: **contracts + JSON fixtures done; encryption skipped for now.** See `doc
 
 Add a bridge from the current Android host to the crate proven in Phase 3. A Tauri Android host is a later option, after music playback and vault recovery work on that bridge. Do not replace the Java host and the Flutter player in the same step.
 
-Status: not started.
+Status: **bridge contract started.** See `docs/contracts/vault-bridge-v1.md` and `docs/AF-Phase-4-Bridge.md`. Operation names for Android `VaultRepository` / web `vaultCall` are frozen. Shared native library is still blocked on the Phase 3 AnF crate (encryption was deferred). Java host and Flutter music stay.
 
 ### Phase 5 — Speech models on request
 
