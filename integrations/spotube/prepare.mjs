@@ -10,7 +10,10 @@ const desktop=process.argv.includes('--windows');
 const module=path.join(root,desktop?'windows/spotube-native':'android/spotube-module');
 const flutter=process.env.FLUTTER_BIN||'flutter';
 function run(bin,args,cwd=root){const result=spawnSync(bin,args,{cwd,stdio:'inherit',env:process.env});if(result.error)throw result.error;if(result.status)throw Error(`${bin} failed (${result.status})`);}
-try{await access(path.join(source,'.git'));}catch{await mkdir(path.dirname(source),{recursive:true});run('git',['clone','https://github.com/KRTirtho/spotube.git',source]);}
+// core.autocrlf=false: the patches below match text containing "\n". A Windows
+// git that checks the clone out with CRLF endings would make them fail (or
+// silently not apply).
+try{await access(path.join(source,'.git'));}catch{await mkdir(path.dirname(source),{recursive:true});run('git',['clone','-c','core.autocrlf=false','https://github.com/KRTirtho/spotube.git',source]);}
 const sha=spawnSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).stdout.trim();
 if(sha!==pin){run('git',['fetch','origin',pin],source);run('git',['checkout','--detach',pin],source);}
 run('git',['diff','--exit-code',pin,'--','lib','assets','pubspec.yaml','l10n.yaml','LICENSE'],source);
