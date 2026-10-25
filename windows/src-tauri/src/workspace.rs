@@ -413,11 +413,7 @@ pub(crate) fn html_text(body: &str) -> String {
         .unwrap_or_else(|| html.root_element());
     let lines: Vec<_> = scope
         .select(&paragraphs)
-        .filter(|e| {
-            !e.ancestors()
-                .filter_map(scraper::ElementRef::wrap)
-                .any(|a| matches!(a.value().name(), "script" | "style" | "nav" | "footer"))
-        })
+        .filter(|e| !reading_chrome(*e))
         .map(|e| {
             e.text()
                 .collect::<Vec<_>>()
@@ -433,6 +429,27 @@ pub(crate) fn html_text(body: &str) -> String {
     } else {
         lines.join("\n\n")
     }
+}
+
+fn reading_chrome(node: scraper::ElementRef) -> bool {
+    const TAGS: &[&str] = &["script", "style", "nav", "footer", "aside", "form", "noscript", "iframe", "svg", "button"];
+    const ROLES: &[&str] = &["navigation", "banner", "contentinfo", "complementary"];
+    const MARKS: &[&str] = &["cookie", "banner", "advert", "adsby", "sidebar", "newsletter", "popup", "modal", "breadcrumb", "related", "comment", "promo", "sponsor", "subscribe"];
+    std::iter::once(node)
+        .chain(node.ancestors().filter_map(scraper::ElementRef::wrap))
+        .any(|a| {
+            let value = a.value();
+            if TAGS.contains(&value.name()) {
+                return true;
+            }
+            if value.attr("role").is_some_and(|role| ROLES.contains(&role)) {
+                return true;
+            }
+            let class = value.attr("class").unwrap_or("");
+            let id = value.attr("id").unwrap_or("");
+            let hay = format!("{class} {id}").to_ascii_lowercase();
+            MARKS.iter().any(|mark| hay.contains(mark))
+        })
 }
 
 fn xml(s: &str) -> String {
@@ -666,6 +683,15 @@ mod tests {
         let out=html_text("<main><h1>Article</h1><p>Useful fact.</p><script>bad()</script><nav><p>menu</p></nav></main>");
         assert!(out.contains("Useful fact"));
         assert!(!out.contains("bad()") && !out.contains("menu"));
+    }
+    #[test]
+    fn html_keeps_the_article_and_drops_page_chrome() {
+        let out = html_text("<article><header><h1>Canon law note</h1></header><p>The council met in 325.</p><aside class=\"newsletter\"><p>Subscribe for updates</p></aside><div class=\"cookie-banner\"><p>Accept cookies</p></div><footer><p>About the site</p></footer></article>");
+        assert!(out.contains("Canon law note"));
+        assert!(out.contains("The council met in 325."));
+        assert!(!out.contains("Subscribe"));
+        assert!(!out.contains("cookies"));
+        assert!(!out.contains("About the site"));
     }
     #[test]
     fn docx_contains_escaped_text_and_relationships() {

@@ -26,7 +26,13 @@ export function createMusicHub(options:{notify:(text:string)=>void;beforePlay:()
  const tabButtons=['Music','Audiobooks','Podcasts','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const index=tabButtons.indexOf(document.activeElement as HTMLButtonElement);const next=event.key==='Home'?0:event.key==='End'?tabButtons.length-1:(index+(event.key==='ArrowRight'?1:tabButtons.length-1))%tabButtons.length;tabButtons[next].focus();tabButtons[next].click();});
  content.id='music-content';content.setAttribute('role','tabpanel');
- const subtitle=h('p',{text:'Music, audiobooks, and podcasts. Local first.'});root.append(h('header',{class:'music-heading'},h('div',{},h('h2',{text:'Music Hub'}),subtitle),h('label',{class:'music-search'},svg(icons.search,20,{stroke:1.5}),search),h('span',{class:'music-monogram',text:'AF','aria-hidden':true})),tabs,notice,content,files,folder);
+ const subtitle=h('p',{text:'Music, audiobooks, and podcasts. Local first.'});
+ const theme=h('select',{'aria-label':'Music theme'},...[['ink','Ink'],['ember','Ember'],['violet','Violet'],['dusk','Dusk']].map(([value,text])=>h('option',{value,text}))) as HTMLSelectElement;
+ theme.value=['ember','violet','dusk'].includes(localStorage.getItem('anf-music-theme')||'')?localStorage.getItem('anf-music-theme')!:'ink';
+ function applyTheme(){root.dataset.musicTheme=theme.value;try{localStorage.setItem('anf-music-theme',theme.value);}catch{/* The theme still applies for this session. */}}
+ theme.addEventListener('change',applyTheme);
+ root.append(h('header',{class:'music-heading'},h('div',{},h('h2',{text:'Music Hub'}),subtitle),h('label',{class:'music-search'},svg(icons.search,20,{stroke:1.5}),search),theme,h('span',{class:'music-monogram',text:'AF','aria-hidden':true})),tabs,notice,content,files,folder);
+ applyTheme();
  const fullPlayer=h('dialog',{class:'music-player music-full-player','aria-label':'Now playing'});
  const dock=h('aside',{class:'music-player',hidden:true,'aria-label':'Music player'}),dockArt=h('div',{class:'music-player-art'}),dockTitle=h('strong'),dockArtist=h('span');
  const toggle=button('Play',async()=>{if(!current)return;if(audio.paused)await resume();else pause();},'play'),like=button('Like track',()=>{if(!current)return;prefs.favorites=prefs.favorites.includes(current.id)?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];save();paint();render();},'heart');
