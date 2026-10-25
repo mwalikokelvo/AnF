@@ -83,9 +83,14 @@ jobs:
         working-directory: windows/spotube-native
         # The first error lines also go to an annotation, so the reason shows on the check.
         run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -all -prerelease -format value -property displayName,installationVersion
+          Write-Host "::notice title=Runner $env:ImageOS $env:ImageVersion, Visual Studio::$($vs -join ' | ')"
           flutter build windows --release 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/flutter-build.log"
           if ($LASTEXITCODE -ne 0) {
-            $found = Select-String -Path "$env:RUNNER_TEMP/flutter-build.log" -Pattern 'error|fatal|FAILED' | Select-Object -First 12 | ForEach-Object { $_.Line.Trim() }
+            $lines = @(Get-Content "$env:RUNNER_TEMP/flutter-build.log")
+            $hit = $lines | Select-String -Pattern 'error|fatal|FAILED' | Select-Object -First 1
+            $start = if ($hit) { $hit.LineNumber - 1 } else { 0 }
+            $found = $lines[$start..([Math]::Min($start + 9, $lines.Count - 1))] | ForEach-Object { $_.Trim() }
             Write-Host "::error title=flutter build windows failed::$($found -join '%0A')"
             exit 1
           }
