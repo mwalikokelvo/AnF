@@ -113,6 +113,7 @@ jobs:
         with:
           name: AF-Android-host
           path: |
-            android/app/build/outputs/apk/debug/*.apk
-            android/app/build/outputs/apk/release/*.apk
+            releases/AnF-Android-*.apk
+            android/gradle-build/outputs/apk/debug/*.apk
+            android/gradle-build/outputs/apk/release/*.apk
           if-no-files-found: error
