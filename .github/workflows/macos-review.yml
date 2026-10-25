@@ -1,0 +1,42 @@
+name: macOS review build
+
+# Manual only. Builds the Mac app WITHOUT signing or notarization and keeps it as a
+# short-lived artifact for review. It is not a release: notarization stays with
+# scripts/release.sh, and nothing here is published.
+on:
+  workflow_dispatch:
+  # Also runs when this file changes, which is how the first build is produced before it exists on main.
+  pull_request:
+    paths: ['.github/workflows/macos-review.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: cd NotchBuddy && xcodegen
+      - name: Build Release (no signing)
+        run: |
+          xcodebuild -project NotchBuddy/NotchBuddy.xcodeproj -scheme NotchBuddy -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/dd" build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+      - name: Zip the app
+        run: |
+          app=$(find "$RUNNER_TEMP/dd/Build/Products/Release" -maxdepth 1 -name '*.app' | head -1)
+          test -n "$app" || { echo "::error title=No app produced::xcodebuild finished without a .app"; exit 1; }
+          mkdir -p out && ditto -c -k --keepParent "$app" "out/AnF-macOS-review-unsigned.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AnF-macOS-review-unsigned
+          path: out/AnF-macOS-review-unsigned.zip
+          retention-days: 7
+          if-no-files-found: error
