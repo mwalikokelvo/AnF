@@ -3,13 +3,20 @@ import {spawnSync} from 'node:child_process';
 import {cp,mkdir,readFile,writeFile,access} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+// On GitHub Actions, also report a failure as an annotation, so the reason shows
+// on the check itself and not only deep in the job log.
+process.on('uncaughtException',(e)=>{
+  const text=String(e&&e.stack||e).split('\n').slice(0,6).join('%0A');
+  if(process.env.GITHUB_ACTIONS)console.log(`::error title=Spotube prepare failed::${text}`);
+  console.error(e);process.exit(1);
+});
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const pin='69a310c78f5ceaf4eab7dfee98f187d38211c9ba';
 const source=process.env.SPOTUBE_SOURCE||path.join(root,'../.cache/anf-spotube-source');
 const desktop=process.argv.includes('--windows');
 const module=path.join(root,desktop?'windows/spotube-native':'android/spotube-module');
 const flutter=process.env.FLUTTER_BIN||'flutter';
-function run(bin,args,cwd=root){const result=spawnSync(bin,args,{cwd,stdio:'inherit',env:process.env});if(result.error)throw result.error;if(result.status)throw Error(`${bin} failed (${result.status})`);}
+function run(bin,args,cwd=root){const result=spawnSync(bin,args,{cwd,stdio:'inherit',env:process.env});if(result.error)throw result.error;if(result.status)throw Error(`${bin} ${args.slice(0,3).join(' ')} failed (${result.status})`);}
 // core.autocrlf=false: the patches below match text containing "\n". A Windows
 // git that checks the clone out with CRLF endings would make them fail (or
 // silently not apply).
