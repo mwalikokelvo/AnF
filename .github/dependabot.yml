@@ -1,0 +1,132 @@
+# Keeps dependencies and workflow actions current.
+#
+# Deliberately conservative: weekly, small batches, and no automatic major
+# version bumps (those need a human, e.g. Tauri 2 -> 3 or a Gradle plugin jump).
+# Every update arrives as a pull request; the existing workflows build and test
+# it before anyone merges.
+#
+# Not covered on purpose:
+#   - continuations/  archived snapshots of other projects, not shipped code.
+#   - crates/anf-vault and contracts/tools/vault-fixture  no lockfile of their
+#     own; they are updated through the project that builds them.
+
+version: 2
+
+updates:
+  # Workflow actions are pinned to commit SHAs (with the tag in a comment).
+  # Dependabot keeps both the SHA and the comment up to date.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Windows / Linux app (Tauri frontend: Vite + TypeScript).
+  - package-ecosystem: npm
+    directory: /windows
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(windows)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      windows-npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Android workspace frontend.
+  - package-ecosystem: npm
+    directory: /android
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(android)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      android-npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # QA scripts used by the release checks.
+  - package-ecosystem: npm
+    directory: /scripts/app-qa
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(qa)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      qa-npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Windows / Linux native side (Tauri, src-tauri and the coucou-hook relay).
+  # Builds use --locked, so Cargo.lock only changes through these pull requests.
+  - package-ecosystem: cargo
+    directory: /windows
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(windows)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      windows-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Shared Rust core.
+  - package-ecosystem: cargo
+    directory: /_core
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(core)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      core-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Android build (Gradle).
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(android)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      android-gradle:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

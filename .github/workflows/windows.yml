@@ -57,16 +57,16 @@ jobs:
         working-directory: windows
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: windows/package-lock.json
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cargo/registry
@@ -75,7 +75,7 @@ jobs:
           key: windows-cargo-${{ hashFiles('windows/Cargo.lock') }}
           restore-keys: windows-cargo-
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: 1.99.0
 
@@ -148,7 +148,7 @@ jobs:
       # user; automatic tag uploads stay paused until explicitly enabled.
       - name: Download previous installer for upgrade verification
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: Coucou-Windows-setup
           run-id: ${{ inputs.baseline_run }}
@@ -168,7 +168,7 @@ jobs:
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
 
       - name: Retain installed application test evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         with:
           name: AnF-Windows-installation-tests
@@ -176,7 +176,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-setup
@@ -187,7 +187,7 @@ jobs:
           retention-days: 7
 
       # Keep models and native runtimes with the portable executables.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-portable
@@ -199,17 +199,17 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != '' && inputs.downloads_run == ''
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: Coucou-Windows-setup
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-installer
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: AnF-Windows-setup
           run-id: ${{ inputs.candidate_run }}
@@ -224,7 +224,7 @@ jobs:
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $candidate = (Resolve-Path "candidate-installer/AnF-Windows-$version-setup.exe").Path
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: AnF-Windows-installation-tests
@@ -239,16 +239,16 @@ jobs:
       actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Require a signed APK download branch
         env:
           DOWNLOAD_BRANCH: ${{ inputs.android_download_branch }}
         run: test -n "$DOWNLOAD_BRANCH"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.android_download_branch }}
           path: android-downloads
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: AnF-Windows-setup
           run-id: ${{ inputs.downloads_run }}
