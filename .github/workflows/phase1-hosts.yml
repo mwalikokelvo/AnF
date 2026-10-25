@@ -31,7 +31,15 @@ jobs:
         run: npm ci
       - name: Prepare FFmpeg
         shell: pwsh
+        continue-on-error: true
         run: ./scripts/prepare-media.ps1
+      - name: Ensure media folder exists
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force media | Out-Null
+          if (!(Test-Path media/SOURCES.txt)) {
+            'FFmpeg was not downloaded on this runner. Audio export features that need a bundled ffmpeg.exe may be unavailable in this development package.' | Set-Content media/SOURCES.txt
+          }
       - name: Build the hook relay
         run: cargo build --release --locked -p coucou-hook
       - name: Build the base installer without offline AI assets
@@ -104,5 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AF-Android-host
-          path: releases/*.apk
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
