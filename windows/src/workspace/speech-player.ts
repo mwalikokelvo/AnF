@@ -15,5 +15,5 @@ export function createSpeechPlayer(){
  const play=button('Play',()=>playing?stop():speak());
  const root=h('div',{class:'speech-player',hidden:true},info,button('Previous sentence',()=>{index=Math.max(0,index-1);if(playing)speak();else update();}),play,button('Next sentence',next),progress,rate,button('Close audio',()=>{stop();root.hidden=true;}));
  progress.addEventListener('input',()=>{index=Number(progress.value);if(playing)speak();else update();});rate.addEventListener('change',()=>{if(playing)speak();});
- return{root,stop,load(text:string){stop();parts=sentences(text);index=0;progress.max=String(Math.max(0,parts.length-1));root.hidden=false;update();if(parts.length)speak();}};
+ return{root,stop,index:()=>index,load(text:string,start=0){stop();parts=sentences(text);index=Math.max(0,Math.min(parts.length-1,start|0));progress.max=String(Math.max(0,parts.length-1));root.hidden=false;update();if(parts.length)speak();}};
 }

@@ -135,9 +135,9 @@ public class MainActivity extends Activity {
       if(id==null||!id.matches("[0-9]{1,16}")||url==null||url.length()>2000)return;
       if(!url.startsWith("https://")){feedResult(id,"","Only https feeds are allowed.");return;}
       vaultWorker.execute(()->{
-        HttpURLConnection conn=null;
+        java.net.HttpURLConnection conn=null;
         try{
-          conn=(HttpURLConnection)new java.net.URL(url).openConnection();
+          conn=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
           conn.setConnectTimeout(12000);conn.setReadTimeout(20000);
           conn.setRequestProperty("User-Agent","AnF/0.1");
           conn.setInstanceFollowRedirects(true);

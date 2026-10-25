@@ -1,6 +1,8 @@
-import {reconcileQueue} from './audio-queue';
-export type AudioTrack={id:string;name:string;title:string;artist:string;album?:string;blob:Blob;created:number;artwork?:Blob;duration?:number;kind?:'music'|'audiobook'|'podcast';};
-export type AudioState={id:'queue';order:string[];repeat:'off'|'track'|'all';position:number};
+import {reconcileQueue,type RepeatMode} from './audio-queue';
+import type {TrackMetadata} from './audio-metadata';
+export type MediaKind='music'|'audiobook'|'podcast';
+export type AudioTrack=TrackMetadata & {id:string;title:string;artist:string;name:string;blob:Blob;created:number;duration?:number;wave?:number[];sampleRate?:number;kind?:MediaKind;chapters?:{title:string;start:number}[];};
+export type AudioState={id:'queue';order:string[];current?:string;repeat:RepeatMode;position:number;custom?:boolean};
 export type AudioPlaylist={id:string;name:string;order:string[]};
 export function audioLibrary(){
  const ready=new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open('coucou-audio',2);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('tracks'))db.createObjectStore('tracks',{keyPath:'id'});if(!db.objectStoreNames.contains('state'))db.createObjectStore('state',{keyPath:'id'});if(!db.objectStoreNames.contains('playlists'))db.createObjectStore('playlists',{keyPath:'id'});};r.onsuccess=()=>{r.result.onversionchange=()=>r.result.close();resolve(r.result);};r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Close other AnF windows to upgrade the audio library.'));});void ready.catch(()=>{});
