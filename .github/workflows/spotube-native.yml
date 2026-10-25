@@ -60,7 +60,9 @@ jobs:
           if-no-files-found: error
   windows:
     if: inputs.platform != 'android'
-    runs-on: windows-latest
+    # windows-latest has Visual Studio 2026 since June 2026, which Flutter 3.35 does not
+    # know (it falls back to "Visual Studio 16 2019" and CMake fails). Stay on VS 2022.
+    runs-on: windows-2022
     timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: 2
