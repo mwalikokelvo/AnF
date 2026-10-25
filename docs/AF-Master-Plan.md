@@ -31,7 +31,7 @@ Status: mode rail on Windows and Android. Android shows an explicit notice when 
 
 Write the versioned vault and sync contracts and an encrypted fixture. Only after a round trip and recovery check, move SQLCipher operations behind that crate and call it from Windows. Do not point either host at `_core`.
 
-Status: not started. The TypeScript `shared/` layer is not this crate.
+Status: **contracts and fixtures in progress.** See `docs/contracts/vault-v1.md`, `docs/contracts/sync-v1.md`, `contracts/fixtures/`, and `node scripts/verify-contracts.mjs`. Wire/project limits round-trip without SQLCipher. A SQLCipher binary fixture and the shared Rust crate extraction are the next steps inside this phase. The TypeScript `shared/` layer is not that crate.
 
 ### Phase 4 — Android calls the same crate
 
