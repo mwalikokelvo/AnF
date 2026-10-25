@@ -38,7 +38,23 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
         coreLibraryDesugaringEnabled project.hasProperty('spotubeRepository')
     }
-    buildTypes { release { minifyEnabled false } }
+    def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (keystorePath) signingConfig signingConfigs.release
+        }
+    }
     packaging {
         resources { excludes += ['META-INF/DEPENDENCIES'] }
         if (project.hasProperty('spotubeRepository')) jniLibs.useLegacyPackaging = true

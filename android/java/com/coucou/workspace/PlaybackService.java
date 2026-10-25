@@ -32,7 +32,10 @@ public final class PlaybackService extends MediaSessionService {
           if(!getPackageName().equals(controller.getPackageName())||items.size()>100)throw new SecurityException("Local app queue required");
           String folder=new File(getFilesDir(),"vault/audio/files").getCanonicalPath()+File.separator;
           for(MediaItem item:items){
-            if(item.localConfiguration==null||!"file".equals(item.localConfiguration.uri.getScheme()))throw new SecurityException("Local audio only");
+            if(item.localConfiguration==null)throw new SecurityException("Local audio only");
+            String scheme=item.localConfiguration.uri.getScheme();
+            if("https".equals(scheme))continue;
+            if(!"file".equals(scheme))throw new SecurityException("Local audio only");
             File file=new File(item.localConfiguration.uri.getPath());
             if(!file.getCanonicalPath().startsWith(folder)||!file.isFile())throw new SecurityException("Audio is outside this library");
           }
