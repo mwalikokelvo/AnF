@@ -43,3 +43,14 @@ body:has(#app) .native-music-source{display:none}
 
 .music-speed,.music-sleep{display:flex;align-items:center;gap:8px;font-size:11px;color:#a6afb5}
 .music-speed select,.music-sleep select{background:#22272a;color:#f3f5f4;border:1px solid #303739;border-radius:8px;padding:4px 8px}
+
+
+/* Overnight visual pass */
+.music-hub{background:radial-gradient(1200px 500px at 10% -10%,#1d3a30 0%,transparent 50%),#15191a}
+.music-card{background:#1c2224;border:1px solid #2c3436;border-radius:14px;padding:8px 8px 12px;transition:transform .15s ease,border-color .15s ease}
+.music-card:hover{transform:translateY(-2px);border-color:#79e4b466}
+.music-recent-track{background:#1c2224;border-radius:12px;padding:10px 12px;min-height:52px}
+.music-tabs button{font-size:14px}
+.music-player{backdrop-filter:blur(12px);background:#1a2122ee;border:1px solid #3a4543}
+.music-full-player .music-player-art{border-radius:22px}
+.music-notice{color:#79e4b4}
