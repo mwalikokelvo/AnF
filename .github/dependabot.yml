@@ -1,14 +1,25 @@
 # Keeps dependencies and workflow actions current.
 #
-# Deliberately conservative: weekly, small batches, and no automatic major
-# version bumps (those need a human, e.g. Tauri 2 -> 3 or a Gradle plugin jump).
-# Every update arrives as a pull request; the existing workflows build and test
-# it before anyone merges.
+# Deliberately conservative: weekly, grouped minor/patch updates, and no major
+# version bumps for npm, Cargo or Gradle (those need a human, e.g. Tauri 2 -> 3
+# or a Gradle plugin jump). Every update arrives as a pull request.
+#
+# GitHub Actions are the exception: a new major version of an action still
+# arrives as its own pull request. That is on purpose, because actions get
+# deprecated (for example setup-java v4 and Node 20 actions) and the major-bump
+# PR is how we find out.
+#
+# Which update PRs are tested by CI:
+#   - windows/, android/ and the actions: the existing workflows build and test
+#     them on every pull request.
+#   - scripts/app-qa, crates/anf-vault and contracts/tools/vault-fixture: NO
+#     workflow runs on pull requests that touch only these paths. Check such an
+#     update by hand before merging (npm ci --prefix scripts/app-qa, or
+#     cargo test --manifest-path <dir>/Cargo.toml).
+#   - _core: not built by any workflow; check it by hand too.
 #
 # Not covered on purpose:
 #   - continuations/  archived snapshots of other projects, not shipped code.
-#   - crates/anf-vault and contracts/tools/vault-fixture  no lockfile of their
-#     own; they are updated through the project that builds them.
 
 version: 2
 
@@ -62,7 +73,8 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # QA scripts used by the release checks.
+  # QA scripts (Playwright) used only by the manual upgrade-test runs. No CI
+  # runs on a pull request that touches only this folder, so check by hand.
   - package-ecosystem: npm
     directory: /scripts/app-qa
     schedule:
@@ -111,6 +123,41 @@ updates:
         update-types: ["version-update:semver-major"]
     groups:
       core-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Standalone vault crate. Not part of any Cargo workspace (its README runs it
+  # with --manifest-path), so it needs its own entry. No CI covers it.
+  - package-ecosystem: cargo
+    directory: /crates/anf-vault
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(vault)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      vault-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Standalone fixture generator for the vault contract. No CI covers it.
+  - package-ecosystem: cargo
+    directory: /contracts/tools/vault-fixture
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(vault)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      vault-fixture-cargo:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
