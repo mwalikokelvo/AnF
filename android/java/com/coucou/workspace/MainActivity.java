@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
       if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);boolean shown=insets.isVisible(android.view.WindowInsets.Type.ime());web.evaluateJavascript("window.nativeKeyboard && window.nativeKeyboard("+shown+")",null);}
       else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;
     });
-    WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);
+    WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setMediaPlaybackRequiresUserGesture(false);
     s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     web.addJavascriptInterface(new LocalActions(),"AnFAndroid");
     web.setWebViewClient(new WebViewClient(){
@@ -49,6 +49,7 @@ public class MainActivity extends Activity {
         Uri u=r.getUrl();
         if(!"https".equals(u.getScheme())||!"coucou.local".equals(u.getHost()))return blocked();
         String path=u.getPath();if(path==null||path.contains("..")||path.contains("\\"))return blocked();
+        if(path.startsWith("/podcast-file/")){String name=path.substring("/podcast-file/".length());if(!name.matches("[0-9]{1,16}\\.mp3"))return blocked();java.io.File file=new java.io.File(new java.io.File(getCacheDir(),"podcasts"),name);if(!file.isFile())return blocked();try{return new WebResourceResponse("audio/mpeg","",new java.io.FileInputStream(file));}catch(IOException e){return blocked();}}
         if(path.equals("/"))path="/index.html";
         String mime=path.endsWith(".js")||path.endsWith(".mjs")?"text/javascript":path.endsWith(".css")?"text/css":path.endsWith(".wasm")?"application/wasm":path.endsWith(".html")?"text/html":"application/octet-stream";
         try{return new WebResourceResponse(mime,"UTF-8",getAssets().open("web"+path));}catch(IOException e){return blocked();}
@@ -131,6 +132,28 @@ public class MainActivity extends Activity {
       runOnUiThread(()->{if(exportBytes!=null){notice("Finish the current export first.");return;}exportBytes=text.getBytes(StandardCharsets.UTF_8);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime).putExtra(Intent.EXTRA_TITLE,name.replaceAll("[^a-zA-Z0-9._ -]","_"));try{startActivityForResult(i,2);}catch(Exception e){exportBytes=null;notice("The export picker could not open.");}});
     }
 
+    @JavascriptInterface public void downloadAudio(String id,String url){
+      if(id==null||!id.matches("[0-9]{1,16}")||url==null||url.length()>2000||!url.startsWith("https://")){downloadResult(id,"","Only https audio can be saved.");return;}
+      vaultWorker.execute(()->{
+        java.net.HttpURLConnection conn=null;
+        try{
+          conn=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
+          conn.setConnectTimeout(15000);conn.setReadTimeout(60000);conn.setInstanceFollowRedirects(true);
+          conn.setRequestProperty("User-Agent","AnF/0.1");
+          int code=conn.getResponseCode();
+          if(code<200||code>=300){downloadResult(id,"","Download failed ("+code+").");return;}
+          java.io.File dir=new java.io.File(getCacheDir(),"podcasts");if(!dir.isDirectory()&&!dir.mkdirs()){downloadResult(id,"","Could not store the episode.");return;}
+          java.io.File out=new java.io.File(dir,id+".mp3");
+          try(java.io.InputStream in=conn.getInputStream();java.io.OutputStream file=new java.io.FileOutputStream(out)){
+            byte[] buf=new byte[16384];int n;long total=0;
+            while((n=in.read(buf))>=0){total+=n;if(total>80_000_000L){file.close();out.delete();downloadResult(id,"","That episode is over 80 MB.");return;}file.write(buf,0,n);}
+          }
+          downloadResult(id,"https://coucou.local/podcast-file/"+id+".mp3","");
+        }catch(Exception e){downloadResult(id,"","Could not download that episode.");}
+        finally{if(conn!=null)conn.disconnect();}
+      });
+    }
+    private void downloadResult(String id,String path,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.coucouDownloadResult && window.coucouDownloadResult("+JSONObject.quote(id)+","+JSONObject.quote(path)+","+JSONObject.quote(error)+")",null);});}
     @JavascriptInterface public void fetchRss(String id,String url){
       if(id==null||!id.matches("[0-9]{1,16}")||url==null||url.length()>2000)return;
       if(!url.startsWith("https://")){feedResult(id,"","Only https feeds are allowed.");return;}
