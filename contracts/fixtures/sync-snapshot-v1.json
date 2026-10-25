@@ -1,0 +1,39 @@
+{
+  "project": {
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "name": "Phase 3 fixture",
+    "title": "Fixture title",
+    "question": "What is the vault schema version?",
+    "draft": "Local draft text for contract tests.",
+    "history": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "Hello from the fixture."
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "text": "Schema is 1."
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "name": "note.txt",
+        "text": "Short source text.",
+        "path": null,
+        "pages": []
+      }
+    ],
+    "memory": "",
+    "model": "fast"
+  },
+  "revision": "fafc734a3a94deb91df360c3de524ef24c40297db5c7d9e06b05ae8ca083921f",
+  "revision_note": "Fixture revision is sha256(JSON.stringify(sortedDeep(cleanedProject))) as implemented in scripts/verify-contracts.mjs. Host SQLCipher revision may use serde field order; limits still apply."
+}

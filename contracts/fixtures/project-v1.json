@@ -1,0 +1,35 @@
+{
+  "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "name": "Phase 3 fixture",
+  "title": "Fixture title",
+  "question": "What is the vault schema version?",
+  "draft": "Local draft text for contract tests.",
+  "history": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "text": "Hello from the fixture."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "text": "Schema is 1."
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "name": "note.txt",
+      "text": "Short source text.",
+      "path": null,
+      "pages": []
+    }
+  ],
+  "memory": "",
+  "model": "fast"
+}
