@@ -41,7 +41,7 @@ jobs:
             'FFmpeg was not downloaded on this runner. Audio export features that need a bundled ffmpeg.exe may be unavailable in this development package.' | Set-Content media/SOURCES.txt
           }
       - name: Build the hook relay
-        run: cargo build --release --locked -p coucou-hook
+        run: cargo build --release -p coucou-hook
       - name: Build the base installer without offline AI assets
         shell: pwsh
         run: |
