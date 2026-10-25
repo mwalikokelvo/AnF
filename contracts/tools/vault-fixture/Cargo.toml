@@ -1,0 +1,12 @@
+[package]
+name = "anf-vault-fixture"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "AnF-only helper: builds a SQLCipher vault fixture for Phase 3. Not related to ThingsBook."
+
+[dependencies]
+rusqlite = { version = "=0.32.1", features = ["bundled-sqlcipher-vendored-openssl"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+sha2 = "0.10.8"

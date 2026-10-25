@@ -4,7 +4,7 @@
 
 ## Why this order
 
-Windows is a Tauri host. Android is a Java WebView host plus a Flutter music module. Shared TypeScript now owns tasks, knowledge, reading, library metadata, follow-ups, evidence, and the audio queue/denoise algorithms. The SQLCipher vaults are still separate, and `main`'s `_core` is a ThingsBook crate, not the AnF vault. Offline speech models are not in this checkout.
+Windows is a Tauri host. Android is a Java WebView host plus a Flutter music module. Shared TypeScript now owns tasks, knowledge, reading, library metadata, follow-ups, evidence, and the audio queue/denoise algorithms. The SQLCipher vaults are still separate. **`_core` is ThingsBook, not AnF** — do not use it for AnF phases (see `docs/PROJECT-BOUNDARIES.md`). ThingsBook belongs in its own project space. Offline speech models are not in this checkout.
 
 ## Phases
 
@@ -31,7 +31,7 @@ Status: mode rail on Windows and Android. Android shows an explicit notice when 
 
 Write the versioned vault and sync contracts and an encrypted fixture. Only after a round trip and recovery check, move SQLCipher operations behind that crate and call it from Windows. Do not point either host at `_core`.
 
-Status: **contracts and fixtures in progress.** See `docs/contracts/vault-v1.md`, `docs/contracts/sync-v1.md`, `contracts/fixtures/`, and `node scripts/verify-contracts.mjs`. Wire/project limits round-trip without SQLCipher. A SQLCipher binary fixture and the shared Rust crate extraction are the next steps inside this phase. The TypeScript `shared/` layer is not that crate.
+Status: **contracts + JSON fixtures done; encrypted fixture tool in progress.** See `docs/contracts/`, `contracts/fixtures/`, `contracts/tools/vault-fixture/`, and `node scripts/verify-contracts.mjs`. Run the vault-fixture tool to emit `vault-v1-fixture.db` (AnF SQLCipher only). Shared Rust crate extraction comes after the fixture opens and recovers on Windows. Not ThingsBook / `_core`.
 
 ### Phase 4 — Android calls the same crate
 
