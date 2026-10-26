@@ -29,6 +29,21 @@ portable folder appear under `windows/release/`. The portable folder contains
 both models, runtime DLLs, OCR, audio conversion, hooks and third-party notices.
 The installer is unsigned; the existing Defender/signing publication hold remains.
 
+### Signing the Windows installer
+
+The workflow signs the app and installer when two repository secrets exist, and does nothing otherwise.
+Add them under Settings, Secrets and variables, Actions (never in Git or chat):
+
+- `WINDOWS_CERTIFICATE`: your code-signing certificate as a `.pfx`, base64-encoded
+  (PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`).
+- `WINDOWS_CERTIFICATE_PASSWORD`: the `.pfx` password.
+
+With both set, the Windows workflow imports the certificate into the runner's temporary store, builds with
+`certificateThumbprint`, SHA-256 and a DigiCert timestamp, then fails the run unless every installer has a valid,
+timestamped signature. It prints the signer's name so you can check it is yours.
+A certificate from an unknown publisher still builds SmartScreen reputation slowly; an EV certificate avoids that.
+After the first signed build has been installed and checked, set `PUBLISH` to `'true'` in `windows.yml` to resume publishing.
+
 ## Android
 
 Requires Node 24, a full JDK 21, Gradle 9.4.1, Android platform 37.0 and build-tools
