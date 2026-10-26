@@ -68,7 +68,7 @@ dependencies {
     }
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'junit:junit:4.13.2'
-    implementation 'net.zetetic:sqlcipher-android:4.19.0'
+    implementation 'net.zetetic:sqlcipher-android:4.19.1'
     implementation 'androidx.sqlite:sqlite:2.7.0'
     implementation 'androidx.media3:media3-exoplayer:1.6.1'
     implementation 'androidx.media3:media3-session:1.6.1'
