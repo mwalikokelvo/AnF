@@ -4,6 +4,7 @@ mod actions;
 mod companion;
 mod screen_help;
 mod addons;
+mod updates;
 mod ai;
 mod audio_native;
 mod music_native;
@@ -463,7 +464,7 @@ pub fn run() {
         .manage(audio_native::AudioJobs::default())
         .invoke_handler(tauri::generate_handler![
             companion::companion_open,companion::companion_close,companion::companion_compact,companion::companion_key,companion::companion_expand,screen_help::screen_help_capture,screen_help::screen_help_ask,
-            addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,
+            addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,updates::update_check,
             audio_native::audio_convert,audio_native::audio_conversion_cancel,
             music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
             boot,
