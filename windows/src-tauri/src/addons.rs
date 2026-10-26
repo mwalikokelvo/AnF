@@ -72,4 +72,10 @@ fn matches_hash(content:&str,expected:&str)->bool{format!("{:x}",Sha256::digest(
     #[test]fn registry_drops_bad_entries_and_garbage(){let mut bad=good("b");bad.download_url="https://evil.example/x".into();let json=serde_json::to_string(&vec![good("a"),bad]).unwrap();let got=parse_registry(&json);assert_eq!(got.len(),1);assert_eq!(got[0].id,"a");assert!(parse_registry("not json").is_empty());}
     #[test]fn checksum_must_match(){let css="#workspace-root{--bg:#111}";let hash=format!("{:x}",Sha256::digest(css.as_bytes()));assert!(matches_hash(css,&hash));assert!(matches_hash(css,&hash.to_uppercase()));assert!(!matches_hash("#workspace-root{--bg:#222}",&hash));}
     #[test]fn save_read_list_remove_round_trip(){let base=temp("rt");let e=good("night");save_theme(&base,&e,"#workspace-root{--bg:#000}").unwrap();assert_eq!(read_theme(&base,"night").unwrap(),"#workspace-root{--bg:#000}");assert_eq!(list(&base).len(),1);assert!(save_theme(&base,&good("bad"),"@import 'x';").is_err());assert!(!base.join("addons/themes/bad").exists());std::fs::write(base.join("addons/themes/night/theme.css"),"a{b:url(https://x)}").unwrap();assert!(read_theme(&base,"night").is_err(),"tampered file is refused");remove(&base,"night").unwrap();assert!(list(&base).is_empty());let _=std::fs::remove_dir_all(&base);}
+    #[test]fn published_registry_matches_its_files(){
+        let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../marketplace");
+        let entries=parse_registry(&std::fs::read_to_string(root.join("registry.json")).unwrap());
+        assert!(!entries.is_empty(),"the published registry must parse");
+        for e in entries{let file=std::fs::read_to_string(root.join(e.download_url.strip_prefix(PREFIX).unwrap())).unwrap();assert!(matches_hash(&file,&e.sha256),"{} checksum is stale: update marketplace/registry.json",e.id);if e.kind=="theme"{check_css(&file).unwrap();}}
+    }
 }
