@@ -64,6 +64,7 @@ export default defineConfig({
         island: resolve(__dirname, "index.html"),
         settings: resolve(__dirname, "settings.html"),
         workspace: resolve(__dirname, "workspace.html"),
+        companion: resolve(__dirname, "companion.html"),
       },
     },
   },
