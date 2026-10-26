@@ -5,6 +5,6 @@
   "type": "module",
   "dependencies": {
     "fflate": "0.8.3",
-    "pdfjs-dist": "5.4.149"
+    "pdfjs-dist": "5.7.284"
   }
 }
