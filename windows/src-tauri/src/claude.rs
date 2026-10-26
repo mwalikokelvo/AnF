@@ -172,7 +172,12 @@ pub async fn ask_image(model: &str, question: &str, jpeg_b64: &str) -> Result<St
     let text = response.get("content").and_then(Value::as_array).into_iter().flatten()
         .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
         .filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n").trim().to_string();
-    if text.is_empty() { Err("No response text.".into()) } else { Ok(text) }
+    if text.is_empty() { return Err("No response text.".into()); }
+    match response.get("stop_reason").and_then(Value::as_str) {
+        Some("max_tokens") => Ok(format!("{text}\n\n(The answer was cut off. Ask a narrower question for the rest.)")),
+        Some("model_context_window_exceeded") => Err("The screenshot and question were too large for this model.".into()),
+        _ => Ok(text),
+    }
 }
 
 fn image_body(model: &str, question: &str, jpeg_b64: &str) -> Value {

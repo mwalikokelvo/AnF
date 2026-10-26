@@ -102,7 +102,7 @@ async fn send_cloud(session: &mut Session, provider: &str, model: &str, key_name
     let user = json!({"role":"user", "content":parts});
     let mut messages = session.messages.clone();
     messages.push(user.clone());
-    let text = post_cloud(provider, model, &key, &messages).await?;
+    let text = post_cloud(provider, model, &key, SYSTEM, &messages).await?;
     // Failed/blocked/incomplete turns never enter history; retries retain file context.
     session.messages.push(user);
     session.messages.push(json!({"role":"assistant", "content":[{"type":"text","text":text}]}));
@@ -118,8 +118,8 @@ fn gemini_endpoint(model: &str) -> Result<String, String> {
 }
 
 /// One request to OpenAI or Gemini; returns the reply text. Shared by chat and screen help.
-async fn post_cloud(provider: &str, model: &str, key: &str, messages: &[Value]) -> Result<String,String> {
-    let body = request_body(provider, model, messages)?;
+async fn post_cloud(provider: &str, model: &str, key: &str, system: &str, messages: &[Value]) -> Result<String,String> {
+    let body = request_body(provider, model, system, messages)?;
     let endpoint = if provider == "openai" { "https://api.openai.com/v1/responses".into() } else { gemini_endpoint(model)? };
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(120))
         .redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())?;
@@ -147,16 +147,19 @@ pub fn cloud_target(settings: &Settings) -> Result<(&str, &str, &str), String> {
         _ => return Err("Unknown chat provider. Choose one in Settings.".into()),
     };
     if model.is_empty() { return Err("Enter a model name in Settings.".into()); }
+    if provider == "gemini" { gemini_endpoint(model)?; } // reject a model ID that could never be sent, before anything is captured
     if secrets::get(key_name).is_none() { return Err(format!("{provider} API key missing. Open Settings > AI chat.")); }
     Ok((provider, model, key_name))
 }
 
 /// One stateless question about a screenshot (base64 JPEG). Nothing enters chat history.
-pub async fn ask_image(settings: &Settings, question: &str, jpeg_b64: &str) -> Result<String,String> {
+/// `confirmed` is the provider the person saw in the preview; if Settings changed since, nothing is sent.
+pub async fn ask_image(settings: &Settings, confirmed: &str, question: &str, jpeg_b64: &str) -> Result<String,String> {
     let (provider, model, key_name) = cloud_target(settings)?;
+    if provider != confirmed { return Err(format!("The AI provider changed from {confirmed} to {provider} after you captured. Capture again to confirm where it goes.")); }
     let key = secrets::get(key_name).ok_or_else(|| format!("{provider} API key missing. Open Settings > AI chat."))?;
     if provider == "claude" { return claude::ask_image(model, question, jpeg_b64).await; }
-    post_cloud(provider, model, &key, &[image_message(question, jpeg_b64)]).await
+    post_cloud(provider, model, &key, crate::screen_help::SYSTEM, &[image_message(question, jpeg_b64)]).await
 }
 
 fn image_message(question: &str, jpeg_b64: &str) -> Value {
@@ -197,7 +200,7 @@ fn user_parts(query: &str, context: Option<&ChatContext>) -> Result<Vec<Value>, 
     Ok(parts)
 }
 
-fn request_body(provider: &str, model: &str, messages: &[Value]) -> Result<Value, String> {
+fn request_body(provider: &str, model: &str, system: &str, messages: &[Value]) -> Result<Value, String> {
     if provider == "openai" {
         let input: Vec<Value> = messages.iter().map(|m| {
             let assistant = m["role"] == "assistant";
@@ -208,7 +211,7 @@ fn request_body(provider: &str, model: &str, messages: &[Value]) -> Result<Value
             }).collect();
             json!({"role":m["role"],"content":content})
         }).collect();
-        Ok(json!({"model":model,"instructions":SYSTEM,"store":false,"input":input}))
+        Ok(json!({"model":model,"instructions":system,"store":false,"input":input}))
     } else if provider == "gemini" {
         let contents: Vec<Value> = messages.iter().map(|m| {
             let parts: Vec<Value> = m["content"].as_array().unwrap().iter().map(|p| {
@@ -217,7 +220,7 @@ fn request_body(provider: &str, model: &str, messages: &[Value]) -> Result<Value
             }).collect();
             json!({"role":if m["role"] == "assistant" {"model"} else {"user"},"parts":parts})
         }).collect();
-        Ok(json!({"contents":contents,"systemInstruction":{"parts":[{"text":SYSTEM}]}}))
+        Ok(json!({"contents":contents,"systemInstruction":{"parts":[{"text":system}]}}))
     } else { Err("Unsupported provider.".into()) }
 }
 
@@ -247,10 +250,12 @@ fn response_text(provider: &str, value: &Value) -> Result<String, String> {
 mod tests {
     #[test] fn screenshot_questions_use_each_providers_image_format() {
         let m = [super::image_message("What is this?", "/9j/AA==")];
-        let o = super::request_body("openai", "m", &m).unwrap();
+        let o = super::request_body("openai", "m", crate::screen_help::SYSTEM, &m).unwrap();
+        assert!(o["instructions"].as_str().unwrap().contains("screenshot"));
         assert_eq!(o["input"][0]["content"][0]["type"], "input_image");
         assert_eq!(o["input"][0]["content"][0]["image_url"], "data:image/jpeg;base64,/9j/AA==");
-        let g = super::request_body("gemini", "m", &m).unwrap();
+        let g = super::request_body("gemini", "m", crate::screen_help::SYSTEM, &m).unwrap();
+        assert!(g["systemInstruction"]["parts"][0]["text"].as_str().unwrap().contains("screenshot"));
         assert_eq!(g["contents"][0]["parts"][0]["inlineData"]["mimeType"], "image/jpeg");
         assert_eq!(g["contents"][0]["parts"][1]["text"], "What is this?");
     }
@@ -285,11 +290,11 @@ mod tests {
     #[test]
     fn provider_protocols_keep_roles_and_attachments() {
         let history = vec![json!({"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","name":"a.pdf","mime":"application/pdf","data":"eA=="}]}),json!({"role":"assistant","content":[{"type":"text","text":"reply"}]})];
-        let o = request_body("openai", "test", &history).unwrap();
+        let o = request_body("openai", "test", SYSTEM, &history).unwrap();
         assert_eq!(o["store"],false);
         assert_eq!(o["input"][0]["content"][1]["file_data"],"data:application/pdf;base64,eA==");
         assert_eq!(o["input"][1]["content"][0]["type"],"output_text");
-        let g = request_body("gemini", "test", &history).unwrap();
+        let g = request_body("gemini", "test", SYSTEM, &history).unwrap();
         assert_eq!(g["contents"][1]["role"],"model");
         assert_eq!(g["contents"][0]["parts"][1]["inlineData"]["mimeType"],"application/pdf");
     }

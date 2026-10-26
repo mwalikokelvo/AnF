@@ -18,24 +18,27 @@ const card=h('main',{class:'card'},
  status,
  h('div',{class:'row'},button('Vol −','Volume down',key('down','Volume down.')),button('Vol +','Volume up',key('up','Volume up.')),button('Mute','Mute or unmute',key('mute','Mute toggled.')),play));
 // Screen help: capture -> preview -> Send -> answer. The screenshot lives only in this variable.
-let shot:string|null=null;
+let shot:string|null=null,provider='';
 const question=h('textarea',{rows:'2',maxlength:'2000',placeholder:'What do you need help with?','aria-label':'Question about the screenshot'}) as HTMLTextAreaElement;
 const preview=h('img',{alt:'Screenshot that will be sent'}) as HTMLImageElement;
 const answer=h('p',{class:'answer',tabindex:'0'});
 const send=button('Send','Send the screenshot and question',()=>void ask());send.className='primary';
-const help=h('section',{class:'help',hidden:true},preview,question,h('div',{class:'row'},send,button('Cancel','Discard the screenshot',()=>close())),answer);
-const close=()=>{shot=null;preview.removeAttribute('src');question.value='';answer.textContent='';help.hidden=true;send.disabled=false;void invoke('companion_expand',{open:false});status.textContent='Screenshot discarded.';};
+const cancel=button('Cancel','Discard the screenshot',()=>close());
+const help=h('section',{class:'help',hidden:true},preview,question,h('div',{class:'row'},send,cancel),answer);
+const close=()=>{shot=null;provider='';fold.disabled=false;preview.removeAttribute('src');question.value='';answer.textContent='';help.hidden=true;send.disabled=false;void invoke('companion_expand',{open:false});status.textContent='Screenshot discarded.';};
+// While a request is out, the other buttons are off, so a late reply can never touch a newer capture.
+const busy=(on:boolean)=>{send.disabled=on;cancel.disabled=on;screenButton.disabled=on;};
 async function ask(){
- if(!shot)return;send.disabled=true;answer.textContent='';status.textContent='Sending…';
- try{answer.textContent=await invoke<string>('screen_help_ask',{image:shot,question:question.value});status.textContent='Answer ready. The screenshot was not saved.';shot=null;preview.removeAttribute('src');}
+ if(!shot)return;busy(true);answer.textContent='';status.textContent='Sending…';
+ try{answer.textContent=await invoke<string>('screen_help_ask',{provider,image:shot,question:question.value});status.textContent='Answer ready. The screenshot was not saved.';shot=null;preview.removeAttribute('src');}
  catch(e){status.textContent=String(e);}
- finally{send.disabled=false;}
+ finally{busy(false);}
 }
 const screenButton=button('Screen','Ask about my screen',async()=>{
  status.textContent='Capturing…';
  try{
   const result=await invoke<{image:string;provider:string}>('screen_help_capture');
-  shot=result.image;preview.src=`data:image/jpeg;base64,${shot}`;answer.textContent='';help.hidden=false;
+  shot=result.image;provider=result.provider;compact=false;card.classList.remove('compact');fold.textContent='▾';fold.title='Collapse';fold.setAttribute('aria-label','Collapse');fold.disabled=true;preview.src=`data:image/jpeg;base64,${shot}`;answer.textContent='';help.hidden=false;
   await invoke('companion_expand',{open:true});question.focus();
   status.textContent=`This screenshot goes to ${result.provider} only if you press Send.`;
  }catch(e){status.textContent=String(e);}

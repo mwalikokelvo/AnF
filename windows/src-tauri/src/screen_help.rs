@@ -33,6 +33,9 @@ fn encode_jpeg(w: u32, h: u32, bgra: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// The textarea limits UTF-16 units, so count characters, not UTF-8 bytes.
+fn question_ok(q: &str) -> bool { !q.is_empty() && q.chars().count() <= MAX_QUESTION }
+
 /// The page hands the screenshot back to be sent; accept only what the capture could have produced.
 fn check_image(b64: &str) -> Result<(), String> {
     // "/9j/" is how every JPEG (FF D8 FF) begins in base64.
@@ -92,14 +95,14 @@ pub async fn screen_help_capture(app: AppHandle, shared: State<'_, Shared>) -> R
     Ok(Shot { image: claude::base64_for(&jpeg??), provider })
 }
 
-/// Sends the screenshot the person just confirmed, with their question, to the configured provider.
+/// Sends the screenshot the person just confirmed, with their question, to the provider they saw in the preview.
 #[tauri::command]
-pub async fn screen_help_ask(shared: State<'_, Shared>, image: String, question: String) -> Result<String, String> {
+pub async fn screen_help_ask(shared: State<'_, Shared>, provider: String, image: String, question: String) -> Result<String, String> {
     let question = question.trim();
-    if question.is_empty() || question.len() > MAX_QUESTION { return Err("Type a question first (up to 2,000 characters).".into()); }
+    if !question_ok(question) { return Err("Type a question first (up to 2,000 characters).".into()); }
     check_image(&image)?;
     let settings = shared.settings.lock().unwrap().clone();
-    ai::ask_image(&settings, question, &image).await
+    ai::ask_image(&settings, &provider, question, &image).await
 }
 
 #[cfg(test)]
@@ -128,6 +131,11 @@ mod tests {
         assert!(check_image(&claude::base64_for(&jpeg)).is_ok());
         for bad in ["", "iVBORw0KGgo=", "/9j/ not base64", "/9j/\n", "data:image/jpeg;base64,/9j/AAAA"] { assert!(check_image(bad).is_err(), "accepted {bad:?}"); }
         assert!(check_image(&format!("/9j/{}", "A".repeat(MAX_B64))).is_err());
+    }
+    #[test] fn question_limit_counts_characters_not_bytes() {
+        assert!(question_ok(&"问".repeat(MAX_QUESTION)));
+        assert!(!question_ok(&"a".repeat(MAX_QUESTION + 1)));
+        assert!(!question_ok(""));
     }
     #[cfg(not(windows))]
     #[test] fn other_systems_get_a_plain_error() { assert!(grab().unwrap_err().contains("only available on Windows")); }
