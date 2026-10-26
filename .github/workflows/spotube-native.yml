@@ -20,31 +20,38 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
           packages: platform-tools
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: 9.4.1
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: 3.35.2
           channel: stable
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: 1.99.0
       - name: Prepare pinned native music module
         run: node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
-        run: node integrations/spotube/build-android.mjs
+        # The Gradle "What went wrong" lines also go to an annotation, so the reason shows on the check.
+        run: |
+          set -o pipefail
+          node integrations/spotube/build-android.mjs 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
+            why=$({ grep -m1 -A12 'Failed to transform' "$RUNNER_TEMP/aar.log" | cut -c1-700 | grep -vE '^\s*$' | sed -E 's/.*(Caused by|Could not|Unsupported|java\.|Error)/\1/' | cut -c1-220; grep -m5 -iE 'Caused by|OutOfMemory|timed out|Could not (GET|HEAD)|Unsupported' "$RUNNER_TEMP/aar.log" | cut -c1-220; } | head -c 2500 | paste -sd'|' | sed 's/|/%0A/g') || true
+            echo "::error title=Spotube Android libraries failed::${why:-no Gradle message, see log}"
+            exit 1
+          }
       - name: Build AnF with embedded music
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
@@ -52,7 +59,7 @@ jobs:
           npm ci --prefix android
           node scripts/build-android.mjs --with-spotube
           node scripts/check-release.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: AnF-Android-embedded-Spotube-review
           path: releases/AnF-Android-*.apk
@@ -60,20 +67,22 @@ jobs:
           if-no-files-found: error
   windows:
     if: inputs.platform != 'android'
-    runs-on: windows-latest
+    # windows-latest has Visual Studio 2026 since June 2026, which Flutter 3.35 does not
+    # know (it falls back to "Visual Studio 16 2019" and CMake fails). Stay on VS 2022.
+    runs-on: windows-2022
     timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: 2
       CARGO_INCREMENTAL: 0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: 1.99.0
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: 3.35.2
           channel: stable
@@ -81,7 +90,17 @@ jobs:
         run: node integrations/spotube/prepare.mjs --windows
       - name: Build native child view
         working-directory: windows/spotube-native
-        run: flutter build windows --release
+        # The first error lines also go to an annotation, so the reason shows on the check.
+        run: |
+          flutter build windows --release 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/flutter-build.log"
+          if ($LASTEXITCODE -ne 0) {
+            $lines = @(Get-Content "$env:RUNNER_TEMP/flutter-build.log")
+            $hit = $lines | Select-String -Pattern 'error|fatal|FAILED' | Select-Object -First 1
+            $start = if ($hit) { $hit.LineNumber - 1 } else { 0 }
+            $found = $lines[$start..([Math]::Min($start + 9, $lines.Count - 1))] | ForEach-Object { $_.Trim() }
+            Write-Host "::error title=flutter build windows failed::$($found -join '%0A')"
+            exit 1
+          }
       - name: Prepare the existing offline AnF resources
         working-directory: windows
         run: |
@@ -94,7 +113,7 @@ jobs:
           cargo build --release --locked -p coucou-hook
           npm exec tauri -- build --features embedded-music --config src-tauri/tauri.spotube.conf.json
           node scripts/pack.mjs --with-spotube
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: AnF-Windows-embedded-Spotube-review
           path: windows/release/

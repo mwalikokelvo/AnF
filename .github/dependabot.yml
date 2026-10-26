@@ -1,0 +1,179 @@
+# Keeps dependencies and workflow actions current.
+#
+# Deliberately conservative: weekly, grouped minor/patch updates, and no major
+# version bumps for npm, Cargo or Gradle (those need a human, e.g. Tauri 2 -> 3
+# or a Gradle plugin jump). Every update arrives as a pull request.
+#
+# GitHub Actions are the exception: a new major version of an action still
+# arrives as its own pull request. That is on purpose, because actions get
+# deprecated (for example setup-java v4 and Node 20 actions) and the major-bump
+# PR is how we find out.
+#
+# Which update PRs are tested by CI:
+#   - windows/, android/ and the actions: the existing workflows build and test
+#     them on every pull request.
+#   - scripts/app-qa, crates/anf-vault and contracts/tools/vault-fixture: NO
+#     workflow runs on pull requests that touch only these paths. Check such an
+#     update by hand before merging (npm ci --prefix scripts/app-qa, or
+#     cargo test --manifest-path <dir>/Cargo.toml).
+#   - _core: not built by any workflow; check it by hand too.
+#
+# Not covered on purpose:
+#   - continuations/  archived snapshots of other projects, not shipped code.
+
+version: 2
+
+updates:
+  # Workflow actions are pinned to commit SHAs (with the tag in a comment).
+  # Dependabot keeps both the SHA and the comment up to date.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Windows / Linux app (Tauri frontend: Vite + TypeScript).
+  - package-ecosystem: npm
+    directory: /windows
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(windows)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      windows-npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Android workspace frontend.
+  - package-ecosystem: npm
+    directory: /android
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(android)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      android-npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # QA scripts (Playwright) used only by the manual upgrade-test runs. No CI
+  # runs on a pull request that touches only this folder, so check by hand.
+  - package-ecosystem: npm
+    directory: /scripts/app-qa
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(qa)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      qa-npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Windows / Linux native side (Tauri, src-tauri and the coucou-hook relay).
+  # Builds use --locked, so Cargo.lock only changes through these pull requests.
+  - package-ecosystem: cargo
+    directory: /windows
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(windows)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      windows-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Shared Rust core.
+  - package-ecosystem: cargo
+    directory: /_core
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(core)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      core-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Standalone vault crate. Not part of any Cargo workspace (its README runs it
+  # with --manifest-path), so it needs its own entry. No CI covers it.
+  - package-ecosystem: cargo
+    directory: /crates/anf-vault
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(vault)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      vault-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Standalone fixture generator for the vault contract. No CI covers it.
+  - package-ecosystem: cargo
+    directory: /contracts/tools/vault-fixture
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(vault)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      vault-fixture-cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Android build (Gradle).
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(android)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      android-gradle:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
