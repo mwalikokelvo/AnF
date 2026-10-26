@@ -3,7 +3,8 @@
 //! Windows only for now; other systems get a plain error.
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 const LABEL:&str="companion";
-const SIZES:[(f64,f64);2]=[(300.0,200.0),(190.0,96.0)];
+// Measured content size of companion.html: 340x120 in full mode (buttons on one row), 190x54 folded; +2 px of margin.
+const SIZES:[(f64,f64);2]=[(340.0,122.0),(190.0,56.0)];
 #[cfg(windows)]
 fn press(vk:u16)->Result<(),String>{
     use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput,INPUT,INPUT_0,INPUT_KEYBOARD,KEYBDINPUT,KEYBD_EVENT_FLAGS,KEYEVENTF_KEYUP,VIRTUAL_KEY};
