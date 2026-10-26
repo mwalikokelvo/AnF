@@ -2,7 +2,6 @@ name: CodeQL
 # Static security analysis. Reports to the Security tab; it never blocks a release.
 on:
   pull_request:
-    paths: ['windows/src/**', 'windows/src-tauri/**', 'android/web/**', 'scripts/**', '.github/workflows/**']
   push:
     branches: [main]
   schedule:
