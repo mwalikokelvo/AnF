@@ -1,0 +1,18 @@
+/* Marketplace panel only. Every rule is scoped to .addons so no existing view changes.
+   Colours come from the app's own variables, so a theme restyles this panel too. */
+.addons .list{display:grid;gap:10px;margin-top:12px}
+.addons .addon{padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--input)}
+.addons .addon.on{border-color:var(--accent)}
+.addons .head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.addons .ver{color:var(--muted);font-size:13px}
+.addons .badge{margin-left:auto;padding:2px 10px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:600}
+.addons .badge.quiet{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500}
+.addons .addon .hint{margin:6px 0 0}
+.addons .swatches{display:flex;gap:6px;margin-top:10px}
+.addons .swatches i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
+.addons .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.addons .soon{color:var(--muted);font-size:13px}
+.addons .status{min-height:1.4em}
+/* The app's global button:hover swaps in --hover; keep the primary button readable on hover. */
+.addons button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.addons button.primary:hover:not(:disabled){background:var(--accent);border-color:var(--accent);filter:brightness(1.08)}

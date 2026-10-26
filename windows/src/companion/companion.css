@@ -6,6 +6,7 @@ html,body{margin:0;background:transparent;font-family:'Segoe UI Variable','Segoe
 .eyes i{width:7px;height:16px;border-radius:6px;background:#a3e5cd;animation:blink 5s infinite}
 @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
 button{min-height:32px;padding:0 10px;border-radius:12px;border:1px solid #385052;background:#182a2d;color:inherit;font:inherit;cursor:pointer}
+button.primary{border-color:#a3e5cd;color:#a3e5cd}
 button:hover{background:#233c40;border-color:#a3e5cd}
 button:focus-visible{outline:2px solid #a3e5cd;outline-offset:2px}
 .status{margin:0;font-size:13px;color:#b0c4bd;min-height:1.4em}
