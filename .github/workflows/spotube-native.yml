@@ -44,7 +44,14 @@ jobs:
       - name: Prepare pinned native music module
         run: node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
-        run: node integrations/spotube/build-android.mjs
+        # The Gradle "What went wrong" lines also go to an annotation, so the reason shows on the check.
+        run: |
+          set -o pipefail
+          node integrations/spotube/build-android.mjs 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
+            why=$({ grep -m1 -A12 'Failed to transform' "$RUNNER_TEMP/aar.log" | cut -c1-700 | grep -vE '^\s*$' | sed -E 's/.*(Caused by|Could not|Unsupported|java\.|Error)/\1/' | cut -c1-220; grep -m5 -iE 'Caused by|OutOfMemory|timed out|Could not (GET|HEAD)|Unsupported' "$RUNNER_TEMP/aar.log" | cut -c1-220; } | head -c 2500 | paste -sd'|' | sed 's/|/%0A/g') || true
+            echo "::error title=Spotube Android libraries failed::${why:-no Gradle message, see log}"
+            exit 1
+          }
       - name: Build AnF with embedded music
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
@@ -60,7 +67,9 @@ jobs:
           if-no-files-found: error
   windows:
     if: inputs.platform != 'android'
-    runs-on: windows-latest
+    # windows-latest has Visual Studio 2026 since June 2026, which Flutter 3.35 does not
+    # know (it falls back to "Visual Studio 16 2019" and CMake fails). Stay on VS 2022.
+    runs-on: windows-2022
     timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: 2
@@ -81,7 +90,17 @@ jobs:
         run: node integrations/spotube/prepare.mjs --windows
       - name: Build native child view
         working-directory: windows/spotube-native
-        run: flutter build windows --release
+        # The first error lines also go to an annotation, so the reason shows on the check.
+        run: |
+          flutter build windows --release 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/flutter-build.log"
+          if ($LASTEXITCODE -ne 0) {
+            $lines = @(Get-Content "$env:RUNNER_TEMP/flutter-build.log")
+            $hit = $lines | Select-String -Pattern 'error|fatal|FAILED' | Select-Object -First 1
+            $start = if ($hit) { $hit.LineNumber - 1 } else { 0 }
+            $found = $lines[$start..([Math]::Min($start + 9, $lines.Count - 1))] | ForEach-Object { $_.Trim() }
+            Write-Host "::error title=flutter build windows failed::$($found -join '%0A')"
+            exit 1
+          }
       - name: Prepare the existing offline AnF resources
         working-directory: windows
         run: |

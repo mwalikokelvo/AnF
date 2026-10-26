@@ -1,3 +1,4 @@
+// Gradle gets 4 GB: the Jetify transform of the Flutter engine jars ran out of heap at 2 GB.
 // Build runtime AARs, plugin binaries and source jars. API-doc jars are omitted:
 // old plugin Dokka compilers cannot read modern Kotlin metadata and exhaust RAM.
 import {spawnSync} from 'node:child_process';
@@ -33,7 +34,7 @@ allprojects { project ->
 await writeFile(script,original.replaceAll('withJavadocJar()','// Runtime review builds omit API documentation jars.')+engineRepository);
 const gradle=path.join(module,'.android',process.platform==='win32'?'gradlew.bat':'gradlew');
 for(const variant of ['Debug','Release']){
- const result=spawnSync(gradle,['--no-daemon','--max-workers=2','-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1024m',
+ const result=spawnSync(gradle,['--no-daemon','--max-workers=2','-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m',
   '-Pkotlin.compiler.execution.strategy=in-process',`-I=${script}`,`-Pflutter-root=${flutterRoot}`,
   `-Poutput-dir=${path.join(module,'build/host')}`,'-Pis-plugin=false','-PbuildNumber=1.0',
   '-Ptarget=lib/main.dart','-Ptarget-platform=android-arm64,android-x64',`assembleAar${variant}`],

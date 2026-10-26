@@ -3,14 +3,28 @@ import {spawnSync} from 'node:child_process';
 import {cp,mkdir,readFile,writeFile,access} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+// On GitHub Actions, also report a failure as an annotation, so the reason shows
+// on the check itself and not only deep in the job log.
+process.on('uncaughtException',(e)=>{
+  const text=String(e&&e.stack||e).split('\n').slice(0,6).join('%0A');
+  if(process.env.GITHUB_ACTIONS)console.log(`::error title=Spotube prepare failed::${text}`);
+  console.error(e);process.exit(1);
+});
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const pin='69a310c78f5ceaf4eab7dfee98f187d38211c9ba';
 const source=process.env.SPOTUBE_SOURCE||path.join(root,'../.cache/anf-spotube-source');
 const desktop=process.argv.includes('--windows');
 const module=path.join(root,desktop?'windows/spotube-native':'android/spotube-module');
 const flutter=process.env.FLUTTER_BIN||'flutter';
-function run(bin,args,cwd=root){const result=spawnSync(bin,args,{cwd,stdio:'inherit',env:process.env});if(result.error)throw result.error;if(result.status)throw Error(`${bin} failed (${result.status})`);}
-try{await access(path.join(source,'.git'));}catch{await mkdir(path.dirname(source),{recursive:true});run('git',['clone','https://github.com/KRTirtho/spotube.git',source]);}
+// On Windows `flutter` is flutter.bat, which Node cannot start by bare name
+// (spawnSync ENOENT), so Flutter runs through the shell there, as in
+// build-android.mjs. A shell does not quote for us, so quote anything with spaces.
+const quote=(s)=>/[\s"&|<>^%]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
+function run(bin,args,cwd=root){const shell=process.platform==='win32'&&bin===flutter;const result=spawnSync(shell?quote(bin):bin,shell?args.map(quote):args,{cwd,stdio:'inherit',env:process.env,shell});if(result.error)throw result.error;if(result.status)throw Error(`${bin} ${args.slice(0,3).join(' ')} failed (${result.status})`);}
+// core.autocrlf=false: the patches below match text containing "\n". A Windows
+// git that checks the clone out with CRLF endings would make them fail (or
+// silently not apply).
+try{await access(path.join(source,'.git'));}catch{await mkdir(path.dirname(source),{recursive:true});run('git',['clone','-c','core.autocrlf=false','https://github.com/KRTirtho/spotube.git',source]);}
 const sha=spawnSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).stdout.trim();
 if(sha!==pin){run('git',['fetch','origin',pin],source);run('git',['checkout','--detach',pin],source);}
 run('git',['diff','--exit-code',pin,'--','lib','assets','pubspec.yaml','l10n.yaml','LICENSE'],source);

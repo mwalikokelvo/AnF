@@ -8,7 +8,7 @@ class Element {
 }
 const requests=[];let poll,stopped=0;
 global.document={hidden:false,createElement:t=>new Element(t),createTextNode:t=>t,body:new Element('body')};
-global.window={addEventListener(){},CoucouAndroid:{mediaRequest(id,op){requests.push({id,op});}}};
+global.window={addEventListener(){},AnFAndroid:{mediaRequest(id,op){requests.push({id,op});}}};
 global.setInterval=fn=>{poll=fn;return 1;};
 const {nativeMediaPanel}=require(process.argv[2]);
 const state=(playing)=>({title:'Test',position:0,duration:1000,playing,count:1,error:false});
