@@ -127,6 +127,37 @@ jobs:
           node ../scripts/check-release.mjs
           if ($LASTEXITCODE) { throw 'Frontend regression checks failed' }
 
+      # Code signing is opt-in. With no WINDOWS_CERTIFICATE secret this step only prints a notice and the
+      # installer stays unsigned, exactly as before. With it, Tauri signs the app and the installer.
+      # The certificate is imported into this runner's temporary user store; nothing is written to the repo.
+      # It runs only for release tags and manual runs from main, never for pull requests: a PR build runs
+      # PR-controlled scripts and must not be able to use or exfiltrate the signing key.
+      - name: Prepare code signing (only when a certificate is configured)
+        id: signing
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) {
+            Write-Host '::notice title=Windows signing::No WINDOWS_CERTIFICATE secret, so the installer is unsigned.'
+            'signed=false' >> $env:GITHUB_OUTPUT
+            return
+          }
+          if (-not $env:WINDOWS_CERTIFICATE_PASSWORD) { throw 'WINDOWS_CERTIFICATE is set but WINDOWS_CERTIFICATE_PASSWORD is not.' }
+          $pfx = Join-Path $env:RUNNER_TEMP 'anf-signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          try {
+            $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
+          } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
+          $config = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } } | ConvertTo-Json -Depth 5 -Compress
+          # A platform config file is merged by `tauri build` into the bundler settings; the TAURI_CONFIG
+          # environment variable is not, so it would leave the installer unsigned.
+          Set-Content -Path src-tauri/tauri.windows.conf.json -Value $config -Encoding utf8
+          'signed=true' >> $env:GITHUB_OUTPUT
+          Write-Host "Signing with certificate: $($cert.Subject)"
+
       - name: Build and pack the installer
         id: pack
         shell: pwsh
@@ -142,6 +173,19 @@ jobs:
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content release/SHA256SUMS-Windows
+
+      - name: Verify the installer signature
+        if: steps.signing.outputs.signed == 'true'
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem release -File -Filter 'AnF-Windows-*setup.exe'
+          if (-not $files) { throw 'No installer found to verify.' }
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            if ($sig.Status -ne 'Valid') { throw "$($f.Name) signature is $($sig.Status): $($sig.StatusMessage)" }
+            if (-not $sig.TimeStamperCertificate) { throw "$($f.Name) has no timestamp, so it would stop validating when the certificate expires." }
+            Write-Host "$($f.Name): valid, signed by $($sig.SignerCertificate.Subject)"
+          }
 
       # Upload review builds and manual runs without publishing a release.
       # The repo is public, so artifacts are downloadable by any signed-in GitHub
