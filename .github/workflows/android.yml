@@ -52,6 +52,10 @@ jobs:
         run: node scripts/build-android.mjs
       - name: Regression checks
         run: node scripts/check-release.mjs
+      - name: Marketplace trust rules (Java)
+        run: |
+          javac -d "$RUNNER_TEMP/addon-check" android/java/com/coucou/workspace/AddonRules.java android/java-test/com/coucou/workspace/AddonRulesCheck.java
+          java -cp "$RUNNER_TEMP/addon-check" com.coucou.workspace.AddonRulesCheck
       - name: Build installed-release instrumentation tests
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         working-directory: android
