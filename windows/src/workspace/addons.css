@@ -5,7 +5,7 @@
 .addons .addon.on{border-color:var(--accent)}
 .addons .head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .addons .ver{color:var(--muted);font-size:13px}
-.addons .badge{margin-left:auto;padding:2px 10px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:600}
+.addons .badge{margin-left:auto;padding:2px 10px;border-radius:999px;background:var(--accent);color:var(--accent-ink,var(--bg));font-size:12px;font-weight:600}
 .addons .badge.quiet{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500}
 .addons .addon .hint{margin:6px 0 0}
 .addons .swatches{display:flex;gap:6px;margin-top:10px}
@@ -14,5 +14,5 @@
 .addons .soon{color:var(--muted);font-size:13px}
 .addons .status{min-height:1.4em}
 /* The app's global button:hover swaps in --hover; keep the primary button readable on hover. */
-.addons button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.addons button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,var(--bg))}
 .addons button.primary:hover:not(:disabled){background:var(--accent);border-color:var(--accent);filter:brightness(1.08)}

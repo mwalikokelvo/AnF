@@ -17,6 +17,8 @@ public class MainActivity extends Activity {
   private WebView web;
   private VaultRepository vault;
   private MediaBridge media;
+  private AddonsBridge addons;
+  private void addonResult(String id,String value,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.anfAddonResult && window.anfAddonResult("+JSONObject.quote(id)+","+JSONObject.quote(value)+","+JSONObject.quote(error)+")",null);});}
   private void mediaResult(String id,String value,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.coucouMediaResult && window.coucouMediaResult("+JSONObject.quote(id)+","+JSONObject.quote(value)+","+JSONObject.quote(error)+")",null);});}
   private final java.util.concurrent.ExecutorService vaultWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
   private final java.util.concurrent.atomic.AtomicInteger vaultPending=new java.util.concurrent.atomic.AtomicInteger();
@@ -36,6 +38,7 @@ public class MainActivity extends Activity {
     WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
     web=new WebView(this);setContentView(web);
     media=new MediaBridge(this,this::mediaResult);
+    addons=new AddonsBridge(new java.io.File(getFilesDir(),"addons/themes"),this::addonResult);
     web.setOnApplyWindowInsetsListener((v,insets)->{
       if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);boolean shown=insets.isVisible(android.view.WindowInsets.Type.ime());web.evaluateJavascript("window.nativeKeyboard && window.nativeKeyboard("+shown+")",null);}
       else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;
@@ -99,6 +102,7 @@ public class MainActivity extends Activity {
       });
     }
     @JavascriptInterface public void mediaRequest(String id,String operation,String json){if(media!=null)media.request(id,operation,json);}
+    @JavascriptInterface public void addonRequest(String id,String operation,String json){if(addons!=null)addons.request(id,operation,json);}
     @JavascriptInterface public void vaultRequest(String id,String operation,String json){
       if(id==null||!id.matches("[0-9]{1,12}"))return;
       if(operation==null||json==null||json.length()>17000000){vaultResult(id,"","Storage request exceeds the limit.");return;}
@@ -200,5 +204,5 @@ public class MainActivity extends Activity {
     }
     if(request==2){byte[] bytes=exportBytes;exportBytes=null;if(result==RESULT_OK&&data!=null&&bytes!=null){new Thread(()->{try(OutputStream out=getContentResolver().openOutputStream(data.getData())){if(out==null)throw new IOException();out.write(bytes);notice("Export saved.");}catch(Exception e){notice("Could not save this export.");}}).start();}else notice("Export cancelled.");}
   }
-  @Override protected void onDestroy(){closing=true;if(media!=null)media.close();vaultWorker.shutdown();if(picker!=null)picker.onReceiveValue(null);if(speech!=null){speech.stop();speech.shutdown();}if(web!=null)web.destroy();super.onDestroy();}
+  @Override protected void onDestroy(){closing=true;if(media!=null)media.close();if(addons!=null)addons.close();vaultWorker.shutdown();if(picker!=null)picker.onReceiveValue(null);if(speech!=null){speech.stop();speech.shutdown();}if(web!=null)web.destroy();super.onDestroy();}
 }
