@@ -1,0 +1,29 @@
+name: Dependency audit
+# Weekly check for known advisories in npm and Cargo dependencies. A red run means
+# "look at this", it never blocks a pull request or a release.
+on:
+  schedule:
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  npm:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [windows, android, scripts/app-qa]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: npm audit --prefix ${{ matrix.dir }}
+  cargo:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: cargo install cargo-audit --locked
+      # zip 2.4.2: the three advisories concern extract(), which AnF never calls (it reads single
+      # members). Remove these once zip is on 9.x.
+      - run: >
+          cargo audit --file windows/Cargo.lock
+          --ignore RUSTSEC-2026-0367 --ignore RUSTSEC-2026-0368 --ignore RUSTSEC-2026-0369
