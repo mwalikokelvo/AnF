@@ -1,9 +1,11 @@
 //! Desktop companion: a small always-on-top window with volume and media buttons.
-//! It is opened only from Settings. It does not capture the screen or the microphone.
+//! It is opened only from Settings. It never listens. The screen is captured only by the "Screen help" button (see screen_help.rs), after a click, and sent only after a second click.
 //! Windows only for now; other systems get a plain error.
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
-const LABEL:&str="companion";
+pub const LABEL:&str="companion";
 // Measured content size of companion.html: 340x120 in full mode (buttons on one row), 190x54 folded; +2 px of margin.
+/// Room for the screenshot preview, the question and the answer.
+const HELP_SIZE:(f64,f64)=(340.0,440.0);
 const SIZES:[(f64,f64);2]=[(340.0,122.0),(190.0,56.0)];
 #[cfg(windows)]
 fn press(vk:u16)->Result<(),String>{
@@ -28,6 +30,10 @@ pub fn key_for(direction:&str)->Option<u16>{match direction{"down"=>Some(0xAE),"
 #[tauri::command]pub fn companion_close(app:AppHandle)->Result<(),String>{match app.get_webview_window(LABEL){Some(win)=>win.close().map_err(|e|e.to_string()),None=>Ok(())}}
 #[tauri::command]pub fn companion_compact(app:AppHandle,compact:bool)->Result<(),String>{
     let (w,h)=SIZES[usize::from(compact)];
+    match app.get_webview_window(LABEL){Some(win)=>win.set_size(tauri::LogicalSize::new(w,h)).map_err(|e|e.to_string()),None=>Ok(())}
+}
+#[tauri::command]pub fn companion_expand(app:AppHandle,open:bool)->Result<(),String>{
+    let (w,h)=if open{HELP_SIZE}else{SIZES[0]};
     match app.get_webview_window(LABEL){Some(win)=>win.set_size(tauri::LogicalSize::new(w,h)).map_err(|e|e.to_string()),None=>Ok(())}
 }
 #[cfg(test)]mod tests{

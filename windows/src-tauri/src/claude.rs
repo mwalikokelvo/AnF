@@ -164,6 +164,34 @@ pub async fn send(
     Ok(ChatReply { text, notice: None })
 }
 
+/// One stateless question about a screenshot (base64 JPEG): no history, no web search.
+pub async fn ask_image(model: &str, question: &str, jpeg_b64: &str) -> Result<String, String> {
+    let key = secrets::get("anthropic-api-key").ok_or_else(|| "API key missing. Open settings.".to_string())?;
+    let response = call(&key, &image_body(model, question, jpeg_b64)).await?;
+    if response.get("stop_reason").and_then(Value::as_str) == Some("refusal") { return Err("Claude declined this one.".into()); }
+    let text = response.get("content").and_then(Value::as_array).into_iter().flatten()
+        .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
+        .filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n").trim().to_string();
+    if text.is_empty() { return Err("No response text.".into()); }
+    match response.get("stop_reason").and_then(Value::as_str) {
+        Some("max_tokens") => Ok(format!("{text}\n\n(The answer was cut off. Ask a narrower question for the rest.)")),
+        Some("model_context_window_exceeded") => Err("The screenshot and question were too large for this model.".into()),
+        _ => Ok(text),
+    }
+}
+
+fn image_body(model: &str, question: &str, jpeg_b64: &str) -> Value {
+    json!({
+        "model": model,
+        "max_tokens": 1024,
+        "system": crate::screen_help::SYSTEM,
+        "messages": [{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": jpeg_b64}},
+            {"type": "text", "text": question},
+        ]}],
+    })
+}
+
 async fn call(key: &str, body: &Value) -> Result<Value, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(90))
@@ -255,6 +283,12 @@ fn base64(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test] fn screenshot_question_is_one_image_block_without_tools() {
+        let b = super::image_body("m", "What is this?", "/9j/AA==");
+        assert_eq!(b["messages"][0]["content"][0]["source"]["media_type"], "image/jpeg");
+        assert_eq!(b["messages"][0]["content"][1]["text"], "What is this?");
+        assert!(b.get("tools").is_none());
+    }
     use super::{base64, endpoint_from, ENDPOINT};
 
     #[test]
