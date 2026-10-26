@@ -55696,7 +55696,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 
-===== rustls-0.23.45 =====
+===== rustls-0.23.46 =====
 license = "Apache-2.0 OR ISC OR MIT"
 
 
@@ -56186,7 +56186,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 
-===== rustls-webpki-0.103.15 =====
+===== rustls-webpki-0.103.16 =====
 license = "ISC"
 
 
@@ -80605,7 +80605,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-===== webpki-roots-1.0.9 =====
+===== webpki-roots-1.0.11 =====
 license = "CDLA-Permissive-2.0"
 
 
