@@ -9,8 +9,8 @@ export function updateMessage(i:UpdateInfo):string{
 }
 export function updatesPanel(){
  const status=h('p',{role:'status',class:'hint',text:'Checks GitHub for a newer Windows release only when you press the button. Nothing is downloaded or installed for you.'});
- const open=h('button',{type:'button',text:'Open download page',hidden:true}) as HTMLButtonElement;
- const check=h('button',{type:'button',class:'primary',text:'Check for updates'}) as HTMLButtonElement;
+ const open=h('button',{type:'button','data-keep-enabled':true,text:'Open download page',hidden:true}) as HTMLButtonElement;
+ const check=h('button',{type:'button','data-keep-enabled':true,class:'primary',text:'Check for updates'}) as HTMLButtonElement;
  let url:string|null=null;
  open.onclick=()=>{if(url)void invoke('open_url',{url});};
  check.onclick=async()=>{
