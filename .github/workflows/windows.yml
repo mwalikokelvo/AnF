@@ -168,7 +168,7 @@ jobs:
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
 
       - name: Retain installed application test evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         with:
           name: AnF-Windows-installation-tests
@@ -176,7 +176,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-setup
@@ -187,7 +187,7 @@ jobs:
           retention-days: 7
 
       # Keep models and native runtimes with the portable executables.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-portable
@@ -224,7 +224,7 @@ jobs:
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $candidate = (Resolve-Path "candidate-installer/AnF-Windows-$version-setup.exe").Path
           ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: AnF-Windows-installation-tests
