@@ -130,8 +130,11 @@ jobs:
       # Code signing is opt-in. With no WINDOWS_CERTIFICATE secret this step only prints a notice and the
       # installer stays unsigned, exactly as before. With it, Tauri signs the app and the installer.
       # The certificate is imported into this runner's temporary user store; nothing is written to the repo.
+      # It runs only for release tags and manual runs from main, never for pull requests: a PR build runs
+      # PR-controlled scripts and must not be able to use or exfiltrate the signing key.
       - name: Prepare code signing (only when a certificate is configured)
         id: signing
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -149,7 +152,9 @@ jobs:
             $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
           } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
           $config = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } } | ConvertTo-Json -Depth 5 -Compress
-          "TAURI_CONFIG=$config" >> $env:GITHUB_ENV
+          # A platform config file is merged by `tauri build` into the bundler settings; the TAURI_CONFIG
+          # environment variable is not, so it would leave the installer unsigned.
+          Set-Content -Path src-tauri/tauri.windows.conf.json -Value $config -Encoding utf8
           'signed=true' >> $env:GITHUB_OUTPUT
           Write-Host "Signing with certificate: $($cert.Subject)"
 

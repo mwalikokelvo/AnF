@@ -38,9 +38,10 @@ Add them under Settings, Secrets and variables, Actions (never in Git or chat):
   (PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`).
 - `WINDOWS_CERTIFICATE_PASSWORD`: the `.pfx` password.
 
-With both set, the Windows workflow imports the certificate into the runner's temporary store, builds with
+With both set, a release-tag or manual run from `main` of the Windows workflow imports the certificate into the runner's temporary store, builds with
 `certificateThumbprint`, SHA-256 and a DigiCert timestamp, then fails the run unless every installer has a valid,
 timestamped signature. It prints the signer's name so you can check it is yours.
+Pull-request builds never receive the certificate. For an extra gate, store the two secrets in a GitHub Environment with required reviewers and add `environment:` to the job.
 A certificate from an unknown publisher still builds SmartScreen reputation slowly; an EV certificate avoids that.
 After the first signed build has been installed and checked, set `PUBLISH` to `'true'` in `windows.yml` to resume publishing.
 
