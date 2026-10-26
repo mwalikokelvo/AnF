@@ -102,21 +102,7 @@ async fn send_cloud(session: &mut Session, provider: &str, model: &str, key_name
     let user = json!({"role":"user", "content":parts});
     let mut messages = session.messages.clone();
     messages.push(user.clone());
-    let body = request_body(provider, model, &messages)?;
-    let endpoint = if provider == "openai" { "https://api.openai.com/v1/responses".into() } else { gemini_endpoint(model)? };
-    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(120))
-        .redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())?;
-    let request = client.post(endpoint).json(&body);
-    let request = if provider == "openai" { request.bearer_auth(&key) } else { request.header("x-goog-api-key", &key) };
-    let response = request.send().await.map_err(|_| format!("Could not reach {provider}. Check your connection and try again."))?;
-    let status = response.status();
-    let value: Value = response.json().await.map_err(|_| format!("Invalid response from {provider}."))?;
-    if !status.is_success() {
-        let detail = value.pointer("/error/message").and_then(Value::as_str).unwrap_or("Request failed");
-        // Never echo credentials, even if an upstream error includes the supplied value.
-        return Err(format!("{provider} API {status}: {}", detail.replace(&key, "[redacted]").chars().take(400).collect::<String>()));
-    }
-    let text = response_text(provider, &value)?;
+    let text = post_cloud(provider, model, &key, &messages).await?;
     // Failed/blocked/incomplete turns never enter history; retries retain file context.
     session.messages.push(user);
     session.messages.push(json!({"role":"assistant", "content":[{"type":"text","text":text}]}));
@@ -129,6 +115,52 @@ fn gemini_endpoint(model: &str) -> Result<String, String> {
         return Err("Use a Gemini model ID, such as gemini-3.8-flash.".into());
     }
     Ok(format!("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"))
+}
+
+/// One request to OpenAI or Gemini; returns the reply text. Shared by chat and screen help.
+async fn post_cloud(provider: &str, model: &str, key: &str, messages: &[Value]) -> Result<String,String> {
+    let body = request_body(provider, model, messages)?;
+    let endpoint = if provider == "openai" { "https://api.openai.com/v1/responses".into() } else { gemini_endpoint(model)? };
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(120))
+        .redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())?;
+    let request = client.post(endpoint).json(&body);
+    let request = if provider == "openai" { request.bearer_auth(key) } else { request.header("x-goog-api-key", key) };
+    let response = request.send().await.map_err(|_| format!("Could not reach {provider}. Check your connection and try again."))?;
+    let status = response.status();
+    let value: Value = response.json().await.map_err(|_| format!("Invalid response from {provider}."))?;
+    if !status.is_success() {
+        let detail = value.pointer("/error/message").and_then(Value::as_str).unwrap_or("Request failed");
+        // Never echo credentials, even if an upstream error includes the supplied value.
+        return Err(format!("{provider} API {status}: {}", detail.replace(key, "[redacted]").chars().take(400).collect::<String>()));
+    }
+    response_text(provider, &value)
+}
+
+/// The cloud provider chosen in Settings, or why a screenshot cannot be sent: (provider, model, key name).
+pub fn cloud_target(settings: &Settings) -> Result<(&str, &str, &str), String> {
+    if settings.chat_mode != "api" { return Err("Screen help needs an AI provider. Choose one in Settings > AI chat.".into()); }
+    let (provider, model, key_name) = match settings.chat_provider.as_str() {
+        "claude" => ("claude", settings.model.trim(), "anthropic-api-key"),
+        "openai" => ("openai", settings.openai_model.trim(), "openai-api-key"),
+        "gemini" => ("gemini", settings.gemini_model.trim(), "gemini-api-key"),
+        "local" => return Err("Screen help sends a screenshot to a cloud provider, and the offline AI cannot read images. Choose Claude, OpenAI or Gemini in Settings > AI chat.".into()),
+        _ => return Err("Unknown chat provider. Choose one in Settings.".into()),
+    };
+    if model.is_empty() { return Err("Enter a model name in Settings.".into()); }
+    if secrets::get(key_name).is_none() { return Err(format!("{provider} API key missing. Open Settings > AI chat.")); }
+    Ok((provider, model, key_name))
+}
+
+/// One stateless question about a screenshot (base64 JPEG). Nothing enters chat history.
+pub async fn ask_image(settings: &Settings, question: &str, jpeg_b64: &str) -> Result<String,String> {
+    let (provider, model, key_name) = cloud_target(settings)?;
+    let key = secrets::get(key_name).ok_or_else(|| format!("{provider} API key missing. Open Settings > AI chat."))?;
+    if provider == "claude" { return claude::ask_image(model, question, jpeg_b64).await; }
+    post_cloud(provider, model, &key, &[image_message(question, jpeg_b64)]).await
+}
+
+fn image_message(question: &str, jpeg_b64: &str) -> Value {
+    json!({"role":"user","content":[{"type":"file","name":"screen.jpg","mime":"image/jpeg","data":jpeg_b64},{"type":"text","text":question}]})
 }
 
 fn user_parts(query: &str, context: Option<&ChatContext>) -> Result<Vec<Value>, String> {
@@ -213,6 +245,15 @@ fn response_text(provider: &str, value: &Value) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test] fn screenshot_questions_use_each_providers_image_format() {
+        let m = [super::image_message("What is this?", "/9j/AA==")];
+        let o = super::request_body("openai", "m", &m).unwrap();
+        assert_eq!(o["input"][0]["content"][0]["type"], "input_image");
+        assert_eq!(o["input"][0]["content"][0]["image_url"], "data:image/jpeg;base64,/9j/AA==");
+        let g = super::request_body("gemini", "m", &m).unwrap();
+        assert_eq!(g["contents"][0]["parts"][0]["inlineData"]["mimeType"], "image/jpeg");
+        assert_eq!(g["contents"][0]["parts"][1]["text"], "What is this?");
+    }
     use super::*;
     #[test]
     #[ignore = "requires the downloaded offline model and a runnable native child process"]
