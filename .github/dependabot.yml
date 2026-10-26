@@ -68,6 +68,10 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # pdfjs-dist 5.6.83 to 6.2.107 allows arbitrary JavaScript from a malicious PDF
+      # (GHSA-hq66-cqwq-w95j). Stay on 5.4.x until a fixed 6.x is tested by hand.
+      - dependency-name: "pdfjs-dist"
+        versions: [">=5.6.83, <6.2.108"]
     groups:
       android-npm:
         patterns: ["*"]
