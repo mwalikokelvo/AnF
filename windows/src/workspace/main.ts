@@ -59,7 +59,10 @@ showPreviews.addEventListener('change',()=>{try{localStorage.setItem('anf-histor
 function historyDate(ms:number){const d=new Date(ms),now=new Date();return d.toDateString()===now.toDateString()?'Today, '+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):d.toLocaleDateString([],{day:'numeric',month:'short',year:d.getFullYear()===now.getFullYear()?undefined:'numeric'});}
 try{keepIsland.checked=localStorage.getItem('anf-keep-island-open')==='1';}catch{/* preference unavailable: default to folding */}
 keepIsland.addEventListener('change',()=>{try{localStorage.setItem('anf-keep-island-open',keepIsland.checked?'1':'0');}catch{/* not remembered this time */}});
-window.addEventListener('focus',()=>{if(!keepIsland.checked)void emitTo('island','workspace-focused').catch(()=>{/* island not running */});});
+// The island never takes focus (it is non-activating), so a click back into the workspace counts as well as focus.
+let lastFold=0;
+const foldIsland=()=>{if(keepIsland.checked||Date.now()-lastFold<800)return;lastFold=Date.now();void emitTo('island','workspace-focused').catch(()=>{/* island not running */});};
+window.addEventListener('focus',foldIsland);window.addEventListener('pointerdown',foldIsland,{capture:true,passive:true});
 const saveAlert=createSaveAlert({retry:()=>saveProject(),keepCopy:{label:'Save draft as a file',run:async()=>{status.textContent=`Copy saved: ${await invoke<string>('workspace_save',{title:title.value||'Recovered draft',text:draft.value,format:'txt'})}`;}}});
 const replyDraft=createReplyToDraft({draft:()=>draft.value,setDraft:text=>{draft.value=text;writing?.refresh(projectId);autosave();},show:()=>showView('writing'),notify:text=>{status.textContent=text;}});
 const name=h('input',{value:'My project','aria-label':'Project name',maxlength:160}) as HTMLInputElement;
