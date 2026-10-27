@@ -1,0 +1,33 @@
+/* Section colours for the Android workspace. The hues, light/dark values and card treatment live in the
+   shared windows/src/workspace/anf-color.css; this file only says which phone section is showing.
+   Scoped to html:not([data-theme-pack]) so a marketplace theme keeps full control. */
+
+/* The visible section picks the hue (Home and Documents keep the default teal) */
+html:has(#app>main>section[aria-label="Writing"]:not([hidden])){--hue:var(--hue-write);--tint:var(--tint-write)}
+html:has(#app>main>section[aria-label="Chat"]:not([hidden])){--hue:var(--hue-ask);--tint:var(--tint-ask)}
+html:has(#app>main>section[aria-label="Music Hub"]:not([hidden])),
+html:has(#app>main>section[aria-label="Audio Studio"]:not([hidden])){--hue:var(--hue-play);--tint:var(--tint-play)}
+html:has(#app>main>section[aria-label="Settings"]:not([hidden])){--hue:var(--hue-keep);--tint:var(--tint-keep)}
+
+/* Existing rules read --accent, so buttons, eyebrows and focus rings follow the hue. Music keeps its own shell. */
+html:not([data-theme-pack]) body:not(.music-view) #app{--accent:var(--hue);--accent-ink:var(--hue-ink)}
+
+/* Mode tabs: each mode wears its own colour when selected */
+html:not([data-theme-pack]) .mode-rail button[aria-selected=true]{color:var(--hue-ink)}
+html:not([data-theme-pack]) .mode-rail button[data-mode=read][aria-selected=true]{background:var(--hue-read)}
+html:not([data-theme-pack]) .mode-rail button[data-mode=ask][aria-selected=true]{background:var(--hue-ask)}
+html:not([data-theme-pack]) .mode-rail button[data-mode=listen][aria-selected=true]{background:var(--hue-play)}
+
+/* Bottom bar: every destination keeps its colour; the current one gets its tint */
+html:not([data-theme-pack]) .bottom-nav button[data-view=home] svg,
+html:not([data-theme-pack]) .bottom-nav button[data-view=documents] svg{color:var(--hue-read)}
+html:not([data-theme-pack]) .bottom-nav button[data-view=writing] svg{color:var(--hue-write)}
+html:not([data-theme-pack]) .bottom-nav button[data-view=chat] svg{color:var(--hue-ask)}
+html:not([data-theme-pack]) .bottom-nav button[data-view=music] svg,
+html:not([data-theme-pack]) .bottom-nav button[data-view=audio] svg{color:var(--hue-play)}
+html:not([data-theme-pack]) .bottom-nav button[data-view=settings] svg{color:var(--hue-keep)}
+html:not([data-theme-pack]) body:not(.music-view) .bottom-nav button[aria-current=page]{background:var(--tint)}
+
+/* A coloured line under the header and a soft wash at the top of the page */
+html:not([data-theme-pack]) #app>.mobile-header{border-bottom:2px solid var(--hue)}
+html:not([data-theme-pack]) body:not(.music-view) #app>main{background:linear-gradient(180deg,var(--tint),transparent 220px)}

@@ -2,8 +2,8 @@
    Everything is scoped to html:not([data-theme-pack]) so a marketplace theme (which sets data-theme-pack) keeps full control.
    The active section is read from which panel is visible, so no script is involved. */
 
-/* Dark values (the app's default) */
-#workspace-root{
+/* Dark values (the app's default). html carries them for Android, #workspace-root for Windows. */
+:root,#workspace-root{
   --hue-read:#4fd1c5;--tint-read:#12302f;
   --hue-write:#b79cff;--tint-write:#272043;
   --hue-play:#ff8a78;--tint-play:#3a2220;
@@ -13,7 +13,7 @@
   --hue:var(--hue-read);--tint:var(--tint-read);
 }
 /* Light values: same selectors anf-design.css uses for its light theme */
-#workspace-root[data-theme=light]{
+html[data-theme=light],#workspace-root[data-theme=light]{
   --hue-read:#0b7a75;--tint-read:#e1f3f1;
   --hue-write:#6d4fd6;--tint-write:#ece8fb;
   --hue-play:#b83d33;--tint-play:#fde9e6;
@@ -22,7 +22,7 @@
   --hue-ink:#ffffff;
 }
 @media(prefers-color-scheme:light){
-  #workspace-root[data-theme=system]{
+  html[data-theme=system],#workspace-root[data-theme=system]{
     --hue-read:#0b7a75;--tint-read:#e1f3f1;
     --hue-write:#6d4fd6;--tint-write:#ece8fb;
     --hue-play:#b83d33;--tint-play:#fde9e6;
