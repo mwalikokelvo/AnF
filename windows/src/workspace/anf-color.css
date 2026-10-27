@@ -1,0 +1,62 @@
+/* Section colours for the Windows workspace: each area has its own hue, in light and dark.
+   Everything is scoped to html:not([data-theme-pack]) so a marketplace theme (which sets data-theme-pack) keeps full control.
+   The active section is read from which panel is visible, so no script is involved. */
+
+/* Dark values (the app's default) */
+#workspace-root{
+  --hue-read:#4fd1c5;--tint-read:#12302f;
+  --hue-write:#b79cff;--tint-write:#272043;
+  --hue-play:#ff8a78;--tint-play:#3a2220;
+  --hue-ask:#7db3ff;--tint-ask:#17263f;
+  --hue-keep:#f5b64c;--tint-keep:#3a2c12;
+  --hue-ink:#0f1720;
+  --hue:var(--hue-read);--tint:var(--tint-read);
+}
+/* Light values: same selectors anf-design.css uses for its light theme */
+#workspace-root[data-theme=light]{
+  --hue-read:#0b7a75;--tint-read:#e1f3f1;
+  --hue-write:#6d4fd6;--tint-write:#ece8fb;
+  --hue-play:#cf4a3f;--tint-play:#fde9e6;
+  --hue-ask:#2563c9;--tint-ask:#e5eefc;
+  --hue-keep:#9a5b00;--tint-keep:#fbefd9;
+  --hue-ink:#ffffff;
+}
+@media(prefers-color-scheme:light){
+  #workspace-root[data-theme=system]{
+    --hue-read:#0b7a75;--tint-read:#e1f3f1;
+    --hue-write:#6d4fd6;--tint-write:#ece8fb;
+    --hue-play:#cf4a3f;--tint-play:#fde9e6;
+    --hue-ask:#2563c9;--tint-ask:#e5eefc;
+    --hue-keep:#9a5b00;--tint-keep:#fbefd9;
+    --hue-ink:#ffffff;
+  }
+}
+
+/* The visible panel picks the hue */
+#workspace-root:has(#panel-writing:not([hidden])){--hue:var(--hue-write);--tint:var(--tint-write)}
+#workspace-root:has(#panel-chat:not([hidden])){--hue:var(--hue-ask);--tint:var(--tint-ask)}
+#workspace-root:has(#panel-music:not([hidden])),
+#workspace-root:has(#panel-audio:not([hidden])){--hue:var(--hue-play);--tint:var(--tint-play)}
+#workspace-root:has(#panel-settings:not([hidden])){--hue:var(--hue-keep);--tint:var(--tint-keep)}
+
+/* Existing rules already read --accent, so buttons, eyebrows, focus rings and the mode rail follow the hue */
+html:not([data-theme-pack]) .workspace-layout{--accent:var(--hue);--accent-ink:var(--hue-ink)}
+html:not([data-theme-pack]) .brand-mark{background:var(--hue-read);color:var(--hue-ink)}
+
+/* Sidebar: every destination keeps its own colour, the current one gets its tint */
+html:not([data-theme-pack]) .workspace-navigation button[data-view=home] svg,
+html:not([data-theme-pack]) .workspace-navigation button[data-view=documents] svg{color:var(--hue-read)}
+html:not([data-theme-pack]) .workspace-navigation button[data-view=writing] svg{color:var(--hue-write)}
+html:not([data-theme-pack]) .workspace-navigation button[data-view=chat] svg{color:var(--hue-ask)}
+html:not([data-theme-pack]) .workspace-navigation button[data-view=music] svg,
+html:not([data-theme-pack]) .workspace-navigation button[data-view=audio] svg{color:var(--hue-play)}
+html:not([data-theme-pack]) .workspace-navigation button[data-view=settings] svg{color:var(--hue-keep)}
+html:not([data-theme-pack]) .workspace-navigation button[aria-current=page]{background:var(--tint);border-color:var(--accent)}
+
+/* Content: a coloured edge on the header and cards, and a soft wash behind the page */
+html:not([data-theme-pack]) .workspace-header{border-bottom:2px solid var(--accent)}
+html:not([data-theme-pack]) .panel-host{background:linear-gradient(180deg,var(--tint),transparent 260px)}
+html:not([data-theme-pack]) .resume-card,
+html:not([data-theme-pack]) .capture-card{box-shadow:inset 0 4px 0 var(--accent),var(--shadow);background:linear-gradient(180deg,var(--tint),var(--surface) 55%)}
+/* Home: the Writing card wears Writing's colour */
+html:not([data-theme-pack]) .resume-grid .resume-card:nth-child(2){--accent:var(--hue-write);--tint:var(--tint-write)}

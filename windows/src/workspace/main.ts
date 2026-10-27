@@ -17,6 +17,7 @@ import {createReader} from './reader';
 import {clipText,type ReadingState} from './reader-data';
 import './workspace.css';
 import './anf-design.css';
+import './anf-color.css';
 import {sectionIcon,wordmark} from './anf-brand';
 import {invoke} from '@tauri-apps/api/core';
 import {h} from '../views/dom';
