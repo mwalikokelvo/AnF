@@ -12,11 +12,6 @@ html:has(#app>main>section[aria-label="Settings"]:not([hidden])){--hue:var(--hue
 /* Existing rules read --accent, so buttons, eyebrows and focus rings follow the hue. Music keeps its own shell. */
 html:not([data-theme-pack]) body:not(.music-view) #app{--accent:var(--hue);--accent-ink:var(--hue-ink)}
 
-/* Mode tabs: each mode wears its own colour when selected */
-html:not([data-theme-pack]) .mode-rail button[aria-selected=true]{color:var(--hue-ink)}
-html:not([data-theme-pack]) .mode-rail button[data-mode=read][aria-selected=true]{background:var(--hue-read)}
-html:not([data-theme-pack]) .mode-rail button[data-mode=ask][aria-selected=true]{background:var(--hue-ask)}
-html:not([data-theme-pack]) .mode-rail button[data-mode=listen][aria-selected=true]{background:var(--hue-play)}
 
 /* Bottom bar: every destination keeps its colour; the current one gets its tint */
 html:not([data-theme-pack]) .bottom-nav button[data-view=home] svg,

@@ -583,6 +583,11 @@ export class Island {
 
     void onDragDrop((e) => this.onDragDrop(e));
     void onEvent<null>("pointer-released", () => this.onPointerReleased());
+    // The workspace came to the front: fold an open island so it does not cover the work.
+    // A pinned approval stays, and the workspace sends nothing when "Keep the island open" is on.
+    void onEvent<null>("workspace-focused", () => {
+      if (State.mode === "expanded" && !State.isPinned) this.collapse();
+    });
 
     // Outside Tauri (plain browser) drive the cursor from DOM events so the
     // island can be inspected with `npm run dev`.

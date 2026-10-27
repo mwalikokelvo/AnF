@@ -110,3 +110,7 @@ main,.panel-host,.drawer,pre{scrollbar-width:thin;scrollbar-color:var(--line) tr
 .reply-dialog-preview{max-height:180px;overflow:auto;white-space:pre-wrap;background:var(--input);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;font-size:13px}
 .reply-dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .reply-dialog button.danger{background:#b3261e;color:#fff;border-color:transparent}
+/* Settings checkboxes and history dates (plan UI-04, UI-05) */
+.check-row{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:14px;color:var(--ink)}
+.check-row input[type=checkbox]{width:18px;min-width:18px;height:18px;margin:0}
+.history-item time{display:block;font-size:.72em;color:var(--muted);margin-top:3px}
