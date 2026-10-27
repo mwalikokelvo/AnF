@@ -16,7 +16,7 @@
 #workspace-root[data-theme=light]{
   --hue-read:#0b7a75;--tint-read:#e1f3f1;
   --hue-write:#6d4fd6;--tint-write:#ece8fb;
-  --hue-play:#cf4a3f;--tint-play:#fde9e6;
+  --hue-play:#b83d33;--tint-play:#fde9e6;
   --hue-ask:#2563c9;--tint-ask:#e5eefc;
   --hue-keep:#9a5b00;--tint-keep:#fbefd9;
   --hue-ink:#ffffff;
@@ -25,7 +25,7 @@
   #workspace-root[data-theme=system]{
     --hue-read:#0b7a75;--tint-read:#e1f3f1;
     --hue-write:#6d4fd6;--tint-write:#ece8fb;
-    --hue-play:#cf4a3f;--tint-play:#fde9e6;
+    --hue-play:#b83d33;--tint-play:#fde9e6;
     --hue-ask:#2563c9;--tint-ask:#e5eefc;
     --hue-keep:#9a5b00;--tint-keep:#fbefd9;
     --hue-ink:#ffffff;
@@ -40,7 +40,8 @@
 #workspace-root:has(#panel-settings:not([hidden])){--hue:var(--hue-keep);--tint:var(--tint-keep)}
 
 /* Existing rules already read --accent, so buttons, eyebrows, focus rings and the mode rail follow the hue */
-html:not([data-theme-pack]) .workspace-layout{--accent:var(--hue);--accent-ink:var(--hue-ink)}
+/* Music keeps its own fixed charcoal shell (music-hub.css), so it is left out of the accent and active-tab overrides. */
+html:not([data-theme-pack]) body:not(.music-view) .workspace-layout{--accent:var(--hue);--accent-ink:var(--hue-ink)}
 html:not([data-theme-pack]) .brand-mark{background:var(--hue-read);color:var(--hue-ink)}
 
 /* Sidebar: every destination keeps its own colour, the current one gets its tint */
@@ -51,11 +52,11 @@ html:not([data-theme-pack]) .workspace-navigation button[data-view=chat] svg{col
 html:not([data-theme-pack]) .workspace-navigation button[data-view=music] svg,
 html:not([data-theme-pack]) .workspace-navigation button[data-view=audio] svg{color:var(--hue-play)}
 html:not([data-theme-pack]) .workspace-navigation button[data-view=settings] svg{color:var(--hue-keep)}
-html:not([data-theme-pack]) .workspace-navigation button[aria-current=page]{background:var(--tint);border-color:var(--accent)}
+html:not([data-theme-pack]) body:not(.music-view) .workspace-navigation button[aria-current=page]{background:var(--tint);border-color:var(--accent)}
 
 /* Content: a coloured edge on the header and cards, and a soft wash behind the page */
 html:not([data-theme-pack]) .workspace-header{border-bottom:2px solid var(--accent)}
-html:not([data-theme-pack]) .panel-host{background:linear-gradient(180deg,var(--tint),transparent 260px)}
+html:not([data-theme-pack]) body:not(.music-view) .panel-host{background:linear-gradient(180deg,var(--tint),transparent 260px)}
 html:not([data-theme-pack]) .resume-card,
 html:not([data-theme-pack]) .capture-card{box-shadow:inset 0 4px 0 var(--accent),var(--shadow);background:linear-gradient(180deg,var(--tint),var(--surface) 55%)}
 /* Home: the Writing card wears Writing's colour */
