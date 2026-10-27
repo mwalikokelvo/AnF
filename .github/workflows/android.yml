@@ -109,11 +109,11 @@ jobs:
       - name: Self-test the signing step with a throwaway key
         run: |
           version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.p12" -storetype PKCS12 -storepass throwaway \
+          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.jks" -storetype JKS -storepass throwaway \
             -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname CN=throwaway -noprompt
-          KEY_BASE64=$(base64 -w0 "$RUNNER_TEMP/throwaway.p12") KEY_PASSWORD=throwaway \
+          KEY_BASE64=$(base64 -w0 "$RUNNER_TEMP/throwaway.jks") KEY_PASSWORD=throwaway \
             bash scripts/sign-android.sh "releases/AnF-Android-$version-unsigned.apk" "$RUNNER_TEMP/selftest.apk"
-          rm -f "$RUNNER_TEMP/throwaway.p12" "$RUNNER_TEMP/selftest.apk"
+          rm -f "$RUNNER_TEMP/throwaway.jks" "$RUNNER_TEMP/selftest.apk"
       - name: Sign the release package with the owner's key (manual runs from main only)
         # Pull requests never see the key. Without the two secrets this step only leaves a note.
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
