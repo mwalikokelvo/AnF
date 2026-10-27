@@ -6,11 +6,12 @@ export type Call=<T=unknown>(command:string,args?:Record<string,unknown>)=>Promi
 export function createMarketplace(call:Call){
  type Entry={id:string;name:string;version:string;type:'theme'|'plugin';description:string;author:string};
  const KEY='anf_active_theme';
- const tag=()=>{let s=document.getElementById('anf-active-theme');if(!s){s=document.createElement('style');s.id='anf-active-theme';document.head.append(s);}return s;};
+ // data-theme-pack tells the built-in section colours (anf-color.css) to stand down while a marketplace theme is active.
+ const tag=()=>{let s=document.getElementById('anf-active-theme');if(!s){s=document.createElement('style');s.id='anf-active-theme';document.head.append(s);}document.documentElement.setAttribute('data-theme-pack','');return s;};
  const remember=(id:string|null)=>{try{if(id)localStorage.setItem(KEY,id);else localStorage.removeItem(KEY);}catch{/* storage can be unavailable */}};
  const active=()=>{try{return localStorage.getItem(KEY);}catch{return null;}};
  async function applyTheme(id:string){tag().textContent=await call<string>('addons_read',{id});remember(id);}
- function clearTheme(){document.getElementById('anf-active-theme')?.remove();remember(null);}
+ function clearTheme(){document.getElementById('anf-active-theme')?.remove();document.documentElement.removeAttribute('data-theme-pack');remember(null);}
  async function restoreTheme(){const id=active();if(id)await applyTheme(id).catch(clearTheme);}
  // Four colours read from the theme's own CSS, so a card shows what it will look like.
  const swatches=(css:string)=>h('div',{class:'swatches','aria-hidden':'true'},...['--bg','--surface','--accent','--ink'].map(v=>{const m=css.match(new RegExp(v+':\\s*(#[0-9a-fA-F]{3,8})'));return m?h('i',{style:`background:${m[1]}`}):null;}));
