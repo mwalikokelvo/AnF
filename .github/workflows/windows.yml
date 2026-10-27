@@ -26,7 +26,7 @@ on:
         required: false
         type: string
   pull_request:
-    paths: ['windows/**', '.github/workflows/windows.yml']
+    paths: ['windows/**', 'scripts/check-styles.mjs', 'scripts/app-qa/**', '.github/workflows/windows.yml']
 
 permissions:
   contents: read
@@ -173,6 +173,9 @@ jobs:
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content release/SHA256SUMS-Windows
+
+      - name: Check packaged stylesheets
+        run: node ../scripts/check-styles.mjs dist
 
       - name: Verify the installer signature
         if: steps.signing.outputs.signed == 'true'

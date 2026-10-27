@@ -12,6 +12,7 @@ import {createAudioStudio} from '../../windows/src/workspace/audio-studio';
 import {backupTools} from '../../windows/src/workspace/backup-tools';
 import {createStudio} from '../../windows/src/workspace/studio';
 import {appendDraft} from '../../windows/src/workspace/knowledge-data';
+import {createSaveAlert} from '../../windows/src/workspace/save-alert';
 import {libraryCard,refreshLibrary,libraryControls} from '../../windows/src/workspace/library';
 import {createDashboard,foldGuidance} from '../../windows/src/workspace/dashboard';
 import {captureText,dayName} from '../../windows/src/workspace/dashboard-data';
@@ -55,8 +56,9 @@ const button=(label:string,action:()=>void,cls='')=>h('button',{text:label,type:
 const run=async(fn:()=>Promise<void>)=>{if(busy)return;busy=true;editor.setReadOnly(true);const controls=Array.from(root.querySelectorAll<HTMLInputElement>('button,input,textarea,select')).map(el=>({el,disabled:el.disabled}));controls.forEach(({el})=>el.disabled=true);root.setAttribute('aria-busy','true');try{await fn();}catch(e){notify(String(e).replace(/^Error: /,''));}finally{busy=false;editor.setReadOnly(false);controls.forEach(({el,disabled})=>el.disabled=disabled);root.setAttribute('aria-busy','false');}};
 const editor=createWritingEditor(draft,()=>autosave(),notify);
 function collect(){project.name=title.value.trim()||'New conversation';project.prompt=prompt.value;project.draft=draft.value;project.pendingReply=reply.value;project.responseLength=responseLength.value;project.replyPlacement=replyPlacement.value;return structuredClone(project);}
-async function save(){if(saveTimer)clearTimeout(saveTimer);const snapshot=collect();const key=signature(snapshot);saveQueue=saveQueue.catch(()=>{}).then(async()=>{if(lastSaved===key)return;snapshot.updated=Date.now();await repository.put([snapshot]);lastSaved=key;if(project.id===snapshot.id)project.updated=snapshot.updated;});await saveQueue;notify('Saved on this device.');}
-function autosave(){if(saveTimer)clearTimeout(saveTimer);notify('Saving…');saveTimer=setTimeout(()=>void save().catch(e=>notify('Could not save: '+e)),600);}
+async function save(){if(saveTimer)clearTimeout(saveTimer);const snapshot=collect();const key=signature(snapshot);saveQueue=saveQueue.catch(()=>{}).then(async()=>{if(lastSaved===key)return;snapshot.updated=Date.now();await repository.put([snapshot]);lastSaved=key;if(project.id===snapshot.id)project.updated=snapshot.updated;});try{await saveQueue;}catch(e){saveAlert.failed(e);throw e;}saveAlert.saved();notify('Saved on this device.');}
+function autosave(){if(saveTimer)clearTimeout(saveTimer);notify('Saving…');saveTimer=setTimeout(()=>void save().catch(()=>{/* shown and retried by saveAlert */}),600);}
+const saveAlert=createSaveAlert({retry:()=>save(),keepCopy:{label:'Export draft as a file',run:()=>exportText((title.value.trim()||'Recovered draft')+'.txt',draft.value,'text/plain')}});
 async function all():Promise<Project[]>{await saveQueue;return repository.backup();}
 async function projectSummaries(query=''){await saveQueue;return repository.list(query);}
 async function getProject(id:string){await saveQueue;return repository.get(id);}
@@ -175,7 +177,7 @@ const studio=createStudio({list:()=>projectSummaries(),load:async id=>{const p=a
  open:async id=>{await run(async()=>{await save();const p=await getProject(id);if(!p)throw Error('Note not found.');project=p;load();show('writing');});},append:text=>{draft.value=appendDraft(draft.value,text);editor.refresh(project.id);autosave();},health:()=>connectionStatus.textContent+'\n'+lastSync.textContent+'\nCheck encrypted conversation storage in Settings for the current protection status. Audio and original files remain outside this protection.'});
 const studioTools=h('div',{class:'studio-header-tools'},button('Quick note',()=>quickNote.open()),button('Local',()=>show('settings'),'studio-status'),button('Search',()=>void studio.open()));
 const historyToggle=button('',()=>{drawer.hidden=false;void refreshHistory();});historyToggle.className='history-toggle';historyToggle.setAttribute('aria-label','Open conversation history');historyToggle.append(sectionIcon('menu'));
-root.append(h('header',{class:'mobile-header'},wordmark(),h('span',{class:'mobile-local',text:'Your local workspace'}),historyToggle),h('div',{class:'mobile-project'},title,studioTools),host,status,modeRail,nav,drawer,reader.root,studio.root);
+root.append(h('header',{class:'mobile-header'},wordmark(),h('span',{class:'mobile-local',text:'Your local workspace'}),historyToggle),h('div',{class:'mobile-project'},title,studioTools),host,status,saveAlert.root,modeRail,nav,drawer,reader.root,studio.root);
 for(const input of[title,prompt,draft,reply])input.addEventListener('input',autosave);
 let historyTimer:ReturnType<typeof setTimeout>|undefined;search.addEventListener('input',()=>{searchEpoch++;clearTimeout(historyTimer);historyTimer=setTimeout(()=>void refreshHistory().catch(e=>notify(String(e))),200);});
 responseLength.addEventListener('change',autosave);replyPlacement.addEventListener('change',autosave);

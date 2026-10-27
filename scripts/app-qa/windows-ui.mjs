@@ -31,6 +31,16 @@ try {
   const saved=async()=>{await view('settings');await page.getByRole('button',{name:'Save project',exact:true}).click();await page.getByText('Conversation saved.',{exact:true}).waitFor();};
   await page.waitForFunction(()=>document.querySelector('[aria-label="Your question"]')?.disabled===false);
   assert(!await page.getByText('Workspace initialization failed:',{exact:false}).count());
+  // UI-01: the installed workspace must be styled, not just running. Check computed values, not only a screenshot.
+  const look=await page.evaluate(()=>{
+    const sheets=[...document.styleSheets].map(s=>{try{return{href:s.href,rules:s.cssRules.length};}catch{return{href:s.href,rules:-1};}});
+    const css=(sel,prop)=>{const el=document.querySelector(sel);return el?getComputedStyle(el)[prop]:null;};
+    return{sheets,layout:css('.workspace-layout','display'),navigation:css('.workspace-navigation button','display'),background:css('#workspace-root','backgroundColor')};
+  });
+  await writeFile(path.join(out,`windows-${phase}-styles.json`),JSON.stringify(look,null,2));
+  assert(look.sheets.some(s=>s.rules>200),'Workspace stylesheet did not load: '+JSON.stringify(look.sheets));
+  assert.equal(look.layout,'grid','Workspace layout is unstyled');
+  assert.equal(look.navigation,'flex','Workspace navigation is unstyled');
   const before='Keep this saved Windows draft: café and 中文.';
   const after='Edited after updating: Windows writing remains local.';
   const write=async text=>{await view('writing');await page.getByLabel('Live Markdown writing',{exact:true}).fill(text);await saved();};
