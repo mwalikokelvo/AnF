@@ -43,5 +43,7 @@ export function createReplyToDraft(o:Options){
     replace.addEventListener('click',async()=>{if(o.draft().trim()&&!await confirmReplace(reply))return;apply(reply,'Draft replaced with the reply.');});
     return [add,replace];
   }
-  return {bar,actions};
+  /** Forget the undo when another conversation is opened, so it can never write into the wrong draft. */
+  function reset(){undo=null;bar.hidden=true;}
+  return {bar,actions,reset};
 }
