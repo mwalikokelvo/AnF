@@ -8,7 +8,7 @@ on:
         required: false
         type: string
   pull_request:
-    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', '.github/workflows/android.yml']
+    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', 'scripts/sign-android.sh', '.github/workflows/android.yml']
 
 permissions:
   contents: read
