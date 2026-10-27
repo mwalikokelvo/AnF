@@ -8,7 +8,7 @@ on:
         required: false
         type: string
   pull_request:
-    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', '.github/workflows/android.yml']
+    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', 'scripts/sign-android.sh', '.github/workflows/android.yml']
 
 permissions:
   contents: read
@@ -106,6 +106,30 @@ jobs:
             ${{ runner.temp }}/anf-android-qa/*.png
           if-no-files-found: ignore
           retention-days: 7
+      - name: Self-test the signing step with a throwaway key
+        run: |
+          version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
+          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.p12" -storetype PKCS12 -storepass throwaway \
+            -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname CN=throwaway -noprompt
+          KEY_BASE64=$(base64 -w0 "$RUNNER_TEMP/throwaway.p12") KEY_PASSWORD=throwaway \
+            bash scripts/sign-android.sh "releases/AnF-Android-$version-unsigned.apk" "$RUNNER_TEMP/selftest.apk"
+          rm -f "$RUNNER_TEMP/throwaway.p12" "$RUNNER_TEMP/selftest.apk"
+      - name: Sign the release package with the owner's key (manual runs from main only)
+        # Pull requests never see the key. Without the two secrets this step only leaves a note.
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        env:
+          KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_ENTRY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          if [ -z "$KEY_BASE64" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::notice::ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD are not set, so no signed release package was made."
+            exit 0
+          fi
+          version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
+          bash scripts/sign-android.sh "releases/AnF-Android-$version-unsigned.apk" "releases/AnF-Android-$version.apk" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Verify debug signature and package versions
         run: |
           version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
