@@ -18,11 +18,16 @@ fi
 type=PKCS12
 if [ "$(head -c 4 "$ks" | od -An -tx1 | tr -d ' \n')" = feedfeed ]; then type=JKS; fi
 # Open the file with the keystore password alone first, so a wrong password is told apart from a key-password problem.
-if ! listing=$(keytool -list -keystore "$ks" -storetype "$type" -storepass:env KEY_PASSWORD 2>&1); then
-  echo "::error::ANDROID_KEYSTORE_PASSWORD does not open the $type key file. Copy password.txt into that secret again (no extra spaces or lines)."
+if ! listing=$(keytool -list -v -keystore "$ks" -storetype "$type" -storepass:env KEY_PASSWORD 2>&1); then
+  if grep -qi 'password was incorrect' <<<"$listing"; then
+    echo "::error::ANDROID_KEYSTORE_PASSWORD does not open the $type key file. Copy password.txt into that secret again (no extra spaces or lines)."
+  else
+    echo "::error::The key file in ANDROID_KEYSTORE_BASE64 could not be read ($(grep -m1 -i 'keytool error' <<<"$listing" || echo 'unknown keytool error')). Copy it again with the PowerShell line."
+  fi
   exit 1
 fi
-mapfile -t aliases < <(printf '%s\n' "$listing" | grep 'PrivateKeyEntry' | cut -d, -f1)
+# The verbose listing names each alias on its own line, so commas inside an alias survive.
+mapfile -t aliases < <(awk '/^Alias name: /{a=substr($0,13)} /^Entry type: PrivateKeyEntry/{print a}' <<<"$listing")
 if [ "${#aliases[@]}" -eq 0 ]; then
   echo "::error::The key file opened but holds no signing key."
   exit 1
