@@ -69,7 +69,23 @@ Outputs under `releases/`:
   an installation signed with a different certificate.
 
 The app has no sign-in requirement. APK signing is separate from account access.
-No replacement production key is generated. Native file picking, read-aloud,
+No replacement production key is generated.
+
+### Signing the Android release on GitHub
+
+Manual runs of the **Android packages** workflow from `main` also produce
+`AnF-Android-<version>.apk`, signed with the owner's key, when two repository
+secrets exist (Settings → Secrets and variables → Actions → New repository secret):
+
+- `ANDROID_KEYSTORE_BASE64`: the key file as text. In PowerShell:
+  `[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\anf-release.jks")) | Set-Clipboard`
+- `ANDROID_KEYSTORE_PASSWORD`: the key file's password.
+
+Only if the key file holds several keys, add `ANDROID_KEY_ALIAS`; only if the key
+has its own password, add `ANDROID_KEY_PASSWORD`. Pull requests never receive
+these secrets. Every build also signs a throwaway copy with a temporary key, so a
+broken signing step shows up before a release needs it. The run summary prints the
+certificate's SHA-256 fingerprint so it can be compared with the key on file. Native file picking, read-aloud,
 exports and phone/tablet UI still require device validation before shipping.
 
 ## Linux
