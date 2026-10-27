@@ -10,6 +10,8 @@ import {marketplacePanel,restoreTheme} from './addons';
 import {updatesPanel} from './updates';
 import {createStudio} from './studio';
 import {appendDraft} from './knowledge-data';
+import {createReplyToDraft} from './reply-to-draft';
+import {createSaveAlert} from './save-alert';
 import {libraryCard,refreshLibrary,libraryControls} from './library';
 import {createDashboard,foldGuidance} from './dashboard';
 import {captureText,dayName} from './dashboard-data';
@@ -47,6 +49,8 @@ shell.append(sidebar,main);root.replaceChildren(shell);
 sidebar.append(h('h2',{text:'History'}),searchHistory,historyItems);
 const status=h('p',{class:'hint',role:'status',text:'Starting workspace…'});
 const saved=h('p',{class:'hint',role:'status',text:'Projects stay on this computer.'});
+const saveAlert=createSaveAlert({retry:()=>saveProject(),keepCopy:{label:'Save draft as a file',run:async()=>{status.textContent=`Copy saved: ${await invoke<string>('workspace_save',{title:title.value||'Recovered draft',text:draft.value,format:'txt'})}`;}}});
+const replyDraft=createReplyToDraft({draft:()=>draft.value,setDraft:text=>{draft.value=text;writing?.refresh(projectId);autosave();},show:()=>showView('writing'),notify:text=>{status.textContent=text;}});
 const name=h('input',{value:'My project','aria-label':'Project name',maxlength:160}) as HTMLInputElement;
 const selector=h('select',{'aria-label':'Saved project'}) as HTMLSelectElement;
 const model=h('select',{'aria-label':'Local model'},h('option',{value:'fast',text:'Fast · Qwen3 0.6B'}),h('option',{value:'balanced',text:'Balanced · Qwen3 1.7B'})) as HTMLSelectElement;
@@ -98,7 +102,7 @@ async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_
 function renderProjectHistory(entries:Entry[]){historyItems.replaceChildren(...entries.map(e=>{const b=h('button',{class:'history-item',title:e.name+' · '+new Date(e.updated).toLocaleString(),'aria-current':e.id===projectId?'true':'false'},h('strong',{text:e.name}),h('small',{text:e.snippet||new Date(e.updated).toLocaleDateString()}));b.disabled=busy;b.addEventListener('click',()=>{selector.value=e.id;selector.dispatchEvent(new Event('change'));});return b;}));if(!entries.length)historyItems.append(h('p',{class:'hint',text:searchHistory.value?'No matching conversations.':'Start a conversation. It will be saved here.'}));}
 async function searchProjects(){const request=++searchRequest;try{const entries=await invoke<Entry[]>('workspace_list_projects',{query:searchHistory.value});if(request===searchRequest)renderProjectHistory(entries);}catch(e){if(request===searchRequest)status.textContent=String(e);}}
 searchHistory.addEventListener('input',()=>{searchRequest++;if(searchTimer)clearTimeout(searchTimer);searchTimer=setTimeout(()=>void searchProjects(),220);});
-function saveProject():Promise<void>{if(saveTimer)clearTimeout(saveTimer);saveTimer=undefined;const p=snapshot();const current=projectGeneration;saveQueue=saveQueue.catch(()=>{}).then(async()=>{try{if(current===projectGeneration)p.id=projectId;const signature=JSON.stringify(p);if(current===projectGeneration&&signature===lastSavedSignature){saved.textContent='Saved locally. No changes to save.';return;}const result=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:current===projectGeneration?projectRevision:undefined});if(current===projectGeneration){if(projectId&&projectId!==result.id){name.value=result.name;status.textContent='Both devices changed this conversation. Your work was kept as a conflict copy; the other version is in History.';}projectId=result.id;projectRevision=result.revision;lastSavedSignature=JSON.stringify({...p,id:result.id,name:result.name});saved.textContent='Saved locally. Full conversation and loaded source text are retained.';await refreshProjects();}}catch(e){saved.textContent=`Could not save: ${String(e)}`;throw e;}});return saveQueue;}
+function saveProject():Promise<void>{if(saveTimer)clearTimeout(saveTimer);saveTimer=undefined;const p=snapshot();const current=projectGeneration;saveQueue=saveQueue.catch(()=>{}).then(async()=>{try{if(current===projectGeneration)p.id=projectId;const signature=JSON.stringify(p);if(current===projectGeneration&&signature===lastSavedSignature){saved.textContent='Saved locally. No changes to save.';saveAlert.saved();return;}const result=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:current===projectGeneration?projectRevision:undefined});if(current===projectGeneration){if(projectId&&projectId!==result.id){name.value=result.name;status.textContent='Both devices changed this conversation. Your work was kept as a conflict copy; the other version is in History.';}projectId=result.id;projectRevision=result.revision;lastSavedSignature=JSON.stringify({...p,id:result.id,name:result.name});saved.textContent='Saved locally. Full conversation and loaded source text are retained.';}saveAlert.saved();if(current===projectGeneration)await refreshProjects().catch(e=>{status.textContent=`Saved, but the history list could not refresh: ${String(e)}`;});}catch(e){saved.textContent=`Could not save: ${String(e)}`;saveAlert.failed(e);throw e;}});return saveQueue;}
 function autosave(){if(saveTimer)clearTimeout(saveTimer);saved.textContent='Unsaved changes…';saveTimer=setTimeout(()=>void saveProject().catch(()=>{}),800);}
 let shownMessages=40;
 function renderHistory(){renderFollowups();
@@ -106,9 +110,11 @@ function renderHistory(){renderFollowups();
   if(history.length>shownMessages){const older=h('button',{text:'Show earlier messages'});older.addEventListener('click',()=>{shownMessages+=40;renderHistory();});conversation.append(older);}
   for(const turn of history.slice(-shownMessages)){
     const text=turn.content.map(p=>p.text).join('\n');
-    const restore=h('button',{text:turn.role==='assistant'?'Use this reply':'Use this question'});
-    restore.disabled=busy;restore.addEventListener('click',()=>{if(busy)return;if(turn.role==='assistant'){draft.value=text;writing?.refresh(projectId);showView('writing');}else{question.value=text;showView('chat');}autosave();});
-    conversation.append(h('article',{class:'message '+turn.role},h('h3',{text:turn.role==='user'?'You':'AnF · Offline'}),turn.role==='assistant'?paginatedResponse(text):h('pre',{text}),restore));
+    let tools:HTMLButtonElement[];
+    if(turn.role==='assistant')tools=replyDraft.actions(text);
+    else{const reuse=h('button',{text:'Use this question'}) as HTMLButtonElement;reuse.addEventListener('click',()=>{if(busy)return;question.value=text;showView('chat');autosave();});tools=[reuse];}
+    for(const b of tools)b.disabled=busy;
+    conversation.append(h('article',{class:'message '+turn.role},h('h3',{text:turn.role==='user'?'You':'AnF · Offline'}),turn.role==='assistant'?paginatedResponse(text):h('pre',{text}),h('div',{class:'row'},...tools)));
   }
 }
 const reader=createReader(()=>{autosave();refreshLibrary(sourceList);},(text,source)=>{draft.value=clipText(draft.value,text,source);writing?.refresh(projectId);autosave();},message=>{status.textContent=message;},(text,source)=>{question.value='Explain this excerpt from '+source+':\n\n'+text;showView('chat');updateQuestionCount();autosave();status.textContent='Question prepared. Choose Ask local AI when ready.';});root.append(reader.root);
@@ -211,7 +217,7 @@ const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{q
  open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value=p.model;lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
  append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
 const studioTools=h('div',{class:'studio-header-tools'},h('button',{text:'Quick note',onclick:()=>quickNote.open()}),h('button',{text:'Local',class:'studio-status','aria-label':'Connection health',onclick:()=>{showView('settings');linkPanel.open=true;}}),h('button',{text:'Search','aria-label':'Search and commands',onclick:()=>void studio.open()}),h('button',{text:'Settings',onclick:()=>showView('settings')}));
-main.replaceChildren(h('header',{class:'workspace-header'},h('div',{},viewTitle,h('span',{class:'hint',text:'Private workspace · Saved on this computer'})),h('div',{class:'project-title'},name,saved),studioTools),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress),cancel));
+main.replaceChildren(h('header',{class:'workspace-header'},h('div',{},viewTitle,h('span',{class:'hint',text:'Private workspace · Saved on this computer'})),h('div',{class:'project-title'},name,saved),studioTools),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress,saveAlert.root,replyDraft.bar),cancel));
 window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();if(!busy)void run(ask,'Thinking locally');}if(event.ctrlKey&&event.key.toLowerCase()==='s'){event.preventDefault();if(!busy)void saveProject().catch(()=>{});}if(event.ctrlKey&&event.key.toLowerCase()==='f'){event.preventDefault();searchHistory.focus();}});
 
 foldGuidance(panelHost);showView('home');
