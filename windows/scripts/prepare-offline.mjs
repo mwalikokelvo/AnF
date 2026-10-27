@@ -25,15 +25,24 @@ async function download(url, name, expected) {
     if (!expected || await hash(file) === expected) { console.log(`${name}: verified cached file`); return; }
     throw Error(`${name}: cached checksum mismatch; move the file aside before retrying.`);
   }
-  console.log(`Downloading ${name}`);
-  const r = await fetch(url);
-  if (!r.ok) throw Error(`${name}: HTTP ${r.status}`);
-  await pipeline(Readable.fromWeb(r.body), createWriteStream(file+'.partial'));
+  // Hosts drop connections now and then: retry network and server errors, never a checksum mismatch.
+  for (let attempt = 1; ; attempt++) {
+    console.log(`Downloading ${name}${attempt > 1 ? ` (attempt ${attempt})` : ''}`);
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw Object.assign(Error(`${name}: HTTP ${r.status} from ${new URL(url).host}`), {retry: r.status >= 500 || r.status === 429});
+      await pipeline(Readable.fromWeb(r.body), createWriteStream(file+'.partial'));
+      break;
+    } catch (e) {
+      if (attempt >= 3 || e.retry === false) throw Error(e.message.startsWith(name) ? e.message : `${name}: ${e.message} (${new URL(url).host})`);
+      await new Promise(done => setTimeout(done, 5000 * attempt));
+    }
+  }
   if (expected && await hash(file+'.partial') !== expected) throw Error(`${name}: checksum mismatch`);
   await rename(file+'.partial',file);
   console.log(`${name}: download verified`);
 }
-await Promise.all([
+const results = await Promise.allSettled([
   download(`https://github.com/ggml-org/llama.cpp/releases/download/b11380/${runtime.name}`, runtime.file,runtime.sha256),
   download('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf', 'model-source.gguf','061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a'),
   download('https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/Qwen3-0.6B-Q8_0.gguf', 'model-fast.gguf','9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031'),
@@ -44,6 +53,10 @@ await Promise.all([
   download('https://raw.githubusercontent.com/ggml-org/llama.cpp/b11380/LICENSE','llama-LICENSE.txt'),
   download('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/LICENSE','Qwen-LICENSE.txt'),
 ]);
+// Name every failed file as a CI annotation, so the cause is visible without the full log.
+const failed = results.filter(r => r.status === 'rejected');
+for (const r of failed) console.log(`::error::${String(r.reason?.message || r.reason)}`);
+if (failed.length) process.exit(1);
 await writeFile(path.join(root,'NOTICE.txt'), `AnF offline components (0.1.4)
 Runtime: llama.cpp b11380 (MIT), https://github.com/ggml-org/llama.cpp
 Fast: official Qwen3-0.6B Q8_0, unmodified (Apache-2.0), https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
