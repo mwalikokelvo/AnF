@@ -21,6 +21,8 @@ import {summaries,readProject,backupProjects,summary,signature,type Summary} fro
 import {newSyncId,toWire,fromWire,type Snapshot} from './sync';
 import './style.css';
 import '../../windows/src/workspace/anf-design.css';
+import '../../windows/src/workspace/anf-color.css';
+import './anf-color.css';
 import {sectionIcon,wordmark} from '../../windows/src/workspace/anf-brand';
 import {h} from '../../windows/src/views/dom';
 import {createWritingEditor,renderWriting} from '../../windows/src/workspace/writing';
