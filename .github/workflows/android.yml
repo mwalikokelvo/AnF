@@ -118,7 +118,9 @@ jobs:
           rm -f "$RUNNER_TEMP/throwaway.jks" "$RUNNER_TEMP/selftest.apk"
       - name: Sign the release package with the owner's key (manual runs from main only)
         # Pull requests never see the key. Without the two secrets this step only leaves a note.
+        # A key problem is reported as an error but still lets the unsigned and debug packages upload.
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        continue-on-error: true
         env:
           KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
