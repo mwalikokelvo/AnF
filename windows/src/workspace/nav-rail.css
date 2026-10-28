@@ -1,0 +1,48 @@
+/* Glass navigation rail (nav-rail.ts). Windows workspace only: Android keeps its own bottom navigation. */
+.glass-rail{
+  --rail-open:244px;--rail-closed:68px;--rail-pad:10px;--rail-ease:cubic-bezier(.16,1,.3,1);
+  background:color-mix(in srgb,var(--side) 74%,transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);
+  box-shadow:0 12px 32px #00000073;
+}
+.rail-pin{font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted)}
+.rail-pin[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
+
+@media(min-width:768px){
+  /* The grid keeps a fixed column for the closed rail, so opening it floats over content instead of moving it. */
+  .workspace-layout.has-glass-rail{grid-template-columns:calc(var(--rail-closed,68px) + 28px) minmax(0,1fr)}
+  .workspace-layout.has-glass-rail>main{grid-column:2}
+  .glass-rail{
+    position:fixed;z-index:200;top:16px;bottom:16px;left:14px;width:var(--rail-open);
+    padding:18px var(--rail-pad) 14px;border-radius:20px;overflow:hidden auto;
+    transition:width .35s var(--rail-ease),background-color .25s ease-out,border-color .25s ease-out;
+  }
+  /* Contents keep the open width and are clipped when closed, so icons never move under the pointer. */
+  .glass-rail>*{width:calc(var(--rail-open) - 2 * var(--rail-pad) - 2px);box-sizing:border-box}
+  .glass-rail>.rail-pin{position:absolute;top:22px;right:12px;width:auto}
+  .glass-rail .brand strong,.glass-rail .offline-badge,.glass-rail .mode-rail,.glass-rail .workspace-navigation span,
+  .glass-rail>.rail-pin,.glass-rail>:is(button,h2,input,nav):not(.workspace-navigation){transition:opacity .2s ease,transform .2s ease}
+  .glass-rail[data-rail=collapsed]{width:var(--rail-closed);background:color-mix(in srgb,var(--side) 45%,transparent);border-color:color-mix(in srgb,var(--ink) 4%,transparent);overflow:hidden}
+  .glass-rail[data-rail=collapsed] :is(.brand strong,.offline-badge,.mode-rail,.workspace-navigation span),
+  .glass-rail[data-rail=collapsed]>.rail-pin,
+  .glass-rail[data-rail=collapsed]>:is(button,h2,input,nav):not(.workspace-navigation){opacity:0;pointer-events:none;transform:translateX(-10px)}
+  .glass-rail .workspace-navigation button{position:relative}
+  .glass-rail .workspace-navigation button[aria-current=page]::before{content:'';position:absolute;left:calc(-1 * var(--rail-pad));top:50%;width:3px;height:18px;transform:translateY(-50%);border-radius:0 4px 4px 0;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .glass-rail[data-rail=collapsed] .workspace-navigation button[aria-current=page]{box-shadow:none}
+  /* The docked music player starts after the closed rail. */
+  body.has-glass-rail .music-player:not(.music-full-player){left:calc(var(--rail-closed,68px) + 42px)}
+}
+
+@media(max-width:767px){
+  /* Narrow windows: every section as an icon in a floating bottom bar, within thumb reach. */
+  .workspace-layout.has-glass-rail{grid-template-columns:minmax(0,1fr)}
+  .workspace-layout.has-glass-rail>main{grid-column:1;padding-bottom:96px}
+  .glass-rail{position:fixed;z-index:200;left:16px;right:16px;bottom:16px;height:64px;padding:0 10px;border-radius:32px;display:flex;align-items:center;overflow:hidden}
+  .glass-rail>:not(.workspace-navigation){display:none!important}
+  .glass-rail>.workspace-navigation{display:flex;flex-direction:row;justify-content:space-around;align-items:center;width:100%;gap:2px;margin:0}
+  .history-sidebar.glass-rail .workspace-navigation button,.history-sidebar.glass-rail .workspace-navigation button[hidden]{display:grid!important;place-items:center;padding:10px;min-width:44px;min-height:44px;border-radius:20px}
+  .glass-rail .workspace-navigation span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  body.has-glass-rail .music-player:not(.music-full-player){left:16px;right:16px;bottom:92px}
+  body.has-glass-rail.has-music-player .workspace-content,body.has-glass-rail.has-native-music-player .workspace-content{padding-bottom:180px}
+}
