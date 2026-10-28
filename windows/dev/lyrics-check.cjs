@@ -1,0 +1,11 @@
+const {parseLyrics,activeLine,toLrc,baseName}=require(require('node:path').resolve(process.argv[2]));const assert=require('node:assert/strict');
+const lrc='[ti:Song]\n[ar:Someone]\n[00:12.50]First line\n[00:05.00][01:00.00]Chorus\n[00:20.123]<00:20.20>Word <00:21.00>timed\n';
+const l=parseLyrics(lrc);assert.equal(l.synced,true);assert.deepEqual(l.lines.map(x=>x.text),['Chorus','First line','Word timed','Chorus']);assert.deepEqual(l.lines.map(x=>x.time),[5,12.5,20.123,60]);
+assert.equal(activeLine(l,0),-1);assert.equal(activeLine(l,5),0);assert.equal(activeLine(l,13),1);assert.equal(activeLine(l,59.9),2);assert.equal(activeLine(l,600),3);
+const shifted=parseLyrics('[offset:+500]\n[00:10.00]Late');assert.equal(shifted.lines[0].time,9.5);
+const plain=parseLyrics('\uFEFFVerse one\n\nVerse two\r\n');assert.equal(plain.synced,false);assert.deepEqual(plain.lines.map(x=>x.text),['Verse one','Verse two']);assert.equal(activeLine(plain,30),-1);
+assert.deepEqual(parseLyrics('').lines,[]);
+const back=parseLyrics(toLrc([{text:'Hi',timestamp:61500},{text:'There',timestamp:0}]));assert.deepEqual(back.lines,[{time:0,text:'There'},{time:61.5,text:'Hi'}]);
+assert.equal(baseName('C:\\Music\\My Song.MP3'),'my song');assert.equal(baseName('album/My Song.lrc'),'my song');
+assert.equal(parseLyrics('[00:01.00]x\n'.repeat(6000)).lines.length,5000);
+console.log('Lyrics checks passed: LRC stamps, repeated lines, word timing, offset, plain text, embedded lyrics round trip, file pairing and limits.');
