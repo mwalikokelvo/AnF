@@ -7,6 +7,11 @@ on:
         description: 'Optional previous AnF-Android artifact run for installation upgrade QA'
         required: false
         type: string
+      baseline_artifact:
+        description: 'Previous APK artifact name (use Coucou-Android for older releases)'
+        required: false
+        default: 'AnF-Android'
+        type: string
   pull_request:
     paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', 'scripts/sign-android.sh', 'scripts/check-styles.mjs', '.github/workflows/android.yml']
 
@@ -66,7 +71,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: Coucou-Android
+          name: ${{ inputs.baseline_artifact || 'AnF-Android' }}
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-android

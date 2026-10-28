@@ -10,8 +10,13 @@ on:
   workflow_dispatch:
     inputs:
       baseline_run:
-        description: 'Run containing the previous Coucou-Windows-setup artifact for installation upgrade QA'
+        description: 'Run containing the previous installer artifact for installation upgrade QA'
         required: false
+        type: string
+      baseline_artifact:
+        description: 'Previous installer artifact name (use Coucou-Windows-setup for older releases)'
+        required: false
+        default: 'AnF-Windows-setup'
         type: string
       candidate_run:
         description: 'Optional completed build run to test without rebuilding'
@@ -229,7 +234,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: Coucou-Windows-setup
+          name: ${{ inputs.baseline_artifact || 'AnF-Windows-setup' }}
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-installer
@@ -284,7 +289,7 @@ jobs:
           node-version: 24
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: Coucou-Windows-setup
+          name: ${{ inputs.baseline_artifact || 'AnF-Windows-setup' }}
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-installer
