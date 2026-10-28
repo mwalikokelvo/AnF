@@ -98,11 +98,7 @@ jobs:
           disk-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
-          script: |
-            version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-            baseline=(previous-android/*-unsigned.apk)
-            test "${#baseline[@]}" -eq 1
-            python3 scripts/app-qa/android-upgrade.py --baseline "${baseline[0]}" --candidate "releases/AnF-Android-$version-unsigned.apk" --test android/gradle-build/outputs/apk/androidTest/release/CoucouAndroid-release-androidTest.apk --output "$RUNNER_TEMP/anf-android-qa"
+          script: bash scripts/app-qa/run-android-upgrade.sh
       - name: Retain installed Android test evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''

@@ -27,7 +27,19 @@ try {
   assert(page,'Installed application did not open its workspace');
   page.setDefaultTimeout(90000);
   page.on('pageerror',e=>errors.push(e.message));
-  const view=async id=>{await page.locator(`[data-view="${id}"]`).click();await page.locator(`#panel-${id}`).waitFor({state:'visible'});};
+  const view=async id=>{
+    // Follow the person's navigation path: open the rail, select its mode,
+    // then the section. Sections in another mode are intentionally hidden.
+    await page.locator('.history-sidebar').hover();
+    const section=page.locator(`[data-view="${id}"]`);
+    const mode=await section.getAttribute('data-mode');
+    if(mode&&mode!=='keep'){
+      const tab=page.locator(`.mode-rail [data-mode="${mode}"]`);
+      if(await tab.count())await tab.click(); // Older baselines had no mode rail.
+    }
+    await section.click();
+    await page.locator(`#panel-${id}`).waitFor({state:'visible'});
+  };
   const saved=async()=>{await view('settings');await page.getByRole('button',{name:'Save project',exact:true}).click();await page.getByText('Conversation saved.',{exact:true}).waitFor();};
   await page.waitForFunction(()=>document.querySelector('[aria-label="Your question"]')?.disabled===false);
   assert(!await page.getByText('Workspace initialization failed:',{exact:false}).count());
