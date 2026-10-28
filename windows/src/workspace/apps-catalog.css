@@ -1,0 +1,6 @@
+/* Open-source apps panel. Cards reuse the marketplace styles in addons.css; only the filters are new. */
+.app-catalog input[type=search]{width:100%;margin-top:10px}
+.app-catalog .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.app-catalog .chip{padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px}
+.app-catalog .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,var(--bg))}
+.app-catalog .platforms{margin:6px 0 0;font-size:12px;color:var(--muted)}

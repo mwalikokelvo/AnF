@@ -116,3 +116,16 @@ body:has(#app) .native-music-source{display:none}
 .music-hub[data-music-theme="ember"]{--music-accent:#ff6b4a;--music-bg:#1a1210;--music-ink:#fff4ef;--music-muted:#cbb8b0;--music-line:#3a2a26;background:radial-gradient(900px 420px at 0% -10%,#4a2418 0%,transparent 55%),#1a1210}
 .music-hub[data-music-theme="violet"]{--music-accent:#c084fc;--music-bg:#14121c;--music-ink:#f4f0ff;--music-muted:#b7aec9;--music-line:#2e2940;background:radial-gradient(900px 420px at 0% -10%,#2a2150 0%,transparent 55%),#14121c}
 .music-hub[data-music-theme="dusk"]{--music-accent:#7eb6ff;--music-bg:#10141c;--music-ink:#eef3ff;--music-muted:#a9b4c7;--music-line:#263044;background:radial-gradient(900px 420px at 0% -10%,#1a2a4a 0%,transparent 55%),#10141c}
+/* Lyrics: full player only. */
+.music-player:not(.music-full-player) .music-lyrics{display:none}
+.music-full-player .music-lyrics{width:min(100%,560px);max-height:42vh;overflow:auto;display:grid;gap:4px;justify-items:center;text-align:center;padding:8px 0 24px;scrollbar-width:thin}
+.music-full-player .music-lyric{margin:0;padding:6px 12px;border:0;border-radius:10px;background:transparent;color:#f4f7f580;font-size:18px;line-height:1.45;font-weight:500;transition:color .2s ease,transform .2s ease}
+.music-full-player button.music-lyric:hover{color:#f4f7f5;background:#ffffff10}
+.music-full-player .music-lyric.active{color:#f4f7f5;font-weight:700;transform:scale(1.04)}
+.music-full-player .music-lyrics-empty{margin:0;color:#adb7ba;font-size:13px}
+/* The full player's extras wrap onto more lines in narrow windows instead of scrolling sideways. */
+.music-player.music-full-player .music-extras{flex-wrap:wrap;row-gap:10px}
+/* The blurred art backdrop overhangs the dialog on purpose; the full player only ever scrolls vertically. */
+.music-player.music-full-player{overflow-x:hidden}
+.music-full-player .music-lyrics{flex-shrink:0}
+.music-full-player .music-lyrics{position:relative}
