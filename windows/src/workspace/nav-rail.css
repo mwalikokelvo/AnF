@@ -12,6 +12,7 @@
 @media(min-width:768px){
   /* The grid keeps a fixed column for the closed rail, so opening it floats over content instead of moving it. */
   .workspace-layout.has-glass-rail{grid-template-columns:calc(var(--rail-closed,68px) + 28px) minmax(0,1fr)}
+  .workspace-layout.has-glass-rail[data-rail-pinned=true]{grid-template-columns:calc(var(--rail-open,244px) + 28px) minmax(0,1fr)}
   .workspace-layout.has-glass-rail>main{grid-column:2}
   .glass-rail{
     position:fixed;z-index:200;top:16px;bottom:16px;left:14px;width:var(--rail-open);
@@ -32,6 +33,7 @@
   .glass-rail[data-rail=collapsed] .workspace-navigation button[aria-current=page]{box-shadow:none}
   /* The docked music player starts after the closed rail. */
   body.has-glass-rail .music-player:not(.music-full-player){left:calc(var(--rail-closed,68px) + 42px)}
+  body.has-glass-rail[data-rail-pinned=true] .music-player:not(.music-full-player){left:calc(var(--rail-open,244px) + 42px)}
 }
 
 @media(max-width:767px){

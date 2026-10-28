@@ -16,6 +16,11 @@ export function attachNavRail(rail:HTMLElement, layout:HTMLElement) {
   rail.classList.add('glass-rail');
   layout.classList.add('has-glass-rail');
   document.body.classList.add('has-glass-rail');
+  const paintPinned = () => {
+    layout.dataset.railPinned = String(pinned);
+    document.body.dataset.railPinned = String(pinned);
+  };
+  paintPinned();
 
   const engaged = () => rail.matches(':hover') || rail.contains(document.activeElement);
   const set = (collapsed:boolean) => { rail.dataset.rail = collapsed ? 'collapsed' : 'open'; };
@@ -32,10 +37,22 @@ export function attachNavRail(rail:HTMLElement, layout:HTMLElement) {
   rail.addEventListener('pointerleave', arm);
   rail.addEventListener('focusin', open);
   rail.addEventListener('focusout', event => { if (!rail.contains(event.relatedTarget as Node|null)) arm(); });
+  rail.addEventListener('click', event => {
+    if (!(event.target instanceof Element) || !event.target.closest('.workspace-navigation button[data-view]')) return;
+    // A selected section hands focus back to its content. Otherwise the focused
+    // sidebar keeps the overlay open and can block that section's own controls.
+    const panel = layout.querySelector<HTMLElement>('.workspace-panel:not([hidden])');
+    if (panel) {
+      if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1');
+      panel.focus({preventScroll:true});
+    }
+    if (wide.matches && !pinned) { cancel(); set(true); }
+  });
   wide.addEventListener('change', () => { set(false); arm(); });
   pin.addEventListener('click', () => {
     pinned = !pinned;
     pin.setAttribute('aria-pressed', String(pinned));
+    paintPinned();
     try { localStorage.setItem(PIN_KEY, pinned ? '1' : '0'); } catch { /* the choice lasts for this session */ }
     if (pinned) open(); else arm();
   });

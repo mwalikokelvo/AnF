@@ -47,8 +47,12 @@ public class UpgradeUiTest {
       evaluate("JSON.stringify({url:location.href,title:document.title,ready:document.readyState,status:document.querySelector('.status')?.textContent})"));
   }
   private void clickView(String name)throws Exception {
-    evaluate("document.querySelector('[data-view=\""+name+"\"]').click()");
-    until("!document.querySelector('section[aria-label=\""+Character.toUpperCase(name.charAt(0))+name.substring(1)+"\"]').hidden");
+    String selector=JSONObject.quote("[data-view=\""+name+"\"]");
+    evaluate("document.querySelector("+selector+").click()");
+    // The view ID is stable, but its label need not be a capitalized ID:
+    // audio is labelled Audio Studio, and music is labelled Music Hub.
+    until("Array.from(document.querySelectorAll('section[aria-label]')).some(p=>"+
+      "p.getAttribute('aria-label')===document.querySelector("+selector+").textContent.trim()&&!p.hidden)");
   }
   private JSONObject fixture(String id,String name)throws Exception {
     return new JSONObject().put("id",id).put("name",name).put("draft",BEFORE)
