@@ -247,6 +247,7 @@ jobs:
           npm ci --prefix scripts/app-qa --ignore-scripts
           if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
           node scripts/app-qa/rail-handoff.mjs
+          node scripts/app-qa/music-layout.mjs
           if ($LASTEXITCODE) { throw 'Navigation rail interaction regression failed' }
           $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
