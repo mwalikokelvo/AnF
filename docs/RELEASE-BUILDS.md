@@ -42,7 +42,31 @@ With both set, a release-tag or manual run from `main` of the Windows workflow i
 `certificateThumbprint`, SHA-256 and a DigiCert timestamp, then fails the run unless every installer has a valid,
 timestamped signature. It prints the signer's name so you can check it is yours.
 Pull-request builds never receive the certificate. For an extra gate, store the two secrets in a GitHub Environment with required reviewers and add `environment:` to the job.
-A certificate from an unknown publisher still builds SmartScreen reputation slowly; an EV certificate avoids that.
+SmartScreen can still warn about new releases until signed downloads build reputation; since 2024 that applies to EV
+certificates too. New CA certificates keep their key on a hardware token or cloud service, so they need a different signing
+step than this `.pfx` one (for example Microsoft Artifact Signing).
+
+#### A self-made certificate (free, for your own PCs)
+
+A certificate you create yourself works with the same two secrets. The workflow notices it (subject equals issuer), trusts it
+on the throwaway runner only so the signature can be verified, and says so in the run. Windows trusts the result only on PCs
+where you installed the certificate; everyone else still sees a warning. Every Windows build also self-tests this path with a
+throwaway certificate. To create one and trust it on your PC (PowerShell **run as administrator**, because
+Windows checks an installer that asks for elevation against the computer-wide trust stores):
+
+```powershell
+$dir = "$env:USERPROFILE\Documents\AnF-signing"; New-Item -ItemType Directory -Force $dir | Out-Null
+$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=AnF" -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy Exportable -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(5)
+$pw = -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 24 | ForEach-Object {[char]$_}); Set-Content "$dir\password.txt" $pw -NoNewline
+Export-PfxCertificate -Cert $cert -FilePath "$dir\anf-signing.pfx" -Password (ConvertTo-SecureString $pw -AsPlainText -Force) | Out-Null
+Export-Certificate -Cert $cert -FilePath "$dir\anf-signing.cer" | Out-Null
+Import-Certificate -FilePath "$dir\anf-signing.cer" -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath "$dir\anf-signing.cer" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+```
+
+Keep `anf-signing.pfx` and `password.txt` private and backed up; `anf-signing.cer` holds no secret and is what another PC
+of yours needs (the last two lines, as administrator) to trust AnF too. A downloaded installer also carries Windows' "from the internet" mark,
+which SmartScreen checks separately: after downloading, `Unblock-File` (or Properties → Unblock) removes it for that file.
 After the first signed build has been installed and checked, set `PUBLISH` to `'true'` in `windows.yml` to resume publishing.
 
 ## Android
