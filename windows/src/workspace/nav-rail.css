@@ -40,9 +40,13 @@
   .workspace-layout.has-glass-rail>main{grid-column:1;padding-bottom:96px}
   .glass-rail{position:fixed;z-index:200;left:16px;right:16px;bottom:16px;height:64px;padding:0 10px;border-radius:32px;display:flex;align-items:center;overflow:hidden}
   .glass-rail>:not(.workspace-navigation){display:none!important}
-  .glass-rail>.workspace-navigation{display:flex;flex-direction:row;justify-content:space-around;align-items:center;width:100%;gap:2px;margin:0}
-  .history-sidebar.glass-rail .workspace-navigation button,.history-sidebar.glass-rail .workspace-navigation button[hidden]{display:grid!important;place-items:center;padding:10px;min-width:44px;min-height:44px;border-radius:20px}
+  .glass-rail>.workspace-navigation{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;width:100%;gap:2px;margin:0;min-width:0;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .history-sidebar.glass-rail .workspace-navigation button,.history-sidebar.glass-rail .workspace-navigation button[hidden]{display:grid!important;place-items:center;padding:10px;min-width:44px;min-height:44px;border-radius:20px;flex:0 0 44px}
   .glass-rail .workspace-navigation span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   body.has-glass-rail .music-player:not(.music-full-player){left:16px;right:16px;bottom:92px}
   body.has-glass-rail.has-music-player .workspace-content,body.has-glass-rail.has-native-music-player .workspace-content{padding-bottom:180px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .glass-rail,.glass-rail *{transition:none!important;scroll-behavior:auto!important}
 }

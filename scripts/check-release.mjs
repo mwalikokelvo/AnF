@@ -10,6 +10,7 @@ const {build}=require('esbuild');
 const out=path.join(root,'windows/target/release-checks');
 await mkdir(out,{recursive:true});
 const checks=[
+  ['windows/dev/lyrics-check.cjs','windows/src/workspace/lyrics.ts'],
   ['windows/dev/reader-check.cjs','windows/src/workspace/reader-data.ts'],
   ['windows/dev/library-check.cjs','windows/src/workspace/library-data.ts'],
   ['windows/dev/dashboard-check.cjs','windows/src/workspace/dashboard-data.ts'],
@@ -32,4 +33,4 @@ for(let i=0;i<checks.length;i++) {
   await build({entryPoints:[path.join(root,source)],bundle:true,platform:'node',format:'cjs',outfile:bundle});
   run(script,[bundle]);
 }
-console.log('Passed 9 existing release regression checks.');
+console.log(`Passed ${checks.length+1} release regression checks.`);

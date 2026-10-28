@@ -1,7 +1,7 @@
 import {reconcileQueue,type RepeatMode} from './audio-queue';
 import type {TrackMetadata} from './audio-metadata';
 export type MediaKind='music'|'audiobook'|'podcast';
-export type AudioTrack=TrackMetadata & {id:string;title:string;artist:string;name:string;blob:Blob;created:number;duration?:number;wave?:number[];sampleRate?:number;kind?:MediaKind;chapters?:{title:string;start:number}[];};
+export type AudioTrack=TrackMetadata & {id:string;title:string;artist:string;name:string;importPath?:string;blob:Blob;created:number;duration?:number;wave?:number[];sampleRate?:number;kind?:MediaKind;chapters?:{title:string;start:number}[];};
 export type AudioState={id:'queue';order:string[];current?:string;repeat:RepeatMode;position:number;custom?:boolean};
 export type AudioPlaylist={id:string;name:string;order:string[]};
 export function audioLibrary(){

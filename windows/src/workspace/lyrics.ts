@@ -22,6 +22,7 @@ export function parseLyrics(source:string):Lyrics {
       rest = raw.slice(TAG.lastIndex);
     }
     const line = rest.replace(/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g, '').trim();
+    // LRC positive offsets advance lyrics (also used by FFmpeg's lrc demuxer).
     if (stamps.length) for (const t of stamps) timed.push({time:Math.max(0, t - offset), text:line});
     else if (line) plain.push({text:line});
   }
@@ -52,4 +53,20 @@ export function toLrc(lines:{text:string; timestamp?:number}[]):string {
 /** Lower-cased file name without its extension, used to pair `song.lrc` with `song.mp3`. */
 export function baseName(name:string):string {
   return name.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').trim().toLocaleLowerCase();
+}
+
+type LyricTrack = {id:string;name:string;importPath?:string};
+const pathStem = (name:string) => name.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\.[^/.]+$/, '').normalize('NFC').toLowerCase();
+
+/** Prefer the matching folder; never guess when more than one song shares a name. */
+export function matchLyricsTrack<T extends LyricTrack>(file:{name:string;webkitRelativePath?:string}, tracks:T[], importedIds:ReadonlySet<string> = new Set()):T|undefined {
+  const unique = [...new Map(tracks.map(t => [t.id,t])).values()];
+  if (file.webkitRelativePath) {
+    const samePath = unique.filter(t => t.importPath && pathStem(t.importPath) === pathStem(file.webkitRelativePath!));
+    const justImported = samePath.filter(t => importedIds.has(t.id));
+    if (justImported.length) return justImported.length === 1 ? justImported[0] : undefined;
+    if (samePath.length) return samePath.length === 1 ? samePath[0] : undefined;
+  }
+  const sameName = unique.filter(t => baseName(t.name) === baseName(file.name));
+  return sameName.length === 1 ? sameName[0] : undefined;
 }
