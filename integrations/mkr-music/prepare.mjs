@@ -16,7 +16,11 @@ try {
 } catch {
   console.log('Cloning MKR Music upstream repository...');
   await mkdir(path.dirname(source), { recursive: true });
-  spawnSync('git', ['clone', 'https://github.com/mkr-infinity/mkr-music.git', source], { stdio: 'inherit' });
+  const clone = spawnSync('git', ['clone', 'https://github.com/mkr-infinity/mkr-music.git', source], { stdio: 'inherit' });
+  if (clone.error || clone.status !== 0) {
+    console.error(`Failed to clone MKR Music: ${clone.error?.message || `exit status ${clone.status}`}`);
+    process.exit(clone.status || 1);
+  }
 }
 
 // Copy reusable Kotlin multiplatform / Android modules

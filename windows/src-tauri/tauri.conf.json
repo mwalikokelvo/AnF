@@ -12,8 +12,8 @@
   "app": {
     "withGlobalTauri": false,
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost",
-      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https://lrclib.net",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 https://lrclib.net"
     },
     "windows": [
       {
@@ -67,7 +67,7 @@
       "../media/*LICENSE*": "media/",
       "../media/SOURCES.txt": "media/SOURCES.txt"
     },
-    "copyright": "\u00a9 Louis Raille",
+    "copyright": "© Louis Raille",
     "category": "DeveloperTool",
     "shortDescription": "Your local workspace for ideas, documents and sound",
     "longDescription": "AnF brings writing, documents, local AI and audio into a private workspace. Save your ideas on your devices and connect Android and Windows over your own Wi-Fi.",

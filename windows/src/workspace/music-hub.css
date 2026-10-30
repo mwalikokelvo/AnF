@@ -141,5 +141,6 @@ body:has(#app) .native-music-source{display:none}
 .music-toolbar .music-sort{display:flex;align-items:center;gap:8px;width:auto;margin:0}
 .music-toolbar .music-sort select{width:auto;max-width:180px;margin:0}
 /* The full-player launcher is a button, not the former second-child div. */
-.music-player .music-now-info{display:block;flex:1;min-width:0;text-align:left;padding:0;border-radius:6px;overflow:hidden}
-.music-player .music-now-info strong,.music-player .music-now-info span{max-width:100%;text-align:left}
+.music-player:not(.music-full-player) .music-now-info{display:block;flex:1;min-width:0;text-align:left;padding:0;border-radius:6px;overflow:hidden}
+.music-player:not(.music-full-player) .music-now-info strong,.music-player:not(.music-full-player) .music-now-info span{max-width:100%;text-align:left}
+.music-player.music-full-player .music-now-info strong,.music-player.music-full-player .music-now-info span{text-align:center}

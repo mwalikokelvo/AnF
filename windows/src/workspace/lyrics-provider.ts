@@ -10,6 +10,10 @@ export type RemoteLyrics = {
   syncedLyrics?: string;
 };
 
+const LRCLIB_CLIENT_HEADER = {
+  'Lrclib-Client': 'AnF-Desktop/0.1.22 (https://github.com/mwalikokelvo/AnF)',
+};
+
 const titleCleanupPatterns = [
   /\s*\(.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit).*?\)/gi,
   /\s*\[.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit).*?\]/gi,
@@ -68,14 +72,24 @@ export async function fetchOnlineLyrics(track: {
   if (duration && duration > 0) params.set('duration', String(duration));
 
   try {
-    const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`);
+    const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
+      headers: LRCLIB_CLIENT_HEADER,
+    });
+
+    if (res.status === 429 || res.status === 503) {
+      const retryAfter = res.headers?.get?.('Retry-After');
+      console.warn(`LRCLIB rate limited or unavailable (${res.status}). Backing off${retryAfter ? `, retry after ${retryAfter}s` : ''}.`);
+      return undefined;
+    }
+
     if (res.ok) {
       const data: RemoteLyrics = await res.json();
       if (data.syncedLyrics?.trim()) return data.syncedLyrics.trim();
       if (data.plainLyrics?.trim()) return data.plainLyrics.trim();
     }
   } catch {
-    // Fall through to query search
+    // Network error or offline
+    return undefined;
   }
 
   // 2. Fuzzy search fallback
@@ -83,7 +97,16 @@ export async function fetchOnlineLyrics(track: {
     const query = [title, artist !== 'Unknown artist' ? artist : ''].filter(Boolean).join(' ');
     if (!query) return undefined;
 
-    const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
+      headers: LRCLIB_CLIENT_HEADER,
+    });
+
+    if (res.status === 429 || res.status === 503) {
+      const retryAfter = res.headers?.get?.('Retry-After');
+      console.warn(`LRCLIB search rate limited or unavailable (${res.status}). Backing off${retryAfter ? `, retry after ${retryAfter}s` : ''}.`);
+      return undefined;
+    }
+
     if (res.ok) {
       const list: RemoteLyrics[] = await res.json();
       if (Array.isArray(list) && list.length) {
