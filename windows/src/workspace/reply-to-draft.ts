@@ -1,5 +1,5 @@
-// UI-02: an AI reply never silently replaces writing. "Add to draft" appends; "Replace draft…" asks first
-// when there is writing to lose; either can be undone while the draft is unchanged since.
+// UI-02: an AI reply never silently replaces writing. "Add to draft" appends; "Insert at cursor" inserts;
+// "Replace draft…" asks first when there is writing to lose; either can be undone while the draft is unchanged since.
 import {h} from '../views/dom';
 import {appendDraft} from './knowledge-data';
 
@@ -35,13 +35,19 @@ export function createReplyToDraft(o:Options){
     dialog.returnValue='cancel';dialog.showModal();
     return new Promise(resolve=>dialog.addEventListener('close',()=>resolve(dialog.returnValue==='replace'),{once:true}));
   }
-  /** The two actions shown under an assistant reply. */
+  /** The actions shown under an assistant reply: Add, Insert at cursor, or Replace with confirmation. */
   function actions(reply:string){
     const add=h('button',{type:'button',text:'Add to draft'}) as HTMLButtonElement;
     add.addEventListener('click',()=>{try{apply(appendDraft(o.draft(),reply),'Reply added to the end of your draft.');}catch(e){o.notify(String(e).replace(/^Error:\s*/,''));}});
+    const insert=h('button',{type:'button',text:'Insert at cursor'}) as HTMLButtonElement;
+    insert.addEventListener('click',()=>{
+      const cur=o.draft();
+      const next=cur?cur+(cur.endsWith('\n')?'':'\n\n')+reply:reply;
+      apply(next,'Reply inserted into your draft.');
+    });
     const replace=h('button',{type:'button',text:'Replace draft…'}) as HTMLButtonElement;
     replace.addEventListener('click',async()=>{if(o.draft().trim()&&!await confirmReplace(reply))return;apply(reply,'Draft replaced with the reply.');});
-    return [add,replace];
+    return [add,insert,replace];
   }
   /** Forget the undo when another conversation is opened, so it can never write into the wrong draft. */
   function reset(){undo=null;bar.hidden=true;}

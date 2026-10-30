@@ -40,7 +40,7 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     if(previewTimer)clearTimeout(previewTimer);
     if(projectKey!==key){key=projectKey;undo.length=0;redo.length=0;pending=undefined;proposal.hidden=true;previous=draft.value;}
     else if(previous!==draft.value){undo.push(previous);if(undo.length>40)undo.shift();redo.length=0;previous=draft.value;}
-    count.textContent=`${draft.value.trim()?draft.value.trim().split(/\s+/u).length:0} words · ${Array.from(draft.value).length.toLocaleString()} characters`;
+    const words=draft.value.trim()?draft.value.trim().split(/\s+/u).length:0,chars=Array.from(draft.value).length,readTime=Math.max(1,Math.ceil(words/200));count.textContent=`${words.toLocaleString()} word${words===1?'':'s'} · ${chars.toLocaleString()} char${chars===1?'':'s'} · ~${readTime} min read`;
     if(mode.value==='preview'||mode.value==='split'){if(draft.value.length>12000)previewTimer=setTimeout(paintPreview,180);else paintPreview();}
   }
   function commit(value:string){if(new TextEncoder().encode(value).length>200000){notify('This formatting change would exceed the writing size limit. Shorten the draft first.');return;}draft.value=value;refresh();changed();}
@@ -76,7 +76,7 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     close.addEventListener('click',()=>{pending=undefined;proposal.hidden=true;notify('Original draft kept.');});
     const actions=h('div',{class:'row'},close);
     if(!review){const accept=h('button',{text:'Accept changes',class:'primary'});accept.addEventListener('click',()=>{if(!pending)return;if(draft.value!==pending.original){notify('The draft has changed. Request a new suggestion before accepting.');return;}commit(pending.next);pending=undefined;proposal.hidden=true;notify('Revision accepted. Use Undo to restore the previous draft.');});actions.append(accept);}
-    proposal.replaceChildren(h('h3',{text:review?'Writing feedback':'Review suggested changes'}),h('div',{class:'revision-columns'},h('div',{},h('h4',{text:'Original'}),h('pre',{text:original})),h('div',{},h('h4',{text:review?'Feedback':'Suggestion'}),h('pre',{text:next}))),actions);
+    proposal.replaceChildren(h('div',{class:'revision-header'},h('h3',{text:review?'Writing feedback':'Review suggested changes'}),h('p',{class:'hint',text:review?'AI feedback on your draft':'Review side-by-side comparison before accepting.'})),h('div',{class:'revision-columns'},h('div',{class:'diff-card diff-original'},h('h4',{text:'Current draft'}),h('pre',{text:original})),h('div',{class:'diff-card diff-proposal'},h('h4',{text:review?'Feedback':'Proposed revision'}),h('pre',{text:next}))),actions);
   }};
 }
 
