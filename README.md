@@ -20,7 +20,7 @@ This product includes software developed by Kingkor Roy Tirtho.
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-native-0A84FF)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![GitHub stars](https://img.shields.io/github/stars/Louis-CFM/coucou?style=social)
+![GitHub stars](https://img.shields.io/github/stars/mwalikokelvo/AnF?style=social)
 
 <img src="docs/media/demo.gif" width="760" alt="AnF in action">
 
@@ -68,7 +68,7 @@ Meet **Mochi**: a soft little squircle with big eyes that pops out of your notch
 
 ### Download for macOS
 
-1. Grab the latest `Coucou.zip` from [Releases](https://github.com/Louis-CFM/coucou/releases).
+1. Grab the latest `Coucou.zip` from [Releases](https://github.com/mwalikokelvo/AnF/releases).
 2. Unzip and move **Coucou.app** to `/Applications`.
 3. Launch it, and click **Open** when macOS asks you to confirm. Updating from 0.1.0? macOS may ask you, once for each key you saved, to let Coucou use it: enter your Mac password and click **Always Allow**.
 
@@ -85,7 +85,7 @@ rest of the differences.
 
 ### Linux
 
-The first Linux build is out as a beta: download it from [Coucou for Linux 0.1.1 (beta)](https://github.com/Louis-CFM/coucou/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/Louis-CFM/coucou/releases) under `linux-v*` tags.
+The first Linux build is out as a beta: download it from [Coucou for Linux 0.1.1 (beta)](https://github.com/mwalikokelvo/AnF/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/mwalikokelvo/AnF/releases) under `linux-v*` tags.
 
 - **AppImage** (any distribution): `chmod +x Coucou-Linux-*.AppImage`, then run it.
 - **Debian / Ubuntu**: `sudo apt install ./Coucou-Linux-*.deb`
@@ -103,8 +103,8 @@ so there it opens as a regular window. See [`windows/README.md`](windows/README.
 
 ```bash
 brew install xcodegen
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/NotchBuddy
+git clone https://github.com/mwalikokelvo/AnF.git
+cd AnF/NotchBuddy
 xcodegen
 open NotchBuddy.xcodeproj   # then ⌘R
 ```
@@ -112,8 +112,8 @@ open NotchBuddy.xcodeproj   # then ⌘R
 **Windows** — requirements: [Rust](https://rustup.rs), Node 20+, MSVC build tools.
 
 ```powershell
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/windows
+git clone https://github.com/mwalikokelvo/AnF.git
+cd AnF/windows
 npm install
 npm run pack                # installer lands in windows/release/
 ```
@@ -126,8 +126,8 @@ sudo apt install build-essential pkg-config \
   libwebkit2gtk-4.1-dev libgtk-layer-shell-dev libayatana-appindicator3-dev \
   librsvg2-dev libssl-dev libdbus-1-dev patchelf \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/windows
+git clone https://github.com/mwalikokelvo/AnF.git
+cd AnF/windows
 npm install
 npm run pack                # AppImage, .deb and .rpm land in windows/release/
 ```

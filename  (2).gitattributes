@@ -1,4 +1,0 @@
-docs/** linguist-documentation
-design/** linguist-documentation
-windows/src-tauri/tests/data/*.pdf binary
-windows/src-tauri/tests/data/*.jpg binary

@@ -31,3 +31,5 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - Never restyle what already ships (pills, cards, Settings, chat…): existing views stay exactly as they are in `main`, which is the App Store build. Change the look of an existing view only when explicitly asked.
 - Pill IDs are stable contract values (Keychain, UserDefaults, hook routing): never rename an existing pill ID.
 - New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
+
+- Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.

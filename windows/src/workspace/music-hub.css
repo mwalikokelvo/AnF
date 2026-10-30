@@ -129,3 +129,17 @@ body:has(#app) .native-music-source{display:none}
 .music-player.music-full-player{overflow-x:hidden}
 .music-full-player .music-lyrics{flex-shrink:0}
 .music-full-player .music-lyrics{position:relative}
+
+
+/* Keep workspace-wide full-width form rules from collapsing the music search. */
+.music-heading{flex-wrap:wrap;gap:16px}
+.music-heading>div:first-child{flex:0 1 240px;min-width:0}
+.music-heading .music-search{flex:1 1 240px;min-width:min(240px,100%)}
+.music-heading select{flex:0 0 auto;width:auto;max-width:160px}
+.music-heading .music-monogram{flex:0 0 40px}
+.music-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0}
+.music-toolbar .music-sort{display:flex;align-items:center;gap:8px;width:auto;margin:0}
+.music-toolbar .music-sort select{width:auto;max-width:180px;margin:0}
+/* The full-player launcher is a button, not the former second-child div. */
+.music-player .music-now-info{display:block;flex:1;min-width:0;text-align:left;padding:0;border-radius:6px;overflow:hidden}
+.music-player .music-now-info strong,.music-player .music-now-info span{max-width:100%;text-align:left}

@@ -25,3 +25,13 @@ releases/
 # Generated native Spotube module; reproducible source/patches live in integrations/spotube.
 android/spotube-module/
 windows/spotube-native/
+
+
+# Rust targets
+**/target/
+
+# Node / Web build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
