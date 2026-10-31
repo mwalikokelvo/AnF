@@ -1,7 +1,7 @@
 {
-  "name": "coucou-android",
+  "name": "anf-android",
   "private": true,
-  "version": "0.1.22",
+  "version": "0.1.42",
   "type": "module",
   "dependencies": {
     "fflate": "0.8.3",

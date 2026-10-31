@@ -1,4 +1,5 @@
 import {chromium} from 'playwright-core';
+import {navigateWorkspace} from './navigation.mjs';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -23,12 +24,13 @@ try {
     const context = await browser.newContext({viewport:{width:platform==='windows'?1440:390,height:900}});
     await context.addInitScript(({platform})=>{
       const qa = window.qaSpotube = {
-        opened:false, operations:[], failPause:false, invalid:false, held:null, holdStatus:false,
+        opened:false, operations:[], failPause:false, failStart:false, invalid:false, held:null, holdStatus:false,
         state:{hasTrack:true,playing:true,title:'Native fixture track',artist:'Test artist',position:1500,duration:20000},
       };
       const request = async operation=>{
         qa.operations.push(operation);
         if (operation==='open') {qa.opened=true;return null;}
+        if (operation==='status' && qa.failStart) throw Error('Fixture startup failed');
         if (operation==='status' && qa.holdStatus) {
           qa.holdStatus=false;
           const old={...qa.state};
@@ -40,10 +42,11 @@ try {
         if (operation==='pause') qa.state.playing=false;
         if (operation==='next') qa.state.title='Next native track';
         if (operation==='previous') qa.state.title='Previous native track';
+        if (operation==='retry') {qa.state.error=null;qa.state.playing=true;}
         return qa.invalid ? {...qa.state,position:-1} : {...qa.state};
       };
       if (platform==='android') {
-        window.CoucouAndroid={spotubeAvailable:()=>true,spotubeRequest:(id,op)=>{
+        window.AnFAndroid={spotubeAvailable:()=>true,spotubeRequest:(id,op)=>{
           void request(op).then(value=>window.anfSpotubeResult(id,'',value ? JSON.stringify(value) : ''),error=>window.anfSpotubeResult(id,error.message,''));
         }};
       } else {
@@ -57,7 +60,7 @@ try {
             case 'link_address':return '';
             case 'link_status':return false;
             case 'music_available':return true;
-            case 'music_open':return request('open');
+            case 'music_open':qa.bounds=args.bounds;return request('open');
             case 'music_control':return request(args.operation);
             case 'music_pause':return request('pause');
             case 'music_hide':qa.operations.push('hide');return;
@@ -69,12 +72,41 @@ try {
       }
     },{platform});
     const page=await context.newPage();page.on('pageerror',error=>errors.push(platform+': '+error.message));
+    const go=id=>navigateWorkspace(page,id,platform);
     await page.goto('http://127.0.0.1:4182/'+(platform==='android'?'android/index.html':'workspace.html'));
-    await page.locator('[data-view="music"]').click();
+    await go('music');
+    if(platform==='windows'){
+      await page.evaluate(()=>{window.qaSpotube.failStart=true;});
+      await page.getByRole('button',{name:'Open Spotube',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('.spotube-host').hidden);
+      assert.equal(await page.locator('.music-tabs').getByRole('tab',{name:'Music',exact:true}).isVisible(),true,'Failed startup must restore the local library');
+      await page.evaluate(()=>{window.qaSpotube.failStart=false;});
+    }
     await page.getByRole('button',{name:'Open Spotube',exact:true}).click();
     const dock = page.getByRole('complementary',{name:'Spotube player',exact:true});
-    await dock.waitFor();await dock.getByText('Native fixture track',{exact:true}).waitFor();
-    await page.locator('[data-view="writing"]').click();assert.equal(await dock.isVisible(),true);
+    if(platform==='windows'){await page.waitForFunction(()=>document.body.classList.contains('spotube-visible'));assert.equal(await dock.isVisible(),false,'Only Spotube controls should appear inside the native view');await go('writing');}await dock.waitFor();await dock.getByText('Native fixture track',{exact:true}).waitFor();
+    if(platform==='windows'){
+      await go('music');
+      await page.waitForFunction(()=>{
+        const bounds=window.qaSpotube.bounds,dock=document.querySelector('.native-music-player').getBoundingClientRect();
+        return bounds&&bounds.height>300&&document.body.classList.contains('spotube-visible');
+      });
+      const geometry=await page.evaluate(()=>({bounds:window.qaSpotube.bounds,heading:document.querySelector('.music-heading').getBoundingClientRect().bottom*devicePixelRatio}));
+      assert(geometry.bounds.y>=geometry.heading,'Native child must not cover heading or source controls');
+      await page.getByRole('button',{name:'Local library',exact:true}).click();
+      await page.waitForFunction(()=>window.qaSpotube.operations.at(-1)==='hide');
+      assert.equal(await page.locator('.music-hub input[type=file]').first().isVisible(),false,'Hidden file inputs must stay hidden when returning to local music');
+      assert.equal(await page.locator('.music-tabs').getByRole('tab',{name:'Music',exact:true}).isVisible(),true);
+      await page.getByRole('button',{name:'Open Spotube',exact:true}).click();
+      await page.keyboard.press('Control+k');
+      await page.getByRole('dialog',{name:'Search and knowledge tools'}).waitFor();
+      await page.waitForFunction(()=>window.qaSpotube.operations.at(-1)==='hide');
+      await page.getByRole('button',{name:'Close search',exact:true}).click();
+      await page.waitForFunction(()=>window.qaSpotube.operations.at(-1)==='open');
+      await go('settings');
+      await page.waitForFunction(()=>window.qaSpotube.operations.at(-1)==='hide');
+    }
+    await go('writing');assert.equal(await dock.isVisible(),true);if(platform==='windows')await dock.getByRole('button',{name:'Play Spotube',exact:true}).click();
     await dock.getByRole('button',{name:'Pause Spotube',exact:true}).click();await dock.getByRole('button',{name:'Play Spotube',exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>window.qaSpotube.state.playing),false);
     await dock.getByRole('button',{name:'Play Spotube',exact:true}).click();await dock.getByRole('button',{name:'Pause Spotube',exact:true}).waitFor();
@@ -85,15 +117,36 @@ try {
     assert.equal(await page.evaluate(()=>window.qaSpotube.state.playing),true,'Failed pause must not claim a paused native engine');
     assert.equal(await dock.getByRole('button',{name:'Pause Spotube',exact:true}).isVisible(),true);
     await page.evaluate(()=>{window.qaSpotube.failPause=false;});
+    if(platform==='windows'){
+      for(const theme of ['dark','light']){
+        await go('settings');await page.getByLabel('Appearance',{exact:true}).selectOption(theme);await go('music');
+        const selected=page.getByRole('button',{name:'Open Spotube',exact:true});await selected.hover();
+        const contrast=await selected.evaluate(button=>{
+          const style=getComputedStyle(button);
+          const luminance=color=>color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[0.2126,0.7152,0.0722][i],0);
+          const a=luminance(style.color),b=luminance(style.backgroundColor);return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+        });assert(contrast>=4.5,theme+' selected source hover contrast: '+contrast);
+      }
+      await go('writing');
+    }
     for (const width of platform==='windows'?[1440,760]:[390,320]) {
       await page.setViewportSize({width,height:900});
       const bounds=await dock.boundingBox();assert(bounds.x>=0 && bounds.x+bounds.width<=width+1,JSON.stringify(bounds));
       for (const label of ['Previous Spotube track','Pause Spotube','Next Spotube track']) assert.equal(await dock.getByRole('button',{name:label,exact:true}).isVisible(),true);
     }
+    if(platform==='windows'){
+      await page.evaluate(()=>{window.qaSpotube.state.buffering=true;document.dispatchEvent(new Event('anf-view-changed'));});
+      await dock.getByText('Buffering…',{exact:true}).waitFor();
+      await page.evaluate(()=>{window.qaSpotube.state.buffering=false;window.qaSpotube.state.playing=false;window.qaSpotube.state.error='Provider needs attention';document.dispatchEvent(new Event('anf-view-changed'));});
+      await dock.getByRole('button',{name:'Retry playback',exact:true}).waitFor();
+      await dock.getByRole('button',{name:'Retry playback',exact:true}).click();
+      assert((await page.evaluate(()=>window.qaSpotube.operations)).includes('retry'));
+      await page.evaluate(()=>{delete window.qaSpotube.state.error;document.dispatchEvent(new Event('anf-view-changed'));});
+    }
     // A suspended dock must not reappear when an earlier status reply arrives late.
     await page.evaluate(()=>{window.qaSpotube.holdStatus=true;document.dispatchEvent(new Event('anf-view-changed'));});
     await page.waitForFunction(()=>typeof window.qaSpotube.held==='function');
-    await page.locator('[data-view="audio"]').click();
+    await go('audio');
     // Starting the studio's real synthetic track exercises its before-play handoff.
     await page.evaluate(async()=>{
       const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('coucou-audio',2);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
@@ -104,12 +157,21 @@ try {
     });
     await page.locator('.audio-playlist button').filter({hasText:'Studio handoff'}).click();
     await page.waitForFunction(()=>!document.querySelector('.audio-studio').hasAttribute('aria-busy'));
+    if(platform==='windows'){
+      await page.evaluate(()=>{window.qaSpotube.failPause=true;});
+      await page.locator('.audio-studio').getByRole('button',{name:'Play',exact:true}).click();
+      await page.locator('.audio-studio [role="status"]').filter({hasText:'Fixture pause failed'}).waitFor();
+      assert.equal(await dock.isVisible(),true,'A failed playback handoff must leave native controls available');
+      assert.equal(await page.evaluate(()=>window.qaSpotube.state.playing),true);
+      await page.waitForFunction(()=>!document.querySelector('.audio-studio').hasAttribute('aria-busy'));
+      await page.evaluate(()=>{window.qaSpotube.failPause=false;});
+    }
     await page.locator('.audio-studio').getByRole('button',{name:'Play',exact:true}).click();
     await page.waitForFunction(()=>!window.qaSpotube.state.playing);
     await page.evaluate(()=>window.qaSpotube.held());await page.waitForTimeout(100);
     assert.equal(await dock.isVisible(),false,'Late native status must not reopen a dock suspended by Audio Studio');
     // Malformed status closes the controls and never writes metadata into HTML.
-    await page.locator('[data-view="music"]').click();await page.evaluate(()=>{window.qaSpotube.invalid=true;});
+    await go('music');await page.evaluate(()=>{window.qaSpotube.invalid=true;});
     await page.getByRole('button',{name:'Open Spotube',exact:true}).click();await page.waitForTimeout(200);
     assert.equal(await dock.isVisible(),false,'Invalid status must not produce a usable dock');
     assert((await page.evaluate(()=>window.qaSpotube.operations)).includes('pause'));

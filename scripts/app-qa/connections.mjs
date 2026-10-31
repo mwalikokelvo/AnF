@@ -1,0 +1,85 @@
+// Browser user-flow tests with explicit IPC fixtures; native HTTP contracts are Rust tests.
+import {chromium} from 'playwright-core';
+import {createRequire} from 'node:module';
+import {createServer} from 'node:http';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const root=fileURLToPath(new URL('../../',import.meta.url));
+const require=createRequire(path.join(root,'windows/package.json'));
+const {build}=require('esbuild');
+const built=await build({stdin:{contents:`
+ import {createConnections} from './src/workspace/connections';
+ import {skillExport} from './src/workspace/skill-pack';
+ import './src/workspace/workspace.css';import './src/workspace/anf-design.css';
+ const source={name:'Test book',text:'Evidence from a known source.',pages:[{number:1,text:'Evidence from a known source.',ocr:false}],path:null};
+ const a={allowed:()=>true,projectId:()=>window.qaProject,sources:()=>[source],draft:()=>({title:'Reviewed notes',text:'A useful draft.'}),importSource:async source=>{window.qaImported=source;}};
+ document.body.append(createConnections(a).root,skillExport({allowed:()=>true,current:()=>({title:'Test skill',draft:'A useful draft.',sources:[source]}),save:async files=>{window.qaSkill=files;return 'Skill.zip';}}));
+ `,resolveDir:path.join(root,'windows'),loader:'ts'},bundle:true,format:'esm',outdir:'qa',write:false});
+const js=built.outputFiles.find(f=>f.path.endsWith('.js')).contents,css=built.outputFiles.find(f=>f.path.endsWith('.css')).contents;
+const server=createServer((req,res)=>{if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(js);}else if(req.url==='/app.css'){res.setHeader('Content-Type','text/css');res.end(css);}else{res.setHeader('Content-Type','text/html');res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/app.css"></head><body><script type="module" src="/app.js"></script></body></html>');}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM_BIN||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+try{
+ const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+ await page.addInitScript(()=>{
+  window.qaProject='project-1';window.qaCalls=[];
+  window.__TAURI_INTERNALS__={invoke:async(command,args={})=>{
+   window.qaCalls.push({command,args});
+   const base={enabled:true,hasSecret:true,origin:'https://fixture.example',endpoint:'https://fixture.example',username:'user',model:'fixture-model'};
+   if(command==='connection_list')return ['gateway','notebook','nextcloud','cal','n8n','media'].map(service=>({...base,service,endpoint:service==='n8n'?'':base.endpoint}));
+   if(command==='connection_save')return {...base,...args.input,hasSecret:true};
+   if(command==='connection_forget'||command==='connection_open_booking'||command==='open_url')return;
+   if(command==='workspace_export_pack')return 'Downloaded.anfpack';
+   if(command!=='connection_action')throw Error('Unexpected command: '+command);
+   const a=args.action;
+   if(a.operation==='list')return {items:[{id:'notebook:1',name:'Research'}]};
+   if(a.operation==='sources')return {items:[{id:'source:1',name:'Remote reference'}]};
+   if(a.operation==='import')return {source:{name:'Remote reference',text:'Imported text',pages:[],path:null}};
+   if(a.operation==='submit')return {id:'job-1',message:'Media job accepted.'};
+   if(a.operation==='status')return {status:'completed',outputs:['https://assets.example/output.png']};
+   return {message:'Service action acknowledged.',id:'source:2'};
+  }};
+ });
+ await page.goto('http://127.0.0.1:'+server.address().port);
+ const panel=page.getByLabel('Connected services',{exact:true});await panel.locator(':scope>summary').click();
+ await page.getByText('Connections loaded. Choose a service to configure or use it.',{exact:true}).waitFor();
+ const card=id=>page.locator('[data-service="'+id+'"]');
+ const calls=()=>page.evaluate(()=>window.qaCalls.filter(c=>c.command==='connection_action'));
+ await card('n8n').locator('summary').click();const before=(await calls()).length;
+ await card('n8n').getByRole('button',{name:'Preview draft webhook',exact:true}).click();
+ assert.equal((await calls()).length,before);await card('n8n').getByRole('button',{name:'Keep local',exact:true}).click();assert.equal((await calls()).length,before);
+ await card('n8n').getByRole('button',{name:'Preview draft webhook',exact:true}).click();
+ await card('n8n').getByRole('button',{name:'Send this action',exact:true}).click();
+ await page.getByText(/Webhook|Service action acknowledged/).first().waitFor();
+ const sent=(await calls()).at(-1).args.action;assert.equal(sent.text,'A useful draft.');assert.equal(sent.title,'Reviewed notes');assert(sent.eventId);assert(!('sources'in sent));assert(!('history'in sent));
+ await card('gateway').locator('summary').click();
+ await card('gateway').getByLabel('AI gateway · OmniRoute secret',{exact:true}).fill('new-fixture-secret');
+ await card('gateway').getByRole('button',{name:'Save connection',exact:true}).click();
+ await page.getByText('Connection saved. No service request was sent.',{exact:true}).waitFor();
+ assert.equal(await card('gateway').getByLabel('AI gateway · OmniRoute secret',{exact:true}).inputValue(),'');
+ await card('notebook').locator('summary').click();
+ await card('notebook').getByRole('button',{name:'List notebooks',exact:true}).click();await page.getByLabel('Target notebook',{exact:true}).selectOption('notebook:1');
+ await card('notebook').getByRole('button',{name:'List notebook sources',exact:true}).click();await page.getByLabel('Remote notebook source',{exact:true}).selectOption('source:1');
+ await card('notebook').getByRole('button',{name:'Import selected source',exact:true}).click();await page.waitForFunction(()=>window.qaImported?.text==='Imported text');
+ await card('notebook').getByRole('button',{name:'Choose local source',exact:true}).click();
+ await card('notebook').getByRole('button',{name:'Preview source export',exact:true}).click();const prepared=(await calls()).length;
+ assert.match(await card('notebook').getByLabel('Open Notebook action preview',{exact:true}).innerText(),/Evidence from a known source/);
+ assert.equal((await calls()).length,prepared);
+ await card('notebook').getByRole('button',{name:'Send this action',exact:true}).click();await page.getByText(/Source|Export|Service action acknowledged/).first().waitFor();
+ await card('media').locator('summary').click();await page.getByLabel('Media generation prompt',{exact:true}).fill('A peaceful garden');
+ await card('media').getByRole('button',{name:'Preview media job',exact:true}).click();
+ await card('media').getByRole('button',{name:'Send this action',exact:true}).click();await page.waitForFunction(()=>localStorage.getItem('anf-media-job')==='job-1');
+ await card('media').getByRole('button',{name:'Check media job',exact:true}).click();await page.getByText('Status: completed',{exact:true}).waitFor();
+ await card('cal').locator('summary').click();await card('cal').getByRole('button',{name:'Open booking page',exact:true}).click();
+ assert((await page.evaluate(()=>window.qaCalls)).some(c=>c.command==='connection_open_booking'));
+ const skill=page.getByLabel('Source-based skill export',{exact:true});await skill.locator(':scope>summary').click();
+ await skill.getByRole('button',{name:'Preview skill bundle',exact:true}).click();await skill.getByRole('button',{name:'Save reviewed skill ZIP',exact:true}).click();
+ await page.waitForFunction(()=>window.qaSkill?.length===4);
+ const files=await page.evaluate(()=>window.qaSkill);assert.deepEqual(files.map(f=>f.name),['SKILL.md','draft.md','coverage.json','references/source-1.md']);
+ assert.match(files[2].text,/Not verified/);assert.match(files[3].text,/Evidence from a known source/);
+ const coverage=JSON.parse(files[2].text);assert.equal(coverage.sources[0].sha256.length,64);
+ for(const width of [1440,760,390,320]){await page.setViewportSize({width,height:900});assert(await page.evaluate(()=>document.body.scrollWidth<=innerWidth+1),'Connection panel overflow at '+width);}
+ assert.deepEqual(errors,[]);
+ console.log('PASS: connection previews, minimal payloads, secret clearing, notebook exchange, media recovery, booking handoff, skill references/hash and four layout widths.');
+}finally{await browser.close();await new Promise(r=>server.close(r));}

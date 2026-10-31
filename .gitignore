@@ -25,3 +25,10 @@ releases/
 # Generated native Spotube module; reproducible source/patches live in integrations/spotube.
 android/spotube-module/
 windows/spotube-native/
+
+# Optional MKR-derived catalog source/dependencies. Never package this tree by glob.
+integrations/mkr-music/engine/vendor/
+integrations/mkr-music/engine/build/
+integrations/mkr-music/engine/.gradle/
+integrations/mkr-music/engine/.kotlin/
+integrations/mkr-music/windows-native/target/

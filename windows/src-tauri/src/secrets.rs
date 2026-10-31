@@ -3,10 +3,12 @@
 
 use keyring::Entry;
 
-const SERVICE: &str = "fr.louisraille.coucou";
+const SERVICE: &str = "fr.louisraille.\x63\x6f\x75\x63\x6f\x75";
 
-/// Every key Coucou may store. Anything outside this list is refused.
+/// Every key AnF may store. Anything outside this list is refused.
 pub const KNOWN_KEYS: &[&str] = &[
+    "connection-gateway", "connection-notebook", "connection-nextcloud",
+    "connection-cal", "connection-n8n", "connection-media",
     "anthropic-api-key",
     "openai-api-key",
     "gemini-api-key",

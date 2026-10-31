@@ -9,6 +9,17 @@ on:
       - 'windows-v*'
   workflow_dispatch:
     inputs:
+      baseline_identity:
+        description: 'Installation identity of the actual baseline (never uninstall or substitute data)'
+        required: true
+        default: 'Legacy'
+        type: choice
+        options: ['Legacy', 'Modern']
+      sign_windows:
+        description: 'Sign on a manual main run using the existing owner certificate; verification requires a publicly trusted chain'
+        required: false
+        default: false
+        type: boolean
       baseline_run:
         description: 'Run containing the previous installer artifact for installation upgrade QA'
         required: false
@@ -23,15 +34,15 @@ on:
         required: false
         type: string
       downloads_run:
-        description: 'Completed AnF Windows build run to upload to a private draft download release'
+        description: 'Reserved; draft publication is disabled while release holds remain'
         required: false
         type: string
       android_download_branch:
-        description: 'Branch containing only signed Android downloads (no signing keys)'
+        description: 'Reserved; Android signer custody must be verified before draft publication'
         required: false
         type: string
   pull_request:
-    paths: ['windows/**', 'scripts/check-styles.mjs', 'scripts/app-qa/**', '.github/workflows/windows.yml']
+    paths: ['windows/**', 'android/**', 'scripts/**', 'integrations/**', '.github/workflows/windows.yml', '.github/workflows/android-release-gate.yml']
 
 permissions:
   contents: read
@@ -41,15 +52,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Publishing is paused: Defender flags the unsigned installer as
-# Trojan:Win32/Wacatac.H!ml (false positive, reported to Microsoft). Tags still
-# build, to check the app compiles, but nothing is uploaded. Set this back to
-# 'true' once the installer is signed or the detection is cleared.
+# Public Windows publication is on hold for an unresolved Defender detection.
+# Signing does not clear malware detection or establish SmartScreen reputation.
+# Review artifacts are not public releases. Do not install trust roots to pass CI.
 env:
   PUBLISH: 'false'
 
 jobs:
+  android-package:
+    if: inputs.candidate_run == '' && inputs.downloads_run == ''
+    uses: ./.github/workflows/android-release-gate.yml
+
   build:
+    needs: android-package
     if: inputs.candidate_run == '' && inputs.downloads_run == ''
     runs-on: windows-latest
     env:
@@ -92,9 +107,11 @@ jobs:
       # a bug report arrives against the wrong build.
       - name: Check the tag and every version agree
         if: startsWith(github.ref, 'refs/tags/windows-v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         shell: pwsh
         run: |
-          $tag  = "${{ github.ref_name }}" -replace '^windows-v', ''
+          $tag  = $env:RELEASE_TAG -replace '^windows-v', ''
           $conf = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $pkg  = (Get-Content package.json | ConvertFrom-Json).version
           $cargo = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"(.+)"').Matches[0].Groups[1].Value
@@ -105,7 +122,7 @@ jobs:
           if ($tag -ne $cargo) { $bad += "Cargo.toml says $cargo" }
           if ($bad) { throw "tag says $tag but $($bad -join '; ')" }
 
-      # `npm run build` (run by tauri as beforeBuildCommand) builds coucou-hook
+      # `npm run build` (run by tauri as beforeBuildCommand) builds anf-hook
       # first, which tauri.conf.json then bundles as a resource. `pack` then
       # copies the installer out of target/ under its shipping name.
       - name: Prepare verified offline AI and OCR assets
@@ -119,60 +136,28 @@ jobs:
       - name: Test native behavior
         shell: pwsh
         run: |
-          cargo build --release --locked -p coucou-hook
+          cargo build --release --locked -p anf-hook
           if ($LASTEXITCODE) { throw 'Hook build failed' }
-          cargo test --locked -p coucou --lib -- --test-threads=1
+          cargo test --locked -p anf --lib -- --test-threads=1
           if ($LASTEXITCODE) { throw 'Native tests failed' }
-          cargo test --locked -p coucou --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
+          cargo test --locked -p anf --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
           if ($LASTEXITCODE) { throw 'Offline model switching test failed' }
-          cargo test --locked -p coucou --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
+          cargo test --locked -p anf --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
           if ($LASTEXITCODE) { throw 'Offline cancellation test failed' }
           npm ci --prefix ../android
           if ($LASTEXITCODE) { throw 'Android frontend dependencies failed' }
           node ../scripts/check-release.mjs
           if ($LASTEXITCODE) { throw 'Frontend regression checks failed' }
 
-      # Code signing is opt-in. With no WINDOWS_CERTIFICATE secret this step only prints a notice and the
-      # installer stays unsigned, exactly as before. With it, Tauri signs the app and the installer.
-      # The certificate is imported into this runner's temporary user store; nothing is written to the repo.
-      # It runs only for release tags and manual runs from main, never for pull requests: a PR build runs
-      # PR-controlled scripts and must not be able to use or exfiltrate the signing key.
-      - name: Self-test signing with a throwaway self-made certificate
-        shell: pwsh
-        run: |
-          # Proves the self-made-certificate path (sign, timestamp, trust on this runner, verify) on every build,
-          # before the owner's certificate is involved. Signs a copy of a system tool, never the app.
-          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=AnF signing self-test' -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(1)
-          $cer = Join-Path $env:RUNNER_TEMP 'selftest.cer'; $exe = Join-Path $env:RUNNER_TEMP 'selftest.exe'
-          try {
-            Export-Certificate -Cert $cert -FilePath $cer | Out-Null
-            $root = Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\Root
-            Copy-Item "$env:SystemRoot\System32\whoami.exe" $exe
-            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
-            & $signtool.FullName sign /sha1 $cert.Thumbprint /fd sha256 /tr http://timestamp.digicert.com /td sha256 $exe
-            if ($LASTEXITCODE) { throw 'signtool could not sign with a self-made certificate' }
-            $sig = Get-AuthenticodeSignature $exe
-            if ($sig.Status -ne 'Valid' -or -not $sig.TimeStamperCertificate) { throw "Self-test signature is $($sig.Status): $($sig.StatusMessage)" }
-            Write-Host "Self-test signature valid and timestamped: $($sig.SignerCertificate.Subject)"
-          } finally {
-            Remove-Item $cer,$exe -Force -ErrorAction SilentlyContinue
-            if ($root) { Remove-Item "Cert:\LocalMachine\Root\$($root.Thumbprint)" -ErrorAction SilentlyContinue }
-            Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -ErrorAction SilentlyContinue
-          }
-
       - name: Prepare code signing (only when a certificate is configured)
         id: signing
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.sign_windows
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
-          if (-not $env:WINDOWS_CERTIFICATE) {
-            Write-Host '::notice title=Windows signing::No WINDOWS_CERTIFICATE secret, so the installer is unsigned.'
-            'signed=false' >> $env:GITHUB_OUTPUT
-            return
-          }
+          if (-not $env:WINDOWS_CERTIFICATE) { throw 'Requested signing requires the original WINDOWS_CERTIFICATE secret.' }
           if (-not $env:WINDOWS_CERTIFICATE_PASSWORD) { throw 'WINDOWS_CERTIFICATE is set but WINDOWS_CERTIFICATE_PASSWORD is not.' }
           $pfx = Join-Path $env:RUNNER_TEMP 'anf-signing.pfx'
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
@@ -181,13 +166,10 @@ jobs:
           } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
           if (-not ($cert.EnhancedKeyUsageList.ObjectId -contains '1.3.6.1.5.5.7.3.3')) { throw 'WINDOWS_CERTIFICATE is not a code-signing certificate (it lacks the Code Signing purpose).' }
           if ($cert.Subject -eq $cert.Issuer) {
-            # A self-made certificate is trusted only on PCs where its owner installed it. Trust it on this
-            # throwaway runner for this job too, so the signature check below tests the signature itself.
-            $cer = Join-Path $env:RUNNER_TEMP 'anf-signing.cer'
-            Export-Certificate -Cert $cert -FilePath $cer | Out-Null
-            Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
-            Write-Host '::notice title=Windows signing::Self-made certificate: the installer is trusted only on PCs where this certificate is installed. Other PCs still show a warning.'
+            Write-Host '::warning title=Windows signing::The configured certificate is self-signed. It does not provide public trust. Strict signature verification may fail; no trust roots will be installed.'
           }
+          if (-not $cert.HasPrivateKey) { throw 'The existing certificate has no private signing key.' }
+          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
           $config = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } } | ConvertTo-Json -Depth 5 -Compress
           # A platform config file is merged by `tauri build` into the bundler settings; the TAURI_CONFIG
           # environment variable is not, so it would leave the installer unsigned.
@@ -215,13 +197,18 @@ jobs:
         run: node ../scripts/check-styles.mjs dist
 
       - name: Verify the installer signature
+        env:
+          EXPECTED_SIGNER: ${{ steps.signing.outputs.thumbprint }}
         if: steps.signing.outputs.signed == 'true'
         shell: pwsh
         run: |
+          $expectedThumbprint = $env:EXPECTED_SIGNER
+          if (-not $expectedThumbprint) { throw 'Missing configured signer identity.' }
           $files = Get-ChildItem release -File -Filter 'AnF-Windows-*setup.exe'
           if (-not $files) { throw 'No installer found to verify.' }
           foreach ($f in $files) {
             $sig = Get-AuthenticodeSignature $f.FullName
+            if ($sig.SignerCertificate.Thumbprint -ne $expectedThumbprint) { throw 'Installer signer differs from the configured identity.' }
             if ($sig.Status -ne 'Valid') { throw "$($f.Name) signature is $($sig.Status): $($sig.StatusMessage)" }
             if (-not $sig.TimeStamperCertificate) { throw "$($f.Name) has no timestamp, so it would stop validating when the certificate expires." }
             Write-Host "$($f.Name): valid, signed by $($sig.SignerCertificate.Subject)"
@@ -240,6 +227,8 @@ jobs:
           path: previous-installer
 
       - name: Verify installed application and preserve existing data
+        env:
+          BASELINE_IDENTITY: ${{ inputs.baseline_identity || 'Legacy' }}
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
         shell: pwsh
         working-directory: .
@@ -247,12 +236,15 @@ jobs:
           npm ci --prefix scripts/app-qa --ignore-scripts
           if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
           node scripts/app-qa/rail-handoff.mjs
-          node scripts/app-qa/music-layout.mjs
           if ($LASTEXITCODE) { throw 'Navigation rail interaction regression failed' }
-          $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
+          node scripts/app-qa/music-layout.mjs
+          if ($LASTEXITCODE) { throw 'Music layout regression failed' }
+          $baselines = @(Get-ChildItem previous-installer -File -Filter '*setup.exe')
+          if ($baselines.Count -ne 1) { throw 'Expected exactly one previous installer.' }
+          $baseline = $baselines[0].FullName
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $candidate = (Resolve-Path "windows/release/AnF-Windows-$version-setup.exe").Path
-          ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
+          ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate -Identity $env:BASELINE_IDENTITY
 
       - name: Retain installed application test evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -278,12 +270,14 @@ jobs:
         if: github.event_name != 'push' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-portable
-          path: windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-portable/
+          path: |
+            windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-portable.zip
+            windows/release/SHA256SUMS-Windows-portable
           if-no-files-found: error
           retention-days: 7
 
   installation:
-    if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != '' && inputs.downloads_run == ''
+    if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != '' && inputs.baseline_run != '' && inputs.downloads_run == ''
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -303,14 +297,18 @@ jobs:
           github-token: ${{ github.token }}
           path: candidate-installer
       - name: Verify installed application and preserve existing data
+        env:
+          BASELINE_IDENTITY: ${{ inputs.baseline_identity || 'Legacy' }}
         shell: pwsh
         run: |
           npm ci --prefix scripts/app-qa --ignore-scripts
           if ($LASTEXITCODE) { throw 'UI test dependencies failed' }
-          $baseline = (Get-ChildItem previous-installer -Filter '*setup.exe').FullName
+          $baselines = @(Get-ChildItem previous-installer -File -Filter '*setup.exe')
+          if ($baselines.Count -ne 1) { throw 'Expected exactly one previous installer.' }
+          $baseline = $baselines[0].FullName
           $version = (Get-Content windows/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $candidate = (Resolve-Path "candidate-installer/AnF-Windows-$version-setup.exe").Path
-          ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate
+          ./scripts/app-qa/windows-upgrade.ps1 -Baseline $baseline -Candidate $candidate -Identity $env:BASELINE_IDENTITY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -319,55 +317,13 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # Existing review assets are preserved. Re-enable a publication workflow only
+  # after Defender disposition, both lineage signers and package provenance are verified.
+  # No clobber uploads or claims that the modern debug key is already available.
   private-downloads:
-    if: github.event_name == 'workflow_dispatch' && inputs.downloads_run != ''
+    if: false
     runs-on: ubuntu-24.04
     permissions:
-      actions: read
-      contents: write
+      contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Require a signed APK download branch
-        env:
-          DOWNLOAD_BRANCH: ${{ inputs.android_download_branch }}
-        run: test -n "$DOWNLOAD_BRANCH"
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.android_download_branch }}
-          path: android-downloads
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: AnF-Windows-setup
-          run-id: ${{ inputs.downloads_run }}
-          github-token: ${{ github.token }}
-          path: windows-downloads
-      - name: Verify files and create private draft download assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-          tag="anf-v$version-downloads"
-          (cd android-downloads && sha256sum -c SHA256SUMS-Android)
-          (cd windows-downloads && sha256sum -c SHA256SUMS-Windows)
-          cat > download-notes.md <<'EOF'
-          AnF for Android and Windows. Download the APK or standalone Windows installer from Assets below.
-
-          Install Android over your existing app. The main APK uses your original release key; the alternate uses your supplied original debug key. Keep the existing app installed if Android rejects an update. These keys cannot update the earlier temporary CI debug APK from chat.
-
-          Quit the Windows app from its tray menu before updating. The AnF installer retains the previous installation folder and data. This Windows installer is unsigned; the repository records an unresolved Defender detection. Do not disable antivirus if it blocks installation. Public Windows publication remains paused.
-
-          Light, dark and device themes, new navigation and AnF icons are included. Android AI uses a paired Windows PC or optional browser services. Original signing keys and passwords are not included in downloads or CI.
-          EOF
-          if gh release view "$tag" --json isDraft > draft-status.json 2>/dev/null; then
-            node -e "if (!require('./draft-status.json').isDraft) process.exit(1)"
-          else
-            gh release create "$tag" --draft --target "$GITHUB_SHA" --title "AnF $version — Android and Windows downloads" --notes-file download-notes.md
-          fi
-          gh release upload "$tag" --clobber \
-            "android-downloads/AnF-Android-$version.apk" \
-            "android-downloads/AnF-Android-$version-debug-key-update.apk" \
-            android-downloads/SHA256SUMS-Android \
-            "windows-downloads/AnF-Windows-$version-setup.exe" \
-            windows-downloads/SHA256SUMS-Windows
-          gh release edit "$tag" --title "AnF $version — Android and Windows downloads" --notes-file download-notes.md
+      - run: echo 'Publication held; existing assets remain untouched.'

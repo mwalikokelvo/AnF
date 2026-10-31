@@ -1,0 +1,541 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/mkr-infinity/mkr-music",
+  "commit": "78ac80c5101c293a5591a4cd5a1ebc90ccbc3138",
+  "profile": "innertube-common",
+  "excluded": [
+    "app",
+    "lyricsProvider",
+    "spotify",
+    "lastfm",
+    "kizzy",
+    "shazamkit"
+  ],
+  "sources": [
+    {
+      "path": "LICENSE",
+      "sha256": "f51de943286b7764298483543d6274438ae012440e271a2b3204eec97a042a0c",
+      "bytes": 33453
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/InnerTube.kt",
+      "sha256": "a8e2bd73ec92a88978fb861a14830c422d527cf306f47097d7967e3246e051b8",
+      "bytes": 27248
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/NetworkConfig.kt",
+      "sha256": "395d13aaed42c1f6a243efb356829b757fbd39c39edfb2765165d415cc2ae82b",
+      "bytes": 4099
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/YouTube.kt",
+      "sha256": "c9fcfae991ce6dbd54fc45fe6365f114c3aa3a263c783296b6d242b19fabdc10",
+      "bytes": 95118
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/YouTubeConstants.kt",
+      "sha256": "6d5b7f3ccb9e86659b974d1f4971a43eea11527b8191e3271398f2a88700bd06",
+      "bytes": 151
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/AccountInfo.kt",
+      "sha256": "073f0ee2104c8abd9266bfca988e4efe66ee34136bb0f220fd16cb933e39df22",
+      "bytes": 171
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/AutomixPreviewVideoRenderer.kt",
+      "sha256": "9e1f20dc67fad56eccef4039e534169fbbb1e7d939cb7a269982a7012abf7ba5",
+      "bytes": 430
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Badges.kt",
+      "sha256": "3bfe1526b6d3d46d4d0f06ff2dddd13ea71d809b5fcfbf5eba329e073ad579ab",
+      "bytes": 268
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Button.kt",
+      "sha256": "17261137cd9c782fd41ad1a7aac2fd4fdc8dc8bce50190d2a40bc020ef1e9969",
+      "bytes": 357
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Context.kt",
+      "sha256": "79d511fbb71e75aa6b018c09ac5adf211efa224c5cb4ef50f66e902816cc43bb",
+      "bytes": 1058
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Continuation.kt",
+      "sha256": "d4517baaecaadd1e0868870a6f352dc612f183d4c89bff3503e146e50c2afd45",
+      "bytes": 583
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/ContinuationItemRenderer.kt",
+      "sha256": "fa788764475ac6af31739d567be610ef6447622b490199ff58a1f69660b6486a",
+      "bytes": 416
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Endpoint.kt",
+      "sha256": "4af789a209908d38cd00eef348f7bc3e832340dd1d01406335aded328539ceed",
+      "bytes": 4393
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/GridRenderer.kt",
+      "sha256": "f876afe0e10c107b70fd60c70e41524adac9c6261f54fdff28a2e213bc824503",
+      "bytes": 611
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Icon.kt",
+      "sha256": "daedff4b295649de335c190d3f57410259f5304d3055096a7bee98de1f4eac4a",
+      "bytes": 138
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/IpVersion.kt",
+      "sha256": "03cd12f5a848e56687126b780dba75789afd1b8c4287c6e2b8cd38eb6e345f0a",
+      "bytes": 90
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MediaInfo.kt",
+      "sha256": "e6c30b5c0ccdc9e1fb1a266f4421b2414644334f21fe68bb8481edc012675687",
+      "bytes": 421
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Menu.kt",
+      "sha256": "1cfd299994a9679e28717a086f9b72ea4216eff607da2801613f98c8b9ff38c1",
+      "bytes": 1571
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicCardShelfRenderer.kt",
+      "sha256": "e557d249b5b52d7942857b9728f599628f03bc77d37c9152b0253611f17eda80",
+      "bytes": 761
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicCarouselShelfRenderer.kt",
+      "sha256": "f4ca875deaa824a4334b693f5cc99e45fffab3baf730aa68b65d2d039eac1ae9",
+      "bytes": 946
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicDescriptionShelfRenderer.kt",
+      "sha256": "59c73470e25eff69d365e55eec954804598ec11634a88980695d3a7c39a99508",
+      "bytes": 236
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicEditablePlaylistDetailHeaderRenderer.kt",
+      "sha256": "6db1c47a4ba084b1bd9bce32f86096276ac8b8c2546ae21e39d2f9d9989a9e2c",
+      "bytes": 828
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicMultiRowImageItemRenderer.kt",
+      "sha256": "5c32af18cad7435b746d2e58175bcaab214b2bcc00597acf716a3bf92beaeaac",
+      "bytes": 256
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicNavigationButtonRenderer.kt",
+      "sha256": "16188ff297f270379ee966e71adf26f6376a1135a391ec95ab2729b135237cc4",
+      "bytes": 419
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicPlaylistShelfRenderer.kt",
+      "sha256": "24f10047a0d1b2eecb1ce4136ca269393adb95456219a2b77ed7f46a3d1dbfe6",
+      "bytes": 321
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicQueueRenderer.kt",
+      "sha256": "2d73c7b21edb320c5ff60c7dce766b1bc8e23a058ff141ee8da8ef01453ad0b9",
+      "bytes": 1525
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicResponsiveHeaderRenderer.kt",
+      "sha256": "c1add8eab38d4588f068044ab1daa2c409e886b1e4f8fab5c67a67f4924be380",
+      "bytes": 790
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicResponsiveListItemRenderer.kt",
+      "sha256": "e1d4eefbf50ff9d62d56dc7a1c22a44d1450b64d0e13f688b841d66b450609d1",
+      "bytes": 4248
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicShelfRenderer.kt",
+      "sha256": "0b026bebbdc4d597a7e9b47cfc2a7b8fb67dfa60422f157a63e9b72599a4b311",
+      "bytes": 881
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/MusicTwoRowItemRenderer.kt",
+      "sha256": "0a3ce5075980507fcdc94ddb762ad31eb38ff0ae028531015f1121d543357e99",
+      "bytes": 2638
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/NavigationEndpoint.kt",
+      "sha256": "860c152ad024c34ec115b04759d08b9869543450c0287210d2c810d1cb136832",
+      "bytes": 1230
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/PlaylistDeleteBody.kt",
+      "sha256": "1496793f40d7869256b1143e4e785e6cbd767754f63fe3067d28b1b6ebc4c714",
+      "bytes": 226
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/PlaylistPanelRenderer.kt",
+      "sha256": "40cd110a2c59b5de2113cd782975eb33c89dd6d4ca61572487d4ea70ae189558",
+      "bytes": 569
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/PlaylistPanelVideoRenderer.kt",
+      "sha256": "4155287cb007111bc66c7c41327f0ee9407bd58b1117d811116d83eeda145800",
+      "bytes": 498
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/ResponseContext.kt",
+      "sha256": "3edfbc587e577b380b77cc4ab8a5c6c97d33880e8ff9ca582f4d5428bb93034a",
+      "bytes": 466
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/ReturnYouTubeDislikeResponse.kt",
+      "sha256": "8b6402e25affa055dcef79f2c71bec4d2d0a6a5b941abd233ce59b54c7853e5c",
+      "bytes": 358
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Runs.kt",
+      "sha256": "84b0dcd17329ce6cc1922da05e053a248a97d89fbcfaf5d16d0d055ceff3c4c8",
+      "bytes": 1268
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/SearchSuggestions.kt",
+      "sha256": "35e0fdbeccf4dbd335cee7df3c183a01ef4adead741ff0fd6445777904a2684d",
+      "bytes": 139
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/SearchSuggestionsSectionRenderer.kt",
+      "sha256": "095e03c3bc840706ccd7336f295218edb33f3d0ebbe4e287aab2893545c4d4e5",
+      "bytes": 544
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/SectionListRenderer.kt",
+      "sha256": "fd122d23d3ca9364abd4ed6d301dcc9f907af3d3f25344412de75979758c5c2d",
+      "bytes": 2114
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/SubscriptionButton.kt",
+      "sha256": "e098846b868f6f395b49945800f36d0ce2c4d5f66a87d18aac98e773bee2eddf",
+      "bytes": 419
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Tabs.kt",
+      "sha256": "23ee40b22e8e3fc7973eca04420a3f00dc12779463b9219da33199e093f23e74",
+      "bytes": 617
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/ThumbnailRenderer.kt",
+      "sha256": "cf50f2f3501c23602f515262fb9d7f8bd41236170262968dab6f4410515b795c",
+      "bytes": 936
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/Thumbnails.kt",
+      "sha256": "e86ac89f9dd6dfd63e3dc96f9d0ab1aa25ccf1867299e2ff7a07a4071e2b472b",
+      "bytes": 258
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/TwoColumnBrowseResultsRenderer.kt",
+      "sha256": "a5f716bb157be77dde55980e5097e8ec280517d1745c2f32c0f380d9d8da6496",
+      "bytes": 675
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/UrlEndpoint.kt",
+      "sha256": "67de218de62f1529b754970446f41686f0ddf70f216cc1759b3ac9f9feec0afd",
+      "bytes": 180
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/YTItem.kt",
+      "sha256": "62d0ebf6815d23f6e2dae0ade372258f64fb972e5d8d5cad0f0a0ee098d3d3ad",
+      "bytes": 3326
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/YouTubeClient.kt",
+      "sha256": "fef94a34e481e807f7d0fd50ad8d78276d3f80aac304f43949e8a27887e555f9",
+      "bytes": 11508
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/YouTubeDataPage.kt",
+      "sha256": "8cc0dead617318850129f8c8fb30d934bf7de73437676d0e4272c0b0bcf7a629",
+      "bytes": 8953
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/YouTubeLocale.kt",
+      "sha256": "be703b3ec4463807693164462b8443432a97a13e9935aca38c66e8ac2131d349",
+      "bytes": 193
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/AccountMenuBody.kt",
+      "sha256": "813b200f7c9fe91cffc2a0d56aadfafd7c346ef0b216bc6eacabd4c2e670cb45",
+      "bytes": 317
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/BrowseBody.kt",
+      "sha256": "9b469acfe4aa3e7e68e9763647dca762a9218de562b2b01858227672b817ba59",
+      "bytes": 273
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/CreatePlaylistBody.kt",
+      "sha256": "4ac7394e4067c247aeff20ebb8aafda64def993c7d8e7d33067f77714551b117",
+      "bytes": 467
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/EditPlaylistBody.kt",
+      "sha256": "12a2a4622dc05e46f55e782668b48b80e8e1dad97a7ea63d3eaea9a79ec68ad8",
+      "bytes": 2248
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/FeedbackBody.kt",
+      "sha256": "d09b48f70c11c68e9ce959ee2d23f242ff11dec46d4cc12ab14e49c33022802a",
+      "bytes": 322
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/GetQueueBody.kt",
+      "sha256": "703550883fbb50dacee796127fb2b81d12156d5c87b767cf365226affa7e52b3",
+      "bytes": 255
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/GetSearchSuggestionsBody.kt",
+      "sha256": "1e16fd35ecadde7abe0bf046dc234e8ee7ae8a0dd9ffc5b8a9a5742fe6c2c2b2",
+      "bytes": 228
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/GetTranscriptBody.kt",
+      "sha256": "5c3d3753eca49d4667e0e37afb2cdd9d8248639b57cb9487255bb699601da19e",
+      "bytes": 222
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/LikeBody.kt",
+      "sha256": "9a70f43e2062c7a69e410a4c1d21f94a42a370323fc183f796e3713ad6b9b669",
+      "bytes": 443
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/NextBody.kt",
+      "sha256": "d4e71dad43b9e89a3f80c2d0606792bd53245b20e13f958dec113646eacac224",
+      "bytes": 358
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/PlayerBody.kt",
+      "sha256": "c85efb6185536aa3dc0339b5cbddef2e64d6ff7e4e3aaa951787f8e444acb1c5",
+      "bytes": 782
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/SearchBody.kt",
+      "sha256": "040a3e85edce87dc22464f248e1057aadeacd7a48d1da411153f155e1c22d95b",
+      "bytes": 240
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/body/SubscribeBody.kt",
+      "sha256": "47266158cb8f36e46ae96847e4e8a58bcb89f2838d6c3fd2d7cd71897591a240",
+      "bytes": 228
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/comment/CommentRenderer.kt",
+      "sha256": "92a212e344b14b9dce195d776e17fa366c86942d9c56355d39fcd1a83775853c",
+      "bytes": 2243
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/comment/CommentResponse.kt",
+      "sha256": "0514135d37a8c6768eac4d2d44bfd2fdd279f402fc3f44e9094e34d603020201",
+      "bytes": 3960
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/AccountMenuResponse.kt",
+      "sha256": "c9851da8a9aa1336d70a6d0d6a0e89e0c0f83a86e4fe6bf35b0bf711df763ceb",
+      "bytes": 1852
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/AddItemYouTubePlaylistResponse.kt",
+      "sha256": "2bc41b0dffcfda4d8eb95fbaeebe9c858521bbc69df13def2e6d3e7e3d4971c4",
+      "bytes": 529
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/BrowseResponse.kt",
+      "sha256": "cdc640d838888cdf8ea65ee7a9c73ecf80461922dbc929b08071e00827fb510a",
+      "bytes": 5249
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/ContinuationResponse.kt",
+      "sha256": "0a9d0c556380e5fe8b7d3c08e3cd78714ec4366e663846ca83e392fa298b56df",
+      "bytes": 515
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/CreatePlaylistResponse.kt",
+      "sha256": "38cfe87ca96ac8e7bd398f497ce070edca50148d2bdef4aaf923071ee21854f9",
+      "bytes": 166
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/EditPlaylistResponse.kt",
+      "sha256": "2b93a4304260e4931d1a6bfc29398e739de6e9f0da185ef2a6f4dd6d057f20f5",
+      "bytes": 180
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/FeedbackResponse.kt",
+      "sha256": "ad80cc2614c3b1b11677837b6220ea5c7e6909cdb07fae49614e862ef38484cf",
+      "bytes": 259
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/GetQueueResponse.kt",
+      "sha256": "66ba28cc4688be80cf6e8363c293916d91880df92e52b788f4517df67f77a41f",
+      "bytes": 332
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/GetSearchSuggestionsResponse.kt",
+      "sha256": "ae28267e2c4f2d7b2e82aefd44c5f9f32386c130f342f99fc0c6dbf363694ee5",
+      "bytes": 378
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/GetTranscriptResponse.kt",
+      "sha256": "2274d42db42a5f9d466696f64da91d0b2e156aaa4d4e66ae1ed6d9b19f4b8fcb",
+      "bytes": 2543
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/ImageUploadResponse.kt",
+      "sha256": "412042c398ac1458727c8b34462289de8a95aff58a79449960d51986fabc9c65",
+      "bytes": 167
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/NextResponse.kt",
+      "sha256": "d8e1a0f0de3f2316458ecc8c10e09aecd06636a4a21336835e2efc3374f6d224",
+      "bytes": 2101
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/PlayerResponse.kt",
+      "sha256": "d4f7ddd0f10921a16513c2ab236cfa3c5eba5e2ec8488e2356e7a3b7d8adbc51",
+      "bytes": 3376
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/models/response/SearchResponse.kt",
+      "sha256": "6ca304f4a8cc86d883c601868b5195e21c44195a477d14c596a8418f12b63a70",
+      "bytes": 934
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/AlbumPage.kt",
+      "sha256": "2a892aee8c052fda07fc7a160f694bf0cc9c75d48347911941592d8725fd7fe5",
+      "bytes": 6553
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/ArtistItemsContinuationPage.kt",
+      "sha256": "31490d3d30c3de3baa7bebf5b2d54de0469a73461dbd7d97810e55458e403155",
+      "bytes": 179
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/ArtistItemsPage.kt",
+      "sha256": "c37d769a51fc516d5777955219d8be48e7a090781174d95fb5c1642c5f1908cc",
+      "bytes": 7013
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/ArtistPage.kt",
+      "sha256": "4835f69dfbf0f2a303a8cb4bf35210ea441d4428a2a51b04f019fee508198371",
+      "bytes": 11300
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/BrowseResult.kt",
+      "sha256": "b4cd3e06a2b80c5ef43f59d40c154bee212cac92946ee872cdf99fc164a0c9db",
+      "bytes": 1934
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/ChartsPage.kt",
+      "sha256": "4f93badf70e0f0af8b5a2e7dba2963d70a081482d61f629072628569ea1e971a",
+      "bytes": 374
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/ExplorePage.kt",
+      "sha256": "d71f8da9c68d426ccf4be60063fbaa74651c349bce5a6adf2c7b5445c7a2c9fc",
+      "bytes": 198
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/HistoryPage.kt",
+      "sha256": "788aecd3ef9e20b439b9e6a07732675076c990f332bd29f54b1e80b14fa282d5",
+      "bytes": 3679
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/HomePage.kt",
+      "sha256": "8f05b18ed9f88c0af0519018b59af349a5594c4dfe5d507969b23fd25e869df7",
+      "bytes": 9697
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/LibraryAlbumsPage.kt",
+      "sha256": "40a767f3fff00b9c3fcd463838920514ef7feb6276f41a34d5dcdcd776890fc4",
+      "bytes": 1327
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/LibraryContinuationPage.kt",
+      "sha256": "9809a00059c3a9cb0b9ee2f3b9b66beac0f6fba9765e9a4399fe7be3a5978aa8",
+      "bytes": 175
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/LibraryPage.kt",
+      "sha256": "c4dee280d0f768312dee6d778c11da543563ab876e8e2d66187d85b1e2db031c",
+      "bytes": 10869
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/MoodAndGenres.kt",
+      "sha256": "6478a35caeef377472d2b32d258f3084b1f28a802fb9f953a97dd3517bfb281a",
+      "bytes": 1626
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/NewPipe.kt",
+      "sha256": "a03209c968538c97ee95ac65b0eb9cd7a81a25c9b34f219b7da1c4c720080882",
+      "bytes": 7034
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/NewReleaseAlbumPage.kt",
+      "sha256": "599e882e382bd672fbe4fb37d2f9906c7fa0dc13b4157f97ad437f13b66d4df7",
+      "bytes": 1771
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/NextPage.kt",
+      "sha256": "d50f76fb506eeb1e10facbd7834a51a341066c5dce169978a1d067ee3248cb6d",
+      "bytes": 3057
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/PageHelper.kt",
+      "sha256": "0b6cadd801da5eb64168ce13d2aca7013eba907ea0583365d47165f776ff8a92",
+      "bytes": 7275
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/PlaylistContinuationPage.kt",
+      "sha256": "c90119be00e6606e75d785ca5813211813ea2a1b6465c2ed4215ea729c08a29a",
+      "bytes": 180
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/PlaylistPage.kt",
+      "sha256": "8543e2ad9393cc7109453e3e8e6738b640cc3392449dd6b063cdf466e76c2e92",
+      "bytes": 4247
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/RelatedPage.kt",
+      "sha256": "b4dd6f396d1bfbb3675fdebfc5f8c31b1102eeed1866e9e94acdc3152c5ec84e",
+      "bytes": 8739
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/SearchPage.kt",
+      "sha256": "dab4db0b42b32cf092eb63178d64283e3d761b56b51174b378d682d9936cf69c",
+      "bytes": 10009
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/SearchSuggestionPage.kt",
+      "sha256": "7c9d7e2ec3b9e76c433fb55a92e93e30c3825fb7d991ed33b70b3b7be84e614a",
+      "bytes": 7347
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/pages/SearchSummaryPage.kt",
+      "sha256": "82a4bf4937864617bd74cdafee6ca8cd707f580916b47a232f1dc9d3448c51aa",
+      "bytes": 19744
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/strategy/ContentAwareFallbackStrategy.kt",
+      "sha256": "3f2dcf2a150ff71ea953f9aa536c1670660e4a646b429206d3136d302f33b78d",
+      "bytes": 1838
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/utils/Utils.kt",
+      "sha256": "e6d574fd86384e1592cb9d39de041fcc4eb7b5e10b2347f2ad25ae1a56a5a498",
+      "bytes": 3453
+    },
+    {
+      "path": "innertube/src/main/kotlin/com/music/innertube/utils/YouTubeUrlParser.kt",
+      "sha256": "1f98e7d77c9462256aaa54ce1e21af97df1c51e76b4da0e378c7bbed5d6e0689",
+      "bytes": 3181
+    }
+  ]
+}

@@ -8,14 +8,16 @@ pub struct MusicBounds { x: i32, y: i32, width: i32, height: i32 }
 pub struct MusicState {
     has_track: bool, playing: bool, title: String, artist: String,
     position: u64, duration: u64,
+    #[serde(default)] buffering: bool,
+    #[serde(default, skip_serializing_if="Option::is_none")] error: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum MusicOperation { Status, Play, Pause, Previous, Next }
+pub enum MusicOperation { Status, Play, Pause, Previous, Next, Retry, Light, Dark, System }
 #[cfg(all(windows, feature = "embedded-music"))]
 impl MusicOperation {
     fn name(&self) -> &'static str {
-        match self { Self::Status => "status", Self::Play => "play", Self::Pause => "pause", Self::Previous => "previous", Self::Next => "next" }
+        match self { Self::Status => "status", Self::Play => "play", Self::Pause => "pause", Self::Previous => "previous", Self::Next => "next", Self::Retry=>"retry",Self::Light=>"light",Self::Dark=>"dark",Self::System=>"system" }
     }
 }
 impl MusicBounds {
@@ -73,8 +75,11 @@ mod native {
                 loop {
                     let mut line=Vec::new();
                     // Bound even non-protocol plugin output. No third-party log text is retained.
-                    match reader.by_ref().take(4097).read_until(b'\n',&mut line) { Ok(0)|Err(_)=>break, Ok(_)=>{} }
-                    if line.len()>4096 { break; }
+                    match reader.by_ref().take(4097).read_until(b'\n',&mut line) {
+                        Ok(0)=>{crate::log::line("Spotube output stream closed");break;},
+                        Err(_)=>{crate::log::line("Spotube output stream read failed");break;}, Ok(_)=>{}
+                    }
+                    if line.len()>4096 { crate::log::line("Spotube output exceeded the protocol line limit");break; }
                     let Ok(text)=std::str::from_utf8(&line) else { continue };
                     let Some(reply)=text.strip_prefix("ANF_REPLY ") else { continue };
                     let mut parts=reply.trim_end().splitn(3, ' ');
@@ -141,7 +146,7 @@ mod native {
         }
         let result=tokio::time::timeout(std::time::Duration::from_secs(12),receiver).await;
         if let Ok(mut pending)=pending().lock(){pending.remove(&id);}
-        result.map_err(|_|"Spotube did not respond. Stop music before previewing audio.".to_string())?.map_err(|_|"Spotube stopped responding.".to_string())?
+        result.map_err(|_|"Spotube did not respond. Reopen Spotube and try again.".to_string())?.map_err(|_|"Spotube stopped responding.".to_string())?
     }
     pub fn shutdown(){if let Ok(mut state)=runtime().lock(){*state=None;}}
 }

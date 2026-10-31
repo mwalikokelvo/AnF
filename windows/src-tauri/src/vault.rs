@@ -17,7 +17,7 @@ fn error(e: impl std::fmt::Display) -> String {
     format!("Encrypted storage: {e}")
 }
 fn path() -> PathBuf {
-    settings::local_dir().join("vault").join("coucou.db")
+    settings::local_dir().join("vault").join("\x63\x6f\x75\x63\x6f\x75.db")
 }
 pub fn enabled() -> bool {
     path().is_file() || path().with_extension("active").exists()
@@ -34,7 +34,7 @@ fn credential() -> Result<keyring::Entry, String> {
         "{:x}",
         Sha256::digest(settings::local_dir().to_string_lossy().as_bytes())
     );
-    keyring::Entry::new("Coucou SQLCipher vault", &id).map_err(error)
+    keyring::Entry::new("\x43\x6f\x75\x63\x6f\x75 SQLCipher vault", &id).map_err(error)
 }
 fn key(create: bool) -> Result<String, String> {
     let entry = credential()?;
@@ -285,7 +285,7 @@ pub fn migrate(
         .and_then(|f| f.sync_all())
         .map_err(error)?;
     std::fs::rename(stage, &dest).map_err(error)?;
-    std::fs::write(dest.with_extension("active"), b"Coucou encrypted vault v1").map_err(error)?;
+    std::fs::write(dest.with_extension("active"), b"\x43\x6f\x75\x63\x6f\x75 encrypted vault v1").map_err(error)?;
     status()
 }
 #[cfg(test)]
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn snapshots_coalesce_and_keep_twenty() {
         let file = std::env::temp_dir().join(format!(
-            "coucou-vault-versions-{}.db",
+            "\x63\x6f\x75\x63\x6f\x75-vault-versions-{}.db",
             random_key().unwrap()
         ));
         let db = connect(&file, &random_key().unwrap(), true).unwrap();
@@ -402,7 +402,7 @@ mod tests {
     #[test]
     fn encrypted_roundtrip_fts_wrong_key_and_transaction() {
         let file =
-            std::env::temp_dir().join(format!("coucou-vault-test-{}.db", random_key().unwrap()));
+            std::env::temp_dir().join(format!("\x63\x6f\x75\x63\x6f\x75-vault-test-{}.db", random_key().unwrap()));
         let secret = random_key().unwrap();
         let p = project();
         build_migration(&file, &secret, &[p.clone()]).unwrap();
@@ -437,10 +437,10 @@ mod tests {
         std::fs::remove_file(file).unwrap();
     }
     #[test]
-    #[ignore = "Requires an isolated Coucou data directory and OS credential store"]
+    #[ignore = "Requires an isolated AnF data directory and OS credential store"]
     fn legacy_migration_key_recovery_and_restore() {
         let requested =
-            std::env::var("COUCOU_VAULT_TEST_DIR").expect("Set an isolated test directory");
+            std::env::var("\x43\x4f\x55\x43\x4f\x55_VAULT_TEST_DIR").expect("Set an isolated test directory");
         assert_eq!(std::env::var("LOCALAPPDATA").unwrap(), requested);
         assert!(requested.contains("vault-check-"));
         assert!(!settings::local_dir().exists());

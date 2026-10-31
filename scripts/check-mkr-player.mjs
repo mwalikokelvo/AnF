@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import path from 'node:path';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const {build}=createRequire(path.join(root,'windows/package.json'))('esbuild');
+const output=path.join(root,'windows/target/mkr-contract-check');await mkdir(output,{recursive:true});
+await build({entryPoints:[path.join(root,'windows/src/workspace/mkr-player.ts')],bundle:true,format:'esm',platform:'node',outfile:path.join(output,'player.mjs')});
+const {createMkrPlayer}=await import(pathToFileURL(path.join(output,'player.mjs')));
+const missing=createMkrPlayer(undefined,async()=>{});
+assert.equal(await missing.available(),false);await assert.rejects(missing.open(),/not installed/);
+let touched=false;
+const website=createMkrPlayer(async()=>({protocol:1,embedded:false,platform:'android-native'}),async()=>{touched=true;});
+assert.equal(await website.available(),false);await assert.rejects(website.play(),/not installed/);assert.equal(touched,false);
+const order=[],track={id:'sample',title:'A local test track',artist:'Fixture'},state={playing:true,positionMs:1000,durationMs:90000,track};
+let broken=false;
+const player=createMkrPlayer(async(command,payload)=>{
+ order.push(command);
+ if(command==='capabilities')return{protocol:1,embedded:true,platform:'android-native'};
+ if(command==='search'){assert.deepEqual(payload,{query:'sample'});return[track];}
+ return broken?{...state,positionMs:NaN}:state;
+},async()=>{order.push('pause-other-engines');});
+assert.equal(await player.available(),true);assert.deepEqual(await player.search(' sample '),[track]);
+await player.play('sample');assert.deepEqual(order.slice(-2),['pause-other-engines','play']);
+await player.next();assert.deepEqual(order.slice(-2),['pause-other-engines','next']);
+await player.pause();assert.equal(order.at(-1),'pause');await player.seek(2500);
+const count=order.length;await assert.rejects(player.seek(-1),/valid playback/);await assert.rejects(player.search(' '),/music search/);assert.equal(order.length,count);
+broken=true;await assert.rejects(player.status(),/Invalid MKR playback/);
+const blocked=[];const handoff=createMkrPlayer(async(command)=>{blocked.push(command);return{protocol:1,embedded:true,platform:'windows-native'};},async()=>{throw Error('Other engine did not pause');});
+assert.equal(await handoff.available(),true);await assert.rejects(handoff.play(),/did not pause/);assert.deepEqual(blocked,['capabilities']);
+assert(!order.some(command=>/url|browser|spotify/i.test(command)));
+console.log('PASS: MKR contract readiness, bounded search/state, audio handoff and failure isolation; no external-player fallback. Native playback is not tested by this fixture.');

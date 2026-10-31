@@ -2,8 +2,10 @@
 // windows/release/, with the names they ship under. Used by `npm run pack` and
 // by the release workflows, so both produce exactly the same file names.
 
-import { readFileSync, mkdirSync, copyFileSync, readdirSync, statSync, cpSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readFileSync, mkdirSync, copyFileSync, readdirSync, statSync, cpSync, createReadStream, writeFileSync, rmSync, renameSync } from "node:fs";
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -11,6 +13,9 @@ const bundleRoot = join(root, "target", "release", "bundle");
 const outDir = join(root, "release");
 
 const { version } = JSON.parse(readFileSync(join(root, "src-tauri", "tauri.conf.json"), "utf8"));
+if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+  throw Error('Invalid release version.');
+}
 
 // What each platform ships: where Tauri puts it, how to recognise it, and the
 // names it is published under (the rolling name, when there is one, always
@@ -81,12 +86,16 @@ console.log();
 if (process.platform === 'win32') {
   // A portable release needs the same offline resources as the installer.
   const portable = join(outDir, `AnF-Windows-${version}-portable`);
+  // Rebuild only this version's generated directory; old optional runtimes
+  // must not leak into a later package built without those features.
+  if (dirname(portable) !== outDir) throw Error('Portable output escaped the release directory.');
+  rmSync(portable, {recursive:true, force:true});
   mkdirSync(portable, {recursive:true});
-  for (const binary of ['AnF.exe','coucou-hook.exe']) {
+  for (const binary of ['AnF.exe','anf-hook.exe']) {
     copyFileSync(join(root,'target/release',binary),join(portable,binary));
   }
   mkdirSync(join(portable,'local-ai'), {recursive:true});
-  const required = ['llama-server.exe','model.gguf','model-fast.gguf','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt'];
+  const required = ['llama-server.exe','model.gguf','model-fast.gguf','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt','vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll','MSVC-LICENSE.txt'];
   const dlls = readdirSync(join(root,'local-ai')).filter(name=>name.endsWith('.dll'));
   if (!dlls.length) throw Error('Portable release has no native runtime DLLs.');
   for(const name of new Set([...required,...dlls,...readdirSync(join(root,'local-ai')).filter(name=>name.includes('LICENSE'))])) {
@@ -103,4 +112,17 @@ if (process.platform === 'win32') {
     copyFileSync(join(root,name),join(portable,name));
   }
   console.log(`Portable release with offline resources: ${portable}`);
+  const archive = portable + '.zip';
+  // Windows 10/11's libarchive-based tar streams ZIP64 archives without the
+  // 2 GB file limit of Compress-Archive or a PowerShell execution-policy change.
+  const temporary = archive + '.partial';
+  const packed = spawnSync('tar.exe', ['--format=zip', '-c', '-f', temporary,
+    '-C', outDir, basename(portable)], {stdio:'inherit'});
+  if (packed.error) throw packed.error;
+  if (packed.status !== 0) process.exit(packed.status || 1);
+  renameSync(temporary, archive);
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(archive)) hash.update(chunk);
+  writeFileSync(join(outDir, 'SHA256SUMS-Windows-portable'),
+    `${hash.digest('hex')}  AnF-Windows-${version}-portable.zip\n`);
 }

@@ -1,0 +1,26 @@
+[
+  {
+    "file": "Lora.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/186331d77cc99caaa9c3b52391fd2b519c9e1ee8/ofl/lora/Lora%5Bwght%5D.ttf",
+    "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7",
+    "bytes": 212196
+  },
+  {
+    "file": "Lora-OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/186331d77cc99caaa9c3b52391fd2b519c9e1ee8/ofl/lora/OFL.txt",
+    "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716",
+    "bytes": 4423
+  },
+  {
+    "file": "AtkinsonHyperlegible-Regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/95f4904fc8bcf26d3420fe315560c96417c6dec7/ofl/atkinsonhyperlegible/AtkinsonHyperlegible-Regular.ttf",
+    "sha256": "7fb917c89019896d0b52ee84b7cbb3304c18cb90b19a62f5e32712bd23e97669",
+    "bytes": 54348
+  },
+  {
+    "file": "Atkinson-OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/95f4904fc8bcf26d3420fe315560c96417c6dec7/ofl/atkinsonhyperlegible/OFL.txt",
+    "sha256": "f32d22b3908fcad2c86a74000614ec22e6a7f66ea7e867e616026a27aebdc143",
+    "bytes": 4352
+  }
+]

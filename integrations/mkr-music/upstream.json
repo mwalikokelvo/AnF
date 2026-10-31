@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/mkr-infinity/mkr-music",
+  "reviewedCommit": "78ac80c5101c293a5591a4cd5a1ebc90ccbc3138",
+  "upstreamPlatform": "android-kotlin-compose",
+  "licenseReview": "GPL-3.0 with an explicit Musixmatch restriction; exclude restricted code and review distribution notices before packaging",
+  "excludedComponents": ["musixmatch"],
+  "integrationStatus": "primary JVM resolver adapter with bounded diagnostics and isolated Windows audio prototype; test content reported unavailable; no integrated native player packaged",
+  "externalPlayerRedirects": false
+}

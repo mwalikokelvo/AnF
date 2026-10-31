@@ -3,8 +3,8 @@ import {durationText} from '../../windows/src/workspace/audio-data';
 import type {AudioTrack} from '../../windows/src/workspace/audio-library';
 type State={title:string;position:number;duration:number;playing:boolean;count:number;error:boolean};
 const pending=new Map<string,{resolve:(s:any)=>void;reject:(e:Error)=>void;timer:ReturnType<typeof setTimeout>}>();let sequence=0;
-declare global{interface Window{coucouMediaResult:(id:string,value:string,error:string)=>void;}}
-window.coucouMediaResult=(id,value,error)=>{const p=pending.get(id);if(!p)return;pending.delete(id);clearTimeout(p.timer);if(error)p.reject(Error(error));else try{p.resolve(JSON.parse(value));}catch{p.reject(Error('Invalid native audio response.'));}};
+declare global{interface Window{AnFMediaResult:(id:string,value:string,error:string)=>void;}}
+window.AnFMediaResult=(id,value,error)=>{const p=pending.get(id);if(!p)return;pending.delete(id);clearTimeout(p.timer);if(error)p.reject(Error(error));else try{p.resolve(JSON.parse(value));}catch{p.reject(Error('Invalid native audio response.'));}};
 function call<T>(operation:string,data:unknown={}):Promise<T>{const native=window.AnFAndroid;if(!native?.mediaRequest)return Promise.reject(Error('Native playback needs the updated Android app.'));const id=String(++sequence);return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(id);reject(Error('Native audio did not respond.'));},60000);pending.set(id,{resolve,reject,timer});try{native.mediaRequest!(id,operation,JSON.stringify(data));}catch(e){clearTimeout(timer);pending.delete(id);reject(e);}});}
 function extension(t:AudioTrack){const ext=t.name.split('.').at(-1)?.toLowerCase()||'';if(!['mp3','m4a','aac','wav','flac','ogg','opus','wma','aif','aiff','amr','alac'].includes(ext))throw Error('Native playback cannot identify '+t.name);return ext;}
 async function importTrack(track:AudioTrack,cancelled:()=>boolean){

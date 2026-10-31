@@ -1,4 +1,5 @@
 import {chromium} from 'playwright-core';
+import {navigateWorkspace} from './navigation.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -15,7 +16,9 @@ try {
   while(Date.now()<deadline&&!page) {
     try {
       let port=9223;
-      const activePort=path.join(process.env.LOCALAPPDATA,'Coucou/webview-v014/EBWebView/DevToolsActivePort');
+      const identity=process.env.ANF_QA_DATA_NAME||'Coucou';
+      assert(['Coucou','AnF'].includes(identity),'Invalid QA data identity');
+      const activePort=path.join(process.env.LOCALAPPDATA,identity,'webview-v014/EBWebView/DevToolsActivePort');
       const detected=Number((await readFile(activePort,'utf8').catch(()=>'' )).split('\n')[0]);
       if(detected>0&&detected<65536)port=detected;
       browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`,{timeout:3000});
@@ -27,19 +30,7 @@ try {
   assert(page,'Installed application did not open its workspace');
   page.setDefaultTimeout(90000);
   page.on('pageerror',e=>errors.push(e.message));
-  const view=async id=>{
-    // Follow the person's navigation path: open the rail, select its mode,
-    // then the section. Sections in another mode are intentionally hidden.
-    await page.locator('.history-sidebar').hover();
-    const section=page.locator(`[data-view="${id}"]`);
-    const mode=await section.getAttribute('data-mode');
-    if(mode&&mode!=='keep'){
-      const tab=page.locator(`.mode-rail [data-mode="${mode}"]`);
-      if(await tab.count())await tab.click(); // Older baselines had no mode rail.
-    }
-    await section.click();
-    await page.locator(`#panel-${id}`).waitFor({state:'visible'});
-  };
+  const view=id=>navigateWorkspace(page,id);
   const saved=async()=>{await view('settings');await page.getByRole('button',{name:'Save project',exact:true}).click();await page.getByText('Conversation saved.',{exact:true}).waitFor();};
   await page.waitForFunction(()=>document.querySelector('[aria-label="Your question"]')?.disabled===false);
   assert(!await page.getByText('Workspace initialization failed:',{exact:false}).count());
@@ -86,7 +77,7 @@ try {
       await view('chat');
       await page.getByLabel('AI context',{exact:true}).selectOption('none');
       await page.getByLabel('Your question',{exact:true}).fill('Calculate 2 + 2. Reply with the number only.');
-      await page.getByRole('button',{name:'Ask local AI',exact:true}).click();
+      await page.getByRole('button',{name:/^Ask (local|selected) AI$/,exact:true}).click();
       await page.locator('.message.assistant').last().waitFor({timeout:240000});
       assert.match(await page.locator('.message.assistant').last().innerText(),/\b4\b/);
       await write(after);

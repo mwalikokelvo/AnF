@@ -2,7 +2,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const context={module:{exports:{}},TextEncoder};vm.runInNewContext(fs.readFileSync(process.argv[2],'utf8'),context);
 const {restoreProjects,mergeReply}=context.module.exports;
 const old={name:'Old conversation',draft:'My writing',prompt:'Question',notes:[{role:'You',text:'Hello'}],sources:[{name:'Book',text:'Chapter'}],id:'old'};
-const wrap=p=>({kind:'coucou-mobile-backup',projects:[p]});
+const wrap=p=>({kind:'\x63\x6f\x75\x63\x6f\x75-mobile-backup',projects:[p]});
 const restored=restoreProjects(wrap(old),()=> 'new-id',123)[0];
 assert.equal(restored.id,'new-id');assert.equal(restored.updated,123);assert.equal(restored.replyPlacement,'append');assert.equal(restored.pendingReply,'');
 const newer={...old,pendingReply:'Unfinished reply',responseLength:'long',replyPlacement:'replace',untrusted:'discard'};

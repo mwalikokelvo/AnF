@@ -15,7 +15,11 @@ concurrency:
   group: spotube-${{ github.ref }}-${{ inputs.platform }}
   cancel-in-progress: true
 jobs:
+  android-package:
+    uses: ./.github/workflows/android-release-gate.yml
+
   android:
+    needs: android-package
     if: inputs.platform != 'windows'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -42,12 +46,14 @@ jobs:
         with:
           toolchain: 1.99.0
       - name: Prepare pinned native music module
-        run: node integrations/spotube/prepare.mjs
+        run: |
+          node scripts/check-spotube-build-tools.mjs
+          node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
         # The Gradle "What went wrong" lines also go to an annotation, so the reason shows on the check.
         run: |
           set -o pipefail
-          node integrations/spotube/build-android.mjs 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
+          node integrations/spotube/build-android.mjs --release-only 2>&1 | tee "$RUNNER_TEMP/aar.log" || {
             why=$({ grep -m1 -A12 'Failed to transform' "$RUNNER_TEMP/aar.log" | cut -c1-700 | grep -vE '^\s*$' | sed -E 's/.*(Caused by|Could not|Unsupported|java\.|Error)/\1/' | cut -c1-220; grep -m5 -iE 'Caused by|OutOfMemory|timed out|Could not (GET|HEAD)|Unsupported' "$RUNNER_TEMP/aar.log" | cut -c1-220; } | head -c 2500 | paste -sd'|' | sed 's/|/%0A/g') || true
             echo "::error title=Spotube Android libraries failed::${why:-no Gradle message, see log}"
             exit 1
@@ -57,18 +63,24 @@ jobs:
           sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
           npm ci --prefix windows
           npm ci --prefix android
-          node scripts/build-android.mjs --with-spotube
+          node scripts/build-android.mjs --with-spotube --review
           node scripts/check-release.mjs
+          python scripts/check-music-apk.py --abi arm64-v8a releases/AnF-Android-*-music-preview-arm64-v8a.apk > releases/Android-music-inspection.json
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify releases/AnF-Android-*-music-preview-arm64-v8a.apk
+          (cd releases && sha256sum AnF-Android-*-music-preview-arm64-v8a.apk > SHA256SUMS-music-preview)
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: AnF-Android-embedded-Spotube-review
-          path: releases/AnF-Android-*.apk
+          path: |
+            releases/AnF-Android-*-music-preview-arm64-v8a.apk
+            releases/Android-music-inspection.json
+            releases/SHA256SUMS-music-preview
           retention-days: 7
           if-no-files-found: error
   windows:
+    needs: android-package
     if: inputs.platform != 'android'
-    # windows-latest has Visual Studio 2026 since June 2026, which Flutter 3.35 does not
-    # know (it falls back to "Visual Studio 16 2019" and CMake fails). Stay on VS 2022.
+    # Flutter 3.35.2 requires the VS2022 image.
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -87,7 +99,9 @@ jobs:
           flutter-version: 3.35.2
           channel: stable
       - name: Prepare pinned embedded music
-        run: node integrations/spotube/prepare.mjs --windows
+        run: |
+          node scripts/check-spotube-build-tools.mjs
+          node integrations/spotube/prepare.mjs --windows
       - name: Build native child view
         working-directory: windows/spotube-native
         # The first error lines also go to an annotation, so the reason shows on the check.
@@ -110,7 +124,7 @@ jobs:
       - name: Build the AnF review installer and portable package
         working-directory: windows
         run: |
-          cargo build --release --locked -p coucou-hook
+          cargo build --release --locked -p anf-hook
           npm exec tauri -- build --features embedded-music --config src-tauri/tauri.spotube.conf.json
           node scripts/pack.mjs --with-spotube
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

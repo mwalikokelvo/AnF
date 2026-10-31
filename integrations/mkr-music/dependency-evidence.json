@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "readyForPublication": false,
+  "observations": [
+    {
+      "coordinate": "com.github.TeamNewPipe:nanojson:e9d656ddb49a412a5a0a5d5ef20ca7ef09549996",
+      "repository": "https://github.com/TeamNewPipe/nanojson",
+      "commit": "e9d656ddb49a412a5a0a5d5ef20ca7ef09549996",
+      "path": "src/main/java/com/grack/nanojson/JsonParser.java",
+      "gitBlob": "3cbbfc0c91605bf2c58d85d5ba5f1d0cce00dae3",
+      "sourceUrl": "https://github.com/TeamNewPipe/nanojson/blob/e9d656ddb49a412a5a0a5d5ef20ca7ef09549996/src/main/java/com/grack/nanojson/JsonParser.java",
+      "observedFileHeaderLicense": "Apache-2.0",
+      "copyright": "Copyright 2011 The nanojson Authors",
+      "scope": "Inspected file header only; not a module-wide license approval or source-correspondence finding.",
+      "sourceReviewRequired": true
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 # Music Hub and native Spotube
 
-## Shared 0.1.21 interface
+## Shared integration interface
 
 Android and Windows now have separate **Music Hub** and **Audio Studio** sections.
-Music Hub follows the approved dark charcoal/mint reference: search, three tabs,
+Music Hub provides light/dark theme support, search, five content categories,
 artwork cards, listening history and a persistent responsive player. Empty
 libraries start empty; the fictional albums in the browser QA screenshots are
 test fixtures, not a streaming catalogue bundled into the product.
@@ -67,7 +67,7 @@ for the native plugins. In managed environments, Java needs the configured proxy
 and trusted environment CA; do not disable certificate verification.
 
 The AAR builder publishes runtime AARs and source jars with two Gradle workers
-and a 2 GB heap. It omits API documentation jars: older plugin Dokka compilers
+and a 4 GB heap. It omits API documentation jars: older plugin Dokka compilers
 cannot read modern Kotlin metadata and caused an observed out-of-memory kill.
 Flutter's engine artifacts resolve exclusively from its engine repository rather
 than nonexistent Google Maven paths.
@@ -76,29 +76,82 @@ The current review targets are ARM64 and x86-64. Unsupported 32-bit devices reta
 local Music Hub without offering the native control. `.MusicActivity` shares
 `audio_service`'s retained Flutter engine; Back returns to AnF without deliberately
 stopping its playback. A method-channel pause acknowledgement coordinates native
-Spotube with local music and Audio Studio. Both native AAR variants and the
-combined AnF release/debug APKs compile locally, including release lint. The
-review release APK is signed with the preserved original release certificate.
+Spotube with local music and Audio Studio. Earlier integration records reported local AAR/APK compilation and a signed review APK. Those reports do not verify the current reconciled source or either Android identity's upgrade compatibility.
 Native startup, streaming, Back, background controls and saved-data upgrades
 still require installed tests. The isolated software-only API 35 emulator
 developed Settings and System UI hangs, so it provided no reliable installed
 verification. It was stopped after this attempt.
 
+### Isolated Android previews
+
+When the original signing key is unavailable, build an installable preview beside
+the production app:
+
+```bash
+node integrations/spotube/prepare.mjs
+node integrations/spotube/build-android.mjs --release-only
+node scripts/build-android.mjs --with-spotube --review
+version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
+python scripts/check-music-apk.py --abi arm64-v8a "releases/AnF-Android-$version-music-preview-arm64-v8a.apk"
+```
+
+The default preview targets ARM64 phones. `ANF_REVIEW_ABI=x86_64` selects the other
+supported architecture. Each preview contains one architecture; the inspector
+rejects unexpected ABIs, missing Flutter/host code and native ELF load alignment
+below 16 KB. The host pins NDK 27 for stripping, and the AAR builder passes encoded
+Rust linker flags through Cargokit for the required alignment.
+
+The launcher label is **AnF Music Preview**, application ID is
+`com.anf.workspace.musicdev`, and version name ends with `-music-preview`.
+It uses a local development certificate and separate application storage. It
+cannot update the original app or automatically access that app's data. Keep the
+production app installed. This preview does not establish installed-device
+startup, streaming, background-controls or upgrade verification.
+
+Embedded sleep timers pause playback; task removal pauses without exiting AnF.
+The close shortcut asks the native host to return to AnF. Android preparation
+vendors the locked NewPipe revision and removes its absent desktop asset entry,
+while retaining its source/license and leaving the shared Pub cache unchanged.
+
 ### Windows
 
-On a Windows machine with Flutter, MSVC and the existing AnF native prerequisites:
+Windows 0.1.22 fixes the floating panel's rounded animation and control layering,
+adds visible collapse/recovery actions, and consolidates repeated workspace
+controls. The embedded player has its own bounded viewport below the source
+switch. It hides for other sections and dialogs; local-library controls return
+when switching back. A failed pause leaves native playback controls available
+and prevents a second player from starting.
+
+Windows 0.1.23 additionally accounts for WebView2's Windows accessibility text
+scale when sizing the floating window and mapping mouse coordinates. It excludes
+Spotube's standalone window-manager startup and preference updates from embedded
+mode; those routines otherwise resolve AnF as their root window and change its
+title, size and Flutter surface. The host waits for the native startup handshake
+and returns to the local library on failure. Search excludes provider advertising
+redirects and shows compact source addresses while preserving the full link.
+The native runner enables sibling clipping on AnF's WebView host so its
+accelerated surface cannot paint over the Flutter child. This needs a composed
+window capture; a CDP screenshot only captures the browser surface. The Windows
+QA helper uses PrintWindow so an overlapping application cannot contaminate
+the captured pixels.
+
+Use a Visual Studio Developer PowerShell with C++ Build Tools and
+`Microsoft.VisualStudio.Component.VC.ATL`, Flutter **3.35.2**, and the existing
+AnF native prerequisites. The helper checks ATL, provides the signed Microsoft
+NuGet CLI when absent, and handles the Dart/Git Windows-path compatibility issue.
+It bundles the verified Microsoft runtime beside Spotube as well as local AI.
+Keep the checkout path short. If using `subst`, invoke the helper through that
+short drive path too; invoking it through the original long path can exceed
+MSBuild's 260-character limit in the generated WebView plugin project.
 
 ```powershell
-node integrations/spotube/prepare.mjs --windows
-cd windows/spotube-native
-flutter build windows --release
-cd ..
+cd windows
+./scripts/build-spotube.ps1 -Flutter C:/path/to/flutter/bin/flutter.bat
 npm ci
 ./scripts/prepare-offline.ps1
 ./scripts/prepare-media.ps1
-cargo build --release --locked -p coucou-hook
-npm exec tauri -- build --features embedded-music --config src-tauri/tauri.spotube.conf.json
-node scripts/pack.mjs --with-spotube
+cargo build --release --locked -p anf-hook
+npm run pack:music
 ```
 
 The native runner validates the AnF parent process/window, attaches its Flutter
@@ -108,10 +161,24 @@ require a Flutter acknowledgement before another player starts. The child stops
 when AnF exits; native window controls do not own AnF's outer window. Generated
 Windows product metadata isolates its support directory from standalone Spotube.
 
-This Windows path requires an actual Windows compile and installed tests. Linux
-backend compilation and bounds tests do not verify Win32/Flutter code. The
-`embedded-music` feature remains opt-in so an unverified native adapter is not
-silently enabled in standard Windows builds.
+Earlier lineage records reported a Windows native smoke test and Flutter lifecycle passes. Those historical results must not be presented as current reconciled-package verification. The current source's Rust unit tests and browser bridge fixtures pass; actual composed native startup, provider setup/streaming and installed upgrades still require verification. The explicit pack:music build includes Spotube; pack retains the local-only variant.
+
+Native smoke check (Windows Python; Pillow is optional for screenshots):
+
+```powershell
+python ../scripts/app-qa/windows-spotube-smoke.py spotube-native/build/windows/x64/runner/Release
+```
+
+The native smoke also asserts that Spotube leaves its parent's title and bounds
+unchanged and keeps the Flutter surface inside its wrapper. For an isolated
+Tauri QA build with WebView2 debugging enabled, run
+`node scripts/app-qa/windows-embedded-ui.mjs` from the repository root. It tests
+actual Windows text scaling, floating Settings/collapse and the native music
+handshake. Browser DPI emulation alone does not cover accessibility text scaling.
+Set `ANF_QA_PID` to the isolated app's process ID and `PYTHON_BIN` to a Python
+with Pillow to also run `windows-composed-view.py`, which rejects a blank native
+surface and saves the composed window screenshot. Never use a live personal
+profile for these QA actions.
 
 ## Verification and next checks
 
@@ -139,25 +206,38 @@ Native-control browser fixtures exercise both bridges, cross-section controls,
 responsive layouts, failed pause, malformed status, studio handoff and late
 responses. They do not replace installed native streaming/system-controls tests.
 
-Saved local review package: `releases/AnF-Android-0.1.21-embedded-review.apk`.
-This is a signed review build, not a verified public release. The normal debug
+The earlier worker reported a production-signed local review package named
+`releases/AnF-Android-0.1.21-embedded-review.apk`. That APK and its signing key are
+not present in this continuation workspace. The isolated preview described above
+uses a different application ID and development certificate. The normal debug
 and unsigned output filenames also contain Spotube when built with
 `--with-spotube`; filenames alone do not establish the packaged runtime.
 
-`.github/workflows/spotube-native.yml` creates unsigned/private review artifacts
-and performs no public publication. Restore Actions billing, then use the
-**Embedded Spotube review builds** workflow on `codex/release-builds`. Installed
-native QA must cover startup, music search/stream playback, returning to AnF,
-system controls, audio handoff, closing/reopening and upgrading saved data.
-Run `38615163842` for the native-controls commit was refused before any build steps: GitHub reports failed
-account payments or the Actions spending limit. No Windows native build is
-claimed from that run.
+`.github/workflows/spotube-native.yml` creates CI review artifacts with no public publication permissions, using pinned actions and Flutter3.35.2. It requires the dual-identity Android package gate, release-only AAR build and inspected ABI-specific preview APK. The artifacts are not private on a public repository, and review debug signatures do not prove original-signer compatibility. Inspect active runs before dispatching to avoid duplicate builds.
 
-Draft review release `anf-v0.1.21-embedded-review` was created, but its assets
-remain empty: `uploads.github.com` returned HTTP 401 (Bad credentials).
-The signed APK and SHA-256 file remain saved under `releases/` in this workspace.
-Upload authorization must be restored before describing that draft as a download.
+Historical failed billing/upload attempts and previously reported local APK paths are recovery evidence only, not current actionable downloads. Do not claim that an old empty draft contains an available signed package. Current native QA must cover startup, search/stream playback, returning to AnF, system controls, audio handoff, closing/reopening and saved-data upgrades.
 
 This product includes software developed by Kingkor Roy Tirtho.
 The BSD-4-Clause notices are retained in `integrations/spotube/LICENSE` and in the
 native distribution. This acknowledgement does not imply upstream endorsement.
+
+### Playback regression checks
+
+The embedded module uses `integrations/spotube/build.yaml` to generate deep JSON.
+Audio-source plugin scripts and media extras consume maps directly; nested Dart
+artist/album instances otherwise crash matching and playlist reconstruction.
+Embedded playlist changes also skip Discord presence updates, since the host
+does not initialize a standalone Discord client. Buffering reports the native
+engine's real events. A provider 401 offers account settings without clearing
+saved credentials or changing authentication automatically.
+
+Run `flutter test --no-pub test/embedding_test.dart test/playback_test.dart` in
+the prepared module. Set `ANF_TEST_LIBMPV` to the built Windows `libmpv-2.dll`
+to enable the native audio test. It streams a generated WAV through the
+production loopback media/player path, verifies duration and advancing position,
+then pause/resume. Output is muted. This checks decoding and transport; it does
+not establish that an external provider accepted the user's current session.
+
+## Embedded MKR Music request
+
+MKR Music must play inside AnF without launching Spotify, a website, another app or an emulator. Its current work includes the shared protocol, a compiled JVM catalog-core prototype and an isolated Windows native audio prototype. Five catalog fixture tests and an actual muted generated AAC duration/play/pause/seek/resume/reopen test pass; one public catalog probe returned search results but no compatible M4A stream. These components are not connected to AnF and do not provide an available music source. See [integration status](../integrations/mkr-music/README.md). Android upstream is Kotlin/Compose/Media3, not a Windows runtime. An embedded Android host, Windows catalog/audio bridge and controls, licensing/source review and actual in-app provider playback acceptance remain required. Do not advertise availability from component or browser-fixture tests. Pause every other AnF audio engine before starting it, and preserve the working local library and Studio.

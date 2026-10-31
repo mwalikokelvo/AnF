@@ -5,7 +5,11 @@
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);
   box-shadow:0 12px 32px #00000073;
+  /* The unused glass below navigation must not trap clicks on the page when
+     returning from a full-screen player. Actual rail controls stay interactive. */
+  pointer-events:none;
 }
+.glass-rail>*{pointer-events:auto}
 .rail-pin{font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted)}
 .rail-pin[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
 
@@ -46,6 +50,7 @@
   .history-sidebar.glass-rail .workspace-navigation button,.history-sidebar.glass-rail .workspace-navigation button[hidden]{display:grid!important;place-items:center;padding:10px;min-width:44px;min-height:44px;border-radius:20px;flex:0 0 44px}
   .glass-rail .workspace-navigation span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   body.has-glass-rail .music-player:not(.music-full-player){left:16px;right:16px;bottom:92px}
+  body.has-glass-rail.has-audio-dock .audio-dock{bottom:92px}
   body.has-glass-rail.has-music-player .workspace-content,body.has-glass-rail.has-native-music-player .workspace-content{padding-bottom:180px}
 }
 

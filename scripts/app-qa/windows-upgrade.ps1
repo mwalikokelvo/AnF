@@ -1,9 +1,14 @@
-param([Parameter(Mandatory=$true)][string]$Baseline, [Parameter(Mandatory=$true)][string]$Candidate)
+param([Parameter(Mandatory=$true)][string]$Baseline, [Parameter(Mandatory=$true)][string]$Candidate, [ValidateSet('Legacy','Modern')][string]$Identity='Legacy')
 $ErrorActionPreference='Stop'
+# Production installers use real registry names despite AppData overrides.
+# Restrict this harness to disposable GitHub-hosted Windows workers.
+if($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted'){throw 'Run installed upgrade QA only on a disposable GitHub-hosted runner'}
+$dataName=if($Identity -eq 'Legacy'){'Coucou'}else{'AnF'}
+$env:ANF_QA_DATA_NAME=$dataName
 $testRoot=Join-Path $env:RUNNER_TEMP 'anf-app-upgrade'
 $env:APPDATA=Join-Path $testRoot 'roaming'
 $env:LOCALAPPDATA=Join-Path $testRoot 'local'
-$install=Join-Path $env:LOCALAPPDATA 'Coucou'
+$install=Join-Path $env:LOCALAPPDATA $dataName
 $env:ANF_QA_OUTPUT=Join-Path $testRoot 'results'
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
 # Apply the official WebView2 per-user override in this disposable runner too.
@@ -34,7 +39,7 @@ function Install-App([string]$installer, [bool]$upgrading=$false) {
   if(!(Test-Path "$install/coucou.exe") -and !(Test-Path "$install/AnF.exe")){throw 'Installer did not produce the application'}
   if($upgrading){
     if(!(Test-Path "$install/AnF.exe")){throw 'Renamed installer did not find the existing installation'}
-    $record=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Coucou'
+    $record=Get-ItemProperty ("HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\"+$dataName)
     if($record.DisplayName -ne 'AnF'){throw 'Installed application is not branded AnF'}
     if(Test-Path "$install/coucou.exe"){throw 'Upgrade left the old application executable behind'}
   }
@@ -59,7 +64,7 @@ function Exercise-App([string]$phase) {
   $binary=if(Test-Path "$install/AnF.exe"){Join-Path $install 'AnF.exe'}else{Join-Path $install 'coucou.exe'}
   $backup=Join-Path $testRoot "original-$phase.exe"
   Copy-Item $binary $backup
-  $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
+  $log=Join-Path (Join-Path $env:LOCALAPPDATA $dataName) $(if($phase -eq 'seed' -and $Identity -eq 'Legacy'){'coucou.log'}else{'anf.log'})
   $offset=if(Test-Path $log){(Get-Content $log -Raw).Length}else{0}
   # First prove the unmodified shipping executable opens its real workspace.
   $process=Start-Process -FilePath $binary -PassThru
@@ -88,7 +93,7 @@ function Exercise-App([string]$phase) {
     node scripts/app-qa/windows-ui.mjs $phase
     if($LASTEXITCODE){throw "Installed application $phase test failed"}
   }finally {
-    $log=Join-Path $env:LOCALAPPDATA 'Coucou/coucou.log'
+    $log=Join-Path (Join-Path $env:LOCALAPPDATA $dataName) $(if($phase -eq 'seed' -and $Identity -eq 'Legacy'){'coucou.log'}else{'anf.log'})
     if(Test-Path $log){Copy-Item $log (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-startup.log")}
     Get-Process coucou,AnF,msedgewebview2 -ErrorAction SilentlyContinue |
       Select-Object Id,ProcessName,Path | ConvertTo-Json |
@@ -107,4 +112,4 @@ Exercise-App 'seed'
 Install-App $Candidate $true
 Exercise-App 'verify'
 Exercise-App 'reopen'
-'PASS: Coucou to AnF installation, encryption, document import, offline AI and restart'
+"PASS: $Identity lineage installation, encryption, document import, offline AI and restart"

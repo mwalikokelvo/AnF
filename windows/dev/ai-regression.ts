@@ -54,7 +54,7 @@ async function run() {
   check(State.chatHistory[1]?.content.includes("Copy your question above"), "clipboard failure provides manual handoff");
   State.settings = {...DEFAULT_SETTINGS,chatProvider:"gemini"}; State.chatHistory = [];
   prompt.sync(); input.value = "API question"; send.click(); await settle();
-  check(calls === 1 && State.chatHistory[1]?.content === "API reply", "API mode keeps replies inside Coucou");
+  check(calls === 1 && State.chatHistory[1]?.content === "API reply", "API mode keeps replies inside AnF");
   Bridge.chatSend = async ()=>{throw Error("Invalid API key");};
   State.chatHistory = []; input.value = "Retry question"; send.click(); await settle();
   check(State.chatHistory.length === 0, "failed API turn does not consume first-turn attachment context");

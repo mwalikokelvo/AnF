@@ -42,7 +42,7 @@ pub fn link_start(app:tauri::AppHandle,host:tauri::State<Host>,store:tauri::Stat
     listener.set_nonblocking(true).map_err(|e|e.to_string())?;
     let port=listener.local_addr().map_err(|e|e.to_string())?.port();
     let mut key=[0;32];SystemRandom::new().fill(&mut key).map_err(|_|"Random generator unavailable")?;
-    let code=format!("coucou1:{ip}:{port}:{}",hex(&key));
+    let code=format!("\x63\x6f\x75\x63\x6f\x751:{ip}:{port}:{}",hex(&key));
     stop(&host);
     let session=Arc::new(Session{key,stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(HashSet::new()),gate:Mutex::new(()),allow_ai:allow_ai.unwrap_or(false)});
     *host.0.lock().unwrap()=Some(session.clone());let store=store.inner().clone();
@@ -90,7 +90,7 @@ fn ask(v:Value,s:&Session,app:Option<&tauri::AppHandle>)->Result<Value,String>{
     serde_json::to_value(result).map_err(|e|e.to_string())
 }
 fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&tauri::AppHandle>)->Result<(),String>{
-    let(path,body)=request(&mut stream)?;let plain=open(&s.key,&format!("coucou-v1-request|{path}"),&body)?;
+    let(path,body)=request(&mut stream)?;let plain=open(&s.key,&format!("\x63\x6f\x75\x63\x6f\x75-v1-request|{path}"),&body)?;
     let nonce:[u8;12]=body[..12].try_into().unwrap();
     {let mut seen=s.seen.lock().unwrap();if seen.len()>=100000||!seen.insert(nonce){return Err("Session expired or repeated request".into());}}
     if s.stop.load(Ordering::SeqCst){return Err("Sharing stopped".into());}
@@ -100,7 +100,7 @@ fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&taur
     if s.stop.load(Ordering::SeqCst){return Err("Sharing stopped".into());}
     let value=match result{Ok(v)=>json!({"ok":v}),Err(e)=>json!({"error":e})};let bytes=serde_json::to_vec(&value).map_err(|e|e.to_string())?;
     let bytes=if bytes.len()>LIMIT{serde_json::to_vec(&json!({"error":"Conversation exceeds transfer size. Export it separately."})).unwrap()}else{bytes};
-    let response=seal(&s.key,&format!("coucou-v1-response|{path}|{}",hex(&nonce)),&bytes)?;
+    let response=seal(&s.key,&format!("\x63\x6f\x75\x63\x6f\x75-v1-response|{path}|{}",hex(&nonce)),&bytes)?;
     write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n",response.len()).map_err(|e|e.to_string())?;stream.write_all(&response).map_err(|e|e.to_string())
 }
 #[cfg(test)]mod tests{
@@ -120,14 +120,14 @@ fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&taur
     #[test]fn encrypted_request_replay_is_rejected(){
         let listener=TcpListener::bind("127.0.0.1:0").unwrap();let address=listener.local_addr().unwrap();
         let session=Session{key:[7;32],stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(HashSet::new()),gate:Mutex::new(()),allow_ai:false};
-        let body=seal(&session.key,"coucou-v1-request|/v1/list",b"{}").unwrap();let client=std::thread::spawn(move||{for _ in 0..2{let mut stream=TcpStream::connect(address).unwrap();write!(stream,"POST /v1/list HTTP/1.1\r\nContent-Length: {}\r\n\r\n",body.len()).unwrap();stream.write_all(&body).unwrap();let mut result=Vec::new();stream.read_to_end(&mut result).unwrap();}});
+        let body=seal(&session.key,"\x63\x6f\x75\x63\x6f\x75-v1-request|/v1/list",b"{}").unwrap();let client=std::thread::spawn(move||{for _ in 0..2{let mut stream=TcpStream::connect(address).unwrap();write!(stream,"POST /v1/list HTTP/1.1\r\nContent-Length: {}\r\n\r\n",body.len()).unwrap();stream.write_all(&body).unwrap();let mut result=Vec::new();stream.read_to_end(&mut result).unwrap();}});
         let db=projects::Store::default();assert!(serve(listener.accept().unwrap().0,&session,&db,None).is_ok());assert!(serve(listener.accept().unwrap().0,&session,&db,None).unwrap_err().contains("repeated"));client.join().unwrap();
     }
     #[test]
     #[ignore="runs the Android Java transport against the native server"]
     fn java_transport_interoperates(){
-        let listener=TcpListener::bind("127.0.0.1:0").unwrap();let address=listener.local_addr().unwrap();let code=format!("coucou1:127.0.0.1:{}:{}",address.port(),hex(&[7;32]));
-        let mut child=std::process::Command::new(std::env::var("COUCOU_TEST_JAVA").unwrap()).args(["-cp",&std::env::var("COUCOU_TEST_CLASSES").unwrap(),"com.coucou.workspace.LinkCheck",&code]).spawn().unwrap();
+        let listener=TcpListener::bind("127.0.0.1:0").unwrap();let address=listener.local_addr().unwrap();let code=format!("\x63\x6f\x75\x63\x6f\x751:127.0.0.1:{}:{}",address.port(),hex(&[7;32]));
+        let mut child=std::process::Command::new(std::env::var("ANF_TEST_JAVA").unwrap()).args(["-cp",&std::env::var("ANF_TEST_CLASSES").unwrap(),"com.anf.workspace.LinkCheck",&code]).spawn().unwrap();
         let session=Session{key:[7;32],stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(HashSet::new()),gate:Mutex::new(()),allow_ai:false};let db=projects::Store::default();listener.set_nonblocking(true).unwrap();
         let until=std::time::Instant::now()+Duration::from_secs(30);let mut count=0;
         while count<4&&std::time::Instant::now()<until{match listener.accept(){Ok((stream,_))=>{let _=serve(stream,&session,&db,None);count+=1;},Err(_)=>std::thread::sleep(Duration::from_millis(20))}}

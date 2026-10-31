@@ -36,7 +36,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
       - name: Build the hook relay
-        run: cargo build --release -p coucou-hook
+        run: cargo build --release --locked -p anf-hook
       - name: Build the AppImage without offline AI assets
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
@@ -46,8 +46,8 @@ jobs:
             "build": { "beforeBuildCommand": null },
             "bundle": {
               "resources": {
-                "../target/release/coucou-hook.exe": null,
-                "../target/release/coucou-hook": "coucou-hook",
+                "../target/release/anf-hook.exe": null,
+                "../target/release/anf-hook": "anf-hook",
                 "../local-ai/*.dll": null,
                 "../local-ai/llama-server.exe": null,
                 "../local-ai/model.gguf": null,
@@ -85,7 +85,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
       - name: Build the hook relay
-        run: cargo build --release -p coucou-hook
+        run: cargo build --release --locked -p anf-hook
       - name: Build the macOS app without offline AI assets
         run: |
           cat > "$RUNNER_TEMP/unix-base.json" << 'JSON'
@@ -94,8 +94,8 @@ jobs:
             "bundle": {
               "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
               "resources": {
-                "../target/release/coucou-hook.exe": null,
-                "../target/release/coucou-hook": "coucou-hook",
+                "../target/release/anf-hook.exe": null,
+                "../target/release/anf-hook": "anf-hook",
                 "../local-ai/*.dll": null,
                 "../local-ai/llama-server.exe": null,
                 "../local-ai/model.gguf": null,

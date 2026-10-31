@@ -1,0 +1,75 @@
+// Real Chromium/WAV/IndexedDB fixture. Native engines and online providers are separate gates.
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createServer} from 'node:http';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import {chromium} from 'playwright-core';
+const root=fileURLToPath(new URL('../../',import.meta.url));
+const {build}=createRequire(path.join(root,'windows/package.json'))('esbuild');
+const built=await build({stdin:{contents:`
+import {audioLibrary} from './src/workspace/audio-library';
+import {createMusicHub} from './src/workspace/music-hub';
+import './src/workspace/workspace.css';import './src/workspace/anf-design.css';import './src/workspace/atelier.css';
+const bytes=new ArrayBuffer(44+16000*10),v=new DataView(bytes);
+const text=(at,s)=>[...s].forEach((c,i)=>v.setUint8(at+i,c.charCodeAt(0)));
+text(0,'RIFF');v.setUint32(4,bytes.byteLength-8,true);text(8,'WAVE');text(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,16000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);text(36,'data');v.setUint32(40,bytes.byteLength-44,true);
+for(let i=44;i<bytes.byteLength;i+=2)v.setInt16(i,Math.sin(i*.15)*800,true);
+const library=audioLibrary();
+for(const t of [{id:'a',title:'Album A intro',name:'Intro.wav',kind:'music',importPath:'A/Intro.wav',lyrics:'[00:00]Beginning\\n[00:02]Next line'}, {id:'b',title:'Album B intro',name:'Intro.wav',kind:'music',importPath:'B/Intro.wav'}, {id:'book',title:'A book',name:'Book.wav',kind:'audiobook'}, {id:'episode',title:'An episode',name:'Episode.wav',kind:'podcast'}])await library.put({...t,artist:'Fixture',blob:new Blob([bytes],{type:'audio/wav'}),created:1,duration:10});
+localStorage.setItem('anf-listening',JSON.stringify({positions:{book:1.5},seconds:{},rate:1.75}));
+window.qaExports=[];window.qaHandoffs=0;
+const hub=createMusicHub({notify:message=>window.qaNotice=message,beforePlay:async()=>{window.qaHandoffs++;},exportPlaylist:text=>window.qaExports.push(text)});
+const host=document.createElement('div');host.id='workspace-root';host.append(hub.root);document.body.append(host);await hub.ready;window.qaReady=true;
+`,resolveDir:path.join(root,'windows'),loader:'ts'},bundle:true,format:'esm',outdir:'qa',write:false});
+const js=built.outputFiles.find(f=>f.path.endsWith('.js')).text,css=built.outputFiles.find(f=>f.path.endsWith('.css')).text;
+const server=createServer((req,res)=>{if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(js);}else if(req.url==='/style.css'){res.setHeader('Content-Type','text/css');res.end(css);}else if(req.url==='/'){res.end('<!doctype html><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script>');}else{res.statusCode=404;res.end();}});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const browser=await chromium.launch({channel:'msedge',headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+try{
+ const page=await browser.newPage({viewport:{width:1278,height:850}}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(12000);
+ await page.goto('http://127.0.0.1:'+server.address().port+'/');await page.waitForFunction(()=>window.qaReady);
+ assert.equal(await page.locator('.music-grid .music-card').count(),2,'Music excludes audiobooks and podcasts');
+ await page.locator('.music-grid .music-card').filter({hasText:'Album B intro'}).locator('summary').click();
+ await page.getByRole('button',{name:'Details for Album B intro',exact:true}).click();
+ await page.getByLabel('Item content type',{exact:true}).selectOption('audiobook');await page.getByRole('button',{name:'Save content type',exact:true}).click();
+ await page.getByRole('dialog',{name:'Audio details'}).waitFor({state:'hidden'});
+ assert.equal(await page.locator('.music-grid .music-card').count(),1);
+ await page.getByRole('tab',{name:'Audiobooks',exact:true}).click();assert.equal(await page.locator('.music-grid .music-card').count(),2);
+ await page.locator('.music-grid .music-card').filter({hasText:'Album B intro'}).locator('summary').click();
+ await page.getByRole('button',{name:'Details for Album B intro',exact:true}).click();
+ await page.getByLabel('Item content type',{exact:true}).selectOption('music');await page.getByRole('button',{name:'Save content type',exact:true}).click();
+ await page.getByRole('dialog',{name:'Audio details'}).waitFor({state:'hidden'});
+ await page.getByRole('tab',{name:'Audiobooks',exact:true}).click();assert.equal(await page.locator('.music-grid .music-card').count(),1);
+ await page.getByRole('button',{name:'Play A book',exact:true}).click();await page.locator('.music-player button[aria-label="Pause"]').waitFor();
+ await page.waitForTimeout(600);await page.locator('.music-player button[aria-label="Pause"]').click();
+ const position=page.locator('.music-player .music-progress input');assert(Number(await position.inputValue())>=1.4,'Existing audiobook resume retained');
+ await position.fill('5');await position.dispatchEvent('input');
+ await page.getByRole('tab',{name:'Music',exact:true}).click();await page.getByRole('button',{name:'Play Album A intro',exact:true}).click();await page.locator('.music-player button[aria-label="Pause"]').waitFor();await page.locator('.music-player button[aria-label="Pause"]').click();
+ await page.getByRole('button',{name:'Open full player',exact:true}).click();await page.getByRole('button',{name:'Next line',exact:true}).click();assert(Number(await position.inputValue())>=2);
+ await page.getByRole('button',{name:'Show queue',exact:true}).click();
+ await page.getByRole('button',{name:'Move up Album B intro',exact:true}).click();
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('anf-music-player')).queue[0]),'b');
+ await page.getByRole('button',{name:'Remove from queue Album B intro',exact:true}).click();
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('anf-music-player')).queue.includes('b')),false);
+ await page.getByRole('button',{name:'Close player',exact:true}).click();
+ await page.getByRole('tab',{name:'Audiobooks',exact:true}).click();await page.getByRole('button',{name:'Play A book',exact:true}).click();await page.locator('.music-player button[aria-label="Pause"]').waitFor();assert(Number(await position.inputValue())>=4.9,'Per-book position retained after another track');await page.locator('.music-player button[aria-label="Pause"]').click();
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('anf-listening')).rate),1.75);
+ assert(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('anf-listening')).seconds).some(n=>n>0)),'Actual playback accrues listening time');
+ await page.getByRole('tab',{name:'Podcasts',exact:true}).click();assert.equal(await page.locator('.music-grid .music-card').count(),1,'Imported podcasts remain reachable alongside feeds');
+ await page.getByRole('tab',{name:'Playlists',exact:true}).click();
+ let confirmations=0;page.on('dialog',async dialog=>{assert.match(dialog.message(),/1 matched items/);confirmations++;await dialog.accept();});
+ await page.locator('input[type=file][aria-label="Import playlist file"]').setInputFiles({name:'mix.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'anf-playlist-1',name:'Imported mix',tracks:[{title:'Album A intro',artist:'Fixture',name:'Intro.wav'},{title:'Missing',artist:'Fixture',name:'Missing.wav'}]}))});
+ await page.getByText('Imported mix',{exact:true}).waitFor();assert.equal(confirmations,1);
+ await page.getByRole('button',{name:'Export playlist file',exact:true}).click();const exported=await page.evaluate(()=>JSON.parse(window.qaExports[0]));assert.equal(exported.tracks.length,1);assert.deepEqual(Object.keys(exported.tracks[0]).sort(),['artist','name','title']);
+ await page.getByRole('button',{name:'View playlist',exact:true}).click();
+ const playlist=page.getByRole('dialog',{name:'Playlist Imported mix'});await playlist.getByRole('button',{name:'Remove Album A intro from playlist',exact:true}).click();await playlist.getByText('This playlist is empty.',{exact:true}).waitFor();await playlist.getByRole('button',{name:'Close playlist',exact:true}).click();
+ await page.getByRole('tab',{name:'Music',exact:true}).click();
+ for(const width of [1278,820,390]){
+  await page.setViewportSize({width,height:850});
+  const bounds=await page.evaluate(()=>{const h=document.querySelector('.music-hub'),p=document.querySelector('.music-player').getBoundingClientRect();return{page:document.documentElement.scrollWidth,width:innerWidth,hub:h.clientWidth,content:h.scrollWidth,playerLeft:p.left,playerRight:p.right};});
+  assert(bounds.page<=width+1&&bounds.content<=bounds.hub+1&&bounds.playerLeft>=0&&bounds.playerRight<=width+1,JSON.stringify(bounds));
+ }
+ assert.deepEqual(errors,[]);console.log('PASS: editable content kinds, queue reorder/removal, reconciled category filters, real WAV playback, per-book resume/rate, listening totals, clickable LRC, local podcasts, confirmed playlist interchange and three viewport layouts.');
+}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

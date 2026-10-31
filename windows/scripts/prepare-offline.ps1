@@ -14,3 +14,4 @@ if (-not (Test-Path -LiteralPath local-ai/model.gguf)) {
 }
 $taskModelHash = (Get-FileHash -LiteralPath local-ai/model.gguf -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($taskModelHash -ne '54c0f1203a724e9f33e76916beab3bdfaffef56cf7b42a93b1bc21319fc0bf97') { throw 'Balanced model checksum mismatch. Quantization may differ on this CPU; review before packaging.' }
+& (Join-Path $PSScriptRoot 'prepare-vcruntime.ps1')

@@ -1,0 +1,68 @@
+name: Required Android release package
+on:
+  workflow_call: null
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            windows/package-lock.json
+            android/package-lock.json
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          cmdline-tools-version: "16111833"
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare and verify Android SDK
+        run: node scripts/prepare-android-sdk.mjs
+      - name: Install build dependencies
+        run: |
+          npm ci --prefix windows
+          npm ci --prefix android
+      - name: Build actual current APKs and run mandatory release gate
+        run: node scripts/verify-agent-gate.mjs --release ${{ matrix.flags }}
+      - name: Retain verified APKs and source, identity, signing evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            releases/${{ matrix.prefix }}-*.apk
+            releases/${{ matrix.report }}
+            releases/${{ matrix.checksums }}
+          if-no-files-found: error
+          retention-days: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lineage: modern
+            legacy: "false"
+            flags: ""
+            application_id: com.anf.workspace
+            prefix: AnF-Android
+            artifact: AnF-Android
+            report: android-release-verification.json
+            checksums: SHA256SUMS-Android
+          - lineage: legacy
+            legacy: "true"
+            flags: --legacy
+            application_id: com.coucou.workspace
+            prefix: AnF-Android-Legacy
+            artifact: AnF-Android-Legacy
+            report: android-release-verification-legacy.json
+            checksums: SHA256SUMS-Android-Legacy

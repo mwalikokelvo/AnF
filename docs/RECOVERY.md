@@ -1,5 +1,11 @@
 # AnF recovery and continuation
 
+## Current integration status — October 29, 2026
+
+The records below are historical recovery evidence, not current branch or release instructions. The active feature-preserving merge combines PR47/main with the divergent public 0.1.41 lineage toward tentative 0.1.42. Keep both Android identities and original signers, existing Windows installation records and all user data. Verified 0.1.21-to-0.1.22 upgrade packages are review references only; do not downgrade 0.1.41 users or overwrite release assets. Embedded MKR playback is still unimplemented. Current build, signing and verification boundaries are in [RELEASE-BUILDS.md](RELEASE-BUILDS.md).
+
+## Historical 0.1.20 recovery record
+
 The continuation adds the 0.1.21 Music Hub and opt-in native adapters. See
 [MUSIC-HUB.md](MUSIC-HUB.md) for the current implementation and verification
 boundary. The records below describe the recovered 0.1.20 state.

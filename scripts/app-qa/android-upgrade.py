@@ -1,12 +1,14 @@
 """Exercise release APK upgrades on an isolated emulator with a disposable CI key."""
 import argparse
 import os
+import re
 from pathlib import Path
 import subprocess
 
 p=argparse.ArgumentParser()
 for name in ['baseline','candidate','test','output']:
     p.add_argument('--'+name,required=True)
+p.add_argument('--application-id',choices=['com.coucou.workspace','com.anf.workspace'],default='com.coucou.workspace')
 a=p.parse_args()
 out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
 sdk=Path(os.environ['ANDROID_HOME'])
@@ -23,10 +25,20 @@ devices=run([adb,'devices']).splitlines()
 serials=[line.split()[0] for line in devices if line.startswith('emulator-') and line.endswith('\tdevice')]
 if len(serials)!=1:raise SystemExit('Exactly one isolated Android emulator is required')
 device=[adb,'-s',serials[0]]
+# Reject mismatched baselines/candidates before touching the emulator.
+aapt=str(sdk/'build-tools/36.0.0/aapt')
+for source,expected in [(a.baseline,a.application_id),(a.candidate,a.application_id),(a.test,a.application_id+'.test')]:
+    badging=run([aapt,'dump','badging',source])
+    identity=re.search(r"^package: name='([^']+)'",badging,re.M)
+    if not identity or identity.group(1)!=expected:
+        raise SystemExit('APK package does not match selected upgrade lineage')
+existing=run(device+['shell','pm','list','packages',a.application_id]).splitlines()
+if 'package:'+a.application_id in existing or 'package:'+a.application_id+'.test' in existing:
+    raise SystemExit('Use a fresh isolated emulator without pre-existing target apps')
 keystore=out/'ci-signing.jks'
 run(['keytool','-genkeypair','-keystore',str(keystore),'-storepass','android',
      '-keypass','android','-alias','qa','-keyalg','RSA','-keysize','2048',
-     '-validity','365','-dname','CN=Coucou installation test'])
+     '-validity','365','-dname','CN=AnF installation test'])
 for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.test)]:
     destination=out/(name+'.apk')
     # A fresh disposable key signs all three APKs; production keys remain local.
@@ -34,13 +46,13 @@ for name,source in [('baseline',a.baseline),('candidate',a.candidate),('test',a.
     run([signer,'verify',str(destination)])
 run(device+['install','--no-incremental','-r',str(out/'test.apk')])
 for storage in ['encrypted','legacy']:
-    if storage=='legacy':run(device+['uninstall','com.coucou.workspace'])
+    if storage=='legacy':run(device+['uninstall',a.application_id])
     run(device+['install','--no-incremental','-r',str(out/'baseline.apk')])
     for phase in ['seed','verify','reopen']:
         if phase=='verify':run(device+['install','--no-incremental','-r',str(out/'candidate.apk')])
-        run(device+['shell','am','force-stop','com.coucou.workspace'])
+        run(device+['shell','am','force-stop',a.application_id])
         label=storage+'-'+phase
-        result=run(device+['shell','am','instrument','-w','-e','phase',phase,'-e','storage',storage,'com.coucou.workspace.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
+        result=run(device+['shell','am','instrument','-w','-e','phase',phase,'-e','storage',storage,a.application_id+'.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
         (out/(label+'.txt')).write_text(result)
         print(result)
         if 'OK (1 test)' not in result or any(s in result for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):

@@ -1,0 +1,13 @@
+# AnF 0.1.38 preview
+
+Managed OmniRoute repair now reports inspection, copying, verification, promotion, acceptance and cleanup. Copying at 100% remains Working rather than appearing finished. Unknown-duration phases show indeterminate progress. Terminal states reset byte counters. The Settings panel exposes its busy state to assistive technology and keeps start/repair controls unavailable until the operation returns.
+
+Safe recovery shares visible phase/counters with the main operation while keeping an independent cancellation epoch. Cancelling the request cannot interrupt rollback or its verification. Existing manifest pins, full file checks, transaction topology, link checks and acceptance-marker-last ordering remain unchanged. No performance speedup is claimed.
+
+## Evidence
+
+Native tests: 102 passed, 15 ignored. Browser fixtures verify separate copy/verification counters, busy state at 100% copying, indeterminate cleanup, no premature success/start, and stale-owned reset. A genuine damaged-runtime repair in the isolated QA profile restored exact bytes and observed these phases: Inspecting component source, Copying and verifying component files, Promoting verified repair candidate, Inspecting component files, Verifying component files, Inspecting pending repair, Cleaning repair rollback data, Repaired; stopped. Repair elapsed 578.1 seconds in this run; this is not a general benchmark or speedup guarantee.
+
+The native suite also verified actual local generation, authentication, workspace permission boundaries, cancellation/restart, stale-owned reset and forced-owner-exit cleanup, with zero application-side proxy requests. The first run completed repair and generation, then its cancellation probe missed the newly explicit inspection phase. The probe was corrected to recognize inspection as cancellable, and the full genuine repair/lifecycle suite was repeated; the application binary was unchanged and the earlier failure report retained. Windows installer/portable verification matched all 593 files and archive CRC/SHA. Android 0.1.38 passed current-source, packaged assets/native libraries, ZIP/16 KiB alignment and development-signature checks. An earlier Android build correctly refused provenance after a final UI edit; the settled-source rebuild passed.
+
+All ten published assets had their remote SHA digests checked. Private recordings and derived voice models are excluded. Windows remains unsigned and Android development-signed. Hosted CI account billing, managed runtime upgrades/performance and wider music/reader/TTS/mobile/service work remain open. This release does not establish Android managed-gateway parity or device-test success.

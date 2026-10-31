@@ -95,7 +95,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # Windows / Linux native side (Tauri, src-tauri and the coucou-hook relay).
+  # Windows / Linux native side (Tauri, src-tauri and the anf-hook relay).
   # Builds use --locked, so Cargo.lock only changes through these pull requests.
   - package-ecosystem: cargo
     directory: /windows

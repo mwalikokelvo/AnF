@@ -15,7 +15,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  android-package:
+    uses: ./.github/workflows/android-release-gate.yml
+
   build:
+    needs: android-package
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,13 +69,13 @@ jobs:
         run: |
           mkdir -p releases
           version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' NotchBuddy/Resources/Info.plist)
-          ditto -c -k --sequesterRsrc --keepParent NotchBuddy/build/DerivedData/Build/Products/Release/Coucou.app "releases/Coucou-macOS-$version-unsigned.zip"
+          ditto -c -k --sequesterRsrc --keepParent NotchBuddy/build/DerivedData/Build/Products/Release/AnF.app "releases/AnF-macOS-$version-unsigned.zip"
           cd releases
           shasum -a 256 *.zip > SHA256SUMS-macOS
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Coucou-macOS-unsigned
+          name: AnF-macOS-unsigned
           path: releases/
           if-no-files-found: error
           retention-days: 7

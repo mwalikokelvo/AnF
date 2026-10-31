@@ -1,5 +1,6 @@
 // AnF for Windows — app wiring and the commands the island calls.
 
+mod about;
 mod actions;
 mod companion;
 mod screen_help;
@@ -7,17 +8,31 @@ mod addons;
 mod updates;
 mod ai;
 mod audio_native;
-mod music_native;
-mod claude;
-mod local_ai;
-mod projects;
-mod vault;
-mod sync_data;
-mod local_link;
-mod reader;
-mod workspace;
 mod book;
+mod claude;
+mod connections;
+mod floating;
+mod identity;
+mod local_ai;
+mod local_link;
+mod local_voice;
+#[cfg(windows)]
+mod voice_process;
+mod managed_component;
+mod managed_repair;
+mod managed_http;
+mod managed_omniroute;
+mod managed_process;
+mod managed_proxy;
+mod music_native;
+mod mkr_native;
+mod pdf_preview;
+mod projects;
+mod reader;
+mod sync_data;
+mod vault;
 mod web_search;
+mod workspace;
 mod workspace_commands;
 use workspace_commands::*;
 mod files;
@@ -89,7 +104,7 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         (screen_changed, autostart_changed)
     };
     if let Err(err) = settings::save(&settings) {
-        eprintln!("[coucou] could not save settings: {err}");
+        eprintln!("[anf] could not save settings: {err}");
     }
     if autostart_changed {
         let manager = app.autolaunch();
@@ -99,10 +114,13 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
             manager.disable()
         };
         if let Err(err) = result {
-            eprintln!("[coucou] autostart: {err}");
+            eprintln!("[anf] autostart: {err}");
         }
     }
     if screen_changed {
+        if settings.screen == "primary" {
+            floating::remember_monitor(None);
+        }
         let collapsed = shared.gate.collapsed.load(Ordering::Relaxed);
         island::apply_geometry(&app, &settings.screen, collapsed);
     }
@@ -125,13 +143,39 @@ fn set_collapsed(app: AppHandle, shared: State<Shared>, collapsed: bool) {
 
 /// The front end pushes the island shape; Rust decides click-through from it.
 #[tauri::command]
-fn set_island_rect(app: AppHandle, shared: State<Shared>, x: f64, y: f64, width: f64, height: f64) {
+fn set_island_rect(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    shared: State<Shared>,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    pixel_ratio: Option<f64>,
+) {
+    if window.label() != island::WINDOW_LABEL {
+        return;
+    }
+    let scale = pixel_ratio
+        .map(|ratio| ratio / window.scale_factor().unwrap_or(1.0))
+        .filter(|ratio| ratio.is_finite() && (0.5..=4.0).contains(ratio))
+        .unwrap_or(1.0);
+    let changed = {
+        let mut current = shared.gate.css_scale.lock().unwrap();
+        let changed = (*current - scale).abs() > 0.01;
+        *current = scale;
+        changed
+    };
     shared.gate.set_rect(island::IslandRect {
-        x,
-        y,
-        w: width,
-        h: height,
+        x: x * scale,
+        y: y * scale,
+        w: width * scale,
+        h: height * scale,
     });
+    if changed {
+        let pref = shared.settings.lock().unwrap().screen.clone();
+        island::apply_geometry(&app, &pref, shared.gate.collapsed.load(Ordering::Relaxed));
+    }
     // Without the cursor poll the input region is the click-through: it follows the island.
     if !platform::CURSOR_POLL {
         island::refresh_click_through(&app, &shared.gate);
@@ -354,7 +398,7 @@ fn log_line(message: String) {
 /// for the *same* arguments as the island (see `additionalBrowserArgs` in
 /// tauri.conf.json) — a mismatch makes the second window come up blank, with no
 /// error anywhere.
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI --autoplay-policy=no-user-gesture-required";
 
 /// In a dev build the pages are served by Vite, so the second window needs the
 /// absolute dev URL; a bundled build resolves it inside the app bundle.
@@ -426,6 +470,21 @@ fn open_workspace_window(app: AppHandle) {
 }
 
 #[tauri::command]
+fn show_floating_panel(app: AppHandle) {
+    let shared = app.state::<Shared>();
+    let pref = shared.settings.lock().unwrap().screen.clone();
+    shared.gate.collapsed.store(false, Ordering::Relaxed);
+    island::apply_geometry(&app, &pref, false);
+    island::refresh_click_through(&app, &shared.gate);
+    shared.gate.set_active(true);
+    if let Some(win) = island::window(&app) {
+        let _ = win.unminimize();
+        let _ = win.show();
+    }
+    let _ = app.emit_to(island::WINDOW_LABEL, "tray", "open");
+}
+
+#[tauri::command]
 fn workspace_save(title: String, text: String, format: String) -> Result<String, String> {
     workspace::save_document(&title, &text, &format)
 }
@@ -462,11 +521,44 @@ pub fn run() {
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
         .manage(audio_native::AudioJobs::default())
+        .manage(local_voice::VoiceJobs::default())
+        .manage(managed_omniroute::Managed::default())
+        .manage(mkr_native::Managed::default())
         .invoke_handler(tauri::generate_handler![
             companion::companion_open,companion::companion_close,companion::companion_compact,companion::companion_key,companion::companion_expand,screen_help::screen_help_capture,screen_help::screen_help_ask,
             addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,updates::update_check,
-            audio_native::audio_convert,audio_native::audio_conversion_cancel,
-            music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
+            local_voice::local_voice_status,
+            local_voice::local_voice_speak,
+            local_voice::local_voice_cancel,
+            connections::connection_list,
+            connections::connection_save,
+            connections::connection_forget,
+            connections::connection_action,
+            connections::connection_open_booking,
+            managed_omniroute::omniroute_status,
+            managed_omniroute::omniroute_progress,
+            managed_omniroute::omniroute_pick_component,
+            managed_omniroute::omniroute_install,
+            managed_omniroute::omniroute_repair,
+            managed_omniroute::omniroute_start,
+            managed_omniroute::omniroute_stop,
+            managed_omniroute::omniroute_cancel,
+            managed_omniroute::omniroute_use,
+            connections::workspace_export_skill,
+            about::app_check_updates,
+            about::app_export_diagnostics,
+            workspace_quick_capture,
+            floating::floating_move,
+            floating::floating_reset,
+            audio_native::audio_convert,
+            audio_native::audio_conversion_cancel,
+            music_native::music_available,
+            mkr_native::mkr_request,
+            mkr_native::mkr_ack,
+            music_native::music_open,
+            music_native::music_hide,
+            music_native::music_pause,
+            music_native::music_control,
             boot,
             save_settings,
             set_collapsed,
@@ -495,7 +587,9 @@ pub fn run() {
             open_n8n,
             open_settings_window,
             open_workspace_window,
+            show_floating_panel,
             workspace_read_file,
+            pdf_preview::workspace_pdf_page,
             workspace_read_web,
             workspace_search_web,
             workspace_save,
@@ -504,7 +598,9 @@ pub fn run() {
             workspace_begin,
             workspace_cancel,
             workspace_save_project,
-            workspace_vault_versions,workspace_vault_restore,workspace_vault_status,
+            workspace_vault_versions,
+            workspace_vault_restore,
+            workspace_vault_status,
             workspace_vault_enable,
             workspace_vault_recovery_key,
             workspace_vault_recover,
@@ -563,6 +659,9 @@ pub fn run() {
                     api.prevent_close();
                     let _ = hidden.hide();
                 }
+                if matches!(event, tauri::WindowEvent::Destroyed) {
+                    mkr_native::shutdown(&hidden.app_handle().state::<mkr_native::Managed>());
+                }
             });
 
             log::line("workspace created; creating settings window");
@@ -572,6 +671,7 @@ pub fn run() {
                 WebviewWindowBuilder::from_config(&handle, &app.config().app.windows[0]).and_then(
                     |builder| {
                         builder
+                            .zoom_hotkeys_enabled(false)
                             .additional_browser_args(BROWSER_ARGS)
                             .data_directory(settings::local_dir().join("webview-v014"))
                             .build()
@@ -604,10 +704,7 @@ pub fn run() {
                 island::spawn_drop_zone_watch(handle.clone(), gate.clone());
             }
 
-            log::line(format!(
-                "--- AnF {} started ---",
-                env!("CARGO_PKG_VERSION")
-            ));
+            log::line(format!("--- AnF {} started ---", env!("CARGO_PKG_VERSION")));
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
@@ -617,7 +714,10 @@ pub fn run() {
     match built {
         Ok(app) => app.run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                local_voice::shutdown(&app.state::<local_voice::VoiceJobs>());
+                managed_omniroute::shutdown(&app.state::<managed_omniroute::Managed>().0);
                 music_native::shutdown();
+                mkr_native::shutdown(&app.state::<mkr_native::Managed>());
                 app.state::<Chat>().local.shutdown();
             }
         }),
@@ -626,7 +726,7 @@ pub fn run() {
 }
 
 fn startup_error(error: &str) {
-    let message=format!("AnF could not start: {error}\n\nDetails: {}\nTry opening AnF normally from File Explorer. If it still fails, close other AnF windows and repair Microsoft Edge WebView2 Runtime.",settings::local_dir().join("coucou.log").display());
+    let message=format!("AnF could not start: {error}\n\nDetails: {}\nTry opening AnF normally from File Explorer. If it still fails, close other AnF windows and repair Microsoft Edge WebView2 Runtime.",settings::local_dir().join("anf.log").display());
     log::line(&message);
     #[cfg(windows)]
     unsafe {

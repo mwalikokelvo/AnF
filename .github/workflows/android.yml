@@ -1,96 +1,110 @@
 name: Android packages
-
 on:
   workflow_dispatch:
     inputs:
       baseline_run:
-        description: 'Optional previous AnF-Android artifact run for installation upgrade QA'
+        description: Optional previous AnF-Android artifact run for installation upgrade QA
         required: false
         type: string
       baseline_artifact:
-        description: 'Previous APK artifact name (use Coucou-Android for older releases)'
+        description: Previous APK artifact name; select the artifact corresponding to the installed identity
         required: false
-        default: 'AnF-Android'
+        default: AnF-Android
         type: string
+      baseline_lineage:
+        description: Identity installed in the previous APK; QA never treats different IDs as an in-place update
+        type: choice
+        options:
+          - legacy
+          - modern
+        default: legacy
+      baseline_filename:
+        description: Optional exact APK basename inside the previous artifact; defaults to its single unsigned APK
+        type: string
+        required: false
+      sign_legacy:
+        description: Sign legacy production release with its existing owner key (manual main only; original modern .41 key remains separate)
+        type: boolean
+        default: false
   pull_request:
-    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', 'scripts/sign-android.sh', 'scripts/check-styles.mjs', '.github/workflows/android.yml']
-
+    paths:
+      - android/**
+      - windows/src/workspace/**
+      - shared/**
+      - scripts/**
+      - .github/workflows/android*.yml
 permissions:
   contents: read
   actions: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: |
             windows/package-lock.json
             android/package-lock.json
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
         with:
-          cmdline-tools-version: '16111833'
+          cmdline-tools-version: "16111833"
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
         with:
           gradle-version: 9.4.1
       - name: Install SDK
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+        run: node scripts/prepare-android-sdk.mjs
       - name: Install frontend dependencies
         run: |
           npm ci --prefix windows
           npm ci --prefix android
-      - name: Build unsigned release and debug packages
-        run: node scripts/build-android.mjs
+      - name: Build and verify current APKs with mandatory source and release gates
+        run: node scripts/verify-agent-gate.mjs --release ${{ matrix.flags }}
       - name: Check packaged stylesheets
         run: node scripts/check-styles.mjs android/build/assets/web
-      - name: Regression checks
-        run: node scripts/check-release.mjs
       - name: Marketplace trust rules (Java)
         run: |
-          javac -d "$RUNNER_TEMP/addon-check" android/java/com/coucou/workspace/AddonRules.java android/java-test/com/coucou/workspace/AddonRulesCheck.java
-          java -cp "$RUNNER_TEMP/addon-check" com.coucou.workspace.AddonRulesCheck
+          javac -d "$RUNNER_TEMP/addon-check" android/java/com/anf/workspace/AddonRules.java android/java-test/com/anf/workspace/AddonRulesCheck.java
+          java -cp "$RUNNER_TEMP/addon-check" com.anf.workspace.AddonRulesCheck
       - name: Build installed-release instrumentation tests
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != '' && matrix.lineage == (inputs.baseline_lineage || 'legacy')
         working-directory: android
-        run: gradle --no-daemon assembleReleaseAndroidTest
+        run: gradle --no-daemon assembleReleaseAndroidTest ${{ matrix.legacy == 'true' && '-PlegacyApplicationId=true' || '' }}
       - name: Download previous Android package
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != '' && matrix.lineage == (inputs.baseline_lineage || 'legacy')
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ${{ inputs.baseline_artifact || 'AnF-Android' }}
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-android
       - name: Enable emulator hardware acceleration
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != '' && matrix.lineage == (inputs.baseline_lineage || 'legacy')
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Free unused native SDK toolchains for emulator storage
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != '' && matrix.lineage == (inputs.baseline_lineage || 'legacy')
         run: |
           # This Java app ships prebuilt native libraries; its build is complete.
           # These hosted-runner NDK installations are unused by the UI test.
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           df -h /
       - name: Verify installed Android release and saved-data retention
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != '' && matrix.lineage == (inputs.baseline_lineage || 'legacy')
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 35
           arch: x86_64
@@ -100,10 +114,10 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
           script: bash scripts/app-qa/run-android-upgrade.sh
       - name: Retain installed Android test evidence
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != '' && matrix.lineage == (inputs.baseline_lineage || 'legacy')
         with:
-          name: AnF-Android-installation-tests
+          name: AnF-Android-installation-tests-${{ matrix.lineage }}
           path: |
             ${{ runner.temp }}/anf-android-qa/*.txt
             ${{ runner.temp }}/anf-android-qa/*.png
@@ -115,37 +129,62 @@ jobs:
           keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.jks" -storetype JKS -storepass throwaway \
             -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname CN=throwaway -noprompt
           KEY_BASE64=$(base64 -w0 "$RUNNER_TEMP/throwaway.jks") KEY_PASSWORD=throwaway \
-            bash scripts/sign-android.sh "releases/AnF-Android-$version-unsigned.apk" "$RUNNER_TEMP/selftest.apk"
+            bash scripts/sign-android.sh "releases/$ANF_ANDROID_PREFIX-$version-unsigned.apk" "$RUNNER_TEMP/selftest.apk"
           rm -f "$RUNNER_TEMP/throwaway.jks" "$RUNNER_TEMP/selftest.apk"
-      - name: Sign the release package with the owner's key (manual runs from main only)
-        # Pull requests never see the key. Without the two secrets this step only leaves a note.
-        # A key problem is reported as an error but still lets the unsigned and debug packages upload.
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-        continue-on-error: true
+        if: matrix.lineage == 'legacy'
+      - name: Sign legacy production APK using the original key only
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.sign_legacy && matrix.lineage == 'legacy'
         env:
           KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_ENTRY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           if [ -z "$KEY_BASE64" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::notice::ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD are not set, so no signed release package was made."
-            exit 0
+            echo "::error::The original legacy signing key is required. No substitute key or update-compatible APK will be generated."
+            exit 1
           fi
           version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-          bash scripts/sign-android.sh "releases/AnF-Android-$version-unsigned.apk" "releases/AnF-Android-$version.apk" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Verify debug signature and package versions
+          bash scripts/sign-android.sh "releases/$ANF_ANDROID_PREFIX-$version-unsigned.apk" "releases/$ANF_ANDROID_PREFIX-$version-signed.apk"
+          node scripts/verify-android-release.mjs --legacy --signed
+      - name: Verify identity, source, alignment and actual signer; write all APK checksums
         run: |
+          set -euo pipefail
           version=$(node -p "require('./windows/src-tauri/tauri.conf.json').version")
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "releases/AnF-Android-$version-debug.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "releases/AnF-Android-$version-unsigned.apk" > releases/android-package.txt
-          grep -F "versionName='$version'" releases/android-package.txt
-          cd releases
-          sha256sum *.apk > SHA256SUMS-Android
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+          args=(${{ matrix.flags }})
+          if [ -f "releases/$ANF_ANDROID_PREFIX-$version-signed.apk" ]; then args+=(--signed); fi
+          node scripts/verify-android-release.mjs "${args[@]}"
+          (cd releases && sha256sum "$ANF_ANDROID_PREFIX"-*.apk > "$ANF_ANDROID_CHECKSUMS")
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: AnF-Android
+          name: ${{ matrix.artifact }}
           path: releases/
           if-no-files-found: error
           retention-days: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lineage: modern
+            legacy: "false"
+            flags: ""
+            application_id: com.anf.workspace
+            prefix: AnF-Android
+            artifact: AnF-Android
+            report: android-release-verification.json
+            checksums: SHA256SUMS-Android
+          - lineage: legacy
+            legacy: "true"
+            flags: --legacy
+            application_id: com.coucou.workspace
+            prefix: AnF-Android-Legacy
+            artifact: AnF-Android-Legacy
+            report: android-release-verification-legacy.json
+            checksums: SHA256SUMS-Android-Legacy
+    env:
+      ANF_QA_ANDROID_ID: ${{ matrix.application_id }}
+      ANF_QA_ANDROID_LEGACY: ${{ matrix.legacy }}
+      ANF_QA_BASELINE_FILENAME: ${{ inputs.baseline_filename }}
+      ANF_ANDROID_PREFIX: ${{ matrix.prefix }}
+      ANF_ANDROID_CHECKSUMS: ${{ matrix.checksums }}

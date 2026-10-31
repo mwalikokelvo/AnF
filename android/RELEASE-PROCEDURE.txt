@@ -1,4 +1,4 @@
-Coucou release procedure
+AnF release procedure
 
 User preference: produce matching Windows and Android packages for future updates.
 Use docs/RELEASE-BUILDS.md and the Windows/Android Actions workflows.
@@ -9,7 +9,13 @@ package versions in sync. Android versionCode is derived from the same version.
 Windows preserves the existing app identity and data paths. Use the same install
 folder and select Do not uninstall when upgrading. Save work and quit first.
 
-Android uses package com.coucou.workspace. Always reuse the original signing key
+Android builds two separate identities: modern com.anf.workspace (default) and
+legacy com.coucou.workspace (--legacy). Their origins remain https://anf.local/
+and https://coucou.local/ respectively. Always reuse the signing key matching
+the ACTUAL installed baseline, not merely the same filename or app label. The
+legacy production signer and modern 0.1.41 debug signer differ. Modern debug-key
+custody is unresolved; a newly generated debug key cannot update that baseline.
+Keep both user apps and private data intact. Preserve the appropriate original key
 from the original release workspace. Back that key up
 privately; do not publish it with the release or source repository. Losing the key
 prevents compatible in-place updates. The release APK stays unsigned when the
@@ -21,8 +27,17 @@ Android frontend, verify APK signatures and package version, and test the UI wit
 sample data at phone and tablet widths. Physical Android device testing is still
 required for full validation of the native file picker, read-aloud, and export.
 Do not claim on-device Android AI, OCR, automatic browser replies, or cloud quota
-bypasses. The first Android edition intentionally uses external browser accounts.
+bypasses. Browser AI is an explicit handoff; embedded music must stay inside AnF.
+Cloud document excerpts require explicit per-request consent. No browser or
+emulator music fallback satisfies embedded MKR playback.
 
 Build tools are installed only in this workspace. Android requires a full JDK 21,
 Gradle 9.4.1 and Google Android SDK platform 37.0 with build-tools 36.0.0.
 Target SDK remains 35. No global Java installation is required.
+
+Current source target: 0.1.42, not a released or installed-tested package.
+The Android CI matrix builds both identities. Manual main signing is opt-in for
+legacy only and requires verification against the original production fingerprint.
+Disposable-key emulator QA is not original-signer or physical-device verification.
+Never generate a substitute key, uninstall a user's app or remove its data to make
+an upgrade test pass. See docs/RELEASE-BUILDS.md for actual gates and file names.

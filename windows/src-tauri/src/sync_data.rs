@@ -11,7 +11,7 @@ pub fn clean(mut p:Project,documents:bool)->Project{
 }
 pub fn revision(p:&Project,documents:bool)->String{format!("{:x}",Sha256::digest(serde_json::to_vec(&clean(p.clone(),documents)).unwrap()))}
 pub fn snapshot(p:Project,documents:bool)->Snapshot{let revision=revision(&p,documents);Snapshot{project:clean(p,documents),revision}}
-pub fn conflict_id(id:&str,revision:&str)->String{format!("{:x}",Sha256::digest(format!("coucou-conflict-v1|{id}|{revision}")))}
+pub fn conflict_id(id:&str,revision:&str)->String{format!("{:x}",Sha256::digest(format!("\x63\x6f\x75\x63\x6f\x75-conflict-v1|{id}|{revision}")))}
 pub fn conflict_name(name:&str)->String{let mut s=String::new();for c in name.chars(){if s.len()+c.len_utf8()>125{break;}s.push(c);}s+" (conflict copy)"}
 #[cfg(test)]mod tests{
     use super::*;

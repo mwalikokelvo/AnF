@@ -13,7 +13,7 @@ export function renderWriting(text:string):HTMLElement {
     const content=task?(task[1]===' '?'☐ ':'☑ ')+task[2]:heading?heading[2]:bullet?'• '+bullet[1]:line;
     const el=heading?h(heading[1].length===1?'h1':heading[1].length===2?'h2':'h3'):h('p');
     for(const part of content.split(/(\[\[[^\]\n]+\]\]|\*\*[^*]+\*\*|\*[^*]+\*)/g)){
-      if(part.startsWith('[[')&&part.endsWith(']]')){const [target,label]=part.slice(2,-2).split('|');el.append(h('button',{type:'button',class:'wiki-link',text:label||target,onclick:()=>document.dispatchEvent(new CustomEvent('coucou-open-note',{detail:target.trim()}))}));}
+      if(part.startsWith('[[')&&part.endsWith(']]')){const [target,label]=part.slice(2,-2).split('|');el.append(h('button',{type:'button',class:'wiki-link',text:label||target,onclick:()=>document.dispatchEvent(new CustomEvent('anf-open-note',{detail:target.trim()}))}));}
       else if(part.length>4&&part.startsWith('**')&&part.endsWith('**'))el.append(h('strong',{text:part.slice(2,-2)}));
       else if(part.length>2&&part.startsWith('*')&&part.endsWith('*'))el.append(h('em',{text:part.slice(1,-1)}));
       else el.append(document.createTextNode(part));

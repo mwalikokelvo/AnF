@@ -12,4 +12,4 @@ dependencyResolutionManagement {
         google(); mavenCentral()
     }
 }
-rootProject.name = 'CoucouAndroid'
+rootProject.name = 'AnFAndroid'

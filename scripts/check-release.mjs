@@ -34,3 +34,10 @@ for(let i=0;i<checks.length;i++) {
   run(script,[bundle]);
 }
 console.log(`Passed ${checks.length+1} release regression checks.`);
+
+run('scripts/check-workflows.mjs');
+run('scripts/check-skill-pack.mjs');
+
+run('scripts/check-listening.cjs');
+run('scripts/check-mkr-player.mjs');
+run('scripts/check-mkr-source.mjs');
