@@ -29,7 +29,7 @@ export interface LyricsProvider {
 }
 
 const LRCLIB_CLIENT_HEADER = {
-  'Lrclib-Client': 'AnF-Desktop/0.1.22 (https://github.com/mwalikokelvo/AnF)',
+  'Lrclib-Client': 'AnF-Desktop/0.1.46 (https://github.com/mwalikokelvo/AnF)',
 };
 
 const titleCleanupPatterns = [
