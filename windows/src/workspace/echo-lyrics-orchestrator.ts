@@ -199,7 +199,7 @@ export class EchoLyricsOrchestrator {
   }
 
   // Provider 4: KuGou (mobileservice.kugou.com)
-  private async queryKuGou(title: string, artist: string, duration?: number): Promise<string | null> {
+  private async queryKuGou(title: string, artist: string, _duration?: number): Promise<string | null> {
     try {
       const q = `${title} - ${artist}`;
       const searchRes = await fetch(
@@ -233,8 +233,8 @@ export class EchoLyricsOrchestrator {
         // Base64 decode
         if (typeof atob === 'function') {
           return atob(dlData.content);
-        } else if (typeof Buffer !== 'undefined') {
-          return Buffer.from(dlData.content, 'base64').toString('utf8');
+        } else if (typeof (globalThis as any).Buffer !== 'undefined') {
+          return (globalThis as any).Buffer.from(dlData.content, 'base64').toString('utf8');
         }
       }
     } catch {

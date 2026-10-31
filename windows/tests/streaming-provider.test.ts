@@ -105,5 +105,66 @@ describe('Spotube Streaming Audio Service', () => {
     assert.equal(resolved.streamUrl, 'https://stream.example.org/contract.mp4');
     assert.equal(resolved.mimeType, 'audio/mp4');
   });
+
+  test('resolveDirectUrl parses direct audio links accurately', async () => {
+    const service = new SpotubeStreamService();
+    const result = await service.resolveDirectUrl('https://example.org/media/moby_dick_chapter1.mp3');
+    assert.ok(result);
+    assert.equal(result.track.title, 'moby_dick_chapter1');
+    assert.equal(result.track.source, 'custom');
+    assert.equal(result.stream.streamUrl, 'https://example.org/media/moby_dick_chapter1.mp3');
+    assert.equal(result.stream.mimeType, 'audio/mpeg');
+
+    const m4aResult = await service.resolveDirectUrl('https://example.org/audio/song.m4a?token=abc');
+    assert.ok(m4aResult);
+    assert.equal(m4aResult.track.title, 'song');
+    assert.equal(m4aResult.stream.mimeType, 'audio/mp4');
+  });
+
+  test('StreamTrackMetadata supports extended fields and audiobook chapters', () => {
+    const track: StreamTrackMetadata = {
+      id: 'ia:pride_and_prejudice',
+      title: 'Pride and Prejudice',
+      artist: 'Jane Austen',
+      album: 'Audiobook',
+      duration: 36000,
+      source: 'audiobook',
+      bitrate: 64000,
+      year: 1813,
+      description: 'Classic romantic novel by Jane Austen',
+      coverUrl: 'https://archive.org/services/img/pride_and_prejudice',
+      chapters: [
+        { title: 'Chapter 1', start: 0, end: 1200 },
+        { title: 'Chapter 2', start: 1200, end: 2400 }
+      ]
+    };
+
+    assert.equal(track.source, 'audiobook');
+    assert.equal(track.chapters?.length, 2);
+    assert.equal(track.chapters[1].title, 'Chapter 2');
+    assert.equal(track.bitrate, 64000);
+  });
+
+  test('resolveSpotubeStream falls back to existing preview stream URL when offline', async () => {
+    const service = new SpotubeStreamService();
+    const track: StreamTrackMetadata = {
+      id: 'sp-offline-1',
+      title: 'Offline Song',
+      artist: 'Spotube Artist',
+      source: 'spotube',
+      streamUrl: 'https://preview.example.org/audio.mp3',
+    };
+    const resolved = await service.resolveSpotubeStream(track);
+    assert.ok(resolved);
+    assert.equal(resolved.streamUrl, 'https://preview.example.org/audio.mp3');
+  });
+
+  test('searchMultiSource returns direct track when URL is supplied', async () => {
+    const service = new SpotubeStreamService();
+    const results = await service.searchMultiSource('https://example.org/podcast/ep1.mp3');
+    assert.equal(results.length, 1);
+    assert.equal(results[0].title, 'ep1');
+    assert.equal(results[0].source, 'custom');
+  });
 });
 

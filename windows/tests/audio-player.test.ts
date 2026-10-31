@@ -13,6 +13,7 @@ import {
   type RepeatMode
 } from '../src/workspace/audio-queue.js';
 import type { AudioTrack } from '../src/workspace/audio-library.js';
+import { trackBadge, createVisualizer } from '../src/workspace/music-hub.js';
 
 describe('MKR Music Player Engine & Audio Queue Controls', () => {
   describe('Queue Algorithms & Navigation', () => {
@@ -134,6 +135,23 @@ describe('MKR Music Player Engine & Audio Queue Controls', () => {
       assert.equal(track.coverUrl, 'https://example.com/images/cover.jpg');
       assert.equal(track.kind, 'music');
       assert.ok(track.blob instanceof Blob);
+    });
+  });
+
+  describe('Spicetify Aesthetics & Visual Controls', () => {
+    test('trackBadge identifies sources across YouTube, Spotify, Audiobook, Direct and Local', () => {
+      assert.deepEqual(trackBadge({ id: 'yt:dQw4w9WgXcQ', title: 'T', artist: 'A', source: 'youtube' }), { label: 'YouTube', kind: 'youtube' });
+      assert.deepEqual(trackBadge({ id: 'ia:moby_dick', title: 'T', artist: 'A', source: 'audiobook' }), { label: 'Audiobook', kind: 'audiobook' });
+      assert.deepEqual(trackBadge({ id: 'stream:123', title: 'T', artist: 'A', source: 'spotify' }), { label: 'Spotify', kind: 'spotify' });
+      assert.deepEqual(trackBadge({ id: 'custom:url1', title: 'T', artist: 'A', source: 'custom' }), { label: 'Direct', kind: 'custom' });
+      assert.deepEqual(trackBadge({ id: 'local-1', title: 'T', artist: 'A', name: 'T', blob: new Blob([]), created: 0 }), { label: 'Local', kind: 'local' });
+    });
+
+    test('createVisualizer creates correct number of equalizer bars', () => {
+      const vis = createVisualizer(16, 'music-visualizer-test');
+      assert.equal(vis.className, 'music-visualizer-test');
+      assert.equal(vis.children.length, 16);
+      assert.equal((vis.children[0] as HTMLElement).className, 'music-vis-bar');
     });
   });
 });
