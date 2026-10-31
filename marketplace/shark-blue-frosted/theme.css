@@ -1,0 +1,9 @@
+﻿:root,html,html[data-theme],#workspace-root,#workspace-root[data-theme]{
+  --bg:#0c171f;--side:#070f14;--surface:#152632;--panel:var(--surface);
+  --hover:#1e3545;--line:#2d4c61;--ink:#eef6fc;--muted:#99b8cc;
+  --accent:#00b4d8;--accent-ink:#05141d;--paper:#101e28;--input:#091319;
+  --anf-bg:#0c171f;--anf-surface:#152632;--anf-surface-hover:#1e3545;--anf-border:#2d4c61;
+  --anf-text-primary:#eef6fc;--anf-text-secondary:#99b8cc;--anf-accent:#00b4d8;--anf-radius:12px;
+  color-scheme:dark;
+}
+html,html[data-theme]{background:var(--bg);color:var(--ink)}
