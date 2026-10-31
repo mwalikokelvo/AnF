@@ -10,24 +10,38 @@ export type RemoteLyrics = {
   syncedLyrics?: string;
 };
 
+export interface LyricLine {
+  time: number;
+  text: string;
+}
+
+export interface ParsedLyrics {
+  lines: LyricLine[];
+  offsetMs: number;
+  syncType: 'LINE_SYNCED' | 'WORD_SYNCED' | 'UNSYNCED';
+}
+
+export interface LyricsProvider {
+  fetchLyrics(track: { title: string; artist: string; duration: number }): Promise<ParsedLyrics | null>;
+  cleanTitle(title: string): string;
+  primaryArtist(artist: string): string;
+  getCachedLyrics(trackId: string): Promise<ParsedLyrics | null>;
+}
+
 const LRCLIB_CLIENT_HEADER = {
   'Lrclib-Client': 'AnF-Desktop/0.1.22 (https://github.com/mwalikokelvo/AnF)',
 };
 
 const titleCleanupPatterns = [
-  /\s*\(.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit).*?\)/gi,
-  /\s*\[.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit).*?\]/gi,
+  /\s*\(.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit|with).*?\)/gi,
+  /\s*\[.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit|with).*?\]/gi,
   /\s*【.*?】/g,
   /\s*\|.*$/g,
-  /\s*-\s*(official|video|audio|lyrics|lyric|visualizer).*$/gi,
+  /\s*-\s*(official|video|audio|lyrics|lyric|visualizer|live|remaster|remix|acoustic|version|edit).*$/gi,
   /\s*\(feat\..*?\)/gi,
   /\s*\(ft\..*?\)/gi,
   /\s*feat\..*$/gi,
   /\s*ft\..*$/gi,
-];
-
-const artistSeparators = [
-  ' feat. ', ' feat ', ' ft. ', ' ft ', ' featuring ', ' & ', ' and ', ', ', ' x ', ' X ', ' with '
 ];
 
 /** Clean promotional and format tags from track title for higher lyrics match accuracy. */
@@ -36,19 +50,17 @@ export function cleanTitle(title: string): string {
   for (const pattern of titleCleanupPatterns) {
     cleaned = cleaned.replace(pattern, '');
   }
+  while (/\s*[-–—]\s*$/.test(cleaned)) {
+    cleaned = cleaned.replace(/\s*[-–—]\s*$/, '');
+  }
   return cleaned.trim() || title.trim();
 }
 
-/** Extract primary artist from multi-artist strings. */
+/** Extract primary artist from multi-artist strings preserving separator precedence. */
 export function primaryArtist(artist: string): string {
-  let res = artist.trim();
-  for (const sep of artistSeparators) {
-    if (res.includes(sep)) {
-      res = res.split(sep)[0].trim();
-      break;
-    }
-  }
-  return res || artist.trim();
+  const trimmed = artist.trim();
+  const parts = trimmed.split(/\s*(?:feat\.|ft\.|featuring|\bx\b|&|\band\b|\bwith\b|,|\/|;)\s*/i);
+  return parts[0]?.trim() || trimmed;
 }
 
 /**
@@ -60,9 +72,22 @@ export async function fetchOnlineLyrics(track: {
   album?: string;
   duration?: number;
 }): Promise<string | undefined> {
+  if (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean' && !navigator.onLine) {
+    return undefined;
+  }
+
   const title = cleanTitle(track.title);
   const artist = track.artist ? primaryArtist(track.artist) : '';
   const duration = track.duration && Number.isFinite(track.duration) ? Math.round(track.duration) : undefined;
+
+  const getTimeoutSignal = () => {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      return AbortSignal.timeout(5000);
+    }
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 5000);
+    return controller.signal;
+  };
 
   // 1. Try exact match
   const params = new URLSearchParams();
@@ -74,6 +99,7 @@ export async function fetchOnlineLyrics(track: {
   try {
     const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
       headers: LRCLIB_CLIENT_HEADER,
+      signal: getTimeoutSignal(),
     });
 
     if (res.status === 429 || res.status === 503) {
@@ -92,13 +118,14 @@ export async function fetchOnlineLyrics(track: {
     return undefined;
   }
 
-  // 2. Fuzzy search fallback
+  // 2. Fuzzy search fallback with duration tolerance matching
   try {
     const query = [title, artist !== 'Unknown artist' ? artist : ''].filter(Boolean).join(' ');
     if (!query) return undefined;
 
     const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
       headers: LRCLIB_CLIENT_HEADER,
+      signal: getTimeoutSignal(),
     });
 
     if (res.status === 429 || res.status === 503) {
@@ -113,11 +140,24 @@ export async function fetchOnlineLyrics(track: {
         const synced = list.filter(item => Boolean(item.syncedLyrics?.trim()));
         if (synced.length) {
           if (duration && duration > 0) {
-            synced.sort((a, b) => Math.abs((a.duration || 0) - duration) - Math.abs((b.duration || 0) - duration));
+            // Apply MKR Music duration tolerance of ±5 seconds (or relaxed ±8s)
+            const toleranceMatches = synced.filter(item => !item.duration || Math.abs(item.duration - duration) <= 5);
+            const candidates = toleranceMatches.length ? toleranceMatches : synced.filter(item => !item.duration || Math.abs(item.duration - duration) <= 8);
+            if (candidates.length) {
+              candidates.sort((a, b) => Math.abs((a.duration || 0) - duration) - Math.abs((b.duration || 0) - duration));
+              return candidates[0].syncedLyrics?.trim();
+            }
+          } else {
+            return synced[0].syncedLyrics?.trim();
           }
-          return synced[0].syncedLyrics?.trim();
         }
-        if (list[0].plainLyrics?.trim()) return list[0].plainLyrics.trim();
+        if (list[0].plainLyrics?.trim()) {
+          if (duration && duration > 0) {
+            const toleranceMatches = list.filter(item => !item.duration || Math.abs(item.duration - duration) <= 5);
+            if (toleranceMatches.length) return toleranceMatches[0].plainLyrics?.trim();
+          }
+          return list[0].plainLyrics.trim();
+        }
       }
     }
   } catch {

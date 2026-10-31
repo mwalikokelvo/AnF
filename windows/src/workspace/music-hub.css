@@ -152,7 +152,7 @@ body:has(#app) .native-music-source{display:flex}
 .music-full-player .music-lyrics{width:min(100%,560px);max-height:42vh;overflow:auto;display:grid;gap:4px;justify-items:center;text-align:center;padding:8px 0 24px;scrollbar-width:thin}
 .music-full-player .music-lyric{margin:0;padding:6px 12px;border:0;border-radius:10px;background:transparent;color:#f4f7f580;font-size:18px;line-height:1.45;font-weight:500;transition:color .2s ease,transform .2s ease}
 .music-full-player button.music-lyric:hover{color:#f4f7f5;background:#ffffff10}
-.music-full-player .music-lyric.active{color:#f4f7f5;font-weight:700;transform:scale(1.04)}
+.music-full-player .music-lyric.active{color:var(--accent,#79e4b4);font-weight:700;transform:scale(1.05);text-shadow:0 0 16px var(--accent,rgba(121,228,180,0.4))}
 .music-full-player .music-lyrics-empty{margin:0;color:#adb7ba;font-size:13px}
 /* The full player's extras wrap onto more lines in narrow windows instead of scrolling sideways. */
 .music-player.music-full-player .music-extras{flex-wrap:wrap;row-gap:10px}
@@ -181,3 +181,43 @@ body:has(#app) .native-music-source{display:flex}
 .music-hub .music-card,.music-hub .music-recent-track{background:var(--music-panel,var(--surface));color:var(--music-ink)}
 .music-hub .music-search,.music-hub .music-heading select{background:var(--music-panel,var(--input));color:var(--music-ink);border-color:var(--music-line)}
 .music-hub .music-card-playing{background:var(--music-panel,var(--surface))}
+
+/* Lyrics header & mini display */
+.music-lyrics-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.music-lyrics-badge{font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(121,228,180,0.12);color:var(--accent,#79e4b4);font-weight:600}
+.music-lyrics-hint{font-size:11px;color:var(--music-muted)}
+.music-now-lyric{display:block;font-size:11px;color:var(--accent,#79e4b4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Two-Level Podcast Navigation */
+.music-feed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:16px}
+.music-feed-card{background:var(--music-panel,var(--surface));border:1px solid var(--music-line);border-radius:14px;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:10px;transition:transform .15s ease,border-color .15s ease;text-align:left}
+.music-feed-card:hover{transform:translateY(-2px);border-color:var(--accent,#79e4b4)}
+.music-feed-art{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#242a2c;display:grid;place-items:center}
+.music-feed-art img{width:100%;height:100%;object-fit:cover}
+.music-feed-meta strong{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-feed-meta span{display:block;font-size:12px;color:var(--music-muted);margin-top:2px}
+
+.music-feed-detail{display:flex;flex-direction:column;gap:18px;margin-top:12px}
+.music-feed-header{display:flex;gap:20px;align-items:flex-start;background:var(--music-panel,var(--surface));border:1px solid var(--music-line);border-radius:14px;padding:18px}
+.music-feed-header-art{width:120px;height:120px;border-radius:12px;overflow:hidden;flex-shrink:0;background:#242a2c}
+.music-feed-header-art img{width:100%;height:100%;object-fit:cover}
+.music-feed-header-info{flex:1;min-width:0}
+.music-feed-header-info h3{font-size:20px;margin:0 0 6px}
+.music-feed-header-info p{font-size:13px;color:var(--music-muted);margin:0 0 12px;line-height:1.4}
+.music-feed-header-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+.music-episodes-list{display:flex;flex-direction:column;gap:10px}
+.music-episode-card{background:var(--music-panel,var(--surface));border:1px solid var(--music-line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.music-episode-card.played{opacity:0.65}
+.music-episode-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.music-episode-title{font-size:15px;font-weight:600;margin:0;color:var(--music-ink)}
+.music-episode-summary{font-size:12px;color:var(--music-muted);margin:0;line-height:1.4}
+.music-episode-meta{display:flex;gap:12px;font-size:11px;color:var(--music-muted);align-items:center}
+.music-episode-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.music-episode-actions button{font-size:12px;padding:6px 12px;border-radius:6px}
+
+/* Streaming Search Panel */
+.music-stream-panel{display:flex;flex-direction:column;gap:16px;margin-top:12px}
+.music-stream-search{display:flex;gap:10px}
+.music-stream-search input{flex:1;min-width:0;background:var(--input);color:var(--music-ink);border:1px solid var(--music-line);border-radius:8px;padding:8px 12px}
+

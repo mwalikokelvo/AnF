@@ -6,7 +6,9 @@ import {
   substackFeedUrl,
   updateEpisodePosition,
   markEpisodePlayed,
-  getEpisodeState
+  getEpisodeState,
+  downloadPodcastEnclosure,
+  removeDownloadedPodcast
 } from '../src/workspace/podcast-feeds.js';
 
 // Setup minimal localStorage mock for Node test environment
@@ -120,4 +122,53 @@ describe('Podcast Feeds & RSS Parser', () => {
     assert.equal(ep.episodeNo, 101);
     assert.equal(ep.seasonNo, 2);
   });
+
+  test('downloadPodcastEnclosure saves track to audioLibrary and updates episode state', async () => {
+    const stored: any[] = [];
+    const mockLibrary = {
+      put: async (t: any) => { stored.push(t); },
+      remove: async (id: string) => {
+        const idx = stored.findIndex(t => t.id === id);
+        if (idx !== -1) stored.splice(idx, 1);
+      }
+    };
+
+    // Mock global fetch for podcast enclosure download
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(['fake audio stream'], { type: 'audio/mpeg' })
+    }) as any;
+
+    try {
+      const episode = {
+        id: 'ep-offline-1',
+        feedUrl: 'https://example.org/rss',
+        title: 'Offline Episode',
+        summary: 'Testing enclosure offline cache',
+        audioUrl: 'https://example.org/audio/ep1.mp3',
+        duration: 1800,
+        played: false,
+        playbackPosition: 0,
+        downloadStatus: 'none' as const,
+        enclosureType: 'audio/mpeg'
+      };
+
+      const track = await downloadPodcastEnclosure(mockLibrary, episode, 'Tech Talks');
+      assert.equal(track.id, 'podcast:ep-offline-1');
+      assert.equal(track.title, 'Offline Episode');
+      assert.equal(track.artist, 'Tech Talks');
+      assert.equal(track.kind, 'podcast');
+      assert.equal(episode.downloadStatus, 'downloaded');
+      assert.equal(getEpisodeState('ep-offline-1').downloadStatus, 'downloaded');
+
+      await removeDownloadedPodcast(mockLibrary, 'ep-offline-1');
+      assert.equal(getEpisodeState('ep-offline-1').downloadStatus, 'none');
+      assert.equal(stored.length, 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
+

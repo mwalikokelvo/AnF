@@ -31,6 +31,15 @@ export function playNextTrack(ids:string[],current:string|undefined,id:string):s
  next.splice(index+1,0,id);
  return next;
 }
+export function playPreviousTrack(ids:string[],current:string|undefined,id:string):string[]{
+ const filtered=ids.filter(x=>x!==id);
+ if(!current)return [id,...filtered];
+ const idx=filtered.indexOf(current);
+ if(idx===-1)return [id,...filtered];
+ filtered.splice(idx,0,id);
+ return filtered;
+}
 export function removeTrack(ids:string[],id:string):string[]{
  return ids.filter(x=>x!==id);
 }
+

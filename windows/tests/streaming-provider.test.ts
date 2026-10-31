@@ -80,4 +80,30 @@ describe('Spotube Streaming Audio Service', () => {
     assert.equal(cached.length, 1);
     assert.equal(cached[0].id, 'stream:track-99');
   });
+
+  test('implements StreamingMetadataProvider and StreamResolver contracts', async () => {
+    const service = new SpotubeStreamService();
+    const track: StreamTrackMetadata = {
+      id: 'sp-contract-1',
+      title: 'Contract Song',
+      artist: 'Contract Artist',
+      streamUrl: 'https://stream.example.org/contract.mp4',
+      duration: 210,
+    };
+    service.registerMetadata(track);
+
+    const fetched = await service.getTrack('sp-contract-1');
+    assert.ok(fetched);
+    assert.equal(fetched.title, 'Contract Song');
+
+    const searchResults = await service.searchTracks('contract', { limit: 5 });
+    assert.equal(searchResults.length, 1);
+    assert.equal(searchResults[0].id, 'sp-contract-1');
+
+    const resolved = await service.resolveStream(track);
+    assert.ok(resolved);
+    assert.equal(resolved.streamUrl, 'https://stream.example.org/contract.mp4');
+    assert.equal(resolved.mimeType, 'audio/mp4');
+  });
 });
+
