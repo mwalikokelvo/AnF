@@ -28,6 +28,9 @@ import {
 } from './podcast-feeds';
 import {parseLyrics,activeLine,matchLyricsTrack,type Lyrics} from './lyrics';
 import {fetchOnlineLyrics} from './lyrics-provider';
+import {echoLyrics} from './echo-lyrics-orchestrator';
+import {echoDna} from './echo-music-dna';
+import {rankMusicFlowCandidates,filterMusicFlowCandidates,audioTrackToFlowItem,type MusicFlowItem} from './music-flow';
 import {streamService,cacheStreamTrack,type StreamTrackMetadata} from './streaming-provider';
 import './music-hub.css';
 
@@ -152,7 +155,9 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  theme.value=['ember','violet','dusk'].includes(localStorage.getItem('anf-music-theme')||'')?localStorage.getItem('anf-music-theme')!:'ink';
  function applyTheme(){root.dataset.musicTheme=theme.value;try{localStorage.setItem('anf-music-theme',theme.value);}catch{/* The theme still applies for this session. */}}
  theme.addEventListener('change',applyTheme);
- root.append(h('header',{class:'music-heading'},h('div',{},h('h2',{text:'Music Hub'}),subtitle),h('label',{class:'music-search'},svg(icons.search,20,{stroke:1.5}),search),theme,h('span',{class:'music-monogram',text:'AF','aria-hidden':true})),tabs,notice,content,files,folder);
+ const flowBtn=button('Music Flow',()=>openMusicFlow());
+ flowBtn.className='nothing-pill';
+ root.append(h('header',{class:'music-heading'},h('div',{},h('h2',{text:'Music Hub'}),subtitle),h('label',{class:'music-search'},svg(icons.search,20,{stroke:1.5}),search),flowBtn,theme,h('span',{class:'music-monogram',text:'AF','aria-hidden':true})),tabs,notice,content,files,folder);
  applyTheme();
 
  const fullPlayer=h('dialog',{class:'music-player music-full-player','aria-label':'Now playing'});
@@ -175,8 +180,22 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  
  async function lookupLyrics(){
   if(!current)return;
-  report('Searching synced lyrics (MKR)...');
+  report('Searching synced lyrics across Echo Music providers...');
   try{
+   const echoRes = await echoLyrics.fetchLyrics({
+     title: current.title,
+     artist: current.artist,
+     album: current.album,
+     duration: current.duration
+   });
+   if(echoRes && echoRes.rawLrc){
+    current.lyrics = echoRes.rawLrc;
+    await library.put(current);
+    renderLyrics();
+    paintLyrics();
+    report(`Synced lyrics loaded via Echo Music (${echoRes.provider}).`);
+    return;
+   }
    const online=await fetchOnlineLyrics({title:current.title,artist:current.artist,album:current.album,duration:current.duration});
    if(online){
     current.lyrics=online;
@@ -190,6 +209,167 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }catch(err){
    report('Lyrics search failed: '+String(err));
   }
+ }
+
+ async function showMusicDna(t: AudioTrack) {
+  const overlay = h('div', { class: 'music-dna-overlay' });
+  const modal = h('div', { class: 'music-dna-modal liquid-glass' });
+  modal.replaceChildren(
+   h('div', { class: 'music-dna-header' },
+    h('div', {},
+     h('h3', { text: t.title }),
+     h('span', { class: 'music-dna-badge', text: 'Fetching Music DNA...' })
+    ),
+    button('Close', () => { overlay.remove(); })
+   ),
+   h('p', { class: 'music-muted', text: 'Connecting to Genius & Wikipedia knowledge archives...' })
+  );
+  overlay.append(modal);
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  document.body.append(overlay);
+
+  try {
+   const dna = await echoDna.fetchMusicDna({ title: t.title, artist: t.artist, album: t.album });
+   modal.replaceChildren(
+    h('div', { class: 'music-dna-header' },
+     h('div', {},
+      h('h3', { text: dna.songTitle }),
+      h('span', { class: 'music-dna-badge', text: 'DNA Source: ' + dna.source.toUpperCase() })
+     ),
+     button('Close', () => { overlay.remove(); })
+    ),
+    h('div', { class: 'music-dna-section' },
+     h('h4', { text: 'About This Song & Backstory' }),
+     h('p', { text: dna.meaning })
+    ),
+    h('div', { class: 'music-dna-section' },
+     h('h4', { text: 'Artist Context (' + dna.artistName + ')' }),
+     h('p', { text: dna.artistBio })
+    ),
+    dna.albumName ? h('div', { class: 'music-dna-section' },
+     h('h4', { text: 'Album' }),
+     h('p', { text: dna.albumName })
+    ) : null
+   );
+  } catch (err) {
+   modal.replaceChildren(
+    h('div', { class: 'music-dna-header' },
+     h('h3', { text: t.title }),
+     button('Close', () => { overlay.remove(); })
+    ),
+    h('p', { class: 'music-notice', text: 'Could not fetch Music DNA: ' + String(err) })
+   );
+  }
+ }
+
+ function openMusicFlow() {
+  if (!tracks.length) {
+   report('Add tracks to your library first to enter Music Flow.');
+   return;
+  }
+
+  const overlay = h('div', { class: 'music-flow-overlay' });
+  const viewport = h('div', { class: 'music-flow-viewport' });
+
+  const flowCandidates: MusicFlowItem[] = tracks.map(t => audioTrackToFlowItem(t));
+  const filtered = filterMusicFlowCandidates(flowCandidates);
+  const ranked = rankMusicFlowCandidates(
+   filtered,
+   [],
+   new Set(prefs.favorites),
+   new Set()
+  );
+
+  const topbar = h('div', { class: 'music-flow-topbar' },
+   h('span', { class: 'nothing-pill', text: 'Music Flow · Reel' }),
+   button('Close Flow', () => { overlay.remove(); })
+  );
+
+  function renderCard(item: MusicFlowItem) {
+   const cardEl = h('div', { class: 'music-flow-card' });
+   const bgUrl = item.coverUrl || '';
+   const backdrop = h('div', {
+    class: 'music-flow-backdrop',
+    style: bgUrl ? `background-image: url("${bgUrl}")` : 'background: #12181a;'
+   });
+   const scrim = h('div', { class: 'music-flow-scrim' });
+
+   const artContainer = h('div', { class: 'music-flow-artwork-container' });
+   if (item.coverUrl) {
+    artContainer.append(h('img', { src: item.coverUrl, alt: item.title }));
+   } else {
+    artContainer.append(svg(icons.music, 64, { stroke: 1.2 }));
+   }
+   const glyph = h('div', { class: 'music-flow-play-glyph' }, svg(icons.play, 28, { stroke: 2 }));
+   artContainer.append(glyph);
+
+   const lyricsHud = h('div', { class: 'music-flow-lyrics-hud' });
+   const currentLine = h('div', { class: 'music-flow-current-line', text: item.title });
+   const nextLine = h('div', { class: 'music-flow-next-line', text: item.artist });
+   lyricsHud.append(currentLine, nextLine);
+
+   const meta = h('div', { class: 'music-flow-meta' });
+   const title = h('h3', { class: 'music-flow-title', text: item.title });
+   const artistRow = h('div', { class: 'music-flow-artist-row' });
+   artistRow.append(h('span', { class: 'music-flow-artist', text: item.artist }));
+   meta.append(title, artistRow);
+
+   const actionRow = h('div', { class: 'music-flow-action-row' });
+   const likeBtn = h('button', {
+    type: 'button',
+    class: 'music-flow-action-btn',
+    'aria-label': 'Like',
+    onclick: (e: Event) => {
+     e.stopPropagation();
+     prefs.favorites = prefs.favorites.includes(item.id)
+      ? prefs.favorites.filter(id => id !== item.id)
+      : [...prefs.favorites, item.id];
+     save();
+     likeBtn.style.color = prefs.favorites.includes(item.id) ? 'var(--accent, #79e4b4)' : '#ffffff';
+    }
+   }, svg(icons.heart, 20, { stroke: 1.8 }));
+   if (prefs.favorites.includes(item.id)) likeBtn.style.color = 'var(--accent, #79e4b4)';
+
+   const dnaBtn = h('button', {
+    type: 'button',
+    class: 'music-flow-action-btn',
+    'aria-label': 'Music DNA',
+    title: 'Music DNA',
+    onclick: (e: Event) => {
+     e.stopPropagation();
+     const trk = tracks.find(x => x.id === item.id);
+     if (trk) showMusicDna(trk);
+    }
+   }, h('span', { text: 'DNA', style: 'font-size: 10px; font-weight: 800;' }));
+
+   actionRow.append(likeBtn, dnaBtn);
+
+   artContainer.onclick = async () => {
+    const trk = tracks.find(x => x.id === item.id);
+    if (trk) {
+     if (current?.id === trk.id && !audio.paused) {
+      pause();
+      glyph.style.opacity = '1';
+     } else {
+      await playTrack(trk, tracks);
+      glyph.style.opacity = '0';
+     }
+    }
+   };
+
+   const contentWrap = h('div', { class: 'music-flow-content' });
+   contentWrap.append(lyricsHud, artContainer, meta, actionRow);
+
+   cardEl.append(backdrop, scrim, contentWrap);
+   return cardEl;
+  }
+
+  for (let i = 0; i < ranked.length; i++) {
+   viewport.append(renderCard(ranked[i]));
+  }
+
+  overlay.append(topbar, viewport);
+  document.body.append(overlay);
  }
 
  function renderLyrics(){
@@ -236,7 +416,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  dock.append(
   h('div',{class:'music-now'},dockArt,h('button',{class:'music-now-info',type:'button','aria-label':'Open full player',onclick:()=>openFullPlayer()},dockTitle,dockArtist,dockLyric),like),
   h('div',{class:'music-transport'},h('div',{class:'music-controls'},shuffle,button('Previous track',()=>step(-1),'previous'),toggle,stopBtn,button('Next track',()=>step(1),'next'),repeat),h('div',{class:'music-progress'},elapsed,seek,total)),
-  h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 15s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+15);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('Find lyrics',lookupLyrics),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep),h('label',{class:'music-volume'},'Volume',volume)),
+  h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 15s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+15);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('DNA',()=>{if(current)void showMusicDna(current);}),button('Flow',()=>openMusicFlow()),button('Find lyrics',lookupLyrics),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep),h('label',{class:'music-volume'},'Volume',volume)),
   queuePanel,
   lyricsPanel
  );
@@ -466,7 +646,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const likeBtn=button(liked?'Unlike '+t.title:'Like '+t.title,()=>{prefs.favorites=liked?prefs.favorites.filter(id=>id!==t.id):[...prefs.favorites,t.id];save();render();},'heart');
   likeBtn.setAttribute('aria-pressed',String(liked));
   const card=h('article',{class:'music-card'+(t.id===current?.id?' music-card-playing':''),'data-id':t.id},play,button('Play previous',()=>playPrevious(t)),button('Play next',()=>playNext(t)),t.album?button('Play album',()=>playAlbum(t)):null,t.artist?button('Play artist',()=>playArtist(t)):null,t.genre?button('Play genre',()=>playGenre(t)):null,t.year?button('Play year',()=>playYear(t)):null,t.year?button('Play decade',()=>playDecade(t)):null,button('Queue '+t.title,()=>enqueue(t)),likeBtn);
-  card.append(h('details',{class:'music-item-actions'},h('summary',{text:'Track actions'}),button('Details for '+t.title,()=>showDetails(t)),button('Add '+t.title+' to playlist',()=>choosePlaylist(t))));
+  card.append(h('details',{class:'music-item-actions'},h('summary',{text:'Track actions'}),button('Music DNA',()=>showMusicDna(t)),button('Details for '+t.title,()=>showDetails(t)),button('Add '+t.title+' to playlist',()=>choosePlaylist(t))));
   return card;
  }
 
