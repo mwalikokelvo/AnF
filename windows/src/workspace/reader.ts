@@ -23,8 +23,28 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   const close=()=>{if(source){const state=readingState(source.reading,source.text);state.offset=parts[index].start;source.reading=state;changed();}saveScroll();audio.stop();root.hidden=true;selection=undefined;source=undefined;previousFocus?.focus();};
   const exit=action('Close reader',close);
   const prev=action('Previous section',()=>go(index-1)),next=action('Next section',()=>go(index+1));
+  const ocrFileInput=h('input',{type:'file',accept:'image/*,.pdf',style:'display:none'}) as HTMLInputElement;
+  ocrFileInput.addEventListener('change',async()=>{
+    const file=ocrFileInput.files?.[0];if(!file)return;
+    notice.textContent='Parsing with Unlimited-OCR…';
+    try{
+      const {parseImageBlobWithOcr}=await import('./ocr-client');
+      const res=await parseImageBlobWithOcr(file);
+      if(source){
+        source.text=res.markdown;
+        parts=sections(source.text);
+        index=0;
+        toc.replaceChildren(...parts.map((p,i)=>h('option',{value:i,text:p.label})));
+        render();
+        changed();
+        notice.textContent=`Parsed with Unlimited-OCR (${res.headings.length} sections, ${res.tablesCount} tables).`;
+      }
+    }catch(e){
+      notice.textContent='OCR error: '+String(e);
+    }finally{ocrFileInput.value='';}
+  });
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
-    h('header',{class:'reader-header'},title,action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),exit),
+    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),exit),
     h('div',{class:'reader-controls'},theme,font,size,line,width),
     h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';})),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,

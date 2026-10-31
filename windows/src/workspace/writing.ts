@@ -89,6 +89,21 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     commit(template+draft.value);
     draft.focus();draft.setSelectionRange(12,28);live?.focusSelection();
   });
+  const ocrInput=h('input',{type:'file',accept:'image/*,.pdf',style:'display:none'}) as HTMLInputElement;
+  ocrInput.addEventListener('change',async()=>{
+    const file=ocrInput.files?.[0];if(!file)return;
+    notify('Parsing document with Unlimited-OCR…');
+    try{
+      const {parseImageBlobWithOcr}=await import('./ocr-client');
+      const result=await parseImageBlobWithOcr(file);
+      commit(draft.value+(draft.value?'\n\n':'')+result.markdown);
+      notify(`Imported via Unlimited-OCR (${result.headings.length} headings, ${result.tablesCount} tables).`);
+    }catch(e){
+      notify('Unlimited-OCR error: '+String(e));
+    }finally{ocrInput.value='';}
+  });
+  tools.append(ocrInput);
+  tool('Scan/OCR',()=>ocrInput.click());
   const undoButton=tool('Undo',()=>{if(!undo.length)return;redo.push(draft.value);draft.value=undo.pop()!;previous=draft.value;refresh();changed();});
   const redoButton=tool('Redo',()=>{if(!redo.length)return;undo.push(draft.value);draft.value=redo.pop()!;previous=draft.value;refresh();changed();});
   draft.addEventListener('input',()=>refresh());
