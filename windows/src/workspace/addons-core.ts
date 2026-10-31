@@ -2,7 +2,66 @@
 // The page only names an add-on id; the native side (Rust on Windows, Java on Android) fetches, verifies and stores it.
 import {h} from '../views/dom';
 import './addons.css';
+
+export interface AddonManifest {
+  id: string;
+  name: string;
+  version: string;
+  type: 'theme' | 'plugin' | 'dictionary' | 'audio-effect';
+  entry: string;
+  sha256: string;
+  offlineReady: boolean;
+}
+
+export interface AddonHost {
+  loadCatalogSnapshot(): Promise<AddonManifest[]>;
+  installAddon(manifest: AddonManifest, packageBlob: Blob): Promise<void>;
+  verifyIntegrity(data: Uint8Array, expectedSha256: string): Promise<boolean>;
+}
+
 export type Call=<T=unknown>(command:string,args?:Record<string,unknown>)=>Promise<T>;
+
+export function createAddonHost(call: Call): AddonHost {
+  return {
+    async loadCatalogSnapshot(): Promise<AddonManifest[]> {
+      try {
+        const raw = await call<any[]>('addons_registry');
+        return (raw || []).map(item => ({
+          id: item.id,
+          name: item.name,
+          version: item.version || '1.0.0',
+          type: item.type || 'theme',
+          entry: item.entry || `${item.id}.css`,
+          sha256: item.sha256 || '',
+          offlineReady: true,
+        }));
+      } catch {
+        return [];
+      }
+    },
+
+    async installAddon(manifest: AddonManifest, packageBlob: Blob): Promise<void> {
+      const bytes = new Uint8Array(await packageBlob.arrayBuffer());
+      if (manifest.sha256) {
+        const ok = await this.verifyIntegrity(bytes, manifest.sha256);
+        if (!ok) {
+          throw new Error(`Integrity verification failed for addon ${manifest.id}`);
+        }
+      }
+      await call('addons_install', { id: manifest.id });
+    },
+
+    async verifyIntegrity(data: Uint8Array, expectedSha256: string): Promise<boolean> {
+      if (!expectedSha256) return true;
+      const hashBuf = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
+      const actualHex = Array.from(new Uint8Array(hashBuf))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      return actualHex.toLowerCase() === expectedSha256.toLowerCase();
+    },
+  };
+}
+
 export function createMarketplace(call:Call){
  type Entry={id:string;name:string;version:string;type:'theme'|'plugin';description:string;author:string};
  const KEY='anf_active_theme';
