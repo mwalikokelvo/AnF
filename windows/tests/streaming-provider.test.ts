@@ -1,6 +1,11 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { SpotubeStreamService, type StreamTrackMetadata } from '../src/workspace/streaming-provider.js';
+import {
+  SpotubeStreamService,
+  parsePlaylistOrAlbumUrl,
+  type StreamTrackMetadata,
+  type BatchResolvedCollection
+} from '../src/workspace/streaming-provider.js';
 
 describe('Spotube Streaming Audio Service', () => {
   test('registers and searches tracks in metadata cache', async () => {
@@ -165,6 +170,99 @@ describe('Spotube Streaming Audio Service', () => {
     assert.equal(results.length, 1);
     assert.equal(results[0].title, 'ep1');
     assert.equal(results[0].source, 'custom');
+  });
+
+  describe('Playlist & Album URL Parsing & Batch Resolution', () => {
+    test('parsePlaylistOrAlbumUrl accurately parses YouTube playlist URLs', () => {
+      const urls = [
+        'https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4',
+        'https://youtube.com/playlist?list=PL1234567890',
+        'https://music.youtube.com/playlist?list=OLAK5uy_k1234567',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4&index=1',
+        'https://piped.video/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4',
+      ];
+
+      for (const u of urls) {
+        const parsed = parsePlaylistOrAlbumUrl(u);
+        assert.ok(parsed, `Failed to parse ${u}`);
+        assert.equal(parsed.platform, 'youtube');
+        assert.equal(parsed.type, 'playlist');
+        assert.ok(parsed.id.startsWith('PL') || parsed.id.startsWith('OLAK'));
+      }
+    });
+
+    test('parsePlaylistOrAlbumUrl accurately parses Spotify playlist and album URLs', () => {
+      const spPlaylist = parsePlaylistOrAlbumUrl('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abcdef123');
+      assert.ok(spPlaylist);
+      assert.equal(spPlaylist.platform, 'spotify');
+      assert.equal(spPlaylist.type, 'playlist');
+      assert.equal(spPlaylist.id, '37i9dQZF1DXcBWIGoYBM5M');
+
+      const spAlbum = parsePlaylistOrAlbumUrl('https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy');
+      assert.ok(spAlbum);
+      assert.equal(spAlbum.platform, 'spotify');
+      assert.equal(spAlbum.type, 'album');
+      assert.equal(spAlbum.id, '4aawyAB9vmqN3uQ7FjRGTy');
+
+      const spIntlAlbum = parsePlaylistOrAlbumUrl('https://open.spotify.com/intl-fr/album/4aawyAB9vmqN3uQ7FjRGTy');
+      assert.ok(spIntlAlbum);
+      assert.equal(spIntlAlbum.type, 'album');
+      assert.equal(spIntlAlbum.id, '4aawyAB9vmqN3uQ7FjRGTy');
+
+      const spUriPlaylist = parsePlaylistOrAlbumUrl('spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
+      assert.ok(spUriPlaylist);
+      assert.equal(spUriPlaylist.type, 'playlist');
+      assert.equal(spUriPlaylist.id, '37i9dQZF1DXcBWIGoYBM5M');
+
+      const spUriAlbum = parsePlaylistOrAlbumUrl('spotify:album:4aawyAB9vmqN3uQ7FjRGTy');
+      assert.ok(spUriAlbum);
+      assert.equal(spUriAlbum.type, 'album');
+      assert.equal(spUriAlbum.id, '4aawyAB9vmqN3uQ7FjRGTy');
+    });
+
+    test('parsePlaylistOrAlbumUrl returns null for single direct tracks or invalid URLs', () => {
+      assert.equal(parsePlaylistOrAlbumUrl('https://example.org/audio/track.mp3'), null);
+      assert.equal(parsePlaylistOrAlbumUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), null);
+      assert.equal(parsePlaylistOrAlbumUrl(''), null);
+    });
+
+    test('BatchResolvedCollection metadata registers and caches tracks in service', () => {
+      const service = new SpotubeStreamService();
+      const mockCollection: BatchResolvedCollection = {
+        id: 'sp:album:test-album-1',
+        title: 'Master of Puppets',
+        artist: 'Metallica',
+        type: 'album',
+        source: 'spotify',
+        itemCount: 2,
+        tracks: [
+          {
+            id: 'sp:mop-1',
+            title: 'Battery',
+            artist: 'Metallica',
+            album: 'Master of Puppets',
+            duration: 312,
+            source: 'spotube',
+          },
+          {
+            id: 'sp:mop-2',
+            title: 'Master of Puppets',
+            artist: 'Metallica',
+            album: 'Master of Puppets',
+            duration: 515,
+            source: 'spotube',
+          },
+        ],
+      };
+
+      for (const t of mockCollection.tracks) {
+        service.registerMetadata(t);
+      }
+
+      assert.equal(mockCollection.tracks.length, 2);
+      assert.equal(mockCollection.itemCount, 2);
+      assert.equal(mockCollection.type, 'album');
+    });
   });
 });
 

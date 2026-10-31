@@ -2,6 +2,7 @@ import {createSpeechPlayer} from './speech-player';
 import {h} from '../views/dom';
 import {sections,readingState,addHighlight,type ReadingSource,type ReadingSection,type Highlight} from './reader-data';
 import {addToReadingQueue,loadReadingQueue} from './article-publishing';
+import {createOcrStatusIndicator} from './ocr-client';
 import './reader.css';
 
 export function createReader(changed:()=>void,clip:(text:string,source:string)=>void,notify:(s:string)=>void,ask?:(text:string,source:string)=>void){
@@ -24,6 +25,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   const exit=action('Close reader',close);
   const prev=action('Previous section',()=>go(index-1)),next=action('Next section',()=>go(index+1));
   const ocrFileInput=h('input',{type:'file',accept:'image/*,.pdf',style:'display:none'}) as HTMLInputElement;
+  const ocrStatus=createOcrStatusIndicator({notify:(msg)=>{notice.textContent=msg;}});
   ocrFileInput.addEventListener('change',async()=>{
     const file=ocrFileInput.files?.[0];if(!file)return;
     notice.textContent='Parsing with Unlimited-OCR…';
@@ -44,7 +46,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
     }finally{ocrFileInput.value='';}
   });
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
-    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),exit),
+    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),exit),
     h('div',{class:'reader-controls'},theme,font,size,line,width),
     h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';})),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,
@@ -73,5 +75,5 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   page.addEventListener('mouseup',rememberSelection);page.addEventListener('keyup',rememberSelection);page.addEventListener('touchend',rememberSelection);document.addEventListener('selectionchange',()=>{if(!root.hidden)rememberSelection();});
   toc.addEventListener('change',()=>go(Number(toc.value)));bookmarks.addEventListener('change',()=>{if(bookmarks.value!=='')go(Math.max(0,parts.findIndex(p=>p.end>Number(bookmarks.value))));});
   root.addEventListener('keydown',e=>{e.stopPropagation();const field=(e.target as HTMLElement|null)?.closest('input,textarea,select');if(e.key==='Escape'){e.preventDefault();close();}else if(!field&&e.key==='ArrowLeft'){e.preventDefault();go(index-1);}else if(!field&&e.key==='ArrowRight'){e.preventDefault();go(index+1);}if(e.key==='Tab'){const items=Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled),select,textarea,[tabindex="0"]'));const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}});
-  return{root,close,open(s:ReadingSource){try{const state=readingState(s.reading,s.text);source=s;let hash=2166136261;for(let i=0;i<s.text.length;i++)hash=Math.imul(hash^s.text.charCodeAt(i),16777619);scrollKey='coucou-scroll-'+(hash>>>0)+'-'+s.text.length;parts=sections(s.text);index=Math.max(0,parts.findIndex(p=>p.end>state.offset));selection=undefined;previousFocus=document.activeElement as HTMLElement;toc.replaceChildren(...parts.map((p,i)=>h('option',{value:i,text:p.label})));root.hidden=false;appearance();render();try{const position=JSON.parse(localStorage.getItem(scrollKey)||'null');if(position?.section===parts[index].start&&Number.isFinite(position.top)&&position.top>=0)root.querySelector('.reader-body')!.scrollTop=position.top;else root.querySelector('.reader-body')!.scrollTop=0;}catch{}exit.focus();}catch(e){notify(String(e));}}};
+  return{root,close,open(s:ReadingSource){try{const state=readingState(s.reading,s.text);source=s;let hash=2166136261;for(let i=0;i<s.text.length;i++)hash=Math.imul(hash^s.text.charCodeAt(i),16777619);scrollKey='coucou-scroll-'+(hash>>>0)+'-'+s.text.length;parts=sections(s.text);index=Math.max(0,parts.findIndex(p=>p.end>state.offset));selection=undefined;previousFocus=document.activeElement as HTMLElement;toc.replaceChildren(...parts.map((p,i)=>h('option',{value:i,text:p.label})));root.hidden=false;appearance();render();void ocrStatus?.refresh();try{const position=JSON.parse(localStorage.getItem(scrollKey)||'null');if(position?.section===parts[index].start&&Number.isFinite(position.top)&&position.top>=0)root.querySelector('.reader-body')!.scrollTop=position.top;else root.querySelector('.reader-body')!.scrollTop=0;}catch{}exit.focus();}catch(e){notify(String(e));}}};
 }

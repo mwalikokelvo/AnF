@@ -519,6 +519,7 @@ pub fn run() {
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,
+            start_ocr_service,
             set_paused,
         ])
         .setup(move |app| {

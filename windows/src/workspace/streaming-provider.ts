@@ -39,6 +39,54 @@ export interface StreamResolver {
   resolveStream(track: StreamTrackMetadata): Promise<ResolvedAudioStream | null>;
 }
 
+export interface ParsedCollectionUrl {
+  platform: 'youtube' | 'spotify';
+  type: 'playlist' | 'album';
+  id: string;
+}
+
+export interface BatchResolvedCollection {
+  id: string;
+  title: string;
+  artist?: string;
+  type: 'playlist' | 'album';
+  source: 'youtube' | 'spotify' | 'custom';
+  itemCount: number;
+  artworkUrl?: string;
+  tracks: StreamTrackMetadata[];
+}
+
+export function parsePlaylistOrAlbumUrl(url: string): ParsedCollectionUrl | null {
+  const raw = url.trim();
+  if (!raw) return null;
+
+  // 1. YouTube Playlist: list=PL... or list=UU... or list=OLAK... or list=RD...
+  const ytMatch = raw.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+  if (ytMatch) {
+    return {
+      platform: 'youtube',
+      type: 'playlist',
+      id: ytMatch[1],
+    };
+  }
+
+  // 2. Spotify Playlist or Album
+  const spMatch = raw.match(
+    /(?:open\.spotify\.com\/(?:intl-[a-z]{2}\/)?(playlist|album)\/|spotify:(playlist|album):)([a-zA-Z0-9]+)/i
+  );
+  if (spMatch) {
+    const type = (spMatch[1] || spMatch[2]).toLowerCase() as 'playlist' | 'album';
+    const id = spMatch[3];
+    return {
+      platform: 'spotify',
+      type,
+      id,
+    };
+  }
+
+  return null;
+}
+
 export const PIPED_INSTANCES = [
   'https://pipedapi.kavin.rocks',
   'https://api.piped.privacy.com.de',
@@ -429,6 +477,315 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     }
   }
 
+  /** Parse playlist or album URL */
+  parseCollectionUrl(url: string): ParsedCollectionUrl | null {
+    return parsePlaylistOrAlbumUrl(url);
+  }
+
+  /**
+   * Resolve YouTube playlist into a batch collection of tracks using Piped API instances
+   * with fallback to YouTube public initial-state parsing.
+   */
+  async resolveYouTubePlaylist(playlistId: string, limit = 100): Promise<BatchResolvedCollection | null> {
+    const cleanId = playlistId.trim().replace(/^yt:playlist:/, '');
+    if (!cleanId) return null;
+
+    // 1. Try Piped API instances
+    for (const instance of PIPED_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/playlists/${cleanId}`, {
+          signal: getTimeoutSignal(5000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const rawStreams: any[] = Array.isArray(data.relatedStreams)
+            ? data.relatedStreams
+            : (Array.isArray(data.items) ? data.items : []);
+          if (rawStreams.length > 0) {
+            const title = data.name || data.title || 'YouTube Playlist';
+            const tracks: StreamTrackMetadata[] = [];
+            for (const item of rawStreams) {
+              let videoId = '';
+              if (typeof item.url === 'string') {
+                const m = item.url.match(/v=([a-zA-Z0-9_-]{11})/);
+                if (m) videoId = m[1];
+                else if (item.url.startsWith('/watch?v=')) videoId = item.url.replace('/watch?v=', '');
+              }
+              if (!videoId && item.id) videoId = String(item.id).replace('/watch?v=', '');
+              if (!videoId) continue;
+
+              const track: StreamTrackMetadata = {
+                id: `yt:${videoId}`,
+                title: item.title || 'Unknown Title',
+                artist: item.uploaderName || item.uploader || 'YouTube Artist',
+                album: title,
+                duration: typeof item.duration === 'number' && item.duration > 0 ? item.duration : undefined,
+                artworkUrl: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+                coverUrl: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+                source: 'youtube',
+              };
+              this.registerMetadata(track);
+              tracks.push(track);
+              if (tracks.length >= limit) break;
+            }
+            return {
+              id: `yt:playlist:${cleanId}`,
+              title,
+              artist: data.uploader || 'YouTube',
+              type: 'playlist',
+              source: 'youtube',
+              itemCount: tracks.length,
+              artworkUrl: data.bannerUrl || data.thumbnailUrl || tracks[0]?.coverUrl,
+              tracks,
+            };
+          }
+        }
+      } catch {
+        // Try next instance
+      }
+    }
+
+    // 2. Fallback: Parse YouTube public playlist page
+    try {
+      const res = await fetch(`https://www.youtube.com/playlist?list=${cleanId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        signal: getTimeoutSignal(6000),
+      });
+      if (res.ok) {
+        const text = await res.text();
+        const m = text.match(/var ytInitialData = (\{.+?\});<\/script>/);
+        if (m) {
+          const d = JSON.parse(m[1]);
+          const title = d.metadata?.playlistMetadataRenderer?.title ||
+            d.header?.playlistHeaderRenderer?.title?.simpleText ||
+            d.header?.playlistHeaderRenderer?.title?.runs?.[0]?.text ||
+            'YouTube Playlist';
+
+          const tracks: StreamTrackMetadata[] = [];
+          const seen = new Set<string>();
+
+          const parseDurationSec = (str?: string): number | undefined => {
+            if (!str) return undefined;
+            const parts = str.trim().split(':').map(Number);
+            if (parts.some(isNaN)) return undefined;
+            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+            if (parts.length === 2) return parts[0] * 60 + parts[1];
+            return undefined;
+          };
+
+          const extractVideos = (obj: any): void => {
+            if (!obj || typeof obj !== 'object' || tracks.length >= limit) return;
+            if (obj.lockupViewModel && obj.lockupViewModel.contentId) {
+              const lk = obj.lockupViewModel;
+              const videoId = lk.contentId;
+              if (videoId && !seen.has(videoId)) {
+                seen.add(videoId);
+                const label = lk.rendererContext?.accessibilityContext?.label || '';
+                const titlePart = label.split(/\s+\d+\s+hours|\s+\d+\s+minutes|\s+\d+\s+seconds/)[0]?.trim() || 'YouTube Track';
+                const badgeText = lk.contentImage?.thumbnailViewModel?.overlays?.[0]?.thumbnailBottomOverlayViewModel?.badges?.[0]?.thumbnailBadgeViewModel?.text;
+                const duration = parseDurationSec(badgeText);
+                const thumb = lk.contentImage?.thumbnailViewModel?.image?.sources?.[0]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+                const track: StreamTrackMetadata = {
+                  id: `yt:${videoId}`,
+                  title: titlePart,
+                  artist: 'YouTube',
+                  album: title,
+                  duration,
+                  artworkUrl: thumb,
+                  coverUrl: thumb,
+                  source: 'youtube',
+                };
+                this.registerMetadata(track);
+                tracks.push(track);
+              }
+            } else if (obj.playlistVideoRenderer && obj.playlistVideoRenderer.videoId) {
+              const vr = obj.playlistVideoRenderer;
+              const videoId = vr.videoId;
+              if (videoId && !seen.has(videoId)) {
+                seen.add(videoId);
+                const vTitle = vr.title?.runs?.[0]?.text || vr.title?.simpleText || 'YouTube Track';
+                const artist = vr.shortBylineText?.runs?.[0]?.text || 'YouTube';
+                const durSec = parseInt(vr.lengthSeconds, 10);
+                const thumb = vr.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+                const track: StreamTrackMetadata = {
+                  id: `yt:${videoId}`,
+                  title: vTitle,
+                  artist,
+                  album: title,
+                  duration: !isNaN(durSec) && durSec > 0 ? durSec : undefined,
+                  artworkUrl: thumb,
+                  coverUrl: thumb,
+                  source: 'youtube',
+                };
+                this.registerMetadata(track);
+                tracks.push(track);
+              }
+            } else {
+              for (const key of Object.keys(obj)) {
+                if (obj[key] && typeof obj[key] === 'object') {
+                  extractVideos(obj[key]);
+                  if (tracks.length >= limit) break;
+                }
+              }
+            }
+          };
+
+          extractVideos(d);
+          if (tracks.length > 0) {
+            return {
+              id: `yt:playlist:${cleanId}`,
+              title,
+              artist: 'YouTube',
+              type: 'playlist',
+              source: 'youtube',
+              itemCount: tracks.length,
+              artworkUrl: tracks[0]?.coverUrl,
+              tracks,
+            };
+          }
+        }
+      }
+    } catch {
+      // Parsing fallback failed
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve Spotify playlist or album into a batch collection of tracks using public embed state.
+   */
+  async resolveSpotifyCollection(
+    type: 'playlist' | 'album',
+    id: string,
+    limit = 100
+  ): Promise<BatchResolvedCollection | null> {
+    const cleanId = id.trim();
+    if (!cleanId) return null;
+
+    try {
+      const embedUrl = `https://open.spotify.com/embed/${type}/${cleanId}`;
+      const res = await fetch(embedUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        signal: getTimeoutSignal(6000),
+      });
+      if (res.ok) {
+        const html = await res.text();
+        let entity: any = null;
+
+        const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+        if (nextDataMatch) {
+          try {
+            const json = JSON.parse(nextDataMatch[1]);
+            entity = json.props?.pageProps?.state?.data?.entity;
+          } catch {}
+        }
+
+        if (!entity) {
+          const initStateMatch = html.match(/<script id="initial-state"[^>]*>([\s\S]*?)<\/script>/);
+          if (initStateMatch) {
+            try {
+              const decoded = typeof atob === 'function'
+                ? atob(initStateMatch[1])
+                : (globalThis as any).Buffer?.from(initStateMatch[1], 'base64').toString('utf8');
+              if (decoded) {
+                const json = JSON.parse(decoded);
+                entity = json.data?.entity;
+              }
+            } catch {}
+          }
+        }
+
+        if (entity && Array.isArray(entity.trackList)) {
+          const title = entity.name || entity.title || `Spotify ${type === 'album' ? 'Album' : 'Playlist'}`;
+          const artist = entity.subtitle || entity.artists?.[0]?.name || 'Spotify';
+          const artworkUrl = entity.coverArt?.sources?.[0]?.url || entity.visualIdentity?.image?.[0]?.url;
+
+          const tracks: StreamTrackMetadata[] = [];
+          for (const item of entity.trackList) {
+            const trackId = item.uri
+              ? String(item.uri).replace('spotify:track:', '')
+              : (item.id || crypto.randomUUID());
+            const trackTitle = item.title || 'Unknown Title';
+            const trackArtist = item.subtitle || artist || 'Spotify Artist';
+            const duration = typeof item.duration === 'number' && item.duration > 0
+              ? Math.round(item.duration / 1000)
+              : undefined;
+            const streamUrl = item.audioPreview?.url || undefined;
+
+            const track: StreamTrackMetadata = {
+              id: `sp:${trackId}`,
+              title: trackTitle,
+              artist: trackArtist,
+              album: title,
+              duration,
+              artworkUrl,
+              coverUrl: artworkUrl,
+              source: 'spotube',
+              streamUrl,
+            };
+            this.registerMetadata(track);
+            tracks.push(track);
+            if (tracks.length >= limit) break;
+          }
+
+          return {
+            id: `sp:${type}:${cleanId}`,
+            title,
+            artist,
+            type,
+            source: 'spotify',
+            itemCount: tracks.length,
+            artworkUrl,
+            tracks,
+          };
+        }
+      }
+    } catch {
+      // Embed fetch error
+    }
+
+    // Fallback: search for album by query
+    if (type === 'album') {
+      try {
+        const candidates = await this.searchTracks(cleanId, { limit });
+        if (candidates.length > 0) {
+          return {
+            id: `sp:album:${cleanId}`,
+            title: candidates[0].album || 'Album',
+            artist: candidates[0].artist,
+            type: 'album',
+            source: 'spotify',
+            itemCount: candidates.length,
+            artworkUrl: candidates[0].artworkUrl,
+            tracks: candidates,
+          };
+        }
+      } catch {}
+    }
+
+    return null;
+  }
+
+  /**
+   * Unified batch URL resolver: parses YouTube playlist URLs or Spotify playlist/album URLs
+   * and extracts track metadata.
+   */
+  async resolveBatchUrl(url: string, limit = 100): Promise<BatchResolvedCollection | null> {
+    const parsed = parsePlaylistOrAlbumUrl(url);
+    if (!parsed) return null;
+
+    if (parsed.platform === 'youtube' && parsed.type === 'playlist') {
+      return this.resolveYouTubePlaylist(parsed.id, limit);
+    }
+
+    if (parsed.platform === 'spotify') {
+      return this.resolveSpotifyCollection(parsed.type, parsed.id, limit);
+    }
+
+    return null;
+  }
+
   /** Unified Multi-Source Search Across YouTube, Spotify, and Audiobooks */
   async searchMultiSource(
     query: string,
@@ -439,9 +796,13 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const limit = options?.limit || 20;
     const service = options?.service || 'all';
 
-    // Check if query is a direct URL
+    // Check if query is a batch collection URL
     if (/^https?:\/\//i.test(q)) {
       try {
+        const batch = await this.resolveBatchUrl(q, limit);
+        if (batch && batch.tracks.length > 0) {
+          return batch.tracks;
+        }
         const direct = await this.resolveDirectUrl(q);
         if (direct) return [direct.track];
       } catch {
@@ -619,4 +980,26 @@ export async function cacheStreamTrack(
   streamBlobOrUrl: Blob | string
 ): Promise<AudioTrack> {
   return streamService.cacheStreamTrack(library, track, streamBlobOrUrl);
+}
+
+export async function resolveBatchUrl(
+  url: string,
+  limit = 100
+): Promise<BatchResolvedCollection | null> {
+  return streamService.resolveBatchUrl(url, limit);
+}
+
+export async function resolveYouTubePlaylist(
+  playlistId: string,
+  limit = 100
+): Promise<BatchResolvedCollection | null> {
+  return streamService.resolveYouTubePlaylist(playlistId, limit);
+}
+
+export async function resolveSpotifyCollection(
+  type: 'playlist' | 'album',
+  id: string,
+  limit = 100
+): Promise<BatchResolvedCollection | null> {
+  return streamService.resolveSpotifyCollection(type, id, limit);
 }

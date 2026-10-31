@@ -1,5 +1,6 @@
 import './writing-layout.css';
 import {h} from '../views/dom';
+import {createOcrStatusIndicator} from './ocr-client';
 
 /** Deliberately limited Markdown: generated HTML and links are never executed. */
 export function renderWriting(text:string):HTMLElement {
@@ -60,6 +61,7 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   let previewTimer:ReturnType<typeof setTimeout>|undefined,lastPreview:string|undefined;
   function paintPreview(){previewTimer=undefined;if(lastPreview===draft.value)return;lastPreview=draft.value;preview.replaceChildren(renderWriting(draft.value||'Your document preview will appear here.'));}
   function refresh(projectKey=key){
+    void ocrStatus?.refresh();
     live?.sync();
     if(previewTimer)clearTimeout(previewTimer);
     if(projectKey!==key){key=projectKey;undo.length=0;redo.length=0;pending=undefined;proposal.hidden=true;previous=draft.value;}
@@ -102,8 +104,10 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
       notify('Unlimited-OCR error: '+String(e));
     }finally{ocrInput.value='';}
   });
+  const ocrStatus=createOcrStatusIndicator({notify});
   tools.append(ocrInput);
   tool('Scan/OCR',()=>ocrInput.click());
+  if(ocrStatus?.element)tools.append(ocrStatus.element);
   const undoButton=tool('Undo',()=>{if(!undo.length)return;redo.push(draft.value);draft.value=undo.pop()!;previous=draft.value;refresh();changed();});
   const redoButton=tool('Redo',()=>{if(!redo.length)return;undo.push(draft.value);draft.value=redo.pop()!;previous=draft.value;refresh();changed();});
   draft.addEventListener('input',()=>refresh());
