@@ -15,3 +15,27 @@
 .writing-editor[data-focus=true] .editor-view-controls{max-width:820px;margin:0 auto 16px;display:flex;justify-content:flex-end}
 .writing-editor[data-focus=true] .live-markdown,.writing-editor[data-focus=true] .editor-columns{max-width:820px;margin:0 auto;box-shadow:0 16px 48px rgba(0,0,0,0.4);border-radius:18px}
 .writing-editor[data-focus=true] textarea{min-height:75vh;font-size:18px;line-height:1.85;padding:24px 28px}
+
+
+/* Article Frontmatter Preview Header */
+.writing-article-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line, #385052);
+}
+.writing-article-header .article-title {
+  font-size: 1.85rem;
+  line-height: 1.25;
+  margin: 0 0 8px 0;
+  color: var(--ink, #edf4f3);
+}
+.writing-article-header .article-subtitle {
+  font-size: 1.15rem;
+  color: var(--muted, #8a9ba8);
+  margin: 0 0 10px 0;
+}
+.writing-article-header .article-byline {
+  font-size: 0.85rem;
+  color: var(--accent, #79e4b4);
+  font-feature-settings: 'tnum';
+}

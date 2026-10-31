@@ -1,6 +1,7 @@
 import {createSpeechPlayer} from './speech-player';
 import {h} from '../views/dom';
 import {sections,readingState,addHighlight,type ReadingSource,type ReadingSection,type Highlight} from './reader-data';
+import {addToReadingQueue,loadReadingQueue} from './article-publishing';
 import './reader.css';
 
 export function createReader(changed:()=>void,clip:(text:string,source:string)=>void,notify:(s:string)=>void,ask?:(text:string,source:string)=>void){
@@ -30,7 +31,9 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
       action('Save highlight',()=>{if(!source||!selection)throw Error('Select an excerpt in the document first.');source.reading=addHighlight(readingState(source.reading,source.text),source.text,selection.start,selection.end,color.value as Highlight['color'],note.value,crypto.randomUUID());note.value='';changed();render();notice.textContent='Highlight and note saved.';}),
       action('Clip selection to writing',()=>{if(!source||!selection)throw Error('Select an excerpt first.');clip(source.text.slice(selection.start,selection.end),source.name);notice.textContent='Excerpt appended to your writing draft.';}),
       action('Ask local AI about selection',()=>{if(!source||!selection)throw Error('Select an excerpt first.');if(!ask)throw Error('Local AI is unavailable.');const text=source.text.slice(selection.start,selection.end),name=source.name;close();ask(text,name);}),
-      action('Clip this section to writing',()=>{if(source){clip(source.text.slice(parts[index].start,parts[index].end),source.name);notice.textContent='Section appended to your writing draft.';}}),notes)),audio.root,notice,
+      action('Clip this section to writing',()=>{if(source){clip(source.text.slice(parts[index].start,parts[index].end),source.name);notice.textContent='Section appended to your writing draft.';}}),
+      action('Add to reading queue',()=>{if(!source)return;const q=loadReadingQueue();addToReadingQueue(q,{title:source.name,source:source.name,text:source.text});notice.textContent='Added to reading queue.';}),
+      notes)),audio.root,notice,
     h('p',{class:'reader-footnote',text:'Extracted text view. Original page layout, images and some formatting are not shown. Reading notes sync only with document-text sharing; update both devices.'}));
   function saveScroll(){if(scrollTimer)clearTimeout(scrollTimer);if(!source||!scrollKey)return;try{localStorage.setItem(scrollKey,JSON.stringify({section:parts[index].start,top:root.querySelector('.reader-body')!.scrollTop}));}catch{}}
   root.querySelector('.reader-body')?.addEventListener('scroll',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(saveScroll,200);});
