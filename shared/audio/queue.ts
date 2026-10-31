@@ -8,3 +8,29 @@ export function nextTrack(ids:string[],current:string|undefined,repeat:RepeatMod
  if(!ids.length)return;if(automatic&&repeat==='track'&&current&&ids.includes(current))return current;
  const i=current?ids.indexOf(current):-1;return ids[i+1]||(repeat==='all'?ids[0]:undefined);
 }
+export function previousTrack(ids:string[],current:string|undefined,repeat:RepeatMode):string|undefined{
+ if(!ids.length)return;
+ const i=current?ids.indexOf(current):-1;
+ if(i>0)return ids[i-1];
+ if(i===0){
+  if(repeat==='track')return current;
+  if(repeat==='all')return ids[ids.length-1];
+  return undefined;
+ }
+ return ids[0];
+}
+export function enqueueTrack(ids:string[],id:string):string[]{
+ if(ids.includes(id))return [...ids];
+ return [...ids,id];
+}
+export function playNextTrack(ids:string[],current:string|undefined,id:string):string[]{
+ const filtered=ids.filter(x=>x!==id);
+ const index=current?filtered.indexOf(current):-1;
+ if(index<0)return [id,...filtered];
+ const next=[...filtered];
+ next.splice(index+1,0,id);
+ return next;
+}
+export function removeTrack(ids:string[],id:string):string[]{
+ return ids.filter(x=>x!==id);
+}
