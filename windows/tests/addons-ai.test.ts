@@ -66,12 +66,73 @@ describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {
   it('listAvailableProfiles returns official DeepSeek and Qwen profiles', () => {
     const manager = createLocalAiManager({ systemRamGb: 16 });
     const profiles = manager.listAvailableProfiles();
-    assert.ok(profiles.length >= 3);
+    assert.ok(profiles.length >= 5);
 
     const deepseek = profiles.find(p => p.id === 'deepseek-v4.1-flash');
     assert.ok(deepseek);
     assert.equal(deepseek.minRamGb, 8);
     assert.ok(deepseek.bucketUrl.includes('huggingface.co'));
+
+    // Check latest Kimi profiles from Hugging Face
+    const kimiK3 = profiles.find(p => p.id === 'kimi-k3-thinking');
+    assert.ok(kimiK3);
+    assert.equal(kimiK3.family, 'kimi');
+    assert.equal(kimiK3.minRamGb, 8);
+    assert.ok(kimiK3.huggingFaceRepo.includes('Kimi-K3'));
+
+    const kimiLinear = profiles.find(p => p.id === 'kimi-linear-a3b');
+    assert.ok(kimiLinear);
+    assert.equal(kimiLinear.family, 'kimi');
+    assert.equal(kimiLinear.minRamGb, 4);
+
+    // Check latest DeepSeek V3.2 and R1 Distill
+    const deepseekV32 = profiles.find(p => p.id === 'deepseek-v3.2-reasoning');
+    assert.ok(deepseekV32);
+    assert.equal(deepseekV32.family, 'deepseek');
+
+    const deepseekR1 = profiles.find(p => p.id === 'deepseek-r1-distill-qwen-1.5b');
+    assert.ok(deepseekR1);
+    assert.equal(deepseekR1.family, 'deepseek');
+    assert.equal(deepseekR1.minRamGb, 4);
+  });
+
+  it('getProfilesByFamily correctly partitions models by AI family', () => {
+    const manager = createLocalAiManager({ systemRamGb: 16 });
+    const deepseekFamily = manager.getProfilesByFamily('deepseek');
+    assert.ok(deepseekFamily.length >= 3);
+    assert.ok(deepseekFamily.every(p => p.family === 'deepseek'));
+
+    const kimiFamily = manager.getProfilesByFamily('kimi');
+    assert.ok(kimiFamily.length >= 2);
+    assert.ok(kimiFamily.every(p => p.family === 'kimi'));
+
+    const qwenFamily = manager.getProfilesByFamily('qwen');
+    assert.ok(qwenFamily.length >= 2);
+    assert.ok(qwenFamily.every(p => p.family === 'qwen'));
+  });
+
+  it('setActiveProfile switches model and emits specialized offline thinking traces', async () => {
+    const manager = createLocalAiManager({ systemRamGb: 16 });
+
+    // 1. DeepSeek Active Profile emits DSA/Engram thinking trace
+    manager.setActiveProfile('deepseek-v4.1-flash');
+    assert.equal(manager.getActiveProfile().id, 'deepseek-v4.1-flash');
+    const deepseekReply = await manager.chatCompletion({
+      messages: [{ role: 'user', content: 'Explain offline engram cache.' }],
+    });
+    assert.ok(deepseekReply.includes('<think>'));
+    assert.ok(deepseekReply.includes('DeepSeek V4.1 Flash'));
+    assert.ok(deepseekReply.includes('Explain offline engram cache'));
+
+    // 2. Kimi Active Profile emits KDA/LatentMoE thinking trace
+    manager.setActiveProfile('kimi-k3-thinking');
+    assert.equal(manager.getActiveProfile().id, 'kimi-k3-thinking');
+    const kimiReply = await manager.chatCompletion({
+      messages: [{ role: 'user', content: 'Synthesize document highlights.' }],
+    });
+    assert.ok(kimiReply.includes('<think>'));
+    assert.ok(kimiReply.includes('Kimi K3 Thinking'));
+    assert.ok(kimiReply.includes('Synthesize document highlights'));
   });
 
   it('validateHuggingFaceUrl enforces official Hugging Face domain boundaries', () => {

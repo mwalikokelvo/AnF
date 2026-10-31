@@ -177,10 +177,14 @@ pub async fn ask_local(chat:&Chat,query:String,sources:Vec<Source>,history:Vec<V
     let (text, incomplete) = result?;
     let mut notice = format!(
         "Answered locally with {}. Check facts and any source citations.",
-        if model == "fast" {
-            "Fast · Qwen3 0.6B"
-        } else {
-            "Balanced · Qwen3 1.7B"
+        match model.as_str() {
+            "deepseek-v4.1-flash" => "DeepSeek V4.1 Flash (1017 · Engram)",
+            "deepseek-v3.2-reasoning" | "deepseek-v3.2" => "DeepSeek V3.2 Reasoning (DSA)",
+            "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" => "DeepSeek R1 Distill 1.5B (Edge)",
+            "kimi-k3-thinking" | "kimi-k3" => "Kimi K3 Thinking (KDA · MoE)",
+            "kimi-linear-a3b" | "kimi-linear" => "Kimi Linear 48B-A3B (Edge Fast)",
+            "fast" => "Fast · Qwen3 0.6B",
+            _ => "Balanced · Qwen3 1.7B",
         }
     );
     let web_count=evidence.iter().filter(|e|e.source_name.starts_with("https://")).count();
