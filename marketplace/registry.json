@@ -1,24 +1,79 @@
 [
-  {
-    "id": "catppuccin-mocha",
-    "name": "Catppuccin Mocha",
-    "version": "1.0.0",
-    "type": "theme",
-    "entry": "theme.css",
-    "description": "Soothing dark pastel colors for AnF.",
-    "author": "mwalikokelvo",
-    "downloadUrl": "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sample-theme/theme.css",
-    "sha256": "aa9a03f57922e927eeaf1940dfe9275faa8aa3a31f144dc1df9dec93349b89e2"
-  },
-  {
-    "id": "hello-plugin",
-    "name": "Hello World Extension",
-    "version": "1.0.0",
-    "type": "plugin",
-    "entry": "index.js",
-    "description": "An isolated sample extension with a sidebar action and lifecycle events.",
-    "author": "mwalikokelvo",
-    "downloadUrl": "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sample-plugin/index.js",
-    "sha256": "0795749fa1c0f73ee8659e20869bb1c153b850701a85df113ab59c3f3685f497"
-  }
+    {
+        "id":  "catppuccin-mocha",
+        "name":  "Catppuccin Mocha",
+        "version":  "1.0.0",
+        "type":  "theme",
+        "entry":  "theme.css",
+        "description":  "Soothing dark pastel colors for AnF.",
+        "author":  "mwalikokelvo",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sample-theme/theme.css",
+        "sha256":  "aa9a03f57922e927eeaf1940dfe9275faa8aa3a31f144dc1df9dec93349b89e2"
+    },
+    {
+        "id":  "hello-plugin",
+        "name":  "Hello World Extension",
+        "version":  "1.0.0",
+        "type":  "plugin",
+        "entry":  "index.js",
+        "description":  "An isolated sample extension with a sidebar action and lifecycle events.",
+        "author":  "mwalikokelvo",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sample-plugin/index.js",
+        "sha256":  "0795749fa1c0f73ee8659e20869bb1c153b850701a85df113ab59c3f3685f497"
+    },
+    {
+        "id":  "dribbblish-dynamic",
+        "name":  "Dribbblish Dynamic",
+        "version":  "2.4.0",
+        "type":  "theme",
+        "entry":  "theme.css",
+        "description":  "Spicetify classic with vibrant green accents, dynamic card contrast, and rounded geometry.",
+        "author":  "spicetify",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/dribbblish-dynamic/theme.css",
+        "sha256":  "f046c8a59bf8166b468c07bc1783ee11688e51e8cbbef63303c958664e3593a0"
+    },
+    {
+        "id":  "sleek-oled",
+        "name":  "Sleek OLED",
+        "version":  "1.8.2",
+        "type":  "theme",
+        "entry":  "theme.css",
+        "description":  "Pitch-black (#000000) abyss aesthetics, pure monochrome contrast, and maximum battery efficiency.",
+        "author":  "spicetify",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/sleek-oled/theme.css",
+        "sha256":  "44ad222f93891fc6e4b8549904acde5beb2eecf3b7bc8cb2fbc9a24b263d41e0"
+    },
+    {
+        "id":  "burnt-sienna-ember",
+        "name":  "Burnt Sienna Ember",
+        "version":  "2.1.0",
+        "type":  "theme",
+        "entry":  "theme.css",
+        "description":  "Deep interstellar warm ember tones, cinematic crimson highlights, and obsidian paneling.",
+        "author":  "spicetify",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/burnt-sienna-ember/theme.css",
+        "sha256":  "7043372cb717cf69a4168a96f774e60e7ac1ac263eb1d7a88b19b00fc16396e5"
+    },
+    {
+        "id":  "starry-night-cosmic",
+        "name":  "Starry Night Cosmic",
+        "version":  "1.9.5",
+        "type":  "theme",
+        "entry":  "theme.css",
+        "description":  "Deep space nebula violet, celestial indigo backdrops, and radiant electric purple accents.",
+        "author":  "spicetify",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/starry-night-cosmic/theme.css",
+        "sha256":  "97a2acf20e8b75b6151a9934272efbf636e0806556273627a0b94097c41f14eb"
+    },
+    {
+        "id":  "shark-blue-frosted",
+        "name":  "SharkBlue Frosted",
+        "version":  "2.0.1",
+        "type":  "theme",
+        "entry":  "theme.css",
+        "description":  "Cool oceanic deep dive, arctic translucent cyan surfaces, and crisp frosted glass styling.",
+        "author":  "spicetify",
+        "downloadUrl":  "https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/shark-blue-frosted/theme.css",
+        "sha256":  "03bd5b86232a040ace5d5936bbcac6a550f2a23fbd39a69cd493cc5f5f10334a"
+    }
 ]

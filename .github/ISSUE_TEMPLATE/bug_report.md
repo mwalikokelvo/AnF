@@ -1,17 +1,25 @@
 ---
 name: Bug report
-about: Something isn't working
+about: Report a bug or unexpected behavior in AnF
 labels: bug
 ---
 
-**What happened**
+### Describe the Bug
+<!-- A clear and concise description of what the bug is. -->
 
-**What you expected**
+### Steps to Reproduce
+1. Go to '...'
+2. Click on '....'
+3. See error
 
-**How to reproduce**
+### Expected Behavior
+<!-- A clear and concise description of what you expected to happen. -->
 
-**macOS version**
+### Platform & Environment
+- **Operating System:** [e.g. Windows 11, macOS Sequoia, Ubuntu 24.04, Android 14]
+- **AnF Version:** [e.g. 0.1.22]
+- **Hardware / Device Model:** [e.g. MacBook Pro M3, Surface Pro, Pixel 8]
+- **Connected Agents / Tools (if applicable):** [e.g. Claude Code, Codex, Antigravity, Gemini CLI]
 
-**Mac model**
-
-**Coucou version**
+### Additional Context
+<!-- Add any other context, logs, or screenshots about the problem here. -->
