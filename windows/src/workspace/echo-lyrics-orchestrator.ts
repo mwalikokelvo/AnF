@@ -5,6 +5,7 @@
  */
 import { cleanTitle, primaryArtist, type ParsedLyrics, type LyricLine } from './lyrics-provider';
 
+import { gatedFetch } from './online-lookups';
 export type LyricsProviderName =
   | 'YouLyPlus'
   | 'Paxsenix'
@@ -127,7 +128,7 @@ export class EchoLyricsOrchestrator {
     if (artist) params.set('artist_name', artist);
     if (duration && duration > 0) params.set('duration', String(Math.round(duration)));
 
-    const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
+    const res = await gatedFetch(`https://lrclib.net/api/get?${params.toString()}`, {
       headers: { 'Lrclib-Client': 'EchoMusic-AnF/1.4.4 (https://github.com/EchoMusicApp/Echo-Music)' },
       signal: getTimeoutSignal(4000),
     });
@@ -148,7 +149,7 @@ export class EchoLyricsOrchestrator {
       try {
         const params = new URLSearchParams({ title, artist });
         if (duration) params.set('duration', String(Math.round(duration)));
-        const res = await fetch(`${mirror}/v2/lyrics/get?${params.toString()}`, {
+        const res = await gatedFetch(`${mirror}/v2/lyrics/get?${params.toString()}`, {
           signal: getTimeoutSignal(3500),
         });
         if (res.ok) {
@@ -169,7 +170,7 @@ export class EchoLyricsOrchestrator {
     try {
       const params = new URLSearchParams({ s: title, a: artist });
       if (duration) params.set('d', String(Math.round(duration)));
-      const res = await fetch(`https://lyrics-api.boidu.dev/getLyrics?${params.toString()}`, {
+      const res = await gatedFetch(`https://lyrics-api.boidu.dev/getLyrics?${params.toString()}`, {
         signal: getTimeoutSignal(3500),
       });
       if (res.ok) {
@@ -202,7 +203,7 @@ export class EchoLyricsOrchestrator {
   private async queryKuGou(title: string, artist: string, _duration?: number): Promise<string | null> {
     try {
       const q = `${title} - ${artist}`;
-      const searchRes = await fetch(
+      const searchRes = await gatedFetch(
         `https://mobileservice.kugou.com/api/v3/search/song?version=9108&plat=0&pagesize=5&keyword=${encodeURIComponent(q)}`,
         { signal: getTimeoutSignal(3500) }
       );
@@ -214,7 +215,7 @@ export class EchoLyricsOrchestrator {
       // Select candidate matching duration
       const song = songs[0];
       const hash = song.hash;
-      const lyricRes = await fetch(
+      const lyricRes = await gatedFetch(
         `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&hash=${hash}`,
         { signal: getTimeoutSignal(3500) }
       );
@@ -223,7 +224,7 @@ export class EchoLyricsOrchestrator {
       const candidate = lyricData?.candidates?.[0];
       if (!candidate) return null;
 
-      const dlRes = await fetch(
+      const dlRes = await gatedFetch(
         `https://lyrics.kugou.com/download?ver=1&client=pc&id=${candidate.id}&accesskey=${candidate.accesskey}&fmt=lrc&charset=utf8`,
         { signal: getTimeoutSignal(3500) }
       );
@@ -248,7 +249,7 @@ export class EchoLyricsOrchestrator {
     try {
       const params = new URLSearchParams({ title, artist });
       if (duration) params.set('duration', String(Math.round(duration)));
-      const res = await fetch(`https://api-lyrics.simpmusic.org/v1/lyrics?${params.toString()}`, {
+      const res = await gatedFetch(`https://api-lyrics.simpmusic.org/v1/lyrics?${params.toString()}`, {
         headers: { 'User-Agent': 'EchoMusic-AnF/1.4.4' },
         signal: getTimeoutSignal(3500),
       });
@@ -267,7 +268,7 @@ export class EchoLyricsOrchestrator {
     try {
       const params = new URLSearchParams({ title, artist });
       if (duration) params.set('duration', String(Math.round(duration)));
-      const res = await fetch(`https://lyrics.paxsenix.org/lyrics?${params.toString()}`, {
+      const res = await gatedFetch(`https://lyrics.paxsenix.org/lyrics?${params.toString()}`, {
         headers: { 'User-Agent': 'EchoMusic-AnF/1.4.4' },
         signal: getTimeoutSignal(3500),
       });

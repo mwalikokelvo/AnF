@@ -1,3 +1,4 @@
+import { gatedFetch } from './online-lookups';
 // MKR Music Synced Lyrics Provider (based on mkr-music LyricsProvider & LRCLIB)
 export type RemoteLyrics = {
   id?: number;
@@ -97,7 +98,7 @@ export async function fetchOnlineLyrics(track: {
   if (duration && duration > 0) params.set('duration', String(duration));
 
   try {
-    const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
+    const res = await gatedFetch(`https://lrclib.net/api/get?${params.toString()}`, {
       headers: LRCLIB_CLIENT_HEADER,
       signal: getTimeoutSignal(),
     });
@@ -123,7 +124,7 @@ export async function fetchOnlineLyrics(track: {
     const query = [title, artist !== 'Unknown artist' ? artist : ''].filter(Boolean).join(' ');
     if (!query) return undefined;
 
-    const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
+    const res = await gatedFetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
       headers: LRCLIB_CLIENT_HEADER,
       signal: getTimeoutSignal(),
     });

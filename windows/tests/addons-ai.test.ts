@@ -111,28 +111,33 @@ describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {
     assert.ok(qwenFamily.every(p => p.family === 'qwen'));
   });
 
-  it('setActiveProfile switches model and emits specialized offline thinking traces', async () => {
+  it('chatCompletion never fabricates an answer or claims a named model replied', async () => {
     const manager = createLocalAiManager({ systemRamGb: 16 });
-
-    // 1. DeepSeek Active Profile emits DSA/Engram thinking trace
     manager.setActiveProfile('deepseek-v4.1-flash');
     assert.equal(manager.getActiveProfile().id, 'deepseek-v4.1-flash');
-    const deepseekReply = await manager.chatCompletion({
-      messages: [{ role: 'user', content: 'Explain offline engram cache.' }],
-    });
-    assert.ok(deepseekReply.includes('<think>'));
-    assert.ok(deepseekReply.includes('DeepSeek V4.1 Flash'));
-    assert.ok(deepseekReply.includes('Explain offline engram cache'));
+    await assert.rejects(() => manager.chatCompletion({ messages: [{ role: 'user', content: 'Hi' }] }), /not connected/);
 
-    // 2. Kimi Active Profile emits KDA/LatentMoE thinking trace
+    const failing = createLocalAiManager({ systemRamGb: 16, invokeFn: async () => { throw new Error('runtime down'); } });
+    await assert.rejects(() => failing.chatCompletion({ messages: [{ role: 'user', content: 'Hi' }] }), /runtime down/);
+
+    const empty = createLocalAiManager({ systemRamGb: 16, invokeFn: async () => ({ text: '  ' }) });
+    await assert.rejects(() => empty.chatCompletion({ messages: [{ role: 'user', content: 'Hi' }] }), /no text/);
+  });
+
+  it('answers are labelled with the model file that loads and send only runtime slot names', async () => {
+    const seen: string[] = [];
+    const invokeFn = async (_cmd: string, args: Record<string, unknown>) => { seen.push(String(args.model)); return { text: 'ok' }; };
+    const manager = createLocalAiManager({ systemRamGb: 16, invokeFn });
     manager.setActiveProfile('kimi-k3-thinking');
-    assert.equal(manager.getActiveProfile().id, 'kimi-k3-thinking');
-    const kimiReply = await manager.chatCompletion({
-      messages: [{ role: 'user', content: 'Synthesize document highlights.' }],
-    });
-    assert.ok(kimiReply.includes('<think>'));
-    assert.ok(kimiReply.includes('Kimi K3 Thinking'));
-    assert.ok(kimiReply.includes('Synthesize document highlights'));
+    const balanced = await manager.chatCompletionWithSource({ messages: [{ role: 'user', content: 'Hi' }] });
+    assert.equal(balanced.slot, 'balanced');
+    assert.equal(balanced.modelFile, 'model.gguf');
+    assert.ok(!/kimi|deepseek/i.test(balanced.label), balanced.label);
+    manager.setActiveProfile('deepseek-v4.1-flash');
+    const fast = await manager.chatCompletionWithSource({ messages: [{ role: 'user', content: 'Hi' }] });
+    assert.equal(fast.slot, 'fast');
+    assert.ok(fast.label.includes('model-fast.gguf') && !/deepseek/i.test(fast.label), fast.label);
+    assert.deepEqual(seen, ['balanced', 'fast']);
   });
 
   it('validateHuggingFaceUrl enforces official Hugging Face domain boundaries', () => {
@@ -142,18 +147,20 @@ describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {
     assert.equal(validateHuggingFaceUrl('not-a-url'), false);
   });
 
-  it('downloadWeights enforces RAM requirements and reports progression steps', async () => {
-    // 1. Insufficient RAM rejects download
+  it('downloadWeights enforces RAM, then reports placeholder profiles as not available yet without fake progress', async () => {
     const lowRamManager = createLocalAiManager({ systemRamGb: 4 });
     await assert.rejects(async () => {
       await lowRamManager.downloadWeights('deepseek-v4.1-flash', () => {});
     }, /Insufficient system RAM/);
 
-    // 2. Sufficient RAM reports progress steps to 100%
+    assert.ok(OFFICIAL_PROFILES.every(p => p.downloadStatus === 'not-available-yet'));
     const highRamManager = createLocalAiManager({ systemRamGb: 16 });
     const progressLog: number[] = [];
-    await highRamManager.downloadWeights('deepseek-v4.1-flash', pct => progressLog.push(pct));
-    assert.deepEqual(progressLog, [0, 25, 50, 75, 100]);
+    await assert.rejects(
+      () => highRamManager.downloadWeights('deepseek-v4.1-flash', pct => progressLog.push(pct)),
+      /Not available yet/
+    );
+    assert.deepEqual(progressLog, []);
   });
 
   it('chatCompletion executes grounded local AI response with zero cloud telemetry', async () => {

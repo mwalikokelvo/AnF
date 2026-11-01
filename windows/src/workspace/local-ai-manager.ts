@@ -2,7 +2,9 @@
  * Local AI Model Manager: offline model profiles, Hugging Face / Flint bucket weights downloader,
  * memory verification, and local offline chat completions.
  *
- * Consults and integrates the latest Hugging Face releases for DeepSeek AI and Moonshot Kimi models.
+ * Honesty rules: the entries below are a catalog of intended profiles. Their sha256/bucketUrl values are
+ * placeholders, so downloads are reported as "not available yet" (never as simulated progress), and replies
+ * are labelled with the model file the offline runtime actually loads, not with the profile name.
  */
 
 export interface ModelWeightProfile {
@@ -18,6 +20,20 @@ export interface ModelWeightProfile {
   huggingFaceRepo: string;
   description: string;
   recommendedRole?: 'chat' | 'reasoning' | 'coding' | 'fast';
+  /** Every catalog entry is 'not-available-yet' until real, hash-pinned weights are published. */
+  downloadStatus: 'available' | 'not-available-yet';
+}
+
+export const DOWNLOAD_NOT_AVAILABLE = 'Not available yet: verified model weights for this profile have not been published.';
+
+export interface LocalAiAnswer {
+  text: string;
+  /** Offline runtime slot that served the request. */
+  slot: 'fast' | 'balanced';
+  /** The model file the runtime loads for that slot. */
+  modelFile: string;
+  /** Human-readable, truthful label for the answering model. */
+  label: string;
 }
 
 export interface LocalAiManager {
@@ -28,9 +44,10 @@ export interface LocalAiManager {
   downloadWeights(profileId: string, onProgress: (pct: number) => void): Promise<void>;
   checkSystemMemory(): { totalRamGb: number; availableRamGb: number; isSufficient: boolean };
   chatCompletion(request: { messages: Array<{ role: string; content: string }> }): Promise<string>;
+  chatCompletionWithSource(request: { messages: Array<{ role: string; content: string }> }): Promise<LocalAiAnswer>;
 }
 
-export const OFFICIAL_PROFILES: ModelWeightProfile[] = [
+const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
   // --- Latest DeepSeek AI Models (Hugging Face) ---
   {
     id: 'deepseek-v4.1-flash',
@@ -136,6 +153,11 @@ export const OFFICIAL_PROFILES: ModelWeightProfile[] = [
   },
 ];
 
+export const OFFICIAL_PROFILES: ModelWeightProfile[] = PROFILE_CATALOG.map(p => ({ ...p, downloadStatus: 'not-available-yet' as const }));
+
+/** Profiles served from the runtime's fast slot (mirrors local_ai.rs; the request sends the slot name, which the runtime always accepts). */
+const FAST_SLOT_IDS = new Set(['deepseek-v4.1-flash', 'deepseek-r1-distill-qwen-1.5b', 'kimi-linear-a3b', 'qwen3-0.6b-fast']);
+
 /**
  * Validates that download URL is pinned to the trusted Hugging Face endpoint
  */
@@ -189,7 +211,7 @@ export function createLocalAiManager(options?: {
       };
     },
 
-    async downloadWeights(profileId: string, onProgress: (pct: number) => void): Promise<void> {
+    async downloadWeights(profileId: string, _onProgress: (pct: number) => void): Promise<void> {
       const profile = OFFICIAL_PROFILES.find(p => p.id === profileId);
       if (!profile) {
         throw new Error(`Unknown model weight profile: ${profileId}`);
@@ -205,41 +227,35 @@ export function createLocalAiManager(options?: {
         );
       }
 
-      // Progress reporting
-      onProgress(0);
-      onProgress(25);
-      onProgress(50);
-      onProgress(75);
-      onProgress(100);
+      // The catalog's hashes and bucket URLs are placeholders: refuse honestly instead of faking progress.
+      if (profile.downloadStatus !== 'available') {
+        throw new Error(`${profile.name}: ${DOWNLOAD_NOT_AVAILABLE}`);
+      }
+      throw new Error('Model download is not implemented in this build.');
+    },
+
+    async chatCompletionWithSource(request: { messages: Array<{ role: string; content: string }> }): Promise<LocalAiAnswer> {
+      const active = this.getActiveProfile();
+      if (!options?.invokeFn) {
+        throw new Error('The offline model runtime is not connected, so no answer was generated.');
+      }
+      const slot: 'fast' | 'balanced' = FAST_SLOT_IDS.has(active.id) ? 'fast' : 'balanced';
+      const res = await options.invokeFn('workspace_ask', {
+        query: request.messages.at(-1)?.content || '',
+        history: request.messages.slice(0, -1),
+        model: slot,
+      });
+      const text = (res as { text?: unknown } | null)?.text;
+      if (typeof text !== 'string' || !text.trim()) {
+        throw new Error('The offline model returned no text.');
+      }
+      // model-fast.gguf may be absent, in which case the runtime serves the fast slot from model.gguf.
+      const modelFile = slot === 'fast' ? 'model-fast.gguf (or model.gguf if the fast model is not installed)' : 'model.gguf';
+      return { text, slot, modelFile, label: `Offline model · ${modelFile}` };
     },
 
     async chatCompletion(request: { messages: Array<{ role: string; content: string }> }): Promise<string> {
-      const active = this.getActiveProfile();
-
-      if (options?.invokeFn) {
-        try {
-          const res = await options.invokeFn('workspace_ask', {
-            query: request.messages.at(-1)?.content || '',
-            history: request.messages.slice(0, -1),
-            model: active.id,
-          });
-          return (res as { text: string }).text;
-        } catch {
-          // Fall through to offline response
-        }
-      }
-
-      const lastUser = request.messages.filter(m => m.role === 'user').at(-1)?.content || '';
-
-      if (active.family === 'deepseek') {
-        return `<think>\nAnalyzing prompt with ${active.name} [Engram / DSA]\n</think>\nOffline Assistant reply to "${lastUser.slice(0, 80)}". Generated locally on device with zero cloud telemetry.`;
-      }
-
-      if (active.family === 'kimi') {
-        return `<think>\nSynthesizing context with ${active.name} [KDA / LatentMoE]\n</think>\nOffline Assistant reply to "${lastUser.slice(0, 80)}". Generated locally on device with zero cloud telemetry.`;
-      }
-
-      return `Offline Assistant reply to "${lastUser.slice(0, 80)}". Generated locally on device with zero cloud telemetry.`;
+      return (await this.chatCompletionWithSource(request)).text;
     },
   };
 }

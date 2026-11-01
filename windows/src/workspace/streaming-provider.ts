@@ -4,6 +4,7 @@
  */
 import type { AudioTrack } from './audio-library';
 
+import { gatedFetch, safeHttpsUrl } from './online-lookups';
 export interface StreamTrackMetadata {
   id: string;
   title: string;
@@ -160,7 +161,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     }
 
     try {
-      const res = await fetch(
+      const res = await gatedFetch(
         `https://itunes.apple.com/search?media=music&entity=song&term=${encodeURIComponent(q)}&limit=${limit}`,
         { signal: getTimeoutSignal(5000) }
       );
@@ -199,7 +200,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     let rawItems: any[] = [];
     for (const instance of PIPED_INSTANCES) {
       try {
-        const res = await fetch(
+        const res = await gatedFetch(
           `${instance}/search?q=${encodeURIComponent(q)}&filter=music_songs`,
           { signal: getTimeoutSignal(4500) }
         );
@@ -220,7 +221,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (rawItems.length === 0) {
       for (const instance of PIPED_INSTANCES) {
         try {
-          const res = await fetch(
+          const res = await gatedFetch(
             `${instance}/search?q=${encodeURIComponent(q)}&filter=all`,
             { signal: getTimeoutSignal(4000) }
           );
@@ -274,7 +275,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const cleanId = videoId.replace(/^yt:/, '');
     for (const instance of PIPED_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/streams/${cleanId}`, {
+        const res = await gatedFetch(`${instance}/streams/${cleanId}`, {
           signal: getTimeoutSignal(5000),
         });
         if (res.ok) {
@@ -336,7 +337,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     // 1. Internet Archive / LibriVox API
     try {
       const archiveUrl = `https://archive.org/advancedsearch.php?q=mediatype:audio+AND+(collection:librivoxaudio+OR+audio_book)+AND+(${encodeURIComponent(q)})&fl[]=identifier,title,creator,description,year,downloads&sort[]=downloads+desc&output=json&rows=${Math.min(limit, 25)}`;
-      const res = await fetch(archiveUrl, { signal: getTimeoutSignal(6000) });
+      const res = await gatedFetch(archiveUrl, { signal: getTimeoutSignal(6000) });
       if (res.ok) {
         const data = await res.json();
         const docs = data?.response?.docs || [];
@@ -381,7 +382,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   async resolveInternetArchiveStream(identifier: string): Promise<ResolvedAudioStream | null> {
     const cleanId = identifier.replace(/^ia:/, '');
     try {
-      const metaRes = await fetch(`https://archive.org/metadata/${encodeURIComponent(cleanId)}/files`, {
+      const metaRes = await gatedFetch(`https://archive.org/metadata/${encodeURIComponent(cleanId)}/files`, {
         signal: getTimeoutSignal(5000),
       });
       if (metaRes.ok) {
@@ -493,7 +494,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     // 1. Try Piped API instances
     for (const instance of PIPED_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/playlists/${cleanId}`, {
+        const res = await gatedFetch(`${instance}/playlists/${cleanId}`, {
           signal: getTimeoutSignal(5000),
         });
         if (res.ok) {
@@ -547,7 +548,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
 
     // 2. Fallback: Parse YouTube public playlist page
     try {
-      const res = await fetch(`https://www.youtube.com/playlist?list=${cleanId}`, {
+      const res = await gatedFetch(`https://www.youtube.com/playlist?list=${cleanId}`, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
         signal: getTimeoutSignal(6000),
       });
@@ -665,7 +666,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
 
     try {
       const embedUrl = `https://open.spotify.com/embed/${type}/${cleanId}`;
-      const res = await fetch(embedUrl, {
+      const res = await gatedFetch(embedUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
         signal: getTimeoutSignal(6000),
       });
@@ -907,7 +908,9 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   ): Promise<AudioTrack> {
     let blob: Blob;
     if (typeof streamBlobOrUrl === 'string') {
-      const res = await fetch(streamBlobOrUrl);
+      const safe = safeHttpsUrl(streamBlobOrUrl);
+      if (!safe) throw Error('Stream audio must be an https URL.');
+      const res = await gatedFetch(safe);
       if (!res.ok) throw Error(`Stream audio download failed (${res.status})`);
       blob = await res.blob();
     } else {
@@ -922,8 +925,8 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       album: track.album || (track.source === 'audiobook' ? 'Audiobook' : 'Streaming'),
       kind: track.source === 'audiobook' ? 'audiobook' : 'music',
       blob,
-      streamUrl: track.streamUrl,
-      coverUrl: track.coverUrl || track.artworkUrl,
+      streamUrl: safeHttpsUrl(track.streamUrl),
+      coverUrl: safeHttpsUrl(track.coverUrl) || safeHttpsUrl(track.artworkUrl),
       duration: track.duration,
       format: blob.type || 'audio/mp4',
       created: Date.now(),
