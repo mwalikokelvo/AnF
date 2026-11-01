@@ -8,6 +8,10 @@ See [RECOVERY.md](RECOVERY.md) for the recovered build state, verified download
 identities, and the pending native Spotube integration. A source version is not
 evidence that a matching native installer has been built.
 
+As of `main` 52ba24d, 0.1.47 is compiled and tested in CI (Linux, Windows, Android
+unsigned and debug APKs) but no installer or APK has been installed or launched.
+See [HANDOFF.md](../HANDOFF.md) for the verified and unverified list.
+
 ## Windows
 
 Use the **Windows** Actions workflow on the release branch, or from a Windows
