@@ -79,6 +79,18 @@ const round = JSON.parse(JSON.stringify(clean(project, true)));
 validateProject(round, 'round-trip');
 assert(fixtureRevision(round, true) === expected, 'round-trip revision stable');
 
+// Committed encrypted fixture: the recorded digest must match the file
+// (the tool in contracts/tools/vault-fixture regenerates it with a random salt).
+const fixtureDb = readFileSync(join(root, 'contracts/fixtures/vault-v1-fixture.db'));
+const fixtureMeta = readFileSync(join(root, 'contracts/fixtures/vault-v1-fixture.db.txt'), 'utf8');
+const recorded = /^sha256: ([0-9a-f]{64})$/m.exec(fixtureMeta)?.[1];
+assert(recorded, 'vault-v1-fixture.db.txt: sha256 line missing');
+assert(
+  createHash('sha256').update(fixtureDb).digest('hex') === recorded,
+  'vault-v1-fixture.db does not match the recorded sha256',
+);
+assert(!fixtureDb.subarray(0, 16).toString('latin1').startsWith('SQLite format 3'), 'fixture must be encrypted');
+
 console.log('verify-contracts: ok');
 console.log('  project id', project.id.slice(0, 8) + '…');
 console.log('  revision  ', expected.slice(0, 16) + '…');
