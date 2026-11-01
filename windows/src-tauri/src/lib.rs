@@ -12,6 +12,7 @@ mod claude;
 mod local_ai;
 mod projects;
 mod vault;
+mod hashing;
 mod sync_data;
 mod local_link;
 mod reader;
