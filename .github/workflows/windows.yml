@@ -116,6 +116,11 @@ jobs:
         shell: pwsh
         run: ./scripts/prepare-media.ps1
 
+      # v0.1.47 has no devUrl, so tauri::generate_context! needs a built ../dist
+      # even for `cargo test`.
+      - name: Build the web frontend for native tests
+        run: npm run build
+
       - name: Test native behavior
         shell: pwsh
         run: |
