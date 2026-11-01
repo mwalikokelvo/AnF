@@ -10,7 +10,8 @@ test('CSP has no scheme-wide or wildcard sources', () => {
   for (const part of csp.split(/[\s;]+/)) {
     assert.ok(!['https:', 'http:', '*', 'ws:', 'wss:'].includes(part), `bare source ${part}`);
   }
-  assert.ok(!csp.includes('localhost:'), 'OCR must use the explicit 127.0.0.1 loopback');
+  const hosts = csp.split(/[\s;]+/).filter(t => /^https?:\/\//.test(t)).map(t => new URL(t.replace('*.', 'wild.')).hostname);
+  assert.ok(!hosts.includes('localhost'), 'OCR must use the explicit 127.0.0.1 loopback');
 });
 
 test('CSP keeps the main-branch baseline and enumerates network hosts', () => {
@@ -18,9 +19,15 @@ test('CSP keeps the main-branch baseline and enumerates network hosts', () => {
   for (const name of ['img-src', 'media-src', 'connect-src']) {
     assert.ok(directive(name).includes("'self'"), name);
   }
-  assert.ok(directive('connect-src').includes('ipc:') && directive('connect-src').includes('http://ipc.localhost'));
-  for (const src of directive('connect-src').filter(s => /^https?:/.test(s) && !s.startsWith('http://ipc.'))) {
-    assert.ok(/^(https:\/\/[a-z0-9*.-]+|http:\/\/127\.0\.0\.1:(8000|3900))$/.test(src), src);
+  const connect = new Set(directive('connect-src'));
+  assert.ok(connect.has('ipc:') && connect.has('http://ipc.localhost'));
+  const allowed = new Set(['http://ipc.localhost', 'http://127.0.0.1:8000', 'http://127.0.0.1:3900']);
+  for (const src of connect) {
+    if (!/^https?:\/\//.test(src) || allowed.has(src)) continue;
+    const u = new URL(src.replace('*.', 'wild.'));
+    assert.equal(u.protocol, 'https:', src);
+    assert.equal(u.pathname, '/', src);
+    assert.equal(`${u.protocol}//${src.slice(8)}`, src);
   }
-  assert.ok(directive('connect-src').includes('https://lrclib.net'));
+  assert.ok(connect.has('https://lrclib.net'));
 });
