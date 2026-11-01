@@ -15,7 +15,7 @@
 
 The workspace is a flat directory. Production code (`main.ts`), the unit and e2e tests, and `android/web/main.ts` all import these top-level files. The domain groupings below are documentation, not directories.
 
-> **Stale copies, pending removal.** `windows/src/workspace/{audio,ai,reader,editor,storage,marketplace}/` and `windows/src/workspace/index.ts` are an out-of-date copy of some of these files. Nothing imports them (the barrel's `export * as reader from './reader'` resolves to `reader.ts`, not `reader/`). Do not edit them; they are to be deleted.
+> The earlier per-domain copies of these files (`windows/src/workspace/{audio,ai,reader,editor,storage,marketplace}/` and `workspace/index.ts`) were removed; the live files are the flat ones at `windows/src/workspace/`. They remain in git history.
 
 `main.ts` is the application bootloader, layout orchestrator and IPC binding. Per-domain files:
 
