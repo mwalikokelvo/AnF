@@ -5,6 +5,7 @@
  */
 import { cleanTitle, primaryArtist } from './lyrics-provider';
 
+import { gatedFetch } from './online-lookups';
 export interface CanvasItem {
   song: string;
   artist: string;
@@ -25,7 +26,7 @@ export class EchoCanvasService {
     if (!isOnline) return this.manifestCache || [];
 
     try {
-      const res = await fetch('https://canvas.echomusic.fun/canvas.json');
+      const res = await gatedFetch('https://canvas.echomusic.fun/canvas.json');
       if (res.ok) {
         const data = await res.json();
         const items: CanvasItem[] = Array.isArray(data.items) ? data.items : [];

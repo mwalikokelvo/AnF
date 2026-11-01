@@ -1,7 +1,7 @@
 /**
  * Unlimited-OCR Client for AnF
  * Connects to local Unlimited-OCR vision endpoint (vLLM / SGLang / OpenAI vision compatible)
- * on http://localhost:8000/v1 (primary) or http://localhost:3900/v1 (fallback)
+ * on http://127.0.0.1:8000/v1 (primary) or http://127.0.0.1:3900/v1 (fallback)
  * for high-fidelity multi-page document parsing, tables & formulas.
  * Zero-cloud telemetry and on-device privacy.
  */
@@ -13,8 +13,8 @@ export interface OcrParseResult {
   hasFormulas: boolean;
 }
 
-export const DEFAULT_OCR_ENDPOINT = 'http://localhost:8000/v1';
-export const FALLBACK_OCR_ENDPOINT = 'http://localhost:3900/v1';
+export const DEFAULT_OCR_ENDPOINT = 'http://127.0.0.1:8000/v1';
+export const FALLBACK_OCR_ENDPOINT = 'http://127.0.0.1:3900/v1';
 export const OCR_ENDPOINTS = [DEFAULT_OCR_ENDPOINT, FALLBACK_OCR_ENDPOINT];
 
 export interface OcrRetryOptions {

@@ -294,6 +294,28 @@ mod tests {
     fn ocr_port_check_reports_offline_on_unused_port() {
         assert!(!is_port_open(59997));
     }
+    #[test]
+    fn ocr_backend_only_accepts_the_fixed_exe_and_binds_loopback() {
+        let dir = std::env::temp_dir().join(format!("anf-ocr-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // Scripts and look-alike executables are ignored.
+        for name in ["start-ocr.bat", "serve.py", "ocr-server.exe", "unlimited-ocr.bat"] {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        assert!(ocr_backend_in(&dir).is_none());
+        std::fs::write(dir.join(OCR_EXE), b"x").unwrap();
+        let (exe, args, cwd) = ocr_backend_in(&dir).unwrap();
+        assert_eq!(exe, dir.join(OCR_EXE));
+        assert_eq!(cwd, dir);
+        assert_eq!(args, ["--host", "127.0.0.1", "--port", "8000"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+    #[test]
+    fn ocr_not_found_message_has_no_developer_path() {
+        let m = ocr_not_found_message();
+        assert!(!m.contains("antigravity") && !m.contains("on PATH"), "{m}");
+    }
 }
 
 #[tauri::command]
@@ -355,69 +377,35 @@ pub fn is_port_open(port: u16) -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
 }
 
-fn find_ocr_backend() -> Option<(std::path::PathBuf, Vec<String>, Option<std::path::PathBuf>)> {
-    let ocr_dirs = [
-        std::path::PathBuf::from(r"C:\Users\mwali\.gemini\antigravity\scratch\AnF\ocr"),
-        settings::local_dir().join("ocr"),
-    ];
+/// The only OCR backend AnF will launch: a fixed executable name inside `<local_dir>/ocr`.
+/// No PATH search, no batch/Python scripts, no developer-machine directories.
+#[cfg(windows)]
+const OCR_EXE: &str = "unlimited-ocr.exe";
+#[cfg(not(windows))]
+const OCR_EXE: &str = "unlimited-ocr";
 
-    for dir in &ocr_dirs {
-        if dir.is_dir() {
-            // Direct executables
-            for exe in &["unlimited-ocr.exe", "ocr-server.exe", "ocr-service.exe", "unlimited-ocr"] {
-                let candidate = dir.join(exe);
-                if candidate.is_file() {
-                    return Some((candidate, vec!["--port".into(), "8000".into()], Some(dir.clone())));
-                }
-            }
-            // Batch scripts
-            for script in &["start-ocr.bat", "launch-ocr.bat", "unlimited-ocr.bat", "run-ocr.bat", "start.bat"] {
-                let candidate = dir.join(script);
-                if candidate.is_file() {
-                    return Some((
-                        std::path::PathBuf::from("cmd.exe"),
-                        vec!["/c".into(), candidate.to_string_lossy().into()],
-                        Some(dir.clone()),
-                    ));
-                }
-            }
-            // Python scripts
-            for py in &["serve.py", "app.py", "main.py", "server.py"] {
-                let candidate = dir.join(py);
-                if candidate.is_file() {
-                    return Some((
-                        std::path::PathBuf::from("python"),
-                        vec![candidate.to_string_lossy().into(), "--port".into(), "8000".into()],
-                        Some(dir.clone()),
-                    ));
-                }
-            }
-        }
+/// Always loopback, never `0.0.0.0` or a name that could resolve elsewhere.
+const OCR_ARGS: [&str; 4] = ["--host", "127.0.0.1", "--port", "8000"];
+
+fn ocr_backend_in(dir: &std::path::Path) -> Option<(std::path::PathBuf, Vec<String>, std::path::PathBuf)> {
+    let candidate = dir.join(OCR_EXE);
+    // symlink_metadata: refuse a link that could point outside the OCR folder.
+    let meta = std::fs::symlink_metadata(&candidate).ok()?;
+    if !meta.is_file() {
+        return None;
     }
+    Some((candidate, OCR_ARGS.iter().map(|a| a.to_string()).collect(), dir.to_path_buf()))
+}
 
-    // Check on PATH
-    if let Some(paths) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&paths) {
-            for exe in &["unlimited-ocr.exe", "unlimited-ocr", "ocr-server.exe", "ocr-server", "ocr-service.exe", "ocr-service"] {
-                let candidate = dir.join(exe);
-                if candidate.is_file() {
-                    return Some((candidate, vec!["--port".into(), "8000".into()], None));
-                }
-            }
-            for bat in &["start-ocr.bat", "unlimited-ocr.bat"] {
-                let candidate = dir.join(bat);
-                if candidate.is_file() {
-                    return Some((
-                        std::path::PathBuf::from("cmd.exe"),
-                        vec!["/c".into(), candidate.to_string_lossy().into()],
-                        None,
-                    ));
-                }
-            }
-        }
-    }
+fn find_ocr_backend() -> Option<(std::path::PathBuf, Vec<String>, std::path::PathBuf)> {
+    ocr_backend_in(&settings::local_dir().join("ocr"))
+}
 
-    None
+fn ocr_not_found_message() -> String {
+    format!(
+        "Unlimited-OCR backend not found. Install it as {} to enable OCR.",
+        settings::local_dir().join("ocr").join(OCR_EXE).display()
+    )
 }
 
 #[tauri::command]
@@ -453,9 +441,7 @@ pub async fn start_ocr_service() -> Result<Value, String> {
     }
 
     // 3. Locate backend binary or script
-    let (exe, args, working_dir) = find_ocr_backend().ok_or_else(|| {
-        "Unlimited-OCR backend not found in C:\\Users\\mwali\\.gemini\\antigravity\\scratch\\AnF\\ocr\\ or on PATH. Please ensure the local OCR service is installed.".to_string()
-    })?;
+    let (exe, args, working_dir) = find_ocr_backend().ok_or_else(ocr_not_found_message)?;
 
     // 4. Spawn backend daemon without console window
     let mut cmd = std::process::Command::new(&exe);
@@ -464,9 +450,7 @@ pub async fn start_ocr_service() -> Result<Value, String> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
 
-    if let Some(dir) = working_dir {
-        cmd.current_dir(dir);
-    }
+    cmd.current_dir(working_dir);
 
     let child = crate::platform::no_console(&mut cmd)
         .spawn()
