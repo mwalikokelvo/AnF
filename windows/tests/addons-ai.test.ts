@@ -71,7 +71,8 @@ describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {
     const deepseek = profiles.find(p => p.id === 'deepseek-v4.1-flash');
     assert.ok(deepseek);
     assert.equal(deepseek.minRamGb, 8);
-    assert.ok(deepseek.bucketUrl.includes('huggingface.co'));
+    assert.equal(deepseek.bucketUrl, '', 'no invented URL for a model that cannot be downloaded');
+    assert.ok(profiles.find(p => p.id === 'qwen3-0.6b-fast')!.bucketUrl.startsWith('https://huggingface.co/Qwen/'));
 
     // Check latest Kimi profiles from Hugging Face
     const kimiK3 = profiles.find(p => p.id === 'kimi-k3-thinking');
@@ -126,7 +127,7 @@ describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {
 
   it('answers are labelled with the model file that loads and send only runtime slot names', async () => {
     const seen: string[] = [];
-    const invokeFn = async (_cmd: string, args: Record<string, unknown>) => { seen.push(String(args.model)); return { text: 'ok' }; };
+    const invokeFn = async (cmd: string, args: Record<string, unknown>) => { if (cmd !== 'workspace_ask') return []; seen.push(String(args.model)); return { text: 'ok' }; };
     const manager = createLocalAiManager({ systemRamGb: 16, invokeFn });
     manager.setActiveProfile('kimi-k3-thinking');
     const balanced = await manager.chatCompletionWithSource({ messages: [{ role: 'user', content: 'Hi' }] });
@@ -153,7 +154,9 @@ describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {
       await lowRamManager.downloadWeights('deepseek-v4.1-flash', () => {});
     }, /Insufficient system RAM/);
 
-    assert.ok(OFFICIAL_PROFILES.every(p => p.downloadStatus === 'not-available-yet'));
+    for (const p of OFFICIAL_PROFILES) {
+      assert.equal(p.downloadStatus === 'available', p.family === 'qwen', p.id);
+    }
     const highRamManager = createLocalAiManager({ systemRamGb: 16 });
     const progressLog: number[] = [];
     await assert.rejects(

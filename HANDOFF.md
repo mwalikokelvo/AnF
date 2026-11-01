@@ -57,3 +57,9 @@ Labels: tested = executed and passed; compiled = built only; installed = run on 
 2. User decision: how PR #48, the backups and this branch relate (the wip backup is a superset of the committed one); then merge order into `main`.
 3. Windows 0.1.47 installer: built separately on the user's PC; record the result, links and exact version here when it is done.
 4. Update `docs/RELEASE-BUILDS.md` version text when 0.1.47 is chosen as the release.
+
+## Update 2026-11-01: verified local-AI download (branch `feat/local-ai-verified-download`)
+
+- `windows/src-tauri/src/model_download/` (policy, store, mod) plus `windows/src/workspace/{local-ai-manager,offline-models}.ts`. Manifest hashes for Qwen3-0.6B-Q8_0 and Qwen3-1.7B-Q8_0 were read from the Hub's LFS pointers and cross-checked on the blob pages; all other catalog models have no hash and stay not-available.
+- Tested: pure Rust logic and file handling (21 tests, built outside Tauri because the container lacks GTK), TS (157 unit, 138 e2e). NOT exercised: a real multi-GB download, the real redirect hosts, the Tauri build with this module, installed behaviour on Windows.
+- Open: PR #55 (`safe_fetch`) has its own copy of the public-IP check; fold both onto one module after both merge.

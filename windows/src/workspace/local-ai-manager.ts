@@ -2,9 +2,11 @@
  * Local AI Model Manager: offline model profiles, Hugging Face / Flint bucket weights downloader,
  * memory verification, and local offline chat completions.
  *
- * Honesty rules: the entries below are a catalog of intended profiles. Their sha256/bucketUrl values are
- * placeholders, so downloads are reported as "not available yet" (never as simulated progress), and replies
- * are labelled with the model file the offline runtime actually loads, not with the profile name.
+ * Honesty rules: only profiles with a real, pinned SHA-256 and a real Hugging Face file can be downloaded
+ * (today: Qwen3 0.6B and 1.7B, Q8_0). Every other entry has no hash or URL and stays "not available yet".
+ * The download itself runs in Rust (`model_download`, which owns the URL, size and hash; the webview only
+ * names a profile id). A model counts as installed only after Rust verified its SHA-256, and replies are
+ * labelled with the file the offline runtime actually loads, not with the profile name.
  */
 
 export interface ModelWeightProfile {
@@ -20,11 +22,34 @@ export interface ModelWeightProfile {
   huggingFaceRepo: string;
   description: string;
   recommendedRole?: 'chat' | 'reasoning' | 'coding' | 'fast';
-  /** Every catalog entry is 'not-available-yet' until real, hash-pinned weights are published. */
+  /** 'available' only with a real 64-hex SHA-256 and a huggingface.co file; everything else is 'not-available-yet'. */
   downloadStatus: 'available' | 'not-available-yet';
 }
 
 export const DOWNLOAD_NOT_AVAILABLE = 'Not available yet: verified model weights for this profile have not been published.';
+
+/** What Rust reports per downloadable model (`local_ai_models`). `installed` means the SHA-256 was verified. */
+export interface ModelStatus {
+  id: string;
+  file: string;
+  size: number;
+  sha256: string;
+  slot: 'fast' | 'balanced';
+  state: 'installed' | 'partial' | 'unverified' | 'absent';
+  partial_bytes: number;
+  downloading: boolean;
+}
+
+/** Payload of the `local-ai-download` event emitted by Rust. */
+export interface DownloadEvent {
+  id: string;
+  phase: 'downloading' | 'verifying' | 'ready' | 'failed' | 'cancelled';
+  done: number;
+  total: number;
+  error?: string | null;
+}
+
+export type ListenFn = (event: string, handler: (payload: DownloadEvent) => void) => Promise<() => void>;
 
 export interface LocalAiAnswer {
   text: string;
@@ -41,7 +66,14 @@ export interface LocalAiManager {
   getProfilesByFamily(family: 'deepseek' | 'kimi' | 'qwen'): ModelWeightProfile[];
   getActiveProfile(): ModelWeightProfile;
   setActiveProfile(profileId: string): void;
-  downloadWeights(profileId: string, onProgress: (pct: number) => void): Promise<void>;
+  /**
+   * Download and verify a model. Resolves only after Rust verified the SHA-256 and installed the file; rejects with the
+   * reason otherwise. `onProgress` gets whole percentages while downloading; `onEvent` gets every phase.
+   */
+  downloadWeights(profileId: string, onProgress: (pct: number) => void, onEvent?: (e: DownloadEvent) => void): Promise<void>;
+  cancelDownload(profileId: string): Promise<boolean>;
+  /** Install state of every downloadable model, from Rust. */
+  getInstallStatus(): Promise<ModelStatus[]>;
   checkSystemMemory(): { totalRamGb: number; availableRamGb: number; isSufficient: boolean };
   chatCompletion(request: { messages: Array<{ role: string; content: string }> }): Promise<string>;
   chatCompletionWithSource(request: { messages: Array<{ role: string; content: string }> }): Promise<LocalAiAnswer>;
@@ -56,9 +88,9 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     architecture: 'Engram · Sparse Attention MoE',
     quant: 'Q4_K_M',
     sizeBytes: 2_450_000_000,
-    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    sha256: '',
     minRamGb: 8,
-    bucketUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/deepseek-v4.1-flash-q4_k_m.gguf',
+    bucketUrl: '',
     huggingFaceRepo: 'unsloth/DeepSeek-V4.1-Flash-1017-GGUF',
     description: 'DeepSeek flagship 1017 Flash update with n-gram lookup tables, sparse attention, and hyper-connections for ultra-fast local inference.',
     recommendedRole: 'fast',
@@ -70,9 +102,9 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     architecture: 'DeepSeek Sparse Attention · Hybrid MoE',
     quant: 'Q4_K_M',
     sizeBytes: 3_200_000_000,
-    sha256: 'c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef',
+    sha256: '',
     minRamGb: 8,
-    bucketUrl: 'https://huggingface.co/unsloth/DeepSeek-V3.2-GGUF/deepseek-v3.2-q4_k_m.gguf',
+    bucketUrl: '',
     huggingFaceRepo: 'unsloth/DeepSeek-V3.2-GGUF',
     description: 'DeepSeek V3.2 featuring native DeepSeek Sparse Attention (DSA) and hybrid reasoning with thinking traces.',
     recommendedRole: 'reasoning',
@@ -84,9 +116,9 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     architecture: 'Dense Reasoning Distillation',
     quant: 'Q4_K_M',
     sizeBytes: 980_000_000,
-    sha256: 'd1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcd',
+    sha256: '',
     minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/deepseek-r1-distill-qwen-1.5b-q4_k_m.gguf',
+    bucketUrl: '',
     huggingFaceRepo: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
     description: 'Ultra-compact edge reasoning model distilled from DeepSeek-R1, optimized for lower-RAM laptops and mobile devices.',
     recommendedRole: 'reasoning',
@@ -100,9 +132,9 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     architecture: 'Kimi Delta Attention · LatentMoE',
     quant: 'Q4_K_M',
     sizeBytes: 3_950_000_000,
-    sha256: 'f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90123456789abcd',
+    sha256: '',
     minRamGb: 8,
-    bucketUrl: 'https://huggingface.co/unsloth/Kimi-K3-GGUF/kimi-k3-thinking-q4_k_m.gguf',
+    bucketUrl: '',
     huggingFaceRepo: 'unsloth/Kimi-K3-GGUF',
     description: 'Moonshot AI flagship Kimi-K3 multimodal agentic model with Kimi Delta Attention (KDA) and step-by-step reasoning.',
     recommendedRole: 'reasoning',
@@ -114,9 +146,9 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     architecture: 'Linear Attention · 3B Active Weights',
     quant: 'Q4_K_M',
     sizeBytes: 1_850_000_000,
-    sha256: 'e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9',
+    sha256: '',
     minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/bartowski/moonshotai_Kimi-Linear-48B-A3B-Instruct-GGUF/kimi-linear-48b-a3b-instruct-q4_k_m.gguf',
+    bucketUrl: '',
     huggingFaceRepo: 'bartowski/moonshotai_Kimi-Linear-48B-A3B-Instruct-GGUF',
     description: 'High-throughput Moonshot Kimi Linear hybrid model with only 3B active weights for fast CPU inference.',
     recommendedRole: 'fast',
@@ -128,13 +160,13 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     name: 'Fast · Qwen3 0.6B',
     family: 'qwen',
     architecture: 'Dense Transformer',
-    quant: 'Q4_K_M',
-    sizeBytes: 412_000_000,
-    sha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    quant: 'Q8_0',
+    sizeBytes: 639_446_688,
+    sha256: '9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031',
     minRamGb: 2,
-    bucketUrl: 'https://huggingface.co/buckets/mwalikokelvo/flint-bucket/qwen3-0.6b-q4_k_m.gguf',
-    huggingFaceRepo: 'Qwen/Qwen3-0.6B',
-    description: 'Ultra-lightweight fallback model requiring only 2 GB RAM.',
+    bucketUrl: 'https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf',
+    huggingFaceRepo: 'Qwen/Qwen3-0.6B-GGUF',
+    description: 'Ultra-lightweight model (Q8_0, about 0.6 GB download) requiring 2 GB RAM. Apache-2.0.',
     recommendedRole: 'fast',
   },
   {
@@ -142,18 +174,51 @@ const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
     name: 'Balanced · Qwen3 1.7B',
     family: 'qwen',
     architecture: 'Dense Transformer',
-    quant: 'Q4_K_M',
-    sizeBytes: 1_180_000_000,
-    sha256: 'b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1',
+    quant: 'Q8_0',
+    sizeBytes: 1_834_426_016,
+    sha256: '061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a',
     minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/buckets/mwalikokelvo/flint-bucket/qwen3-1.7b-q4_k_m.gguf',
-    huggingFaceRepo: 'Qwen/Qwen3-1.7B',
-    description: 'Balanced fallback model requiring 4 GB RAM.',
+    bucketUrl: 'https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf',
+    huggingFaceRepo: 'Qwen/Qwen3-1.7B-GGUF',
+    description: 'Balanced model (Q8_0, about 1.8 GB download) requiring 4 GB RAM. Apache-2.0.',
     recommendedRole: 'chat',
   },
 ];
 
-export const OFFICIAL_PROFILES: ModelWeightProfile[] = PROFILE_CATALOG.map(p => ({ ...p, downloadStatus: 'not-available-yet' as const }));
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/** A profile is downloadable only with a real pinned hash and a huggingface.co https file URL. */
+export function isDownloadable(p: Omit<ModelWeightProfile, 'downloadStatus'>): boolean {
+  return SHA256_HEX.test(p.sha256) && p.sizeBytes > 0 && p.bucketUrl.startsWith('https://') && validateHuggingFaceUrl(p.bucketUrl);
+}
+
+export const OFFICIAL_PROFILES: ModelWeightProfile[] = PROFILE_CATALOG.map(p => ({
+  ...p,
+  downloadStatus: isDownloadable(p) ? ('available' as const) : ('not-available-yet' as const),
+}));
+
+/** Honest, human text for one profile's install state. `live` is the in-flight download event, if any. */
+export function describeInstall(profile: ModelWeightProfile, status: ModelStatus | undefined, live?: DownloadEvent): string {
+  if (profile.downloadStatus !== 'available') return 'Not available yet';
+  const gb = (n: number) => (n / 1e9).toFixed(2) + ' GB';
+  if (live) {
+    const pct = live.total > 0 ? Math.min(100, Math.floor((live.done / live.total) * 100)) : 0;
+    switch (live.phase) {
+      case 'downloading': return `Downloading ${pct}% (${gb(live.done)} of ${gb(live.total)})`;
+      case 'verifying': return 'Verifying SHA-256, not installed yet';
+      case 'ready': return 'Ready: SHA-256 verified';
+      case 'cancelled': return 'Cancelled. The partial file is kept so you can resume';
+      case 'failed': return `Failed: ${live.error || 'unknown error'}`;
+    }
+  }
+  if (status?.downloading) return 'Downloading…';
+  switch (status?.state) {
+    case 'installed': return 'Ready: SHA-256 verified';
+    case 'partial': return `Not installed. ${gb(status.partial_bytes)} of ${gb(status.size)} downloaded; you can resume`;
+    case 'unverified': return 'Not installed. A file is present but has not been verified yet';
+    default: return `Not downloaded (${gb(profile.sizeBytes)})`;
+  }
+}
 
 /** Profiles served from the runtime's fast slot (mirrors local_ai.rs; the request sends the slot name, which the runtime always accepts). */
 const FAST_SLOT_IDS = new Set(['deepseek-v4.1-flash', 'deepseek-r1-distill-qwen-1.5b', 'kimi-linear-a3b', 'qwen3-0.6b-fast']);
@@ -177,6 +242,7 @@ export function createLocalAiManager(options?: {
   systemRamGb?: number;
   initialProfileId?: string;
   invokeFn?: (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
+  listenFn?: ListenFn;
 }): LocalAiManager {
   const systemRamGb = options?.systemRamGb ?? 16;
   let activeProfileId = options?.initialProfileId || 'deepseek-v4.1-flash';
@@ -211,13 +277,13 @@ export function createLocalAiManager(options?: {
       };
     },
 
-    async downloadWeights(profileId: string, _onProgress: (pct: number) => void): Promise<void> {
+    async downloadWeights(profileId: string, onProgress: (pct: number) => void, onEvent?: (e: DownloadEvent) => void): Promise<void> {
       const profile = OFFICIAL_PROFILES.find(p => p.id === profileId);
       if (!profile) {
         throw new Error(`Unknown model weight profile: ${profileId}`);
       }
 
-      if (!validateHuggingFaceUrl(profile.bucketUrl)) {
+      if (profile.downloadStatus === 'available' && !validateHuggingFaceUrl(profile.bucketUrl)) {
         throw new Error(`Untrusted model download URL: ${profile.bucketUrl}. Only huggingface.co is permitted.`);
       }
 
@@ -227,11 +293,42 @@ export function createLocalAiManager(options?: {
         );
       }
 
-      // The catalog's hashes and bucket URLs are placeholders: refuse honestly instead of faking progress.
+      // No pinned hash or real file: refuse honestly instead of faking progress.
       if (profile.downloadStatus !== 'available') {
         throw new Error(`${profile.name}: ${DOWNLOAD_NOT_AVAILABLE}`);
       }
-      throw new Error('Model download is not implemented in this build.');
+      if (!options?.invokeFn || !options.listenFn) {
+        throw new Error('The download service is not connected, so nothing was downloaded.');
+      }
+      // The webview sends only the profile id. Rust owns the URL, size and hash, streams the file,
+      // verifies SHA-256 and renames it into place; this promise settles only after that.
+      let lastPct = -1;
+      const unlisten = await options.listenFn('local-ai-download', e => {
+        if (e.id !== profileId) return;
+        onEvent?.(e);
+        if (e.phase === 'downloading' && e.total > 0) {
+          const pct = Math.min(99, Math.floor((e.done / e.total) * 100));
+          if (pct !== lastPct) { lastPct = pct; onProgress(pct); }
+        } else if (e.phase === 'ready') {
+          onProgress(100);
+        }
+      });
+      try {
+        await options.invokeFn('local_ai_download', { id: profileId });
+      } finally {
+        unlisten();
+      }
+    },
+
+    async cancelDownload(profileId: string): Promise<boolean> {
+      if (!options?.invokeFn) return false;
+      return (await options.invokeFn('local_ai_download_cancel', { id: profileId })) === true;
+    },
+
+    async getInstallStatus(): Promise<ModelStatus[]> {
+      if (!options?.invokeFn) return [];
+      const res = await options.invokeFn('local_ai_models', {});
+      return Array.isArray(res) ? (res as ModelStatus[]) : [];
     },
 
     async chatCompletionWithSource(request: { messages: Array<{ role: string; content: string }> }): Promise<LocalAiAnswer> {
@@ -248,6 +345,13 @@ export function createLocalAiManager(options?: {
       const text = (res as { text?: unknown } | null)?.text;
       if (typeof text !== 'string' || !text.trim()) {
         throw new Error('The offline model returned no text.');
+      }
+      // A downloaded model whose SHA-256 Rust verified takes the slot, so only then is its real name shown.
+      const verified = await this.getInstallStatus()
+        .then(list => list.find(m => m.slot === slot && m.state === 'installed'))
+        .catch(() => undefined);
+      if (verified) {
+        return { text, slot, modelFile: verified.file, label: `Offline model · ${verified.file} (SHA-256 verified)` };
       }
       // model-fast.gguf may be absent, in which case the runtime serves the fast slot from model.gguf.
       const modelFile = slot === 'fast' ? 'model-fast.gguf (or model.gguf if the fast model is not installed)' : 'model.gguf';
