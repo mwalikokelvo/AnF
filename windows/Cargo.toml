@@ -3,7 +3,7 @@ members = ["src-tauri", "hook"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.22"
+version = "0.1.47"
 edition = "2021"
 license = "MIT"
 
@@ -11,7 +11,7 @@ license = "MIT"
 # (Claude Code spawns it on every event), so we optimise for size and speed.
 [profile.release]
 opt-level = "s"
-lto = true
+lto = false
 codegen-units = 1
 panic = "abort"
 strip = true

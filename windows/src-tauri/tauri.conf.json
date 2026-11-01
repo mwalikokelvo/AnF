@@ -1,19 +1,18 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AnF",
-  "version": "0.1.22",
+  "version": "0.1.47",
   "identifier": "fr.louisraille.coucou",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": false,
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost",
-      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' ipc: http://ipc.localhost https: http://localhost:8000 http://127.0.0.1:8000 http://localhost:3900 http://127.0.0.1:3900",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 https: http://localhost:8000 http://127.0.0.1:8000 http://localhost:3900 http://127.0.0.1:3900"
     },
     "windows": [
       {
@@ -67,7 +66,7 @@
       "../media/*LICENSE*": "media/",
       "../media/SOURCES.txt": "media/SOURCES.txt"
     },
-    "copyright": "\u00a9 Louis Raille",
+    "copyright": "© Louis Raille",
     "category": "DeveloperTool",
     "shortDescription": "Your local workspace for ideas, documents and sound",
     "longDescription": "AnF brings writing, documents, local AI and audio into a private workspace. Save your ideas on your devices and connect Android and Windows over your own Wi-Fi.",

@@ -9,7 +9,8 @@ const TAG = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
 export function parseLyrics(source:string):Lyrics {
   const text = source.slice(0, MAX_TEXT).replace(/^﻿/, '');
   const offsetMatch = text.match(/^\s*\[offset:\s*([+-]?\d+)\s*\]/im);
-  const offset = offsetMatch ? Number(offsetMatch[1]) / 1000 : 0;
+  const parsedOffset = offsetMatch ? Number(offsetMatch[1]) / 1000 : 0;
+  const offset = Number.isFinite(parsedOffset) ? parsedOffset : 0;
   const timed:LyricLine[] = [], plain:LyricLine[] = [];
   for (const raw of text.split(/\r?\n/)) {
     if (/^\s*\[(ar|ti|al|au|by|length|offset|re|ve|#):/i.test(raw)) continue;
@@ -18,7 +19,8 @@ export function parseLyrics(source:string):Lyrics {
     let rest = raw, m:RegExpExecArray|null;
     while ((m = TAG.exec(raw))) {
       const fraction = m[3] ? Number(m[3]) / 10 ** m[3].length : 0;
-      stamps.push(Number(m[1]) * 60 + Number(m[2]) + fraction);
+      // Reject malformed seconds instead of silently rolling them into minutes.
+      if (Number(m[2]) < 60) stamps.push(Number(m[1]) * 60 + Number(m[2]) + fraction);
       rest = raw.slice(TAG.lastIndex);
     }
     const line = rest.replace(/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g, '').trim();

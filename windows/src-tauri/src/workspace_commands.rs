@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::{
     atomic::{AtomicU64, Ordering},
-    Arc,
+    Arc, Mutex,
 };
 use tauri::State;
 pub struct Jobs {
@@ -177,10 +177,14 @@ pub async fn ask_local(chat:&Chat,query:String,sources:Vec<Source>,history:Vec<V
     let (text, incomplete) = result?;
     let mut notice = format!(
         "Answered locally with {}. Check facts and any source citations.",
-        if model == "fast" {
-            "Fast · Qwen3 0.6B"
-        } else {
-            "Balanced · Qwen3 1.7B"
+        match model.as_str() {
+            "deepseek-v4.1-flash" => "DeepSeek V4.1 Flash (1017 · Engram)",
+            "deepseek-v3.2-reasoning" | "deepseek-v3.2" => "DeepSeek V3.2 Reasoning (DSA)",
+            "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" => "DeepSeek R1 Distill 1.5B (Edge)",
+            "kimi-k3-thinking" | "kimi-k3" => "Kimi K3 Thinking (KDA · MoE)",
+            "kimi-linear-a3b" | "kimi-linear" => "Kimi Linear 48B-A3B (Edge Fast)",
+            "fast" => "Fast · Qwen3 0.6B",
+            _ => "Balanced · Qwen3 1.7B",
         }
     );
     let web_count=evidence.iter().filter(|e|e.source_name.starts_with("https://")).count();
@@ -270,7 +274,7 @@ pub fn workspace_diagnostics(chat: State<Chat>) -> Value {
     };
     let documents = settings::local_dir().join("documents");
     let _ = crate::platform::ensure_private_dir(&documents);
-    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
+    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":is_port_open(8000)||is_port_open(3900),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
 }
 
 #[cfg(test)]
@@ -285,6 +289,10 @@ mod tests {
         let second = jobs.next();
         assert!(c.check().is_err());
         assert!(jobs.token(second).is_ok());
+    }
+    #[test]
+    fn ocr_port_check_reports_offline_on_unused_port() {
+        assert!(!is_port_open(59997));
     }
 }
 
@@ -337,3 +345,161 @@ pub async fn workspace_vault_recover(key:String)->Result<(),String>{tauri::async
 pub async fn workspace_vault_versions(id:String)->Result<Vec<crate::vault::Version>,String>{tauri::async_runtime::spawn_blocking(move||crate::vault::versions(&id)).await.map_err(|e|e.to_string())?}
 #[tauri::command]
 pub async fn workspace_vault_restore(id:String,seq:i64,store:State<'_,projects::Store>)->Result<projects::Project,String>{let store=store.inner().clone();tauri::async_runtime::spawn_blocking(move||{let mut p=crate::vault::version(&id,seq)?;p.id=crate::local_ai::random_key()?;while p.name.len()>149 {p.name.pop();}p.name.push_str(" (restored)");store.save(p)}).await.map_err(|e|e.to_string())?}
+
+static OCR_CHILD: Mutex<Option<std::process::Child>> = Mutex::new(None);
+
+pub fn is_port_open(port: u16) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+fn find_ocr_backend() -> Option<(std::path::PathBuf, Vec<String>, Option<std::path::PathBuf>)> {
+    let ocr_dirs = [
+        std::path::PathBuf::from(r"C:\Users\mwali\.gemini\antigravity\scratch\AnF\ocr"),
+        settings::local_dir().join("ocr"),
+    ];
+
+    for dir in &ocr_dirs {
+        if dir.is_dir() {
+            // Direct executables
+            for exe in &["unlimited-ocr.exe", "ocr-server.exe", "ocr-service.exe", "unlimited-ocr"] {
+                let candidate = dir.join(exe);
+                if candidate.is_file() {
+                    return Some((candidate, vec!["--port".into(), "8000".into()], Some(dir.clone())));
+                }
+            }
+            // Batch scripts
+            for script in &["start-ocr.bat", "launch-ocr.bat", "unlimited-ocr.bat", "run-ocr.bat", "start.bat"] {
+                let candidate = dir.join(script);
+                if candidate.is_file() {
+                    return Some((
+                        std::path::PathBuf::from("cmd.exe"),
+                        vec!["/c".into(), candidate.to_string_lossy().into()],
+                        Some(dir.clone()),
+                    ));
+                }
+            }
+            // Python scripts
+            for py in &["serve.py", "app.py", "main.py", "server.py"] {
+                let candidate = dir.join(py);
+                if candidate.is_file() {
+                    return Some((
+                        std::path::PathBuf::from("python"),
+                        vec![candidate.to_string_lossy().into(), "--port".into(), "8000".into()],
+                        Some(dir.clone()),
+                    ));
+                }
+            }
+        }
+    }
+
+    // Check on PATH
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            for exe in &["unlimited-ocr.exe", "unlimited-ocr", "ocr-server.exe", "ocr-server", "ocr-service.exe", "ocr-service"] {
+                let candidate = dir.join(exe);
+                if candidate.is_file() {
+                    return Some((candidate, vec!["--port".into(), "8000".into()], None));
+                }
+            }
+            for bat in &["start-ocr.bat", "unlimited-ocr.bat"] {
+                let candidate = dir.join(bat);
+                if candidate.is_file() {
+                    return Some((
+                        std::path::PathBuf::from("cmd.exe"),
+                        vec!["/c".into(), candidate.to_string_lossy().into()],
+                        None,
+                    ));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+#[tauri::command]
+pub async fn start_ocr_service() -> Result<Value, String> {
+    // 1. Check if already responding on port 8000 (primary) or 3900 (fallback)
+    if is_port_open(8000) {
+        return Ok(json!({
+            "status": "ready",
+            "port": 8000,
+            "endpoint": "http://127.0.0.1:8000/v1",
+            "message": "OCR service is already running on port 8000."
+        }));
+    }
+    if is_port_open(3900) {
+        return Ok(json!({
+            "status": "ready",
+            "port": 3900,
+            "endpoint": "http://127.0.0.1:3900/v1",
+            "message": "OCR service is already running on port 3900."
+        }));
+    }
+
+    // 2. Check if a previously spawned child is still running and starting up
+    {
+        let mut guard = OCR_CHILD.lock().unwrap();
+        if let Some(child) = guard.as_mut() {
+            if let Ok(None) = child.try_wait() {
+                // Alive and initializing
+            } else {
+                guard.take();
+            }
+        }
+    }
+
+    // 3. Locate backend binary or script
+    let (exe, args, working_dir) = find_ocr_backend().ok_or_else(|| {
+        "Unlimited-OCR backend not found in C:\\Users\\mwali\\.gemini\\antigravity\\scratch\\AnF\\ocr\\ or on PATH. Please ensure the local OCR service is installed.".to_string()
+    })?;
+
+    // 4. Spawn backend daemon without console window
+    let mut cmd = std::process::Command::new(&exe);
+    cmd.args(&args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+
+    if let Some(dir) = working_dir {
+        cmd.current_dir(dir);
+    }
+
+    let child = crate::platform::no_console(&mut cmd)
+        .spawn()
+        .map_err(|e| format!("Failed to spawn OCR service ({}): {e}", exe.display()))?;
+
+    *OCR_CHILD.lock().unwrap() = Some(child);
+
+    // 5. Poll for readiness up to 3 seconds
+    for _ in 0..6 {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        if is_port_open(8000) {
+            return Ok(json!({
+                "status": "ready",
+                "port": 8000,
+                "endpoint": "http://127.0.0.1:8000/v1",
+                "message": "Unlimited-OCR service started successfully on port 8000."
+            }));
+        }
+        if is_port_open(3900) {
+            return Ok(json!({
+                "status": "ready",
+                "port": 3900,
+                "endpoint": "http://127.0.0.1:3900/v1",
+                "message": "Unlimited-OCR service started successfully on port 3900."
+            }));
+        }
+    }
+
+    Ok(json!({
+        "status": "starting",
+        "port": 8000,
+        "endpoint": "http://127.0.0.1:8000/v1",
+        "message": "Unlimited-OCR service spawned. Initializing models..."
+    }))
+}
+

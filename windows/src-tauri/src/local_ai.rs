@@ -69,8 +69,9 @@ impl Engine {
         } else {
             "llama-server"
         });
-        let model = directory.join(if profile == "fast" {
-            "model-fast.gguf"
+        let is_fast_slot = matches!(profile, "fast" | "deepseek-v4.1-flash" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-linear-a3b" | "kimi-linear");
+        let model = directory.join(if is_fast_slot {
+            if directory.join("model-fast.gguf").is_file() { "model-fast.gguf" } else { "model.gguf" }
         } else {
             "model.gguf"
         });
@@ -173,8 +174,8 @@ impl Engine {
         self.reply_sized(messages,profile,false).await
     }
     pub async fn reply_sized(&self,messages:&[Value],profile:&str,long:bool)->Result<(String,bool),String>{
-        if !matches!(profile, "fast" | "balanced") {
-            return Err("Choose Fast or Balanced.".into());
+        if !matches!(profile, "fast" | "balanced" | "deepseek-v4.1-flash" | "deepseek-v3.2-reasoning" | "deepseek-v3.2" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-k3-thinking" | "kimi-k3" | "kimi-linear-a3b" | "kimi-linear") {
+            return Err("Choose a supported model profile.".into());
         }
         let _turn = self.reply_lock.lock().await;
         let input_bytes:usize=messages.iter().filter_map(|m|m["content"].as_str()).map(str::len).sum();

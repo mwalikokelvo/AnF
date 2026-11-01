@@ -6,6 +6,10 @@ const shifted=parseLyrics('[offset:+500]\n[00:10.00]Late');assert.equal(shifted.
 assert.equal(parseLyrics('[offset:-500]\n[00:10.00]Delayed').lines[0].time,10.5);
 assert.equal(parseLyrics('[offset:+1500]\n[00:01.00]Start').lines[0].time,0);
 assert.equal(activeLine(shifted,9.49),-1);assert.equal(activeLine(shifted,9.5),0);
+assert.deepEqual(parseLyrics('[00:99]invalid\n[00:02]valid').lines,[{time:2,text:'valid'}]);
+assert.deepEqual(parseLyrics('[00:99][00:03]mixed').lines,[{time:3,text:'mixed'}]);
+assert.equal(parseLyrics('[offset:-'+'9'.repeat(400)+']\n[00:02]valid').lines[0].time,2);
+assert.equal(parseLyrics('[offset:+'+'9'.repeat(400)+']\n[00:02]valid').lines[0].time,2);
 const plain=parseLyrics('\uFEFFVerse one\n\nVerse two\r\n');assert.equal(plain.synced,false);assert.deepEqual(plain.lines.map(x=>x.text),['Verse one','Verse two']);assert.equal(activeLine(plain,30),-1);
 assert.deepEqual(parseLyrics('').lines,[]);
 const back=parseLyrics(toLrc([{text:'Hi',timestamp:61500},{text:'There',timestamp:0}]));assert.deepEqual(back.lines,[{time:0,text:'There'},{time:61.5,text:'Hi'}]);

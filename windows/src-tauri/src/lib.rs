@@ -360,7 +360,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// absolute dev URL; a bundled build resolves it inside the app bundle.
 fn settings_page_url(app: &AppHandle) -> WebviewUrl {
     #[cfg(dev)]
-    if let Some(mut base) = app.config().build.dev_url.clone() {
+    if let Some(mut base) = app.config().build.dev_url.clone().filter(|_| std::env::var("TAURI_DEV").is_ok()) {
         base.set_path("/settings.html");
         return WebviewUrl::External(base);
     }
@@ -519,6 +519,7 @@ pub fn run() {
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,
+            start_ocr_service,
             set_paused,
         ])
         .setup(move |app| {
