@@ -42,15 +42,21 @@ export function resolveZimProtocolUrl(url: string): { archiveName: string; entry
 export function extractZimArticleText(article: { mimeType: string; data: Uint8Array; title: string }): string {
   const raw = new TextDecoder('utf-8').decode(article.data);
   if (article.mimeType.includes('html')) {
-    return raw
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
+    let text = raw;
+    // Repeat until stable so nested or split tags cannot survive one pass.
+    for (let prev = ''; prev !== text;) {
+      prev = text;
+      text = text
+        .replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
+        .replace(/<style\b[\s\S]*?<\/style\s*>/gi, '')
+        .replace(/<[^>]*>/g, ' ');
+    }
+    return text
       .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
       .replace(/\s+/g, ' ')
       .trim();
   }

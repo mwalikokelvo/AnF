@@ -192,7 +192,9 @@ export class EchoLyricsOrchestrator {
     let match: RegExpExecArray | null;
     while ((match = pRegex.exec(ttml)) !== null) {
       const begin = match[1];
-      const text = match[2].replace(/<[^>]+>/g, '').trim();
+      let text = match[2];
+      for (let prev = ''; prev !== text;) { prev = text; text = text.replace(/<[^>]*>/g, ''); }
+      text = text.trim();
       // Format begin time mm:ss.xx
       lrcLines.push(`[${begin}] ${text}`);
     }
