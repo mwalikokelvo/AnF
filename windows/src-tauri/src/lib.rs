@@ -18,6 +18,7 @@ mod reader;
 mod workspace;
 mod book;
 mod web_search;
+mod ocr_endpoint;
 mod workspace_commands;
 use workspace_commands::*;
 mod files;
@@ -520,6 +521,9 @@ pub fn run() {
             workspace_apply_action,
             workspace_diagnostics,
             start_ocr_service,
+            ocr_status,
+            ocr_request,
+            ocr_configure_external,
             set_paused,
         ])
         .setup(move |app| {

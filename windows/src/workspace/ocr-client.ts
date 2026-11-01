@@ -1,9 +1,13 @@
 /**
- * Unlimited-OCR Client for AnF
- * Connects to local Unlimited-OCR vision endpoint (vLLM / SGLang / OpenAI vision compatible)
- * on http://127.0.0.1:8000/v1 (primary) or http://127.0.0.1:3900/v1 (fallback)
- * for high-fidelity multi-page document parsing, tables & formulas.
- * Zero-cloud telemetry and on-device privacy.
+ * Unlimited-OCR client for AnF.
+ *
+ * Security (review finding M1): the webview never opens a connection to an OCR port. Rust
+ * starts the OCR process on an OS-chosen ephemeral loopback port, keeps that port private and
+ * forwards the two OpenAI-compatible calls we need through the `ocr_request` command. The
+ * endpoint reported by `ocr_status` is for display only; it is never fetched from here, so
+ * another local process squatting a well-known port can never receive documents, and the CSP
+ * needs no loopback connect-src entry.
+ * A user-run external server is used only after the user confirmed that exact endpoint.
  */
 
 export interface OcrParseResult {
@@ -13,20 +17,26 @@ export interface OcrParseResult {
   hasFormulas: boolean;
 }
 
-export const DEFAULT_OCR_ENDPOINT = 'http://127.0.0.1:8000/v1';
-export const FALLBACK_OCR_ENDPOINT = 'http://127.0.0.1:3900/v1';
-export const OCR_ENDPOINTS = [DEFAULT_OCR_ENDPOINT, FALLBACK_OCR_ENDPOINT];
+export type OcrInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+
+export type OcrMode = 'owned' | 'external' | 'external-unconfirmed' | 'off';
+export type OcrState = 'ready' | 'starting' | 'unavailable' | 'needs-confirmation' | 'off';
+
+export interface OcrStatus {
+  mode: OcrMode;
+  state: OcrState;
+  /** Display only. Never used as a fetch target. */
+  endpoint?: string;
+  message?: string;
+}
 
 export interface OcrRetryOptions {
   timeoutMs?: number;
   retryIntervalMs?: number;
-  endpoints?: string[];
-  checkFn?: (endpoint: string, timeoutMs?: number) => Promise<boolean>;
+  invokeFn?: OcrInvoke;
 }
 
-export interface LaunchOcrOptions extends OcrRetryOptions {
-  invokeFn?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
-}
+export interface LaunchOcrOptions extends OcrRetryOptions {}
 
 export interface LaunchOcrResult {
   success: boolean;
@@ -34,136 +44,114 @@ export interface LaunchOcrResult {
   message: string;
 }
 
-export async function checkEndpointHealth(endpoint: string, timeoutMs: number = 2000): Promise<boolean> {
+const OFF: OcrStatus = { mode: 'off', state: 'off' };
+const MODES: OcrMode[] = ['owned', 'external', 'external-unconfirmed', 'off'];
+const STATES: OcrState[] = ['ready', 'starting', 'unavailable', 'needs-confirmation', 'off'];
+
+async function resolveInvoke(invokeFn?: OcrInvoke): Promise<OcrInvoke | null> {
+  if (invokeFn) return invokeFn;
   try {
-    const res = await fetch(`${endpoint}/models`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(timeoutMs)
-    });
-    return res.ok;
+    const core = await import('@tauri-apps/api/core');
+    return core.invoke as OcrInvoke;
   } catch {
-    return false;
+    return null; // Not in the Tauri runtime: OCR is simply unavailable.
   }
 }
 
-export async function detectActiveOcrEndpoint(
-  endpoints: string[] = OCR_ENDPOINTS,
-  timeoutMs: number = 2000
-): Promise<string | null> {
-  for (const ep of endpoints) {
-    if (await checkEndpointHealth(ep, timeoutMs)) {
-      return ep;
-    }
-  }
-  return null;
+export function normalizeOcrStatus(raw: unknown): OcrStatus {
+  if (!raw || typeof raw !== 'object') return OFF;
+  const r = raw as Record<string, unknown>;
+  const mode = MODES.includes(r.mode as OcrMode) ? (r.mode as OcrMode) : 'off';
+  const state = STATES.includes(r.state as OcrState) ? (r.state as OcrState) : 'off';
+  return {
+    mode,
+    state,
+    endpoint: typeof r.endpoint === 'string' ? r.endpoint : undefined,
+    message: typeof r.message === 'string' ? r.message : undefined
+  };
 }
 
-export async function isOcrAvailable(endpoint?: string): Promise<boolean> {
-  if (endpoint) {
-    return checkEndpointHealth(endpoint);
+export async function getOcrStatus(invokeFn?: OcrInvoke): Promise<OcrStatus> {
+  const invoke = await resolveInvoke(invokeFn);
+  if (!invoke) return OFF;
+  try {
+    return normalizeOcrStatus(await invoke('ocr_status'));
+  } catch {
+    return OFF;
   }
-  const active = await detectActiveOcrEndpoint();
-  return active !== null;
 }
 
-export async function waitForOcrReady(options?: OcrRetryOptions): Promise<string> {
+export async function isOcrAvailable(invokeFn?: OcrInvoke): Promise<boolean> {
+  return (await getOcrStatus(invokeFn)).state === 'ready';
+}
+
+export async function waitForOcrReady(options?: OcrRetryOptions): Promise<OcrStatus> {
   const timeoutMs = options?.timeoutMs ?? 15000;
   const retryIntervalMs = options?.retryIntervalMs ?? 1000;
-  const endpoints = options?.endpoints ?? OCR_ENDPOINTS;
-  const check = options?.checkFn ?? checkEndpointHealth;
-
   const startTime = Date.now();
   while (Date.now() - startTime < timeoutMs) {
-    for (const ep of endpoints) {
-      try {
-        if (await check(ep, Math.min(2000, retryIntervalMs))) {
-          return ep;
-        }
-      } catch {
-        // Keep polling
-      }
+    const status = await getOcrStatus(options?.invokeFn);
+    if (status.state === 'ready') return status;
+    if (status.state === 'needs-confirmation') {
+      throw new Error('A custom OCR server is configured but not confirmed.');
     }
-    const elapsed = Date.now() - startTime;
-    const remaining = timeoutMs - elapsed;
+    const remaining = timeoutMs - (Date.now() - startTime);
     if (remaining <= 0) break;
     await new Promise(resolve => setTimeout(resolve, Math.min(retryIntervalMs, remaining)));
   }
-
   throw new Error(`Unlimited-OCR service failed to respond within ${timeoutMs}ms.`);
 }
 
 export async function launchOcrService(options?: LaunchOcrOptions): Promise<LaunchOcrResult> {
-  const endpoints = options?.endpoints ?? OCR_ENDPOINTS;
-  const check = options?.checkFn ?? checkEndpointHealth;
-
-  // 1. Return immediately if already available on primary or fallback
-  for (const ep of endpoints) {
-    if (await check(ep, 1500)) {
-      return {
-        success: true,
-        endpoint: ep,
-        message: 'OCR Engine Ready'
-      };
-    }
-  }
-
-  // 2. Invoke native spawn command if available
-  let invoke = options?.invokeFn;
+  const invoke = await resolveInvoke(options?.invokeFn);
   if (!invoke) {
-    try {
-      const core = await import('@tauri-apps/api/core');
-      invoke = core.invoke;
-    } catch {
-      // Not in Tauri runtime
-    }
+    return { success: false, message: 'Failed to start OCR service: native OCR is only available in the desktop app.' };
   }
 
-  if (invoke) {
-    try {
-      await invoke('start_ocr_service');
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      // Even if spawn returned an error, check if service actually came up
-      try {
-        const readyEp = await waitForOcrReady({
-          timeoutMs: options?.timeoutMs ?? 3000,
-          retryIntervalMs: options?.retryIntervalMs ?? 400,
-          endpoints,
-          checkFn: check
-        });
-        return {
-          success: true,
-          endpoint: readyEp,
-          message: 'OCR Engine Ready'
-        };
-      } catch {
-        return {
-          success: false,
-          message: `Failed to start OCR service: ${errMsg}`
-        };
-      }
-    }
-  }
-
-  // 3. Wait for background process or daemon to initialize
   try {
-    const readyEp = await waitForOcrReady({
+    const status = normalizeOcrStatus(await invoke('start_ocr_service'));
+    if (status.state === 'ready') {
+      return { success: true, endpoint: status.endpoint, message: 'OCR Engine Ready' };
+    }
+    if (status.state === 'needs-confirmation') {
+      return { success: false, endpoint: status.endpoint, message: status.message || 'Confirm the custom OCR server first.' };
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    try {
+      const ready = await waitForOcrReady({
+        timeoutMs: options?.timeoutMs ?? 3000,
+        retryIntervalMs: options?.retryIntervalMs ?? 400,
+        invokeFn: invoke
+      });
+      return { success: true, endpoint: ready.endpoint, message: 'OCR Engine Ready' };
+    } catch {
+      return { success: false, message: `Failed to start OCR service: ${errMsg}` };
+    }
+  }
+
+  // Spawned but still initializing models.
+  try {
+    const ready = await waitForOcrReady({
       timeoutMs: options?.timeoutMs ?? 15000,
       retryIntervalMs: options?.retryIntervalMs ?? 800,
-      endpoints,
-      checkFn: check
+      invokeFn: invoke
     });
-    return {
-      success: true,
-      endpoint: readyEp,
-      message: 'OCR Engine Ready'
-    };
+    return { success: true, endpoint: ready.endpoint, message: 'OCR Engine Ready' };
   } catch (err) {
-    return {
-      success: false,
-      message: `OCR service timed out during startup: ${String(err)}`
-    };
+    return { success: false, message: `OCR service timed out during startup: ${String(err)}` };
   }
+}
+
+/** The user's explicit confirmation of exactly this external endpoint (or `null` to clear it). */
+export async function configureExternalOcr(
+  endpoint: string | null,
+  confirm: boolean,
+  invokeFn?: OcrInvoke
+): Promise<OcrStatus> {
+  const invoke = await resolveInvoke(invokeFn);
+  if (!invoke) return OFF;
+  return normalizeOcrStatus(await invoke('ocr_configure_external', { endpoint, confirm }));
 }
 
 export function extractHeadings(markdown: string): string[] {
@@ -185,9 +173,12 @@ export function extractDocumentMetadata(markdown: string): OcrParseResult {
 
 export async function parseImageBlobWithOcr(
   blob: Blob,
-  endpoint?: string
+  options?: { invokeFn?: OcrInvoke }
 ): Promise<OcrParseResult> {
-  const targetEndpoint = endpoint || (await detectActiveOcrEndpoint()) || DEFAULT_OCR_ENDPOINT;
+  const invoke = await resolveInvoke(options?.invokeFn);
+  if (!invoke) {
+    throw new Error('Unlimited-OCR is only available in the desktop app.');
+  }
 
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -220,18 +211,23 @@ export async function parseImageBlobWithOcr(
     max_tokens: 4096
   };
 
-  const response = await fetch(`${targetEndpoint}/chat/completions`, {
+  const raw = (await invoke('ocr_request', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    path: 'chat/completions',
     body: JSON.stringify(payload)
-  });
+  })) as { status?: number; body?: string };
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    throw new Error(`Unlimited-OCR failed (${response.status}): ${errText || response.statusText}`);
+  const status = typeof raw?.status === 'number' ? raw.status : 0;
+  if (status < 200 || status >= 300) {
+    throw new Error(`Unlimited-OCR failed (${status}): ${String(raw?.body ?? '').slice(0, 300)}`);
   }
 
-  const data = await response.json();
+  let data: any;
+  try {
+    data = JSON.parse(String(raw.body ?? ''));
+  } catch {
+    throw new Error('Unlimited-OCR returned an invalid response.');
+  }
   const text = data?.choices?.[0]?.message?.content?.trim() || '';
   if (!text) {
     throw new Error('Unlimited-OCR returned an empty response.');
@@ -268,7 +264,8 @@ export function createOcrStatusIndicator(options?: OcrStatusIndicatorOptions): O
 
   async function checkStatus(): Promise<boolean> {
     if (destroyed) return false;
-    const isOnline = await isOcrAvailable();
+    const status = await getOcrStatus();
+    const isOnline = status.state === 'ready';
     if (destroyed) return isOnline;
 
     container.replaceChildren();
@@ -276,7 +273,7 @@ export function createOcrStatusIndicator(options?: OcrStatusIndicatorOptions): O
     if (isOnline) {
       const badge = document.createElement('span');
       badge.className = 'ocr-badge ready';
-      badge.title = 'Unlimited-OCR vision engine running locally on-device.';
+      badge.title = `Unlimited-OCR vision engine on this device (${status.mode === 'external' ? 'external server you confirmed' : 'started by AnF'})${status.endpoint ? ' at ' + status.endpoint : ''}.`;
       badge.style.display = 'inline-flex';
       badge.style.alignItems = 'center';
       badge.style.gap = '5px';
@@ -295,11 +292,34 @@ export function createOcrStatusIndicator(options?: OcrStatusIndicatorOptions): O
       dot.style.fontSize = '9px';
 
       const label = document.createElement('span');
-      label.textContent = 'OCR Engine Ready';
+      label.textContent = status.mode === 'external' ? `OCR Engine Ready (external ${status.endpoint ?? ''})` : 'OCR Engine Ready';
 
       badge.append(dot, label);
       container.append(badge);
       options?.onStatusChange?.(true);
+    } else if (status.state === 'needs-confirmation' && status.endpoint) {
+      const endpoint = status.endpoint;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ocr-confirm-btn';
+      btn.textContent = `Allow OCR server at ${endpoint}`;
+      btn.title = `Documents will be sent to the process listening at ${endpoint}. Only confirm a server you started yourself.`;
+      btn.style.fontSize = '11px';
+      btn.style.padding = '3px 10px';
+      btn.style.borderRadius = '6px';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await configureExternalOcr(endpoint, true);
+          options?.notify?.(`Using the OCR server you confirmed at ${endpoint}.`);
+        } catch (err) {
+          options?.notify?.(String(err));
+        }
+        await checkStatus();
+      });
+      container.append(btn);
+      options?.onStatusChange?.(false);
     } else {
       const btn = document.createElement('button');
       btn.type = 'button';
