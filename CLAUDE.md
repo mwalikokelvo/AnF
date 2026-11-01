@@ -32,6 +32,8 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - Pill IDs are stable contract values (Keychain, UserDefaults, hook routing): never rename an existing pill ID.
 - New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
 
+- Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.
+
 ## Skills (all assistants)
 - Shared skills live in `.agents/skills/` (Superpowers, see `SOURCE.md`) and in each user's `~/.agents/skills/` (Antigravity reads it via `~/.gemini/config/skills.json`).
 - Before specialized work (a framework, external service, design system, code review), check installed skills first. If none fits, use `find-skills` (or `skills find <query>`) to search skills.sh, and suggest or install the match.

@@ -12,4 +12,4 @@ export function wav(channels:Float32Array[],rate:number):ArrayBuffer {
   str(0,'RIFF');v.setUint32(4,size-8,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,channels.length,true);v.setUint32(24,rate,true);v.setUint32(28,rate*channels.length*2,true);v.setUint16(32,channels.length*2,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,size-44,true);
   let p=44;for(let i=0;i<channels[0].length;i++)for(const c of channels){const x=Number.isFinite(c[i])?Math.max(-1,Math.min(1,c[i])):0;v.setInt16(p,Math.round(x*(x<0?32768:32767)),true);p+=2;}return bytes;
 }
-export function durationText(seconds:number){const n=Math.max(0,Math.floor(seconds));return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');}
+export function durationText(seconds:number){const n=Number.isFinite(seconds)?Math.max(0,Math.floor(seconds)):0;return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');}

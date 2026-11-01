@@ -161,3 +161,15 @@ Upload authorization must be restored before describing that draft as a download
 This product includes software developed by Kingkor Roy Tirtho.
 The BSD-4-Clause notices are retained in `integrations/spotube/LICENSE` and in the
 native distribution. This acknowledgement does not imply upstream endorsement.
+
+
+---
+
+## MKR Music Integration
+
+This product incorporates synchronized lyrics algorithms and multi-engine streaming modules developed by [@mkr-infinity](https://github.com/mkr-infinity) in [MKR Music](https://github.com/mkr-infinity/mkr-music) under the GNU General Public License v3.0 (GPLv3).
+
+- **Synced Lyrics Engine (`lyrics-provider.ts`)**: Cleans promotional and format metadata from track titles, resolves primary artists, and matches line-by-line synchronized LRC lyrics via LRCLIB.
+- **Offline Persistence**: Retrieved synchronized lyrics are automatically persisted to the local IndexedDB track record, ensuring offline availability on future playback sessions.
+- **Interactive Lyric Scrolling**: Displays synchronized lyrics with real-time scrolling and millisecond-accurate seek-by-click navigation.
+- **Integration Package (`integrations/mkr-music/`)**: Houses build recipes, preparation scripts, and source references for MKR Music's `innertube`, `lyricsProvider`, and Spotify streaming modules.
