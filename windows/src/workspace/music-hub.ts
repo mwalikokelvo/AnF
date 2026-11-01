@@ -579,15 +579,15 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    ...(lyricRows.length
     ?[
       h('div',{class:'music-lyrics-header'},
-       h('span',{class:'music-lyrics-badge',text:lyrics.synced?'Synced (MKR / LRCLIB)':'Plain lyrics'}),
+       h('span',{class:'music-lyrics-badge',text:lyrics.synced?'Synced lyrics':'Plain lyrics'}),
        lyrics.synced?h('span',{class:'music-lyrics-hint',text:'Click any line to seek playback'}):null
       ),
       ...lyricRows
      ]
     :[
       h('div',{class:'music-lyrics-empty'},
-       h('p',{text:'No lyrics for this track. Import a .lrc file or search online with MKR Music.'}),
-       button('Find Synced Lyrics (MKR)',lookupLyrics)
+       h('p',{text:'No lyrics for this track. Import a .lrc file, or turn on Online lookups and search LRCLIB.'}),
+       button('Find lyrics online (LRCLIB)',lookupLyrics)
       )
      ]
    )

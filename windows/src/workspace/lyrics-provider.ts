@@ -1,5 +1,6 @@
 import { gatedFetch } from './online-lookups';
-// MKR Music Synced Lyrics Provider (based on mkr-music LyricsProvider & LRCLIB)
+// Online synced lyrics from LRCLIB's public API (https://lrclib.net/docs), behind the opt-in
+// "Online lookups" switch. AnF's own code: no third-party lyrics client is copied or translated here.
 export type RemoteLyrics = {
   id?: number;
   trackName?: string;
@@ -33,28 +34,55 @@ const LRCLIB_CLIENT_HEADER = {
   'Lrclib-Client': 'AnF-Desktop/0.1.46 (https://github.com/mwalikokelvo/AnF)',
 };
 
-const titleCleanupPatterns = [
-  /\s*\(.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit|with).*?\)/gi,
-  /\s*\[.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit|with).*?\]/gi,
-  /\s*【.*?】/g,
-  /\s*\|.*$/g,
-  /\s*-\s*(official|video|audio|lyrics|lyric|visualizer|live|remaster|remix|acoustic|version|edit).*$/gi,
-  /\s*\(feat\..*?\)/gi,
-  /\s*\(ft\..*?\)/gi,
-  /\s*feat\..*$/gi,
-  /\s*ft\..*$/gi,
-];
+// Words that describe a release or an upload rather than the song. A bracketed group, or a
+// trailing " - …" part, is dropped only when it is made of these words (and years or numbers),
+// so real titles such as "(Don't Fear) The Reaper" or "Live and Let Die" stay intact.
+const RELEASE_WORDS = new Set([
+  'official', 'video', 'music', 'audio', 'lyric', 'lyrics', 'visualizer', 'visualiser', 'mv', 'clip',
+  'hd', 'hq', '4k', 'uhd', 'remaster', 'remastered', 'remix', 'mix', 'live', 'acoustic', 'unplugged',
+  'version', 'edit', 'extended', 'radio', 'single', 'album', 'clean', 'explicit', 'mono', 'stereo',
+  'demo', 'instrumental', 'bonus', 'track', 'deluxe', 'original', 'new', 'full',
+]);
+// Small words allowed inside a label ("Live in HD") but never a label on their own.
+const FILLER = new Set(['the', 'a', 'an', 'and', 'in', 'at', 'of', 'with']);
+// Credits that name other artists; everything after them is not part of the title.
+const CREDIT = /^(?:feat|ft|featuring|with)\b\.?/i;
+const BRACKETS: Record<string, string> = { '(': ')', '[': ']', '【': '】', '{': '}' };
 
-/** Clean promotional and format tags from track title for higher lyrics match accuracy. */
+/** True when a group says how a song was released or uploaded, not what it is called. */
+function describesRelease(text: string): boolean {
+  const list = text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w && !/^\d+$/.test(w));
+  return list.some(w => RELEASE_WORDS.has(w)) && list.every(w => RELEASE_WORDS.has(w) || FILLER.has(w));
+}
+/** A credit, a release label, or a performance note such as "Live at Wembley / 1986". */
+const isLabel = (text: string) => CREDIT.test(text) || describesRelease(text) || /^(?:live|recorded)\s+(?:at|in|from|on)\b/i.test(text);
+
+/**
+ * Removes upload and release labels from a track title so a lyrics search finds the song:
+ * bracketed groups such as "(Official Video)" or "[Remastered 2009]", featured-artist credits,
+ * a trailing " - Live" style label, and anything after " | ". Falls back to the original title.
+ */
 export function cleanTitle(title: string): string {
-  let cleaned = title.trim();
-  for (const pattern of titleCleanupPatterns) {
-    cleaned = cleaned.replace(pattern, '');
+  const original = title.trim();
+  let out = '';
+  for (let i = 0; i < original.length; i++) {
+    const close = BRACKETS[original[i]];
+    const end = close ? original.indexOf(close, i + 1) : -1;
+    if (end < 0) { out += original[i]; continue; }
+    const inner = original.slice(i + 1, end).trim();
+    if (inner === '' || isLabel(inner)) i = end;
+    else out += original[i];
   }
-  while (/\s*[-–—]\s*$/.test(cleaned)) {
-    cleaned = cleaned.replace(/\s*[-–—]\s*$/, '');
+  let cleaned = out.split(/\s+\|\s*/)[0];
+  const credit = cleaned.search(/\s(?:feat\.?|ft\.|featuring)\s/i);
+  if (credit > 0) cleaned = cleaned.slice(0, credit);
+  for (;;) {
+    const dash = cleaned.search(/\s[-–—]\s[^-–—]*$/);
+    if (dash < 0 || !isLabel(cleaned.slice(dash + 3).trim())) break;
+    cleaned = cleaned.slice(0, dash);
   }
-  return cleaned.trim() || title.trim();
+  cleaned = cleaned.replace(/\s+/g, ' ').replace(/[\s\-–—]+$/, '').trim();
+  return cleaned || original;
 }
 
 /** Extract primary artist from multi-artist strings preserving separator precedence. */
@@ -65,7 +93,7 @@ export function primaryArtist(artist: string): string {
 }
 
 /**
- * Fetch synchronized or plain lyrics from LRCLIB using MKR Music's search strategy.
+ * Fetch synchronized or plain lyrics from LRCLIB: an exact lookup first, then a search ranked by duration.
  */
 export async function fetchOnlineLyrics(track: {
   title: string;
@@ -141,7 +169,7 @@ export async function fetchOnlineLyrics(track: {
         const synced = list.filter(item => Boolean(item.syncedLyrics?.trim()));
         if (synced.length) {
           if (duration && duration > 0) {
-            // Apply MKR Music duration tolerance of ±5 seconds (or relaxed ±8s)
+            // Prefer versions within 5 s of the track's length, then within 8 s
             const toleranceMatches = synced.filter(item => !item.duration || Math.abs(item.duration - duration) <= 5);
             const candidates = toleranceMatches.length ? toleranceMatches : synced.filter(item => !item.duration || Math.abs(item.duration - duration) <= 8);
             if (candidates.length) {

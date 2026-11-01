@@ -13,6 +13,32 @@ test('cleanTitle strips video, audio, lyric, and format markers', () => {
   assert.equal(cleanTitle('Plain Song Title'), 'Plain Song Title');
 });
 
+test('cleanTitle removes labels in every bracket style, trailing labels and upload suffixes', () => {
+  assert.equal(cleanTitle('Song [Remastered 2009]'), 'Song');
+  assert.equal(cleanTitle('Song 【Official MV】'), 'Song');
+  assert.equal(cleanTitle('Song {Lyric Video}'), 'Song');
+  assert.equal(cleanTitle('Song (with Friend)'), 'Song');
+  assert.equal(cleanTitle('Song (Feat. Somebody) [Official Audio]'), 'Song');
+  assert.equal(cleanTitle('Song featuring Somebody Else'), 'Song');
+  assert.equal(cleanTitle('Song - Live at the BBC'), 'Song');
+  assert.equal(cleanTitle('Song – Radio Edit'), 'Song');
+  assert.equal(cleanTitle('Song - Remastered 2011 - Live'), 'Song');
+  assert.equal(cleanTitle('Song | Channel Name | 2024'), 'Song');
+  assert.equal(cleanTitle('  Song   (HD)  '), 'Song');
+});
+
+test('cleanTitle keeps parts that belong to the song title', () => {
+  assert.equal(cleanTitle("(Don't Fear) The Reaper"), "(Don't Fear) The Reaper");
+  assert.equal(cleanTitle('Live and Let Die'), 'Live and Let Die');
+  assert.equal(cleanTitle('Video Killed the Radio Star (Official Video)'), 'Video Killed the Radio Star');
+  assert.equal(cleanTitle('Artist - Song Name'), 'Artist - Song Name');
+  assert.equal(cleanTitle('Song (Part 2)'), 'Song (Part 2)');
+  assert.equal(cleanTitle('Featherweight'), 'Featherweight');
+  assert.equal(cleanTitle('Unclosed (Official Video'), 'Unclosed (Official Video');
+  assert.equal(cleanTitle('(Official Video)'), '(Official Video)');
+  assert.equal(cleanTitle(''), '');
+});
+
 test('primaryArtist extracts lead artist from collaborations', () => {
   assert.equal(primaryArtist('The Weeknd feat. Daft Punk'), 'The Weeknd');
   assert.equal(primaryArtist('Calvin Harris & Dua Lipa'), 'Calvin Harris');

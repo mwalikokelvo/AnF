@@ -6,7 +6,7 @@ AnF is an offline-first, private personal workspace targeting Windows (Tauri 2 w
 ### Module Boundaries & Data Flow
 1. **Media & Music Hub** (`windows/src/workspace/music-hub.ts`):
    - Audio playback engine (HTML5 Audio on desktop, Media3 on Android).
-   - MKR Music synchronized lyrics engine (`lyrics.ts`, `lyrics-provider.ts`) querying LRCLIB with 7-stage offline cache cascade.
+   - Synchronized lyrics engine (`lyrics.ts`, `lyrics-provider.ts`) querying LRCLIB with 7-stage offline cache cascade.
    - AntennaPod podcast parsing & subscription management (`podcast-feeds.ts`).
    - Spotube-style streaming audio resolution and offline audio blob caching (`audio-library.ts`).
 2. **Reader & Publishing Desk** (`windows/src/workspace/reader.ts`, `writing.ts`):
@@ -33,7 +33,7 @@ AnF is an offline-first, private personal workspace targeting Windows (Tauri 2 w
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | MKR Music Audio Player Engine | Complete audio playback controls (play, pause, seek, stop), playback state machine, audio sink, queue management, volume/speed/sleep-timer | M1 | ORIGINAL_REQUEST §R1 |
+| 1 | Music Hub Audio Player Engine | Complete audio playback controls (play, pause, seek, stop), playback state machine, audio sink, queue management, volume/speed/sleep-timer | M1 | ORIGINAL_REQUEST §R1 |
 | 2 | LRCLIB Synced Lyrics Integration | Synchronized lyrics retrieval, LRC parsing, binary search active line tracking, click-to-seek, auto-scroll, 7-stage offline cache cascade | M1 | ORIGINAL_REQUEST §R1 |
 | 3 | AntennaPod Podcast RSS & Playback | RSS feed fetching & parsing, subscription management, episode enclosure downloading/caching, progress tracking, episode playback | M1 | ORIGINAL_REQUEST §R2 |
 | 4 | Spotube Streaming Audio Integration | Decoupled metadata search/retrieval, stream URL resolution, offline caching of audio blobs and metadata | M1 | ORIGINAL_REQUEST §R2 |
@@ -49,7 +49,7 @@ AnF is an offline-first, private personal workspace targeting Windows (Tauri 2 w
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Media & Music Hub Integration | Features 1, 2, 3, 4: MKR Music player engine, LRCLIB synced lyrics, AntennaPod podcasts, Spotube streaming metadata & audio caching | none | COMPLETED |
+| M1 | Media & Music Hub Integration | Features 1, 2, 3, 4: Music Hub player engine, LRCLIB synced lyrics, AntennaPod podcasts, Spotube streaming metadata & audio caching | none | COMPLETED |
 | M2 | Reader & Publishing Desk | Feature 5: Substack article reading queue, typography themes, draft authoring, multi-format publishing/export | none | COMPLETED |
 | M3 | Vault & Kiwix ZIM Knowledge | Feature 6: OpenZIM archive parser, `zim://` virtual protocol, article viewer, FTS5 vault integration | none | COMPLETED |
 | M4 | Audacity Audio Studio | Feature 7: Live microphone capture, real-time dBFS meters, waveform canvas, split/trim/delete crossfade, export | none | COMPLETED |

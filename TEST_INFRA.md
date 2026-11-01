@@ -7,7 +7,7 @@ This document specifies the end-to-end (E2E) opaque-box testing framework and me
 The test suite validates the system against the requirements documented in `ORIGINAL_REQUEST.md` and `PROJECT.md`, strictly through public interfaces, standard data schemas, and user-observable interactions without modifying production application code.
 
 ### Test Targets & Module Boundaries
-- **Media & Music Hub**: MKR Music playback engine (`music-hub.ts`, `native-music-player.ts`), LRCLIB lyrics synchronization (`lyrics.ts`, `lyrics-provider.ts`), AntennaPod podcast RSS parsing (`podcast-feeds.ts`), Spotube streaming integration (`audio-library.ts`, `spotube-desktop.ts`).
+- **Media & Music Hub**: Music Hub playback engine (`music-hub.ts`, `native-music-player.ts`), LRCLIB lyrics synchronization (`lyrics.ts`, `lyrics-provider.ts`), AntennaPod podcast RSS parsing (`podcast-feeds.ts`), Spotube streaming integration (`audio-library.ts`, `spotube-desktop.ts`).
 - **Reader & Publishing**: Substack article reading queue, distraction-free typography, Markdown live editor (`reader.ts`, `reader-data.ts`, `writing.ts`).
 - **Vault & Knowledge Base**: OpenZIM archive reading, encrypted SQLCipher vault revisioning, wikilinks, tags, knowledge graph (`crates/anf-vault`, `knowledge-data.ts`, `vault-panel.ts`, `encrypted-pack.ts`).
 - **Audio Studio**: Multi-track recording, waveform visualization, spectral subtraction noise cleanup, non-destructive editing (`audio-studio.ts`, `audio-data.ts`, `shared/audio/denoise.ts`, `shared/audio/queue.ts`).
@@ -90,7 +90,7 @@ The testing architecture employs a rigorous 4-tier opaque-box test methodology e
 
 | Feature ID | Feature Name | Primary Source Modules | Tier 1 (Coverage) | Tier 2 (Boundary) | Tier 3 (Cross-Feature) | Tier 4 (Workflows) |
 |---|---|---|:---:|:---:|:---:|:---:|
-| **F1** | MKR Music Audio Player Engine | `audio-queue.ts`, `audio-data.ts`, `native-music-player.ts` | 6 tests | 6 tests | 3 tests | Scenario 1 |
+| **F1** | Music Hub Audio Player Engine | `audio-queue.ts`, `audio-data.ts`, `native-music-player.ts` | 6 tests | 6 tests | 3 tests | Scenario 1 |
 | **F2** | LRCLIB Synced Lyrics Integration | `lyrics.ts`, `lyrics-provider.ts` | 6 tests | 6 tests | 3 tests | Scenario 1 |
 | **F3** | AntennaPod Podcast RSS & Playback | `podcast-feeds.ts`, `audio-library.ts` | 6 tests | 6 tests | 2 tests | Scenario 3 |
 | **F4** | Spotube Streaming Audio Integration | `spotube-desktop.ts`, `native-music-player.ts`, `audio-library.ts` | 6 tests | 6 tests | 2 tests | Scenario 1 |

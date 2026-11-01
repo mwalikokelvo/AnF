@@ -1,52 +1,11 @@
-# MKR Music Integration for AnF
+# MKR Music: reference only
 
-This directory contains the integration bridge and build recipes for **MKR Music** (`mkr-music`), developed by [@mkr-infinity](https://github.com/mkr-infinity/mkr-music).
+[MKR Music](https://github.com/mkr-infinity/mkr-music) by @mkr-infinity is an Android music app licensed under GPL-3.0 (with an extra restriction on its Musixmatch module). AnF is MIT-licensed.
 
----
+AnF uses MKR Music as a source of **ideas only**: an immersive player, synced lyrics, LRCLIB lookups. AnF contains no MKR Music code, translated or otherwise. Its lyrics support (`windows/src/workspace/lyrics.ts`, `lyrics-provider.ts`) is written for AnF from the LRC format and [LRCLIB's public API documentation](https://lrclib.net/docs).
 
-## 🎧 About MKR Music
+Rules for contributors and AI agents:
 
-MKR Music is a premier open-source audio streaming, playback, and lyrics platform. It unifies:
-1. **Tri-Engine Streaming**: High-quality audio extraction from YouTube Music (`innertube`), JioSaavn, and Spotify playlist synchronization.
-2. **Synchronized Lyrics Engine**: Multi-provider lyrics aggregator with word-by-word and line-by-line synced scrolling (LRCLIB, KuGou, Paxsenix, Unison, and YouLyPlus).
-3. **MKR Studio Equalizer**: 10-band precision equalization, Dolby Atmos simulation, and acoustic profiles.
-4. **Smart Mood Queuing & Instant Cache**: Buffer-free streaming with local caching.
-
----
-
-## 🏗️ Architecture in AnF
-
-MKR Music connects into AnF across both the **Desktop Workspace** (Windows & Linux Tauri) and the **Android Native Workspace**:
-
-```mermaid
-flowchart LR
-    subgraph MKR["MKR Music Core"]
-        IT["Innertube (YouTube Music)"]
-        LP["LyricsProvider (LRCLIB, KuGou)"]
-        SP["Spotify Sync"]
-        EQ["MKR Studio EQ"]
-    end
-
-    subgraph AnF["AnF Workspace"]
-        MH["Music Hub (music-hub.ts)"]
-        LE["Lyrics Engine (lyrics.ts + lyrics-provider.ts)"]
-        MB["MediaBridge.java + PlaybackService.java"]
-    end
-
-    LP -->|Direct REST / Synced LRC| LE
-    LE --> MH
-    IT -->|Streaming Audio URLs| MH
-    IT -->|MediaItem HTTPS URI| MB
-```
-
----
-
-## 📜 Licensing & Acknowledgements
-
-MKR Music is licensed under the **GNU General Public License v3.0 (GPLv3)**.
-Source repository: [https://github.com/mkr-infinity/mkr-music](https://github.com/mkr-infinity/mkr-music)
-Author: `@mkr-infinity`
-
-In accordance with GPLv3:
-- AnF maintains complete attribution and source references.
-- Integration scripts and modules remain fully transparent and open source.
+- Do not copy, translate or closely paraphrase MKR Music source, including Kotlin to TypeScript ports, regex lists and other tables.
+- Do not vendor, clone or bundle MKR Music into any AnF build. Shipping GPL code would require relicensing the app.
+- When an MKR feature is worth having, describe the behaviour you want and implement it independently against public specifications.
