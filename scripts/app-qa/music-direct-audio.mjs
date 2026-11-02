@@ -26,7 +26,7 @@ try{
 
  // 2. Rust refuses a page: the message says so and the success text is not shown.
  await direct.fill('https://cdn.example.com/page');await page.getByRole('button',{name:'Play URL',exact:true}).click();
- await page.getByText(/did not return audio/).first().waitFor();assert.doesNotMatch(await notice(),/Playing:/);
+ await page.getByText(/not audio, so it was not played or saved/).first().waitFor();assert.doesNotMatch(await notice(),/Playing:/);
 
  // 3. Save Offline needs Online lookups, then stores the Rust download.
  await direct.fill('https://cdn.example.com/a/song.mp3');await page.getByRole('button',{name:'Save Offline',exact:true}).click();

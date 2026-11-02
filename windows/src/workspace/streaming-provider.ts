@@ -43,6 +43,8 @@ export function describeStreamError(err: unknown): string {
   if (err instanceof StreamResolutionError) return err.message;
   const text = err instanceof Error ? err.message : String(err);
   if (/Online lookups are off/i.test(text)) return text;
+  // The desktop download (Rust safe_fetch_audio) refuses pages and other non-audio answers with this sentence.
+  if (/did not return audio/i.test(text)) return NOT_AUDIO_MESSAGE;
   return 'Could not play that link: ' + text.replace(/^Error:\s*/, '');
 }
 

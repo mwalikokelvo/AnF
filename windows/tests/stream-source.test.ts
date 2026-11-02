@@ -1,6 +1,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { describeStreamError, NOT_AUDIO_MESSAGE } from '../src/workspace/streaming-provider.js';
 import { mediaSrcAllows, needsRustFetch, loadRemoteAudio, clearRemoteAudioCache } from '../src/workspace/stream-source.js';
 
 const conf = JSON.parse(readFileSync(new URL('../src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
@@ -43,4 +44,9 @@ test('loadRemoteAudio passes the Rust refusal text through and caches nothing on
   await assert.rejects(loadRemoteAudio('https://cdn.example.com/page'), /did not return audio/);
   await assert.rejects(loadRemoteAudio('https://cdn.example.com/page'), /did not return audio/);
   assert.equal(n, 2);
+});
+
+test('the desktop download refusal of a page reads like the browser one', () => {
+  assert.equal(describeStreamError(new Error('That address did not return audio.')), NOT_AUDIO_MESSAGE);
+  assert.match(describeStreamError(new Error('The server answered 404 Not Found.')), /^Could not play that link: The server answered 404/);
 });
