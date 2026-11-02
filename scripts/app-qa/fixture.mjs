@@ -18,11 +18,23 @@ export async function go(page,view){
   await page.locator(`[data-view="${view}"]`).click();
   await page.locator(`#panel-${view}`).waitFor({state:'visible'});
 }
+// Test-only fictional tracks with a synthetic 10 s WAV, written to the library database. Reload afterwards.
+export async function seedTracks(page){
+  await page.evaluate(async()=>{
+    const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('coucou-audio',2);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+    const titles=['Quiet Hours','City Signals','Morning Light'],artists=['Lina Vale','Theo Marks','Elise Monroe'];
+    const bytes=new ArrayBuffer(44+16000*10),view=new DataView(bytes),text=(at,s)=>Array.from(s).forEach((c,i)=>view.setUint8(at+i,c.charCodeAt(0)));
+    text(0,'RIFF');view.setUint32(4,bytes.byteLength-8,true);text(8,'WAVE');text(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,8000,true);view.setUint32(28,16000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);text(36,'data');view.setUint32(40,bytes.byteLength-44,true);
+    const tx=db.transaction('tracks','readwrite');
+    for(let i=0;i<3;i++)tx.objectStore('tracks').put({id:'qa-'+i,name:titles[i]+'.wav',title:titles[i],artist:artists[i],album:'QA',created:100-i,blob:new Blob([bytes],{type:'audio/wav'}),duration:10});
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();
+  });
+}
 export async function start(){
   const conf=JSON.parse(await readFile(path.join(root,'windows/src-tauri/tauri.conf.json'),'utf8'));
   const csp=conf.app.security.csp;
   const base=path.resolve(process.env.DIST_DIR||path.join(root,'windows/dist'));
-  const server=createServer(async(req,res)=>{try{const file=path.resolve(base,decodeURIComponent(new URL(req.url,'http://x').pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');if(file.endsWith('.html'))res.setHeader('Content-Security-Policy',csp);res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
+  const server=createServer(async(req,res)=>{if(req.url==='/favicon.ico'){res.statusCode=204;return res.end();}try{const file=path.resolve(base,decodeURIComponent(new URL(req.url,'http://x').pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');if(file.endsWith('.html'))res.setHeader('Content-Security-Policy',csp);res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{}),args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
   const problems=[];
@@ -48,6 +60,7 @@ export async function start(){
     const page=await context.newPage();
     page.on('console',m=>{if(m.type()==='error')problems.push('console.error: '+m.text())});
     page.on('pageerror',e=>problems.push('pageerror: '+e.message));
+    page.on('response',r=>{if(r.status()>=400)problems.push(`http ${r.status()}: ${r.url()}`)});
     page.on('requestfailed',r=>problems.push('requestfailed: '+r.url()));
     await page.goto(`http://127.0.0.1:${server.address().port}/workspace.html`);
     await page.locator('[data-view="home"]').waitFor({state:'attached'});

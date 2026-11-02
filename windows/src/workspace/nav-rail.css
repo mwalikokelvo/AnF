@@ -54,6 +54,8 @@
   .workspace-layout.has-glass-rail .workspace-header{position:static;flex:none}
   .workspace-layout.has-glass-rail .panel-host{flex:none;overflow:visible}
   .workspace-layout.has-glass-rail .activity-bar{position:sticky;bottom:0;margin-top:auto;z-index:5}
+  /* The column now ends above the bottom bar, so the docked player only needs its own height (74px + gap) of clearance; the sticky status bar rests on that padding. */
+  body.has-glass-rail.has-music-player .workspace-layout.has-glass-rail>main.workspace-content,body.has-glass-rail.has-native-music-player .workspace-layout.has-glass-rail>main.workspace-content{padding-bottom:84px}
   body.has-glass-rail .music-player:not(.music-full-player){left:16px;right:16px;bottom:92px}
   body.has-glass-rail.has-music-player .workspace-content,body.has-glass-rail.has-native-music-player .workspace-content{padding-bottom:180px}
 }

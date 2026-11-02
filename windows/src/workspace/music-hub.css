@@ -982,6 +982,16 @@ body:has(#app) .native-music-source{display:flex}
 }
 /* The pill's display:grid!important must not defeat [hidden]: with no track loaded the empty player used to sit over every view. */
 .music-player[hidden]:not(.music-full-player){display:none!important}
+/* At 1200px and below the extras column is hidden (legacy rule above), but the pill still reserved its grid column and the now-playing
+   title shrank to 2px. Drop that column, hide the decorative bars, tighten the transport, and below 900px move Like to the full player. */
+@media(min-width:768px) and (max-width:1200px){
+  .music-player:not(.music-full-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr) !important;gap:14px !important;padding:10px 18px !important}
+  .music-player:not(.music-full-player) .music-controls{gap:6px}
+}
+@media(max-width:1200px){.music-player:not(.music-full-player) .music-visualizer-mini{display:none}}
+@media(max-width:900px){.music-player:not(.music-full-player) .music-now>button:not(.music-now-info){display:none}}
+/* Bottom-bar layout (under 768px): span the window and sit above the bar (nav-rail.css asks for bottom:92px but loses to the pill's !important), instead of the 280-380px of the desktop width formula overlapping the bar. */
+@media(max-width:767px){.music-player:not(.music-full-player){width:calc(100vw - 32px) !important;bottom:92px !important;grid-template-columns:minmax(0,1fr) auto !important;gap:12px !important;padding:10px 14px !important}}
 .music-player:not(.music-full-player):hover {
   box-shadow: 0 24px 56px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
 }
