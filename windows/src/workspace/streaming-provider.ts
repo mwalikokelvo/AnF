@@ -986,11 +986,15 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const abItems = abRes.status === 'fulfilled' ? abRes.value : [];
 
     const merged: StreamTrackMetadata[] = [];
+    const seenIds = new Set<string>();
+    const add = (t: StreamTrackMetadata | undefined) => {
+      if (t && merged.length < limit && !seenIds.has(t.id)) { seenIds.add(t.id); merged.push(t); }
+    };
     const maxLen = Math.max(ytItems.length, spItems.length, abItems.length);
     for (let i = 0; i < maxLen; i++) {
-      if (spItems[i] && merged.length < limit) merged.push(spItems[i]);
-      if (ytItems[i] && merged.length < limit) merged.push(ytItems[i]);
-      if (abItems[i] && merged.length < limit) merged.push(abItems[i]);
+      add(spItems[i]);
+      add(ytItems[i]);
+      add(abItems[i]);
     }
 
     return merged.slice(0, limit);
