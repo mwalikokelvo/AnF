@@ -152,7 +152,7 @@ fn main() -> Result<(), String> {
     let restored:String=recovered.query_row("SELECT json FROM projects WHERE id=?1",params![PROJECT_ID],|r|r.get(0)).map_err(|e|e.to_string())?;
     if restored!=loaded {return Err("Recovery round trip changed the project".into());}
     drop(recovered);
-    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let digest = sha256_hex(&bytes);
     let meta = format!(
         "AnF vault fixture v1\n\
          file: {}\n\
@@ -173,6 +173,17 @@ fn main() -> Result<(), String> {
     println!("wrote {}", meta_path.display());
     println!("sha256 {digest}");
     Ok(())
+}
+
+/// Lowercase hex SHA-256. Explicit encoding (not `{:x}`) so output stays
+/// byte-identical across sha2 releases.
+fn sha256_hex(data: impl AsRef<[u8]>) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(64);
+    for b in Sha256::digest(data.as_ref()) {
+        write!(out, "{b:02x}").expect("write to String");
+    }
+    out
 }
 
 #[cfg(test)]
@@ -200,5 +211,21 @@ mod tests {
         let db = committed();
         db.execute_batch(&format!("PRAGMA key=\"x'{}'\";", "ff".repeat(32))).unwrap();
         assert!(db.query_row("SELECT count(*) FROM projects", [], |r| r.get::<_, i64>(0)).is_err());
+    }
+
+    #[test]
+    fn sha256_hex_matches_known_vectors() {
+        assert_eq!(
+            sha256_hex(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_hex("abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            sha256_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        );
     }
 }

@@ -1,5 +1,6 @@
 /** Podcast subscriptions via RSS. Substack and Catholic Answers are first-class patterns. */
 import type { AudioTrack } from './audio-library';
+import { hasSafeFetch, safeFetchAudio, safeFetchText } from './safe-fetch';
 
 export type EpisodeDownloadStatus = 'none' | 'downloading' | 'downloaded' | 'error';
 
@@ -245,9 +246,15 @@ export async function downloadPodcastEnclosure(
 ): Promise<AudioTrack> {
   saveEpisodeState(episode.id, { downloadStatus: 'downloading' });
   try {
-    const res = await fetch(episode.audioUrl);
-    if (!res.ok) throw Error(`Failed to download podcast audio (${res.status})`);
-    const blob = await res.blob();
+    let blob: Blob;
+    if (hasSafeFetch()) {
+      // Desktop: Rust fetches it (https, public hosts only, size capped); the CSP does not allow arbitrary hosts.
+      blob = await safeFetchAudio(episode.audioUrl, episode.enclosureType || 'audio/mpeg');
+    } else {
+      const res = await fetch(episode.audioUrl);
+      if (!res.ok) throw Error(`Failed to download podcast audio (${res.status})`);
+      blob = await res.blob();
+    }
     const trackId = 'podcast:' + episode.id;
 
     const track: AudioTrack = {
@@ -293,7 +300,7 @@ export async function fetchFeed(url: string): Promise<PodcastFeed> {
 }
 
 async function fetchFeedText(url: string): Promise<string> {
-  const bridge = (window as unknown as { AnFAndroid?: AndroidBridge }).AnFAndroid;
+  const bridge = typeof window === 'undefined' ? undefined : (window as unknown as { AnFAndroid?: AndroidBridge }).AnFAndroid;
   if (bridge?.fetchRss) {
     return new Promise((resolve, reject) => {
       const id = String(Date.now());
@@ -307,11 +314,15 @@ async function fetchFeedText(url: string): Promise<string> {
       catch (e) { reject(e instanceof Error ? e : Error('Native feed fetch failed.')); }
     });
   }
+  if (hasSafeFetch()) {
+    // Desktop app: the CSP blocks arbitrary hosts, so Rust fetches the feed. Its error text is already user-facing.
+    return (await safeFetchText(url, 'feed')).body;
+  }
   try {
     const response = await fetch(url);
     if (!response.ok) throw Error(`Feed request failed (${response.status}).`);
     return await response.text();
   } catch {
-    throw Error('Could not load that feed. On Android the next build can fetch it natively. On desktop, the feed may block browser requests — try the direct /feed URL.');
+    throw Error('Could not load that feed. On Android the next build can fetch it natively. In a plain browser, the feed may block cross-site requests — try the direct /feed URL.');
   }
 }
