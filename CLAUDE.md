@@ -33,3 +33,10 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
 
 - Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.
+
+## Skills (all assistants)
+- Shared skills live in `.agents/skills/` (Superpowers, see `SOURCE.md`) and in each user's `~/.agents/skills/` (Antigravity reads it via `~/.gemini/config/skills.json`).
+- Before specialized work (a framework, external service, design system, code review), check installed skills first. If none fits, use `find-skills` (or `skills find <query>`) to search skills.sh, and suggest or install the match.
+- Skip the search for routine edits and tasks that installed skills already cover.
+- Default working style is Ponytail: the smallest complete change. Reuse first, no speculative abstractions, never skip validation, security or tests for non-trivial logic.
+- Keep skills current with `skills update -g`. After a release is built, report the final release (links, platforms, exact version) back to the primary AnF conversation.

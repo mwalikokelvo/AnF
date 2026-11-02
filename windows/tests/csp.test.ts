@@ -18,6 +18,7 @@ test('CSP has no loopback connect-src: OCR goes through the Rust ocr_request com
   for (const key of ['csp', 'devCsp']) {
     const text: string = conf.app.security[key];
     assert.ok(!/127\.0\.0\.1|localhost:(8000|3900)|\[::1\]/.test(text), `${key} must not allow OCR loopback ports`);
+    for (const part of text.split(/[\s;]+/)) assert.ok(!['https:', 'http:', '*', 'wss:'].includes(part), `${key} bare source ${part}`);
   }
 });
 

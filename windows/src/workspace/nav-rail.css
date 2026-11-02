@@ -34,9 +34,9 @@
   .glass-rail .workspace-navigation button[aria-current=page]{background:color-mix(in srgb,var(--tint, var(--surface)) 80%,transparent);border-color:color-mix(in srgb,var(--accent) 30%,transparent);color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,0.18)}
   .glass-rail .workspace-navigation button[aria-current=page]::before{content:'';position:absolute;left:calc(-1 * var(--rail-pad));top:50%;width:4px;height:22px;transform:translateY(-50%);border-radius:0 4px 4px 0;background:var(--accent);box-shadow:0 0 10px var(--accent)}
   .glass-rail[data-rail=collapsed] .workspace-navigation button[aria-current=page]{box-shadow:none}
-  /* The docked music player starts after the closed rail. */
-  body.has-glass-rail .music-player:not(.music-full-player){left:calc(var(--rail-closed,68px) + 42px)}
-  body.has-glass-rail[data-rail-pinned=true] .music-player:not(.music-full-player){left:calc(var(--rail-open,248px) + 42px)}
+  /* The floating music pill is centred on the window but never starts under the rail, open (hover/focus) or pinned:
+     the rail's left edge (14px) + open width + a 14px gap. It keeps its centred position wherever that already clears. */
+  body.has-glass-rail .music-player:not(.music-full-player){left:max(50%,calc(var(--rail-open,248px) + 28px + min(calc(100vw - 320px),1140px) / 2))!important}
 }
 
 @media(max-width:767px){
