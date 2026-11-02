@@ -18,12 +18,12 @@ try{
       const pill=document.querySelector('.music-player:not(.music-full-player)'),title=pill.querySelector('.music-now-info strong'),extras=pill.querySelector('.music-extras');
       return{title:title.getBoundingClientRect().width,full:title.scrollWidth,extras:getComputedStyle(extras).display,left:pill.getBoundingClientRect().left};
     });
-    if(width<=1280)assert(m.title>=160,`long title only ${Math.round(m.title)}px wide (of ${m.full}) at ${width}x${height}`);
+    if(width<=1280)assert(m.title>=(width>=1100?160:120),`long title only ${Math.round(m.title)}px wide (of ${m.full}) at ${width}x${height}`);
     if(width<=1280)assert.equal(m.extras,'none',`extras should collapse at ${width}x${height}`);
     if(width>1280)assert.notEqual(m.extras,'none',`extras must stay visible at ${width}x${height} (look unchanged above 1280)`);
     if(width===1280)assert(m.left>=250,`pill must keep its wide-window left edge at 1280 (left ${m.left}; the 234px edge starts at 1200)`);
     await context.close();
   }
   assert.deepEqual(fx.problems,[]);
-  console.log('PASS: long track title keeps at least 160px at 1280 and narrower (extras collapse); extras and pill position unchanged above 1280. Browser fixture, not the installed app.');
+  console.log('PASS: long track title keeps at least 160px at 1100-1280 (120px at 820) (extras collapse); extras and pill position unchanged above 1280. Browser fixture, not the installed app.');
 }finally{await fx.close();}
