@@ -12,12 +12,14 @@ mod claude;
 mod local_ai;
 mod projects;
 mod vault;
+mod hashing;
 mod sync_data;
 mod local_link;
 mod reader;
 mod workspace;
 mod book;
 mod web_search;
+mod safe_fetch;
 mod workspace_commands;
 use workspace_commands::*;
 mod files;
@@ -467,6 +469,7 @@ pub fn run() {
             addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,updates::update_check,
             audio_native::audio_convert,audio_native::audio_conversion_cancel,
             music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
+            safe_fetch::command::safe_fetch_text,safe_fetch::command::safe_fetch_audio,
             boot,
             save_settings,
             set_collapsed,

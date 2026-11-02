@@ -2,27 +2,35 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `52ba24d`.
+Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `3ad343c` (PR #60 merged).
 
 ## Status of every line of work
 
 | Line | Where | Version | State |
 |---|---|---|---|
-| GitHub `main` | github.com/mwalikokelvo/AnF `main` (52ba24d) | 0.1.47 | Source of truth. Contains the v0.1.47 merge (PR #51), security hardening (#52) and packaging hardening (#53). The macOS app keeps its own version (0.1.4). |
-| Superpowers skills | `claude/superpowers-skills` (PR #49, open) | n/a | Shared skills in `.agents/skills/`. Open, not merged. |
-| Open stale PRs | #8 dependabot `sha2`; #2 `codex/downloadable-releases` | n/a | See the triage section below. |
+| GitHub `main` | github.com/mwalikokelvo/AnF `main` (3ad343c) | 0.1.47 | Source of truth. Contains the v0.1.47 merge (PR #51), security hardening (#52), packaging hardening (#53), Superpowers skills (#49), sha2 0.11 (#62), streaming URL fix (#64), Rust `safe_fetch` (#55), Android emulator smoke CI (#58) and the music-bar layout fix (#60). The macOS app keeps its own version (0.1.4). |
+| Superpowers skills | `claude/superpowers-skills` (PR #49) | n/a | Merged into main. |
+| Open PRs | #56, #57, #61, #63, #54, #59, #2 | n/a | Not merged. #59 (`fix/lyrics-clean-room`) comes from another assistant and is unreviewed by Claude. See Open items. |
+| Stale PR | #2 `codex/downloadable-releases` | n/a | See the triage section below. (#8 dependabot `sha2` is closed; superseded by #62.) |
 | User's local copy | user's PC | 0.1.21 | Older than main; not authoritative. |
 
 Nothing is released. No GitHub release was published; build workflows only produce review artifacts.
 
-## What PRs #48-#53 did (all merged except #49)
+## What the merged PRs did (#48-#53, #55, #58, #60, #62, #64, #49)
 
 - #48: MKR Music lyrics provider and multi-LLM reconcile (Gemini/Antigravity line).
-- #49: Superpowers skills v7.0.1 for all assistants. Still open.
+- #49: Superpowers skills v7.0.1 for all assistants. Merged.
 - #50: v0.1.47 integration branch (Antigravity wip snapshot) plus the first shared HANDOFF.md.
 - #51: merged v0.1.47 into `main` (domain reorg of `windows/src/workspace/*`, removal of stale duplicate domain directories and superseded scripts, single-pass HTML tag scanner in the ZIM reader).
 - #52: security hardening for v0.1.47 (OCR, CSP, themes, opt-in lookups, local AI labels).
 - #53: hardened `scripts/package-release.py` and corrected `ARCHITECTURE.md`.
+- #55: Rust `safe_fetch` for user-entered podcast feeds and episodes (public-IP and redirect policy).
+- #58: CI emulator smoke test for the debug APK (install, launch, screenshot).
+- #60: floating music player kept clear of the sidebar.
+- #62: sha2 0.10 to 0.11 with explicit hex encoding (supersedes #8).
+- #64: pasted YouTube links resolved through allow-listed instances; non-audio responses refused.
+
+Merged on main so far: #49, #51, #52, #53, #55, #58, #60, #62, #64 (checked with the GitHub API and `git log origin/main`). Still open when this was written: #56, #57, #61, #63, #54, plus #59 and #2.
 
 ## Verification state of 0.1.47
 
@@ -34,14 +42,15 @@ Verified (Linux container and GitHub CI):
 - E2E (`windows/scripts/test-e2e.mjs`): 138 pass, 0 fail.
 - `node scripts/check-release.mjs`: 11 release regression checks pass.
 - CI Linux and Windows builds, including Rust tests, are green (compiled and tested in CI).
-- Android CI run 41277276482 built the unsigned and debug APKs (compiled only; the release APK is unsigned).
+- Android CI run 41277276482 built the unsigned and debug APKs (compiled only). Run 41347092353 later built owner-signed APKs (compiled only).
+- Latest local run on the open PR branch for #63 (main merged in): `tsc` clean, 176 unit pass / 0 fail, e2e 0 fail, 11 release checks pass.
 
 NOT verified:
-- Nobody has installed or launched the Windows installer, the portable build or either Android APK. No installed verification exists for 0.1.47 on any platform.
+- Installed verification is thin: the Windows 0.1.47 portable build was smoke-launched on one PC (UI level only). The Windows installer was built but never installed. The Android APKs (run 41347092353, owner-signed per the owner) were never installed on a device; only the debug APK's emulator smoke passed in CI.
 - The Windows review build files were delivered in chat only, not through a release or this repository: setup sha256 `639a4d19...`, portable `075e8f27...` (prefixes only; take the full sums from the original delivery). They were built from the tree BEFORE the #52/#53 fixes, so they do not correspond to current `main`. Treat them as a review build, not a verified release.
 - No Android 16 KB alignment result, signed APK or sums have been recorded here for current `main`.
 
-## Stale branch and PR triage (against `main` 52ba24d, 2026-11-01)
+## Stale branch and PR triage (computed against `main` 52ba24d, 2026-11-01; main has since moved to 3ad343c)
 
 "Ahead/behind" is commits not in main / commits main has that the branch lacks. No branch was deleted or changed.
 
@@ -54,12 +63,9 @@ NOT verified:
 | `codex/windows-release-verify` | 6 / 289 | Windows/Android/Linux/macOS reproducible release build prep, FFmpeg pin, Linux runner disk space, PDF bytes on Windows. | All 6 commits are patch-equivalent to commits already on main. | Yes, 42 files (very old base). | Close. |
 | `integration/preserve-v0141-pr47` | 0 / 99 | None. | Fully contained in main (0 commits ahead). | None. | Close (or keep only as a historical pointer). |
 | PR #2 `codex/downloadable-releases` | 67 / 289 | 36 commits not patch-equivalent to main: Android music preview isolation and host lifecycle (`002ca93`), ARM64 16 KB alignment verification, local speech worker isolation, OmniRoute lifecycle (0.1.32 snapshot), specialist protocol docs, app-QA scripts. | 31 commits are patch-equivalent to main. | Yes, 266 files (330 files changed). | Do not merge as is. Cherry-pick selectively if the Android music preview or speech worker work is wanted; otherwise close the PR. Last updated 2026-10-25. |
-| PR #8 dependabot `sha2` 0.10 to 0.11 | 1 / 198 | One-line `crates/anf-vault/Cargo.toml` bump. | No. | None (but the code does not compile; see below). | Do not merge as is. Needs the follow-up below, or close and let dependabot reopen. |
+| PR #8 dependabot `sha2` 0.10 to 0.11 | 1 / 198 | One-line `crates/anf-vault/Cargo.toml` bump. | Superseded by merged #62. | n/a | Closed. |
 
-PR #8 needs, verified by building `crates/anf-vault` on the PR branch with `cargo update -p sha2` (sha2 0.11.1 resolved):
-- `cargo update -p sha2` inside `crates/anf-vault` (the branch predates the committed `Cargo.lock`; main's lock pins 0.10.9, so the lock must change too).
-- Code change: `crates/anf-vault/src/lib.rs` lines 116 and 130 use `format!("{:x}", Sha256::digest(..))`. In sha2 0.11 the digest output (`Array<u8, _>`) no longer implements `LowerHex`, so the crate fails to compile with two E0277 errors. Replace with explicit hex encoding (for example `.iter().map(|b| format!("{b:02x}")).collect::<String>()`, or the `hex` crate). The output must stay byte-identical because it feeds revisions and conflict ids; add a test against known values from the vault fixture.
-- Other `sha2 = "0.10"` users are separate and unaffected unless bumped too: `_core/Cargo.toml`, `windows/src-tauri/Cargo.toml`, `contracts/tools/vault-fixture/Cargo.toml` (0.10.8). Keep versions consistent or accept two sha2 versions in the tree.
+PR #8 is closed: #62 did the sha2 0.11 change (see the dated entry below).
 
 Other remote branches not triaged (all recent or backups, left alone): `backup/antigravity-*`, `base51`, `claude/anf-v0147-integration`, `merge/v0.1.47-into-main`, `fix/security-v0147`, `codex/af-checkpoint-2026-10-24`, `codex/android-music-preview-0.1.21`, `codex/app-downloads-0.1.19`/`0.1.20`, `release/0.1.22`, `feat/mkr-music-integration`. Several are now merged into main and are candidates for deletion by the user.
 
@@ -90,11 +96,23 @@ Other remote branches not triaged (all recent or backups, left alone): `backup/a
 
 ## Open items
 
-1. Install and launch verification: nobody has run the Windows installer/portable build or either Android APK for 0.1.47. Build from current `main` (after #52/#53), install on a real Windows machine and an Android device, and record the result, full SHA-256 sums and download links here.
-2. Rebuild the Windows review files from current `main`; the delivered setup (`639a4d19...`) and portable (`075e8f27...`) predate the fixes.
-3. Android: the release APK is unsigned; signing needs the owner's key via the repository secrets described in `docs/RELEASE-BUILDS.md`. Run the 16 KB alignment check (`zipalign -c -P 16 4`) on the APKs from run 41277276482 or a newer run.
-4. Find and fix or document the 3 of 147 unit tests that do not pass.
-5. PR #49 (Superpowers skills): review and decide.
-6. PR #8: apply the sha2 0.11 changes above or close it. PR #2: close or cherry-pick.
-7. Salvage from `codex/marketplace-vault-recovery-2026-10-25` (vault fixture first), then the user may delete the stale branches listed in the triage table.
-8. When a release is chosen, workers report links, platforms and exact version to the primary AnF conversation and update this file.
+1. Install and launch verification: nobody has installed the Windows installer or either Android APK for 0.1.47. The Windows 0.1.47 portable build was smoke-launched on one PC (UI level only). The installer was built but never installed. Record the install result, full SHA-256 sums and download links here.
+2. Android: run 41347092353 (workflow "Android packages", `success`, built from main at `5e1160a`, before #55/#58/#60/#62/#64) produced APKs signed by the owner (per the owner; signature not re-checked here). They are NOT installed anywhere. The emulator smoke of the debug APK (install, launch, screenshot) passed in CI (workflow added in #58). Run the 16 KB alignment check (`zipalign -c -P 16 4`) and record sums.
+3. Rebuild release files from current `main`; the earlier chat-delivered review build predates the fixes.
+4. Open PRs, none merged by me: #56 (OCR private loopback port, conflicts with main), #57 (builder runbook), #61 (vault fixture recovery, conflicts with main), #63 (verified local-AI download), #54 (this file), #59 (`fix/lyrics-clean-room`, lyrics clean-room rewrite from another assistant: exists and has NOT been reviewed by Claude), #2 (old codex branch, see triage). Merge order matters: #56 and #63 both edit `windows/src-tauri/src/lib.rs`, so whichever merges second may need another conflict resolution; #54, #61, #63 all touch HANDOFF.md.
+5. Check the unit-test baseline again (the "3 of 147 not passing" figure is from before the recent merges; the latest runs on the PR branches pass fully, see Verification).
+6. Salvage from `codex/marketplace-vault-recovery-2026-10-25` (vault fixture first; PR #61 does part of this), then the user may delete the stale branches listed in the triage table.
+7. When a release is chosen, workers report links, platforms and exact version to the primary AnF conversation and update this file.
+
+## 2026-11-01 Claude: sha2 0.10 to 0.11 (supersedes dependabot PR #8)
+
+Branch `fix/sha2-0.11`. `format!("{:x}", Sha256::digest(..))` does not compile on sha2 0.11 (E0277), so every use now goes through an explicit lowercase-hex helper `sha256_hex` (anf-vault, `_core`, vault-fixture, `windows/src-tauri/src/hashing.rs`). Keyring credential id, sync revision/conflict ids and add-on/file fingerprints are byte-identical (pinned by tests against NIST vectors and golden values produced by the 0.10 code).
+
+- tested on Linux (`cargo test --locked`): `crates/anf-vault` 7 pass, `_core` 14 pass, `contracts/tools/vault-fixture` 1 pass (no committed lock there).
+- Tauri crate (`windows/src-tauri`): NOT compiled locally (gdk/glib missing). The new `hashing.rs` module was tested standalone against sha2 0.11 (2 pass). Full crate verification is CI only.
+
+## 2026-11-01 streaming URL resolution fix (branch `fix/streaming-url-resolution`, Claude)
+
+- Music Hub > Streaming: pasted YouTube links (watch, youtu.be, shorts, embed, live, music) are parsed with URL, resolved only through the existing Piped instance list and only when "Online lookups" is on; otherwise the user is told how to enable it. The provider Search box resolves a pasted link instead of searching it as text.
+- Non-audio responses (text/html etc.) are refused before playback and before offline caching; failed resolutions no longer create Recently played / Direct Stream entries; a failed `play()` no longer records the track as recent.
+- Labels: tested on Linux (`npm test`, e2e, tsc, check-release, `scripts/app-qa/streaming-url.mjs` with stubbed network and IPC). NOT tested: live YouTube/Piped resolution, installed Windows app. Existing HTML "Web Audio Stream" items already cached in a user's library are not deleted; they now refuse to play with a message.
