@@ -1,1 +1,1 @@
-PLACEHOLDER_TO_REPLACE
+see /tmp/music-hub.ts
