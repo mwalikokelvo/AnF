@@ -1,1 +1,1 @@
-see /tmp/music-hub.ts
+CONTENT_FROM_FILE_WILL_BE_INSERTED_BY_SYSTEM
