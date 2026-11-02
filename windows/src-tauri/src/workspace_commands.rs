@@ -274,7 +274,7 @@ pub fn workspace_diagnostics(chat: State<Chat>) -> Value {
     };
     let documents = settings::local_dir().join("documents");
     let _ = crate::platform::ensure_private_dir(&documents);
-    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":is_port_open(8000)||is_port_open(3900),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
+    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":target_port().map(|(p,_)|is_port_open(p)).unwrap_or(false),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
 }
 
 #[cfg(test)]
@@ -295,7 +295,7 @@ mod tests {
         assert!(!is_port_open(59997));
     }
     #[test]
-    fn ocr_backend_only_accepts_the_fixed_exe_and_binds_loopback() {
+    fn ocr_backend_only_accepts_the_fixed_exe() {
         let dir = std::env::temp_dir().join(format!("anf-ocr-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -305,11 +305,16 @@ mod tests {
         }
         assert!(ocr_backend_in(&dir).is_none());
         std::fs::write(dir.join(OCR_EXE), b"x").unwrap();
-        let (exe, args, cwd) = ocr_backend_in(&dir).unwrap();
+        let (exe, cwd) = ocr_backend_in(&dir).unwrap();
         assert_eq!(exe, dir.join(OCR_EXE));
         assert_eq!(cwd, dir);
-        assert_eq!(args, ["--host", "127.0.0.1", "--port", "8000"]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+    #[test]
+    fn owned_ocr_args_use_the_ephemeral_loopback_port() {
+        let port = ep::pick_free_port().unwrap();
+        let args = ep::owned_args(port);
+        assert_eq!(args, ["--host", "127.0.0.1", "--port", &port.to_string()]);
     }
     #[test]
     fn ocr_not_found_message_has_no_developer_path() {
@@ -368,7 +373,10 @@ pub async fn workspace_vault_versions(id:String)->Result<Vec<crate::vault::Versi
 #[tauri::command]
 pub async fn workspace_vault_restore(id:String,seq:i64,store:State<'_,projects::Store>)->Result<projects::Project,String>{let store=store.inner().clone();tauri::async_runtime::spawn_blocking(move||{let mut p=crate::vault::version(&id,seq)?;p.id=crate::local_ai::random_key()?;while p.name.len()>149 {p.name.pop();}p.name.push_str(" (restored)");store.save(p)}).await.map_err(|e|e.to_string())?}
 
-static OCR_CHILD: Mutex<Option<std::process::Child>> = Mutex::new(None);
+use crate::ocr_endpoint as ep;
+
+/// The OCR process AnF started itself, with the ephemeral loopback port it was told to bind.
+static OCR_OWNED: Mutex<Option<(std::process::Child, u16)>> = Mutex::new(None);
 
 pub fn is_port_open(port: u16) -> bool {
     use std::net::{SocketAddr, TcpStream};
@@ -384,20 +392,17 @@ const OCR_EXE: &str = "unlimited-ocr.exe";
 #[cfg(not(windows))]
 const OCR_EXE: &str = "unlimited-ocr";
 
-/// Always loopback, never `0.0.0.0` or a name that could resolve elsewhere.
-const OCR_ARGS: [&str; 4] = ["--host", "127.0.0.1", "--port", "8000"];
-
-fn ocr_backend_in(dir: &std::path::Path) -> Option<(std::path::PathBuf, Vec<String>, std::path::PathBuf)> {
+fn ocr_backend_in(dir: &std::path::Path) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
     let candidate = dir.join(OCR_EXE);
     // symlink_metadata: refuse a link that could point outside the OCR folder.
     let meta = std::fs::symlink_metadata(&candidate).ok()?;
     if !meta.is_file() {
         return None;
     }
-    Some((candidate, OCR_ARGS.iter().map(|a| a.to_string()).collect(), dir.to_path_buf()))
+    Some((candidate, dir.to_path_buf()))
 }
 
-fn find_ocr_backend() -> Option<(std::path::PathBuf, Vec<String>, std::path::PathBuf)> {
+fn find_ocr_backend() -> Option<(std::path::PathBuf, std::path::PathBuf)> {
     ocr_backend_in(&settings::local_dir().join("ocr"))
 }
 
@@ -408,82 +413,189 @@ fn ocr_not_found_message() -> String {
     )
 }
 
+/// Port of the OCR child AnF spawned, but only while that child is still running.
+/// A child that lost the bind race to another process has exited, so it is never reported.
+fn owned_port() -> Option<u16> {
+    let mut guard = OCR_OWNED.lock().unwrap();
+    let alive = match guard.as_mut() {
+        Some((child, _)) => matches!(child.try_wait(), Ok(None)),
+        None => return None,
+    };
+    if alive {
+        guard.as_ref().map(|(_, p)| *p)
+    } else {
+        guard.take();
+        None
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
+struct ExternalOcr {
+    #[serde(default)]
+    endpoint: String,
+    /// Exact endpoint the user confirmed. The server is used only while it equals `endpoint`.
+    #[serde(default)]
+    confirmed: String,
+}
+
+fn external_path() -> std::path::PathBuf {
+    settings::local_dir().join("ocr-external.json")
+}
+
+fn load_external() -> ExternalOcr {
+    std::fs::read_to_string(external_path())
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+/// The single place that decides which loopback port the webview's OCR requests may reach.
+fn target_port() -> Option<(u16, &'static str)> {
+    if let Some(p) = owned_port() {
+        return Some((p, "owned"));
+    }
+    let ext = load_external();
+    ep::external_port(&ext.endpoint, &ext.confirmed).map(|p| (p, "external"))
+}
+
+fn ocr_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        // Loopback only: never via a system proxy, never follow a redirect elsewhere.
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(180))
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+async fn probe(port: u16) -> bool {
+    let Ok(client) = ocr_client() else { return false };
+    match client
+        .get(ep::request_url(port, "models"))
+        .timeout(std::time::Duration::from_millis(1500))
+        .send()
+        .await
+    {
+        Ok(r) => r.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+async fn ocr_status_value(message: &str) -> Value {
+    if let Some((port, mode)) = target_port() {
+        let ready = probe(port).await;
+        // Re-check ownership after the probe: an owned child that died meanwhile is not ready.
+        let still = target_port().map(|(p, _)| p) == Some(port);
+        let ready = ready && still;
+        return json!({
+            "mode": mode,
+            "state": if ready { "ready" } else if mode == "owned" { "starting" } else { "unavailable" },
+            "endpoint": ep::endpoint_for(port),
+            "message": message,
+        });
+    }
+    let ext = load_external();
+    if !ext.endpoint.is_empty() && ep::parse_external(&ext.endpoint).is_ok() {
+        return json!({
+            "mode": "external-unconfirmed",
+            "state": "needs-confirmation",
+            "endpoint": ext.endpoint,
+            "message": "A custom OCR server is configured but not confirmed. Documents are not sent to it until you confirm this exact endpoint.",
+        });
+    }
+    json!({"mode": "off", "state": "off", "message": message})
+}
+
+/// Current OCR state. The endpoint is informational (shown to the user); the webview never connects to it.
+#[tauri::command]
+pub async fn ocr_status() -> Result<Value, String> {
+    Ok(ocr_status_value("").await)
+}
+
+/// Forward one OpenAI-compatible request to the owned (or confirmed external) loopback OCR server.
+/// The webview CSP therefore needs no loopback source, and a process squatting a well-known port
+/// is never contacted.
+#[tauri::command]
+pub async fn ocr_request(method: String, path: String, body: Option<String>) -> Result<Value, String> {
+    if !ep::is_allowed_request(&method, &path) {
+        return Err("OCR request not allowed".into());
+    }
+    let (port, _) = target_port().ok_or_else(|| "OCR service is not running".to_string())?;
+    let client = ocr_client()?;
+    let url = ep::request_url(port, &path);
+    let req = if method == "POST" {
+        client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body.unwrap_or_default())
+    } else {
+        client.get(url)
+    };
+    let resp = req.send().await.map_err(|e| format!("OCR request failed: {e}"))?;
+    if target_port().map(|(p, _)| p) != Some(port) {
+        return Err("OCR service changed during the request".into());
+    }
+    let status = resp.status().as_u16();
+    let text = resp.text().await.map_err(|e| format!("OCR response failed: {e}"))?;
+    Ok(json!({"status": status, "body": text}))
+}
+
+/// Configure (or clear with `endpoint = None`) a user-run external OCR server.
+/// Passing `confirm = true` is the explicit user confirmation of exactly this endpoint.
+#[tauri::command]
+pub async fn ocr_configure_external(endpoint: Option<String>, confirm: bool) -> Result<Value, String> {
+    let cfg = match endpoint {
+        None => ExternalOcr::default(),
+        Some(raw) => {
+            let canonical = ep::canonical_external(&raw)?;
+            let confirmed = if confirm { canonical.clone() } else { String::new() };
+            ExternalOcr { endpoint: canonical, confirmed }
+        }
+    };
+    let path = external_path();
+    if let Some(parent) = path.parent() {
+        let _ = crate::platform::ensure_private_dir(parent);
+    }
+    std::fs::write(&path, serde_json::to_vec(&cfg).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("Could not save OCR setting: {e}"))?;
+    Ok(ocr_status_value("").await)
+}
+
 #[tauri::command]
 pub async fn start_ocr_service() -> Result<Value, String> {
-    // 1. Check if already responding on port 8000 (primary) or 3900 (fallback)
-    if is_port_open(8000) {
-        return Ok(json!({
-            "status": "ready",
-            "port": 8000,
-            "endpoint": "http://127.0.0.1:8000/v1",
-            "message": "OCR service is already running on port 8000."
-        }));
+    // 1. Already running (owned child, or a confirmed external server)?
+    if target_port().is_some() {
+        return Ok(ocr_status_value("OCR service is already running.").await);
     }
-    if is_port_open(3900) {
-        return Ok(json!({
-            "status": "ready",
-            "port": 3900,
-            "endpoint": "http://127.0.0.1:3900/v1",
-            "message": "OCR service is already running on port 3900."
-        }));
-    }
+    // An unconfirmed external server is never used and never replaced silently.
+    // Without one, start our own below.
 
-    // 2. Check if a previously spawned child is still running and starting up
-    {
-        let mut guard = OCR_CHILD.lock().unwrap();
-        if let Some(child) = guard.as_mut() {
-            if let Ok(None) = child.try_wait() {
-                // Alive and initializing
-            } else {
-                guard.take();
-            }
-        }
-    }
+    // 2. Locate the fixed backend binary
+    let (exe, working_dir) = find_ocr_backend().ok_or_else(ocr_not_found_message)?;
 
-    // 3. Locate backend binary or script
-    let (exe, args, working_dir) = find_ocr_backend().ok_or_else(ocr_not_found_message)?;
-
-    // 4. Spawn backend daemon without console window
+    // 3. Let the OS pick a free loopback port and spawn the backend on exactly that port
+    let port = ep::pick_free_port().map_err(|e| format!("No free loopback port: {e}"))?;
     let mut cmd = std::process::Command::new(&exe);
-    cmd.args(&args)
+    cmd.args(ep::owned_args(port))
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
-
     cmd.current_dir(working_dir);
-
     let child = crate::platform::no_console(&mut cmd)
         .spawn()
         .map_err(|e| format!("Failed to spawn OCR service ({}): {e}", exe.display()))?;
+    *OCR_OWNED.lock().unwrap() = Some((child, port));
 
-    *OCR_CHILD.lock().unwrap() = Some(child);
-
-    // 5. Poll for readiness up to 3 seconds
+    // 4. Poll up to 3 seconds. Readiness requires the child to be alive AND answer /models.
     for _ in 0..6 {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        if is_port_open(8000) {
-            return Ok(json!({
-                "status": "ready",
-                "port": 8000,
-                "endpoint": "http://127.0.0.1:8000/v1",
-                "message": "Unlimited-OCR service started successfully on port 8000."
-            }));
+        if owned_port().is_none() {
+            return Err("OCR service exited during startup (its port may have been taken).".into());
         }
-        if is_port_open(3900) {
-            return Ok(json!({
-                "status": "ready",
-                "port": 3900,
-                "endpoint": "http://127.0.0.1:3900/v1",
-                "message": "Unlimited-OCR service started successfully on port 3900."
-            }));
+        if probe(port).await && owned_port() == Some(port) {
+            return Ok(ocr_status_value("Unlimited-OCR service started successfully.").await);
         }
     }
-
-    Ok(json!({
-        "status": "starting",
-        "port": 8000,
-        "endpoint": "http://127.0.0.1:8000/v1",
-        "message": "Unlimited-OCR service spawned. Initializing models..."
-    }))
+    Ok(ocr_status_value("Unlimited-OCR service spawned. Initializing models...").await)
 }
 

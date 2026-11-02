@@ -11,7 +11,15 @@ test('CSP has no scheme-wide or wildcard sources', () => {
     assert.ok(!['https:', 'http:', '*', 'ws:', 'wss:'].includes(part), `bare source ${part}`);
   }
   const hosts = csp.split(/[\s;]+/).filter(t => /^https?:\/\//.test(t)).map(t => new URL(t.replace('*.', 'wild.')).hostname);
-  assert.ok(!hosts.includes('localhost'), 'OCR must use the explicit 127.0.0.1 loopback');
+  assert.ok(!hosts.includes('localhost'), 'no localhost source');
+});
+
+test('CSP has no loopback connect-src: OCR goes through the Rust ocr_request command', () => {
+  for (const key of ['csp', 'devCsp']) {
+    const text: string = conf.app.security[key];
+    assert.ok(!/127\.0\.0\.1|localhost:(8000|3900)|\[::1\]/.test(text), `${key} must not allow OCR loopback ports`);
+    for (const part of text.split(/[\s;]+/)) assert.ok(!['https:', 'http:', '*', 'wss:'].includes(part), `${key} bare source ${part}`);
+  }
 });
 
 test('CSP keeps the main-branch baseline and enumerates network hosts', () => {
@@ -21,7 +29,7 @@ test('CSP keeps the main-branch baseline and enumerates network hosts', () => {
   }
   const connect = new Set(directive('connect-src'));
   assert.ok(connect.has('ipc:') && connect.has('http://ipc.localhost'));
-  const allowed = new Set(['http://ipc.localhost', 'http://127.0.0.1:8000', 'http://127.0.0.1:3900']);
+  const allowed = new Set(['http://ipc.localhost']);
   for (const src of connect) {
     if (!/^https?:\/\//.test(src) || allowed.has(src)) continue;
     const u = new URL(src.replace('*.', 'wild.'));
