@@ -4,7 +4,8 @@
  */
 import type { AudioTrack } from './audio-library';
 
-import { gatedFetch, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
+import { gatedFetch, ONLINE_LOOKUPS_OFF, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
+import { loadRemoteAudio, needsRustFetch } from './stream-source';
 
 export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url';
 
@@ -114,6 +115,8 @@ export function findBrokenStreamEntries<T extends Parameters<typeof isBrokenStre
  * or policy failure is inconclusive and lets the player's own error handling decide.
  */
 export async function verifyAudioUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  // Desktop, host outside the CSP: fetch() cannot reach it; Rust checks the content type when it downloads.
+  if (needsRustFetch(url)) return;
   let res: Response;
   try {
     res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
@@ -1047,10 +1050,16 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (typeof streamBlobOrUrl === 'string') {
       const safe = safeHttpsUrl(streamBlobOrUrl);
       if (!safe) throw Error('Stream audio must be an https URL.');
-      const res = await gatedFetch(safe);
-      if (!res.ok) throw Error(`Stream audio download failed (${res.status})`);
-      if (!isAudioContentType(res.headers.get('content-type'))) throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
-      blob = await res.blob();
+      if (needsRustFetch(safe)) {
+        // Desktop: the CSP does not allow this host for fetch(); Rust downloads it (audio content types only).
+        if (!onlineLookupsEnabled()) throw new Error(ONLINE_LOOKUPS_OFF);
+        blob = await loadRemoteAudio(safe);
+      } else {
+        const res = await gatedFetch(safe);
+        if (!res.ok) throw Error(`Stream audio download failed (${res.status})`);
+        if (!isAudioContentType(res.headers.get('content-type'))) throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+        blob = await res.blob();
+      }
     } else {
       blob = streamBlobOrUrl;
     }

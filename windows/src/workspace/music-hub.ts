@@ -53,6 +53,7 @@ import {
   type EqPresetName
 } from './audio-dsp';
 import {chapterEndAt,chapterSleepStep} from './sleep-timer';
+import {needsRustFetch,loadRemoteAudio} from './stream-source';
 import './music-hub.css';
 
 // Listening data helpers embedded for local offline tracking
@@ -794,6 +795,21 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }
   const token=++epoch;
   pause();
+  let remote:Blob|undefined;
+  const remoteUrl=!(track.blob&&track.blob.size>0)&&track.streamUrl?safeHttpsUrl(track.streamUrl):undefined;
+  if(remoteUrl&&needsRustFetch(remoteUrl)){
+   // The CSP only lets the audio element load a few hosts; Rust downloads the rest (https, public hosts, audio only).
+   report('Loading audio...');
+   try{remote=await loadRemoteAudio(remoteUrl,track.format||track.blob?.type||'audio/mpeg');}
+   catch(err){
+    if(token!==epoch)return;
+    const msg=describeStreamError(err);
+    setPlaybackState('error',msg);
+    report(msg);
+    return;
+   }
+   if(token!==epoch)return;
+  }
   lastWall=0;
   if(source&&source.startsWith('blob:'))URL.revokeObjectURL(source);
   if(cover&&cover.startsWith('blob:'))URL.revokeObjectURL(cover);
@@ -802,6 +818,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
   if(track.blob&&track.blob.size>0){
    source=URL.createObjectURL(track.blob);
+  }else if(remote){
+   source=URL.createObjectURL(remote);
   }else if(track.streamUrl){
    source=safeHttpsUrl(track.streamUrl)||'';
   }else{
@@ -1215,7 +1233,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
        if(!queue.includes(at.id))queue.push(at.id);
       }
       await select(audioTracks[0],true);
-      report(`Playing ${batch.title} (${batch.tracks.length} tracks queued)`);
+      if(playbackState!=='error')report(`Playing ${batch.title} (${batch.tracks.length} tracks queued)`);
       return;
      }
 
@@ -1237,7 +1255,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       created:Date.now()
      };
      await select(track,true);
-     report('Playing: '+res.track.title);
+     if(playbackState!=='error')report('Playing: '+res.track.title);
     }catch(err){
      report(describeStreamError(err));
     }
