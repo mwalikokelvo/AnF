@@ -52,6 +52,7 @@ import {
   EQ_PRESETS,
   type EqPresetName
 } from './audio-dsp';
+import {chapterEndAt,chapterSleepStep} from './sleep-timer';
 import './music-hub.css';
 
 // Listening data helpers embedded for local offline tracking
@@ -319,9 +320,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const seek=h('input',{type:'range',min:0,max:1,step:.1,value:0,'aria-label':'Music position'}),elapsed=h('span',{text:'0:00'}),total=h('span',{text:'0:00'}),volume=h('input',{type:'range',min:0,max:1,step:.01,value:prefs.volume,'aria-label':'Music volume'});
  const mute=button('Mute volume',()=>{audio.muted=!audio.muted;mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';});
  const speed=h('select',{'aria-label':'Playback speed'},...[.75,1,1.25,1.5,1.75,2].map(n=>h('option',{value:String(n),text:n+'×'})));speed.value=String(prefs.speed);
- const sleep=h('select',{'aria-label':'Sleep timer'},...[['0','Off'],['15','15 min'],['30','30 min'],['45','45 min'],['60','60 min'],['end','End of track']].map(([value,text])=>h('option',{value,text})));
+ const sleep=h('select',{'aria-label':'Sleep timer'},...[['0','Off'],['15','15 min'],['30','30 min'],['45','45 min'],['60','60 min'],['end','End of track'],['chapter','End of chapter']].map(([value,text])=>h('option',{value,text})));
  let sleepTimer:ReturnType<typeof setTimeout>|undefined;
- function armSleep(minutes:number){if(sleepTimer)clearTimeout(sleepTimer);sleepTimer=undefined;if(minutes<=0){report('');return;}sleepTimer=setTimeout(()=>{pause();report('Sleep timer ended playback.');},minutes*60*1000);report('Sleep timer set for '+minutes+' minutes.');}
+ let sleepChapter:{id:string;at:number}|undefined;
+ function armSleep(minutes:number){if(sleepTimer)clearTimeout(sleepTimer);sleepTimer=undefined;sleepChapter=undefined;if(minutes<=0){report('');return;}sleepTimer=setTimeout(()=>{pause();report('Sleep timer ended playback.');},minutes*60*1000);report('Sleep timer set for '+minutes+' minutes.');}
 
  const speedChips=h('div',{class:'music-speed-chips','aria-label':'Playback speed chips'});
  for(const s of [.75,1,1.25,1.5,2]){
@@ -330,9 +332,19 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   speedChips.append(b);
  }
 
+ function applySleep(v:string){
+  if(v==='chapter'){
+   armSleep(0);
+   const at=current?chapterEndAt(current.chapters,audio.currentTime,duration()):null;
+   if(current&&at!==null){sleepChapter={id:current.id,at};report('Sleep timer will stop at end of chapter.');}
+   else{sleep.value='end';report('No chapters in this track. Sleep timer will stop at end of track.');}
+  }else if(v==='end'){sleepChapter=undefined;report('Sleep timer will stop at end of track.');}
+  else armSleep(Number(v));
+  updateChips();
+ }
  const sleepChips=h('div',{class:'music-sleep-chips','aria-label':'Sleep timer chips'});
- for(const [v,label] of [['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m'],['end','End']]){
-  const b=h('button',{type:'button',class:'music-chip'+(sleep.value===v?' active':''),text:label,onclick:()=>{sleep.value=v;if(v==='end'){report('Sleep timer will stop at end of track.');}else{armSleep(Number(v));}updateChips();}});
+ for(const [v,label] of [['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m'],['end','End'],['chapter','Chapter']]){
+  const b=h('button',{type:'button',class:'music-chip'+(sleep.value===v?' active':''),text:label,onclick:()=>{sleep.value=v;applySleep(v);updateChips();}});
   b.dataset.sleep=v;
   sleepChips.append(b);
  }
@@ -1652,7 +1664,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  seek.addEventListener('input',()=>{audio.currentTime=Number(seek.value);paint();});
  volume.addEventListener('input',()=>{audio.volume=prefs.volume=Number(volume.value);save();});
  speed.addEventListener('change',()=>{sample();audio.playbackRate=prefs.speed=Number(speed.value);ensurePreservesPitch(audio, true);resetClock();save();});
- sleep.addEventListener('change',()=>armSleep(Number(sleep.value)));
+ sleep.addEventListener('change',()=>applySleep(sleep.value));
 
  audio.addEventListener('loadstart',()=>setPlaybackState('buffering'));
  audio.addEventListener('waiting',()=>setPlaybackState('buffering'));
@@ -1676,7 +1688,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  });
  audio.addEventListener('ended',()=>{
   setPlaybackState('ended');
-  if(sleep.value==='end'){
+  if(sleep.value==='end'||sleepChapter){
    armSleep(0);
    sleep.value='0';
    report('Sleep timer ended playback at end of track.');
@@ -1718,6 +1730,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  });
  audio.addEventListener('timeupdate',()=>{
+  if(sleepChapter&&sleep.value==='chapter'){
+   if(!current||current.id!==sleepChapter.id){sleepChapter=undefined;sleep.value='0';}
+   else{const step=chapterSleepStep(sleepChapter.at,current.chapters,audio.currentTime,duration());if(step.stop){sleepChapter=undefined;sleep.value='0';pause();report('Sleep timer ended playback at end of chapter.');updateChips();}else sleepChapter.at=step.at;}
+  }
   sample();
   if(audio.currentTime){
    pending=audio.currentTime;
@@ -1745,7 +1761,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   stop,
   suspend:()=>{
    pause();
-   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';}
+   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';}if(sleepChapter){sleepChapter=undefined;sleep.value='0';}
    suspended=true;
    if(fullPlayer.open)fullPlayer.close();
    dock.hidden=true;
