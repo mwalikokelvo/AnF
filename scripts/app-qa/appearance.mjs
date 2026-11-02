@@ -5,22 +5,27 @@ import {readFile,mkdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
+import {go} from './fixture.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const version=JSON.parse(await readFile(path.join(root,'windows/src-tauri/tauri.conf.json'),'utf8')).version;
 const out=path.join(root,`releases/anf-${version}/previews`);await mkdir(out,{recursive:true});
 const types={'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.css':'text/css','.png':'image/png','.wasm':'application/wasm'};
 const server=createServer(async(req,res)=>{
  try{const url=new URL(req.url,'http://localhost'),mobile=url.pathname.startsWith('/android/');
-  const base=path.join(root,mobile?'android/build/assets/web':'windows/dist');
+  const base=mobile?path.join(root,'android/build/assets/web'):path.resolve(process.env.DIST_DIR||path.join(root,'windows/dist'));
   const rel=decodeURIComponent(mobile?url.pathname.slice(9):url.pathname.slice(1));
   const file=path.resolve(base,rel||'workspace.html');if(!file.startsWith(base+path.sep))throw Error('Invalid path');
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');res.end(await readFile(file));
  }catch{res.statusCode=404;res.end('Not found');}
 });await new Promise(r=>server.listen(4180,'127.0.0.1',r));
-const browser=await chromium.launch({executablePath:process.env.CHROMIUM_BIN||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+// Same browser choice as fixture.mjs: CHROMIUM_BIN=<path>, else the msedge channel. Previews go to PREVIEW_DIR (default: releases/, which is git-ignored).
+const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{channel:'msedge'}),headless:true,args:['--no-sandbox']});
 const errors=[];let checks=0;
 try{
  for(const platform of ['windows','android']){
+  // The Android pass needs the packaged web assets (scripts/build-android.mjs); without them only the Windows pass runs.
+  if(platform==='android'&&!existsSync(path.join(root,'android/build/assets/web/index.html'))){console.log('SKIP android: android/build/assets/web is not built');continue;}
   const context=await browser.newContext({viewport:{width:platform==='windows'?1440:390,height:platform==='windows'?1000:844},colorScheme:'light'});
   if(platform==='windows')await context.addInitScript(()=>{
    let current=JSON.parse(localStorage.getItem('anf-ui-qa')||'null')||{id:'fixture',name:'A fresh perspective',title:'Notes for a quieter week',question:'',draft:'# Make room for ideas\n\nA good day starts with a little space to think.\n\n- Read something inspiring\n- Put one idea into words\n- Keep the important things close',history:[],sources:[{name:'Reading notes.txt',text:'Make time for focused work and a moment to reflect.',pages:[],path:null}],memory:'',model:'fast'};
@@ -37,16 +42,17 @@ try{
   });
   const page=await context.newPage();page.on('pageerror',e=>errors.push(platform+': '+e.message));
   await page.goto('http://127.0.0.1:4180/'+(platform==='android'?'android/index.html':'workspace.html'));
-  await page.locator('[data-view="home"]').waitFor();
+  await page.locator('[data-view="home"]').waitFor({state:'attached'});
   await page.waitForFunction(()=>document.querySelector('[aria-label="Appearance"]')?.disabled===false);
-  const nav=async id=>{await page.locator(`[data-view="${id}"]`).click();};
+  // Windows follows the person's path (hover the rail, pick the mode, then the section); Android has a plain bottom bar.
+  const nav=async id=>{if(platform==='windows')await go(page,id);else await page.locator(`[data-view="${id}"]`).click();};
   if(platform==='android'){
    await page.getByLabel('Conversation title',{exact:true}).fill('A fresh perspective');
    await nav('writing');await page.getByLabel('Live Markdown writing',{exact:true}).fill('# Make room for ideas\n\nA good day starts with a little space to think.\n\n- Read something inspiring\n- Put one idea into words');
    await page.getByText('Saved on this device.',{exact:true}).waitFor();
    await nav('documents');await page.getByLabel('Choose a document',{exact:true}).setInputFiles({name:'Reading notes.txt',mimeType:'text/plain',buffer:Buffer.from('Make time for focused work and a moment to reflect.')});
    await page.getByText('Document added. Read it here or use its text in Writing.',{exact:true}).waitFor();
-   await page.reload();await page.locator('[data-view="home"]').waitFor();
+   await page.reload();await page.locator('[data-view="home"]').waitFor({state:'attached'});
    assert.equal(await page.getByLabel('Conversation title',{exact:true}).inputValue(),'A fresh perspective');
   }
   assert.match(await page.title(),/AnF/);
