@@ -32,6 +32,7 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - Pill IDs are stable contract values (Keychain, UserDefaults, hook routing): never rename an existing pill ID.
 - New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
 
+- Start here: read `docs/BUILDER-RUNBOOK.md` and `HANDOFF.md` before any work (shared build/test/delivery recipe and state); append your result to `HANDOFF.md` when done.
 - Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.
 
 ## Skills (all assistants)
