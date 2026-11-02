@@ -809,6 +809,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     return;
    }
    if(token!==epoch)return;
+   report('');
   }
   lastWall=0;
   if(source&&source.startsWith('blob:'))URL.revokeObjectURL(source);
