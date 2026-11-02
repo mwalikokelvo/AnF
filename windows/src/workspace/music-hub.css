@@ -90,6 +90,9 @@ body:has(#app) .native-music-source{display:flex}
 .music-card:hover{transform:translateY(-2px);border-color:#79e4b466}
 .music-recent-track{background:#1c2224;border-radius:12px;padding:10px 12px;min-height:52px}
 .music-tabs button{font-size:14px}
+/* The six tabs need ~680px at full padding but the 3-column hub gives them ~600 at 1366 (and ~530 at 820): trim the side padding as the window narrows (24px from ~1700 wide, unchanged on large screens) and let a row wrap rather than cut Playlists off. */
+.music-tabs{flex-wrap:wrap}
+@media(min-width:761px){.music-tabs button{padding-inline:clamp(10px,1.4vw,24px)}}
 .music-player{backdrop-filter:blur(12px);background:#1a2122ee;border:1px solid #3a4543}
 .music-full-player .music-player-art{border-radius:22px}
 .music-notice{color:#79e4b4}
