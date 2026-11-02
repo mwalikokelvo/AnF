@@ -237,6 +237,8 @@ const videoIdOf = (item: any): string => {
   if (!id && item?.id) id = String(item.id).replace('/watch?v=', '');
   return id;
 };
+/** Instances and their proxies serve thumbnails from their own hosts, which the img-src CSP blocks; only i.ytimg.com is allowed. */
+const ytimgThumb = (u: unknown): string | undefined => { const s = safeHttpsUrl(u); return s && new URL(s).hostname === 'i.ytimg.com' ? s : undefined; };
 const positive = (n: unknown): number | undefined => (typeof n === 'number' && n > 0 ? n : undefined);
 
 function searchUrl(i: StreamInstance, q: string, filter: 'music_songs' | 'all'): string {
@@ -258,13 +260,13 @@ function videosOf(i: StreamInstance, items: unknown): InstanceVideo[] {
     if (i.kind === 'invidious' && item?.type && item.type !== 'video') continue;
     const videoId = videoIdOf(item);
     if (!videoId) continue;
-    const thumb = i.kind === 'invidious' ? item.videoThumbnails?.find((t: any) => safeHttpsUrl(t?.url))?.url : item.thumbnail;
+    const thumb = i.kind === 'invidious' ? item.videoThumbnails?.find((t: any) => ytimgThumb(t?.url))?.url : item.thumbnail;
     out.push({
       videoId,
       title: item.title,
       artist: item.uploaderName || item.uploader || item.author,
       duration: positive(item.duration) ?? positive(item.lengthSeconds),
-      thumbnail: safeHttpsUrl(thumb),
+      thumbnail: ytimgThumb(thumb),
     });
   }
   return out;

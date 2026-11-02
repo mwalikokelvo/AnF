@@ -62,6 +62,21 @@ describe('stream instances speak their own API', () => {
     assert.equal(found[0].artworkUrl, 'https://i.ytimg.com/vi/zn1FHSWPaTk/mqdefault.jpg');
   });
 
+  test('thumbnails on instance or proxy hosts (blocked by the img-src CSP) fall back to i.ytimg.com', async () => {
+    setOnlineLookups(true);
+    calls = [];
+    globalThis.fetch = (async (input: any) => {
+      const u = new URL(String(input));
+      if (u.hostname === 'pipedapi.kavin.rocks') return json({ items: [{ url: `/watch?v=${ID}`, title: 'P', thumbnail: 'https://pipedproxy-bom.kavin.rocks/vi/zn1FHSWPaTk/hq.jpg?host=i.ytimg.com' }] });
+      return new Response('busy', { status: 503 });
+    }) as typeof fetch;
+    const [p] = await new SpotubeStreamService().searchYouTube('p');
+    assert.equal(p.artworkUrl, `https://i.ytimg.com/vi/${ID}/hqdefault.jpg`);
+    onlyInvidious((path) => path === '/api/v1/search' ? json([{ type: 'video', videoId: ID, title: 'I', videoThumbnails: [{ url: 'https://inv.nadeko.net/vi/zn1FHSWPaTk/maxres.jpg' }] }]) : undefined);
+    const [i] = await new SpotubeStreamService().searchYouTube('i');
+    assert.equal(i.artworkUrl, `https://i.ytimg.com/vi/${ID}/hqdefault.jpg`);
+  });
+
   test('playlist: Invidious /api/v1/playlists', async () => {
     setOnlineLookups(true);
     onlyInvidious(path => path === '/api/v1/playlists/PLabc123' ? json({
