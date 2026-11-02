@@ -11,9 +11,10 @@ const root=fileURLToPath(new URL('../../',import.meta.url));
 const types={'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml'};
 // Follow the person's path: hover the rail, pick the section's mode, then the section.
 export async function go(page,view){
-  await page.locator('.history-sidebar').hover();
+  await page.locator('.history-sidebar').hover({force:true});
   const mode=await page.locator(`[data-view="${view}"]`).getAttribute('data-mode');
-  if(mode&&mode!=='keep'){const tab=page.locator(`.mode-rail [data-mode="${mode}"]`);if(await tab.count())await tab.click();}
+  if(mode&&mode!=='keep'){const tab=page.locator(`.mode-rail [data-mode="${mode}"]`);if(await tab.count()&&await tab.isVisible())await tab.click();}
+  // (below 767px the rail is a bottom bar of icons without mode tabs, so only click a visible tab)
   await page.locator(`[data-view="${view}"]`).click();
   await page.locator(`#panel-${view}`).waitFor({state:'visible'});
 }
@@ -31,12 +32,15 @@ export async function start(){
       window.__csp=[];document.addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective+' '+e.blockedURI));
       let current={id:'fixture',name:'QA',title:'Saved work',draft:'Existing writing',question:'',history:[],sources:[],memory:'',model:'fast'};
       const text='Quiet harbours keep small boats safe.\n\nA second paragraph about lighthouses and tides.\n';
+      window.__TAURI_EVENT_PLUGIN_INTERNALS__={unregisterListener(){}};
       window.__TAURI_INTERNALS__={transformCallback:()=>1,invoke:async(command,args={})=>{switch(command){
         case 'workspace_list_projects':return[{id:'fixture',name:'QA',updated:Date.now()}];
         case 'workspace_load_project':return current;
         case 'workspace_save_project':current=args.project;return current;
         case 'workspace_diagnostics':return{runtime:true,fast:true,balanced:true,ocr:true,documents:'Local',log:'Fixture',version:'0.0.0'};
         case 'link_address':return'';case 'link_status':return false;case 'music_available':return false;
+        case 'workspace_begin':return 1;
+        case 'workspace_ask':return{text:'Fixture answer.',notice:'Fixture notice.',evidence:[]};
         case 'ingest_bytes':return{path:'/tmp/qa-note.txt'};
         case 'workspace_read_file':return{name:'qa-note.txt',text,pages:[{number:1,text,ocr:false}],path:'/tmp/qa-note.txt',reading:null};
         default:return null;}}};

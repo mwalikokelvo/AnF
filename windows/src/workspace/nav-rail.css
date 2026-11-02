@@ -48,6 +48,12 @@
   .glass-rail>.workspace-navigation{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;width:100%;gap:2px;margin:0;min-width:0;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
   .history-sidebar.glass-rail .workspace-navigation button,.history-sidebar.glass-rail .workspace-navigation button[hidden]{display:grid!important;place-items:center;padding:10px;min-width:44px;min-height:44px;border-radius:20px;flex:0 0 44px}
   .glass-rail .workspace-navigation span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  /* Short narrow windows (the app allows 600x500): the stacked header used to take ~236px and leave ~114px for content.
+     Let the header scroll away with the panel; the status bar stays pinned above the bottom bar. */
+  .workspace-layout.has-glass-rail>main.workspace-content{overflow-y:auto;padding-bottom:0;height:calc(100% - 96px)}
+  .workspace-layout.has-glass-rail .workspace-header{position:static;flex:none}
+  .workspace-layout.has-glass-rail .panel-host{flex:none;overflow:visible}
+  .workspace-layout.has-glass-rail .activity-bar{position:sticky;bottom:0;margin-top:auto;z-index:5}
   body.has-glass-rail .music-player:not(.music-full-player){left:16px;right:16px;bottom:92px}
   body.has-glass-rail.has-music-player .workspace-content,body.has-glass-rail.has-native-music-player .workspace-content{padding-bottom:180px}
 }
