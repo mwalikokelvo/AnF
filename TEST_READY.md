@@ -32,7 +32,7 @@ Bundling 4 E2E Test Suites:
 ========================================
 
 ▶ Tier 1: Feature Coverage (Category-Partition)
-  ✔ F1: MKR Music Audio Player Engine (6 tests)
+  ✔ F1: Music Hub Audio Player Engine (6 tests)
   ✔ F2: LRCLIB Synced Lyrics Integration (6 tests)
   ✔ F3: AntennaPod Podcast RSS & Playback (6 tests)
   ✔ F4: Spotube Streaming Audio Integration (6 tests)
@@ -45,7 +45,7 @@ Bundling 4 E2E Test Suites:
 ✔ Tier 1: Feature Coverage (Category-Partition) [60/60 PASSED]
 
 ▶ Tier 2: Boundary Value Analysis (Corner Cases & Error Handling)
-  ✔ F1: MKR Music Audio Player Engine Boundaries (6 tests)
+  ✔ F1: Music Hub Audio Player Engine Boundaries (6 tests)
   ✔ F2: LRCLIB Synced Lyrics Integration Boundaries (6 tests)
   ✔ F3: AntennaPod Podcast RSS & Playback Boundaries (6 tests)
   ✔ F4: Spotube Streaming Audio Integration Boundaries (6 tests)
@@ -92,7 +92,7 @@ Bundling 4 E2E Test Suites:
 
 | Feature # | Feature Name | Tier 1 (Coverage) | Tier 2 (Boundary) | Tier 3 (Cross-Feature) | Tier 4 (Workflows) | Total Tests |
 |:---:|---|:---:|:---:|:---:|:---:|:---:|
-| **F1** | MKR Music Audio Player Engine | 6 | 6 | 3 | Scenario 1 | **15** |
+| **F1** | Music Hub Audio Player Engine | 6 | 6 | 3 | Scenario 1 | **15** |
 | **F2** | LRCLIB Synced Lyrics Integration | 6 | 6 | 3 | Scenario 1 | **15** |
 | **F3** | AntennaPod Podcast RSS & Playback | 6 | 6 | 2 | Scenario 3 | **14** |
 | **F4** | Spotube Streaming Audio Integration | 6 | 6 | 2 | Scenario 1 | **14** |

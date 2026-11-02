@@ -22,9 +22,9 @@ import { audioLibrary } from '../../src/workspace/audio-library.js';
 describe('Tier 1: Feature Coverage (Category-Partition)', () => {
 
   // ==========================================
-  // Feature 1: MKR Music Audio Player Engine
+  // Feature 1: Music Hub Audio Player Engine
   // ==========================================
-  describe('F1: MKR Music Audio Player Engine', () => {
+  describe('F1: Music Hub Audio Player Engine', () => {
     test('F1-1: Audio state machine initializes with valid default parameters', () => {
       const q = reconcileQueue([], ['t1', 't2', 't3'], true);
       assert.deepEqual(q, ['t1', 't2', 't3']);
