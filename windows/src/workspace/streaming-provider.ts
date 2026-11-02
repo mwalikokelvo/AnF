@@ -515,7 +515,6 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
             artworkUrl: `https://archive.org/services/img/${id}`,
             year: doc.year ? parseInt(doc.year, 10) : undefined,
             description: doc.description || undefined,
-            streamUrl: `https://archive.org/download/${id}/${id}_64kb_mp3.zip`,
           };
           this.registerMetadata(track);
           results.push(track);
@@ -550,17 +549,13 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (metaRes.ok) {
         const data = await metaRes.json();
         const files: any[] = data?.result || data?.files || [];
-        const mp3s = files.filter(f => f.name && (f.name.endsWith('.mp3') || f.format?.includes('MP3')) && !f.name.endsWith('_thumb.jpg'));
+        const mp3s = files.filter(f => typeof f.name === 'string' && /\.mp3$/i.test(f.name));
         if (mp3s.length > 0) {
           const streamUrl = `https://archive.org/download/${cleanId}/${encodeURIComponent(mp3s[0].name)}`;
-          const chapters = mp3s.map((f, idx) => ({
-            title: f.title || f.name.replace(/\.[^.]+$/, '').replace(/^[0-9_.-]+/, '') || `Chapter ${idx + 1}`,
-            start: 0,
-          }));
+          // Each file is its own recording, so there are no chapter start times inside this one stream.
           const track = this.cache.get(`ia:${cleanId}`);
           if (track) {
             track.streamUrl = streamUrl;
-            track.chapters = chapters;
             this.registerMetadata(track);
           }
           return {
@@ -574,13 +569,8 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // Metadata lookup failed
     }
 
-    // Fallback to direct archive download file
-    const streamUrl = `https://archive.org/download/${cleanId}/${cleanId}_64kb_mp3.zip`;
-    return {
-      streamUrl,
-      mimeType: 'audio/mpeg',
-      cached: false,
-    };
+    // No playable file list: a ZIP of the whole book is not audio, so there is nothing to play.
+    return null;
   }
 
   /** Direct URL Resolver: parse YouTube URLs or direct audio media URLs */
