@@ -4,7 +4,109 @@
  */
 import type { AudioTrack } from './audio-library';
 
-import { gatedFetch, safeHttpsUrl } from './online-lookups';
+import { gatedFetch, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
+
+export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url';
+
+/** A resolution failure with a message that is safe to show to the user as-is. */
+export class StreamResolutionError extends Error {
+  readonly code: StreamErrorCode;
+  constructor(code: StreamErrorCode, message: string) {
+    super(message);
+    this.name = 'StreamResolutionError';
+    this.code = code;
+  }
+  /** Generic handlers print String(err); keep that readable. */
+  override toString(): string { return this.message; }
+}
+
+/** Error for a search result whose stream could not be resolved, worded by cause. */
+export function unresolvedStreamError(track: { title: string; source?: string; id: string }): Error {
+  if (track.source === 'youtube' || track.id.startsWith('yt:')) {
+    return onlineLookupsEnabled()
+      ? new StreamResolutionError('youtube-unresolved', YOUTUBE_UNRESOLVED_MESSAGE)
+      : new StreamResolutionError('lookups-off', YOUTUBE_LOOKUPS_OFF_MESSAGE);
+  }
+  return Error('Could not resolve a stream for ' + track.title + '.');
+}
+
+export const YOUTUBE_LOOKUPS_OFF_MESSAGE =
+  'YouTube links need Online lookups. Turn on "Online lookups" in the Music Hub header, then try again.';
+export const YOUTUBE_UNRESOLVED_MESSAGE =
+  'YouTube stream could not be resolved right now. Try again in a moment, paste a direct audio link (MP3, M4A, Opus), or import the audio files into your library.';
+export const NOT_AUDIO_MESSAGE =
+  'That link is a web page or file, not audio, so it was not played or saved. Paste a direct audio link (MP3, M4A, Opus) or a YouTube video link.';
+
+/** Plain-language text for any error raised while resolving, playing or saving a stream. */
+export function describeStreamError(err: unknown): string {
+  if (err instanceof StreamResolutionError) return err.message;
+  const text = err instanceof Error ? err.message : String(err);
+  if (/Online lookups are off/i.test(text)) return text;
+  return 'Could not play that link: ' + text.replace(/^Error:\s*/, '');
+}
+
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+const YOUTUBE_HOST = /^(?:(?:www|m|music)\.)?youtube(?:-nocookie)?\.com$/i;
+
+/** True for any youtube.com / youtu.be host, with or without a usable video id. */
+export function isYouTubeUrl(input: string): boolean {
+  const u = parseWebUrl(input);
+  return !!u && (YOUTUBE_HOST.test(u.hostname) || /^youtu\.be$/i.test(u.hostname));
+}
+
+function parseWebUrl(input: string): URL | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  try { return new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw); } catch { return null; }
+}
+
+/**
+ * Video id from a YouTube watch, youtu.be, shorts, embed, live or music URL.
+ * Parsed with URL (host and path checked), never by scanning the text for an id.
+ */
+export function parseYouTubeVideoId(input: string): string | null {
+  const u = parseWebUrl(input);
+  if (!u || (u.protocol !== 'https:' && u.protocol !== 'http:')) return null;
+  const host = u.hostname.toLowerCase();
+  const segs = u.pathname.split('/').filter(Boolean);
+  let id: string | null | undefined;
+  if (host === 'youtu.be') id = segs[0];
+  else if (YOUTUBE_HOST.test(host)) {
+    if (segs[0] === 'watch') id = u.searchParams.get('v');
+    else if (['shorts', 'embed', 'live', 'v'].includes(segs[0])) id = segs[1];
+  } else if (/^piped\./.test(host) && segs[0] === 'watch') id = u.searchParams.get('v');
+  return id && YOUTUBE_ID.test(id) ? id : null;
+}
+
+/**
+ * Whether a Content-Type is something the audio element can be given. Unknown (missing)
+ * and octet-stream are allowed because CDNs often serve audio that way; the player's
+ * error handler covers those. Pages, JSON, images and archives are refused.
+ */
+export function isAudioContentType(contentType: string | null | undefined): boolean {
+  const type = (contentType || '').split(';')[0].trim().toLowerCase();
+  if (!type) return true;
+  return type.startsWith('audio/') || ['application/ogg', 'application/octet-stream', 'binary/octet-stream', 'video/mp4', 'video/webm', 'video/ogg'].includes(type);
+}
+
+/**
+ * Best-effort HEAD check of a direct link before it is handed to the audio element.
+ * Refuses when the server answers with a non-audio type (for example text/html). A network
+ * or policy failure is inconclusive and lets the player's own error handling decide.
+ */
+export async function verifyAudioUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
+  } catch {
+    return;
+  }
+  if (res.ok && !isAudioContentType(res.headers.get('content-type'))) {
+    throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+  }
+}
+
+const NON_AUDIO_EXTENSION = /\.(?:html?|php|aspx?|jsp|json|xml|txt|pdf|zip|jpe?g|png|gif|webp|svg)$/i;
 export interface StreamTrackMetadata {
   id: string;
   title: string;
@@ -270,9 +372,10 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     return results;
   }
 
-  /** Resolve direct YouTube stream URL using multi-instance fallback */
-  async resolveYouTubeStream(videoId: string): Promise<ResolvedAudioStream | null> {
+  /** Title, uploader and best audio stream of one video, from the first allow-listed instance that answers. */
+  async lookupYouTube(videoId: string): Promise<{ title?: string; uploader?: string; duration?: number; stream: ResolvedAudioStream } | null> {
     const cleanId = videoId.replace(/^yt:/, '');
+    if (!YOUTUBE_ID.test(cleanId) || !onlineLookupsEnabled()) return null;
     for (const instance of PIPED_INSTANCES) {
       try {
         const res = await gatedFetch(`${instance}/streams/${cleanId}`, {
@@ -280,16 +383,21 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
         });
         if (res.ok) {
           const data = await res.json();
-          const streams = Array.isArray(data.audioStreams) ? data.audioStreams : [];
+          const streams = (Array.isArray(data.audioStreams) ? data.audioStreams : [])
+            .filter((x: any) => safeHttpsUrl(x?.url) && (!x.mimeType || String(x.mimeType).startsWith('audio/')));
           if (streams.length > 0) {
             // Pick highest bitrate audio stream
-            const sorted = [...streams].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-            const best = sorted[0];
+            const best = [...streams].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
             return {
-              streamUrl: best.url,
-              mimeType: best.mimeType || 'audio/mp4',
-              bitrate: best.bitrate || (best.quality ? parseInt(best.quality, 10) * 1000 : 128000),
-              cached: false,
+              title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : undefined,
+              uploader: typeof data.uploader === 'string' && data.uploader.trim() ? data.uploader.trim().slice(0, 120) : undefined,
+              duration: typeof data.duration === 'number' && data.duration > 0 ? data.duration : undefined,
+              stream: {
+                streamUrl: safeHttpsUrl(best.url)!,
+                mimeType: best.mimeType || 'audio/mp4',
+                bitrate: best.bitrate || (best.quality ? parseInt(best.quality, 10) * 1000 : 128000),
+                cached: false,
+              },
             };
           }
         }
@@ -298,6 +406,11 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       }
     }
     return null;
+  }
+
+  /** Resolve direct YouTube stream URL using multi-instance fallback */
+  async resolveYouTubeStream(videoId: string): Promise<ResolvedAudioStream | null> {
+    return (await this.lookupYouTube(videoId))?.stream ?? null;
   }
 
   /** Spotube Resolver: matches Spotify/iTunes track with YouTube audio stream */
@@ -426,30 +539,41 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const raw = url.trim();
     if (!raw) return null;
 
-    // 1. YouTube URLs (youtube.com, youtu.be, piped)
-    const ytMatch = raw.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/|piped\.[^/]+\/watch\?.*v=)([a-zA-Z0-9_-]{11})/i);
-    if (ytMatch) {
-      const videoId = ytMatch[1];
-      const stream = await this.resolveYouTubeStream(videoId);
-      if (!stream) throw Error('Could not extract direct audio stream from YouTube URL');
+    // 1. YouTube URLs (watch, youtu.be, shorts, embed, live, music): only through the allow-listed instances, only with Online lookups on
+    const videoId = parseYouTubeVideoId(raw);
+    if (videoId) {
+      if (!onlineLookupsEnabled()) throw new StreamResolutionError('lookups-off', YOUTUBE_LOOKUPS_OFF_MESSAGE);
+      const video = await this.lookupYouTube(videoId);
+      if (!video) throw new StreamResolutionError('youtube-unresolved', YOUTUBE_UNRESOLVED_MESSAGE);
       const track: StreamTrackMetadata = {
         id: `yt:${videoId}`,
-        title: 'YouTube Stream',
-        artist: 'YouTube',
+        title: video.title || 'YouTube Stream',
+        artist: video.uploader || 'YouTube',
         album: 'YouTube Audio',
+        duration: video.duration,
         artworkUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
         coverUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        streamUrl: stream.streamUrl,
-        bitrate: stream.bitrate,
+        streamUrl: video.stream.streamUrl,
+        bitrate: video.stream.bitrate,
         source: 'youtube',
       };
       this.registerMetadata(track);
-      return { track, stream };
+      return { track, stream: video.stream };
+    }
+    if (isYouTubeUrl(raw)) {
+      throw new StreamResolutionError('unsupported-url', 'That YouTube link does not point to a single video. Paste a watch, youtu.be or shorts link.');
+    }
+
+    const web = parseWebUrl(raw);
+    if (!web || !raw.includes('.')) throw new StreamResolutionError('invalid-url', 'That does not look like a web link. Paste a full https:// address.');
+    if (web.protocol !== 'https:') throw new StreamResolutionError('unsupported-url', 'Only https links can be played. Paste an https:// audio link.');
+    if (/(^|\.)spotify\.com$/i.test(web.hostname) || NON_AUDIO_EXTENSION.test(web.pathname)) {
+      throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
     }
 
     // 2. Direct audio URL (.mp3, .m4a, .ogg, .opus, .wav, .flac)
     try {
-      const pathname = raw.split('?')[0];
+      const pathname = web.pathname;
       const parts = pathname.split('/');
       const filename = decodeURIComponent(parts[parts.length - 1] || 'Web Audio Stream');
       const title = filename.replace(/\.[a-zA-Z0-9]+$/, '') || 'Direct Audio Stream';
@@ -463,11 +587,11 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
         title,
         artist: 'Direct Stream',
         album: 'Web Audio',
-        streamUrl: raw,
+        streamUrl: web.href,
         source: 'custom',
       };
       const stream: ResolvedAudioStream = {
-        streamUrl: raw,
+        streamUrl: web.href,
         mimeType,
         cached: false,
       };
@@ -797,18 +921,12 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const limit = options?.limit || 20;
     const service = options?.service || 'all';
 
-    // Check if query is a batch collection URL
-    if (/^https?:\/\//i.test(q)) {
-      try {
-        const batch = await this.resolveBatchUrl(q, limit);
-        if (batch && batch.tracks.length > 0) {
-          return batch.tracks;
-        }
-        const direct = await this.resolveDirectUrl(q);
-        if (direct) return [direct.track];
-      } catch {
-        // Continue standard search
-      }
+    // A pasted link is resolved, never searched as text.
+    if (/^https?:\/\//i.test(q) || parseYouTubeVideoId(q)) {
+      const batch = await this.resolveBatchUrl(q, limit).catch(() => null);
+      if (batch && batch.tracks.length > 0) return batch.tracks;
+      const direct = await this.resolveDirectUrl(q);
+      return direct ? [direct.track] : [];
     }
 
     if (service === 'youtube') {
@@ -912,10 +1030,12 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (!safe) throw Error('Stream audio must be an https URL.');
       const res = await gatedFetch(safe);
       if (!res.ok) throw Error(`Stream audio download failed (${res.status})`);
+      if (!isAudioContentType(res.headers.get('content-type'))) throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
       blob = await res.blob();
     } else {
       blob = streamBlobOrUrl;
     }
+    if (!isAudioContentType(blob.type)) throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
 
     const audioTrack: AudioTrack = {
       id: 'stream:' + track.id,
