@@ -29,6 +29,6 @@
     "@codemirror/view": "^6.43.15",
     "@lezer/highlight": "^1.2.5",
     "@tauri-apps/api": "^2",
-    "music-metadata": "12.2.3"
+    "music-metadata": "12.3.2"
   }
 }
