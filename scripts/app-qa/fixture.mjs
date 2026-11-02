@@ -1,7 +1,7 @@
 // Shared browser fixture for the Windows/Linux workspace: serves windows/dist with the REAL Tauri CSP from
 // tauri.conf.json (so violations surface), stubs Tauri IPC with inert answers, and collects problems.
 // Browser fixture only: not the installed app. Run `npm run build` in windows/ first.
-// Env: CHROMIUM_BIN=<path> picks a browser (default: Playwright's own); DIST_DIR=<dir> serves another build.
+// Env: CHROMIUM_BIN=<path> picks a browser (default: the msedge channel, like the other app-qa scripts); DIST_DIR=<dir> serves another build.
 import {chromium} from 'playwright-core';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
@@ -36,7 +36,7 @@ export async function start(){
   const base=path.resolve(process.env.DIST_DIR||path.join(root,'windows/dist'));
   const server=createServer(async(req,res)=>{if(req.url==='/favicon.ico'){res.statusCode=204;return res.end();}try{const file=path.resolve(base,decodeURIComponent(new URL(req.url,'http://x').pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');if(file.endsWith('.html'))res.setHeader('Content-Security-Policy',csp);res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{}),args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
+  const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{channel:'msedge'}),args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
   const problems=[];
   async function open({width=1280,height=800}={}){
     const context=await browser.newContext({viewport:{width,height},colorScheme:'dark'});
