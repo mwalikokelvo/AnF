@@ -333,7 +333,7 @@ describe('YouTube URL resolution, gate and non-audio refusal', () => {
     assert.equal(res.track.id, `yt:${ID}`);
     assert.equal(res.stream.streamUrl, 'https://rr1.googlevideo.com/high');
     assert.ok(calls.length >= 1 && calls.every(u => PIPED_INSTANCES.some(i => u.startsWith(i + '/streams/'))), calls.join(','));
-    assert.ok(!calls.some(u => u.includes('youtube.com')), 'must not scrape youtube.com');
+    assert.ok(calls.every(u => { const h = new URL(u).hostname; return h !== 'youtube.com' && !h.endsWith('.youtube.com'); }), 'must not scrape youtube.com');
     const found = await service.searchMultiSource(`https://youtu.be/${ID}`);
     assert.deepEqual(found.map(t => t.title), ['Real Title']);
   });

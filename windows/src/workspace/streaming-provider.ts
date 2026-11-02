@@ -565,7 +565,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     }
 
     const web = parseWebUrl(raw);
-    if (!web || !raw.includes('.')) throw new StreamResolutionError('invalid-url', 'That does not look like a web link. Paste a full https:// address.');
+    if (!web || !web.hostname.includes('.')) throw new StreamResolutionError('invalid-url', 'That does not look like a web link. Paste a full https:// address.');
     if (web.protocol !== 'https:') throw new StreamResolutionError('unsupported-url', 'Only https links can be played. Paste an https:// audio link.');
     if (/(^|\.)spotify\.com$/i.test(web.hostname) || NON_AUDIO_EXTENSION.test(web.pathname)) {
       throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
