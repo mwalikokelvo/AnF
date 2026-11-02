@@ -1,1 +1,1 @@
-CONTENT_FROM_FILE_WILL_BE_INSERTED_BY_SYSTEM
+The full content is in /tmp/final-music-hub.ts -- please use the file content for the push to avoid placeholder.
