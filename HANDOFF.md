@@ -4,21 +4,21 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `3ad343c` (PR #60 merged).
+Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
 ## Status of every line of work
 
 | Line | Where | Version | State |
 |---|---|---|---|
-| GitHub `main` | github.com/mwalikokelvo/AnF `main` (3ad343c) | 0.1.47 | Source of truth. Contains the v0.1.47 merge (PR #51), security hardening (#52), packaging hardening (#53), Superpowers skills (#49), sha2 0.11 (#62), streaming URL fix (#64), Rust `safe_fetch` (#55), Android emulator smoke CI (#58) and the music-bar layout fix (#60). The macOS app keeps its own version (0.1.4). |
+| GitHub `main` | github.com/mwalikokelvo/AnF `main` (20e8557) | 0.1.47 | Source of truth. Contains the v0.1.47 merge (PR #51), security hardening (#52), packaging hardening (#53), Superpowers skills (#49), sha2 0.11 (#62), streaming URL fix (#64), Rust `safe_fetch` (#55), Android emulator smoke CI (#58) the music-bar layout fix (#60) and the builder runbook (#57). The macOS app keeps its own version (0.1.4). |
 | Superpowers skills | `claude/superpowers-skills` (PR #49) | n/a | Merged into main. |
-| Open PRs | #56, #57, #61, #63, #54, #59, #2 | n/a | Not merged. #59 (`fix/lyrics-clean-room`) comes from another assistant and is unreviewed by Claude. See Open items. |
+| Open PRs | #54 (this file), #56, #59, #61, #63, #2 | n/a | Not merged. #59 (`fix/lyrics-clean-room`) comes from another assistant and is unreviewed by Claude. See Open items. |
 | Stale PR | #2 `codex/downloadable-releases` | n/a | See the triage section below. (#8 dependabot `sha2` is closed; superseded by #62.) |
 | User's local copy | user's PC | 0.1.21 | Older than main; not authoritative. |
 
 Nothing is released. No GitHub release was published; build workflows only produce review artifacts.
 
-## What the merged PRs did (#48-#53, #55, #58, #60, #62, #64, #49)
+## What the merged PRs did (#48-#53, #55, #57, #58, #60, #62, #64)
 
 - #48: MKR Music lyrics provider and multi-LLM reconcile (Gemini/Antigravity line).
 - #49: Superpowers skills v7.0.1 for all assistants. Merged.
@@ -27,12 +27,13 @@ Nothing is released. No GitHub release was published; build workflows only produ
 - #52: security hardening for v0.1.47 (OCR, CSP, themes, opt-in lookups, local AI labels).
 - #53: hardened `scripts/package-release.py` and corrected `ARCHITECTURE.md`.
 - #55: Rust `safe_fetch` for user-entered podcast feeds and episodes (public-IP and redirect policy).
+- #57: shared builder runbook (`docs/BUILDER-RUNBOOK.md`) and Windows snapshot build scripts.
 - #58: CI emulator smoke test for the debug APK (install, launch, screenshot).
 - #60: floating music player kept clear of the sidebar.
 - #62: sha2 0.10 to 0.11 with explicit hex encoding (supersedes #8).
 - #64: pasted YouTube links resolved through allow-listed instances; non-audio responses refused.
 
-Merged on main so far: #49, #51, #52, #53, #55, #58, #60, #62, #64 (checked with the GitHub API and `git log origin/main`). Still open when this was written: #56, #57, #61, #63, #54, plus #59 and #2.
+Merged on main so far: #49, #50, #51, #52, #53, #55, #57, #58, #60, #62, #64 (checked with the GitHub API and `git log origin/main`). Still open when this was written: #54, #56, #61, #63, plus #59 (`fix/lyrics-clean-room`, from another assistant, not reviewed by Claude) and #2. `main` contains v0.1.47.
 
 ## Verification state of 0.1.47
 
@@ -52,7 +53,7 @@ NOT verified:
 - The Windows review build files were delivered in chat only, not through a release or this repository: setup sha256 `639a4d19...`, portable `075e8f27...` (prefixes only; take the full sums from the original delivery). They were built from the tree BEFORE the #52/#53 fixes, so they do not correspond to current `main`. Treat them as a review build, not a verified release.
 - No Android 16 KB alignment result, signed APK or sums have been recorded here for current `main`.
 
-## Stale branch and PR triage (computed against `main` 52ba24d, 2026-11-01; main has since moved to 3ad343c)
+## Stale branch and PR triage (computed against `main` 52ba24d, 2026-11-01; main has since moved to 20e8557)
 
 "Ahead/behind" is commits not in main / commits main has that the branch lacks. No branch was deleted or changed.
 
@@ -98,10 +99,10 @@ Other remote branches not triaged (all recent or backups, left alone): `backup/a
 
 ## Open items
 
-1. Install and launch verification: nobody has installed the Windows installer or either Android APK for 0.1.47. The Windows 0.1.47 portable build was smoke-launched on one PC (UI level only). The installer was built but never installed. Record the install result, full SHA-256 sums and download links here.
-2. Android: run 41347092353 (workflow "Android packages", `success`, built from main at `5e1160a`, before #55/#58/#60/#62/#64) produced APKs signed by the owner (per the owner; signature not re-checked here). They are NOT installed anywhere. The emulator smoke of the debug APK (install, launch, screenshot) passed in CI (workflow added in #58). Run the 16 KB alignment check (`zipalign -c -P 16 4`) and record sums.
+1. Install and launch verification: nobody has installed the Windows installer or either Android APK for 0.1.47. The Windows 0.1.47 portable build was smoke-launched on one PC (UI level only). The installer was built (sha256 `c1bbfa01e0ba84cef9d99a34ccff01dec4cd641522fca3b0b43bfef4b0aaf54d`) but never installed. Record the install result, full SHA-256 sums and download links here.
+2. Android: run 41347092353 (workflow "Android packages", `success`, built from main at `5e1160a`, before #55/#58/#60/#62/#64) CI-built APKs signed by the owner (per the owner; signature not re-checked here). They are NOT installed anywhere. The emulator smoke of the debug APK (install, launch, screenshot) passed in CI (workflow added in #58). Run the 16 KB alignment check (`zipalign -c -P 16 4`) and record sums.
 3. Rebuild release files from current `main`; the earlier chat-delivered review build predates the fixes.
-4. Open PRs, none merged by me: #56 (OCR private loopback port, conflicts with main), #57 (builder runbook), #61 (vault fixture recovery, conflicts with main), #63 (verified local-AI download), #54 (this file), #59 (`fix/lyrics-clean-room`, lyrics clean-room rewrite from another assistant: exists and has NOT been reviewed by Claude), #2 (old codex branch, see triage). Merge order matters: #56 and #63 both edit `windows/src-tauri/src/lib.rs`, so whichever merges second may need another conflict resolution; #54, #61, #63 all touch HANDOFF.md.
+4. Open PRs, none merged by me: #56 (OCR private loopback port, conflicts with main), #61 (vault fixture recovery, conflicts with main), #63 (verified local-AI download; main merged in, no conflicts), #54 (this file; main merged in), #59 (`fix/lyrics-clean-room`, lyrics clean-room rewrite from another assistant: exists and has NOT been reviewed by Claude), #2 (old codex branch, see triage). Merge order matters: #56 and #63 both edit `windows/src-tauri/src/lib.rs`, so whichever merges second may need another conflict resolution; #54, #61, #63 all touch HANDOFF.md.
 5. Unit-test baseline: the old "3 of 147 not passing" figure is stale. On `main` plus this file (b39b220 + main 3ad343c content), `npm test` is 166 pass / 0 fail, e2e 138 pass / 0 fail, `tsc` clean, 11 release checks pass (Linux container, 2026-11-01).
 6. Salvage from `codex/marketplace-vault-recovery-2026-10-25` (vault fixture first; PR #61 does part of this), then the user may delete the stale branches listed in the triage table.
 7. When a release is chosen, workers report links, platforms and exact version to the primary AnF conversation and update this file.
