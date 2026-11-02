@@ -2,7 +2,7 @@
 //! which hosts a download may touch, how a partial file is resumed or
 //! discarded, and how a response is accepted. No I/O, so it can be unit-tested
 //! (and compiled with plain `rustc --test`) anywhere.
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 
 /// One model the app may download. The webview only ever sends `id`; the URL,
 /// size and hash below are the single source of truth and live in Rust.
@@ -120,54 +120,9 @@ pub fn is_redirect(status: u16) -> bool {
     matches!(status, 301 | 302 | 303 | 307 | 308)
 }
 
-/// True only for globally routable unicast addresses; used on the resolved
-/// addresses so an allowed name cannot point the download at the local network.
-pub fn is_public_ip(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => public_v4(v4),
-        IpAddr::V6(v6) => public_v6(v6),
-    }
-}
-
-fn public_v4(ip: Ipv4Addr) -> bool {
-    let [a, b, c, _] = ip.octets();
-    !(a == 0
-        || a == 10
-        || (a == 100 && (64..128).contains(&b))
-        || a == 127
-        || (a == 169 && b == 254)
-        || (a == 172 && (16..32).contains(&b))
-        || (a == 192 && b == 0 && c == 0)
-        || (a == 192 && b == 0 && c == 2)
-        || (a == 192 && b == 88 && c == 99)
-        || (a == 192 && b == 168)
-        || (a == 198 && (b == 18 || b == 19))
-        || (a == 198 && b == 51 && c == 100)
-        || (a == 203 && b == 0 && c == 113)
-        || a >= 224)
-}
-
-fn public_v6(ip: Ipv6Addr) -> bool {
-    if let Some(v4) = ip.to_ipv4_mapped() {
-        return public_v4(v4);
-    }
-    let s = ip.segments();
-    if s[0] == 0x0064 && s[1] == 0xff9b && s[2..6] == [0, 0, 0, 0] {
-        let o = ip.octets();
-        return public_v4(Ipv4Addr::new(o[12], o[13], o[14], o[15]));
-    }
-    if s[0] == 0x2002 {
-        let o = ip.octets();
-        return public_v4(Ipv4Addr::new(o[2], o[3], o[4], o[5]));
-    }
-    if (s[0] & 0xe000) != 0x2000 {
-        return false;
-    }
-    !(s[0] == 0x2001 && s[1] == 0x0000)
-        && !(s[0] == 0x2001 && s[1] == 0x0db8)
-        && !(s[0] == 0x2001 && s[1] < 0x0200)
-        && !(s[0] == 0x3fff)
-}
+/// The resolved-address check is shared with `safe_fetch` so both fetch paths
+/// refuse exactly the same non-public ranges.
+pub use crate::safe_fetch::policy::is_public_ip;
 
 /// What to do with a leftover `.part` file before asking the server for bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

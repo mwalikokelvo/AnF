@@ -17,8 +17,19 @@ pub fn new_salt() -> Vec<u8> {
 }
 #[uniffi::export]
 pub fn document_hash(data: Vec<u8>) -> String {
-    format!("{:x}", Sha256::digest(data))
+    sha256_hex(data)
 }
+/// Lowercase hex SHA-256. Explicit encoding (not `{:x}`) so output stays
+/// byte-identical across sha2 releases.
+fn sha256_hex(data: impl AsRef<[u8]>) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(64);
+    for b in Sha256::digest(data.as_ref()) {
+        write!(out, "{b:02x}").expect("write to String");
+    }
+    out
+}
+
 #[derive(uniffi::Object)]
 pub struct VaultSession {
     key: Mutex<Option<Zeroizing<[u8; 32]>>>,
@@ -76,6 +87,28 @@ impl VaultSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sha256_hex_matches_known_vectors() {
+        assert_eq!(
+            sha256_hex(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_hex("abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            sha256_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        );
+    }
+    #[test]
+    fn document_hash_is_pinned() {
+        assert_eq!(
+            document_hash(b"abc".to_vec()),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
     #[test]
     fn round_trip_tamper_and_lock() {
         let vault = VaultSession::new("test-password".into(), new_salt()).unwrap();

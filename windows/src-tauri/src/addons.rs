@@ -2,7 +2,6 @@
 //! they have a reviewed sandbox. Only the registry below is contacted, and only when
 //! the user opens the marketplace or presses Install.
 use serde::{Deserialize,Serialize};
-use sha2::{Digest,Sha256};
 use std::path::{Path,PathBuf};
 const REGISTRY:&str="https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/registry.json";
 const PREFIX:&str="https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/";
@@ -58,7 +57,7 @@ async fn fetch(url:&str,max:usize)->Result<String,String>{
     String::from_utf8(bytes).map_err(|_|"The download was not text.".into())
 }
 pub fn parse_registry(body:&str)->Vec<Entry>{serde_json::from_str::<Vec<Entry>>(body).unwrap_or_default().into_iter().filter(|e|check_entry(e).is_ok()).take(100).collect()}
-fn matches_hash(content:&str,expected:&str)->bool{format!("{:x}",Sha256::digest(content.as_bytes())).eq_ignore_ascii_case(expected)}
+fn matches_hash(content:&str,expected:&str)->bool{crate::hashing::sha256_hex(content).eq_ignore_ascii_case(expected)}
 #[tauri::command]pub async fn addons_registry()->Result<Vec<Entry>,String>{Ok(parse_registry(&fetch(REGISTRY,200_000).await?))}
 #[tauri::command]pub async fn addons_install(id:String)->Result<(),String>{
     // The page names only an id; the URL and hash come from the registry, never from the page.
@@ -87,7 +86,7 @@ fn matches_hash(content:&str,expected:&str)->bool{format!("{:x}",Sha256::digest(
         assert!(check_css("a{background:image-set(x) /* ok */}").is_err());
     }
     #[test]fn registry_drops_bad_entries_and_garbage(){let mut bad=good("b");bad.download_url="https://evil.example/x".into();let json=serde_json::to_string(&vec![good("a"),bad]).unwrap();let got=parse_registry(&json);assert_eq!(got.len(),1);assert_eq!(got[0].id,"a");assert!(parse_registry("not json").is_empty());}
-    #[test]fn checksum_must_match(){let css="#workspace-root{--bg:#111}";let hash=format!("{:x}",Sha256::digest(css.as_bytes()));assert!(matches_hash(css,&hash));assert!(matches_hash(css,&hash.to_uppercase()));assert!(!matches_hash("#workspace-root{--bg:#222}",&hash));}
+    #[test]fn checksum_must_match(){let css="#workspace-root{--bg:#111}";let hash=crate::hashing::sha256_hex(css);assert!(matches_hash(css,&hash));assert!(matches_hash(css,&hash.to_uppercase()));assert!(!matches_hash("#workspace-root{--bg:#222}",&hash));}
     #[test]fn save_read_list_remove_round_trip(){let base=temp("rt");let e=good("night");save_theme(&base,&e,"#workspace-root{--bg:#000}").unwrap();assert_eq!(read_theme(&base,"night").unwrap(),"#workspace-root{--bg:#000}");assert_eq!(list(&base).len(),1);assert!(save_theme(&base,&good("bad"),"@import 'x';").is_err());assert!(!base.join("addons/themes/bad").exists());std::fs::write(base.join("addons/themes/night/theme.css"),"a{b:url(https://x)}").unwrap();assert!(read_theme(&base,"night").is_err(),"tampered file is refused");remove(&base,"night").unwrap();assert!(list(&base).is_empty());let _=std::fs::remove_dir_all(&base);}
     #[test]fn published_registry_matches_its_files(){
         let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../marketplace");

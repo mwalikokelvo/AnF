@@ -38,6 +38,10 @@ import {
   searchMultiSource,
   resolveDirectUrl,
   resolveBatchUrl,
+  describeStreamError,
+  unresolvedStreamError,
+  verifyAudioUrl,
+  isAudioContentType,
   type StreamTrackMetadata
 } from './streaming-provider';
 import {
@@ -743,7 +747,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
   }catch(err){
    setPlaybackState('paused');
-   report('Playback failed: '+String(err));
+   report('Playback failed: '+describeStreamError(err));
+   return;
   }
   prefs.recent=[current.id,...prefs.recent.filter(id=>id!==current!.id)].slice(0,40);
   save();
@@ -770,6 +775,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  async function select(track:AudioTrack,play=true,position?:number){
+  if(track.blob&&track.blob.size>0&&!isAudioContentType(track.blob.type)){
+   report('"'+track.title+'" is stored as '+(track.blob.type||'unknown data')+', not audio, so it cannot be played. Remove it from your library.');
+   return;
+  }
   const token=++epoch;
   pause();
   lastWall=0;
@@ -1193,6 +1202,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
      const res=await resolveDirectUrl(raw);
      if(!res)throw Error('Could not resolve stream URL.');
+     if(res.track.source==='custom')await verifyAudioUrl(res.stream.streamUrl);
      const track:AudioTrack={
       id:'stream:'+res.track.id,
       title:res.track.title,
@@ -1210,7 +1220,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      await select(track,true);
      report('Playing: '+res.track.title);
     }catch(err){
-     report('Stream resolution failed: '+String(err));
+     report(describeStreamError(err));
     }
    };
 
@@ -1251,6 +1261,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
      const res=await resolveDirectUrl(raw);
      if(!res)throw Error('Could not resolve stream URL.');
+     if(res.track.source==='custom')await verifyAudioUrl(res.stream.streamUrl);
      const track:AudioTrack={
       id:'stream:'+res.track.id,
       title:res.track.title,
@@ -1273,7 +1284,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      if(!current)await select(track,true);
      report('Queued: '+res.track.title);
     }catch(err){
-     report('Queue failed: '+String(err));
+     report(describeStreamError(err));
     }
    };
 
@@ -1304,12 +1315,13 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
      const res=await resolveDirectUrl(raw);
      if(!res)throw Error('Could not resolve stream URL.');
+     if(res.track.source==='custom')await verifyAudioUrl(res.stream.streamUrl);
      report('Caching stream offline: '+res.track.title);
      await cacheStreamTrack(library,res.track,res.stream.streamUrl);
      await refresh();
      report('Saved to library: '+res.track.title);
     }catch(err){
-     report('Offline download failed: '+String(err));
+     report(describeStreamError(err));
     }
    };
 
@@ -1333,9 +1345,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     try{
      streamingResults=await searchMultiSource(streamingQuery.trim(),{service:streamingServiceTab,limit:30});
      render();
-     report(streamingResults.length?`Found ${streamingResults.length} tracks.`:'No streaming tracks found.');
+     report(streamingResults.length?`Found ${streamingResults.length} tracks.`:onlineLookupsEnabled()?'No streaming tracks found.':ONLINE_LOOKUPS_OFF);
     }catch(err){
-     report('Search error: '+String(err));
+     streamingResults=[];
+     report(describeStreamError(err));
     }finally{
      streamingBusy=false;
      render();
@@ -1370,7 +1383,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      const playBtn=button('Stream '+item.title,async()=>{
       report('Resolving stream for '+item.title+'...');
       const resolved=await streamService.resolveStream(item);
-      if(!resolved?.streamUrl)throw Error('Could not resolve stream URL for '+item.title);
+      if(!resolved?.streamUrl)throw unresolvedStreamError(item);
       const track:AudioTrack={
        id:'stream:'+item.id,
        title:item.title,
@@ -1668,8 +1681,13 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     else if(err.code===2)msg='Network error loading audio stream.';
    }
   }
+  if(current&&current.streamUrl&&!(current.blob&&current.blob.size>0)){
+   prefs.recent=prefs.recent.filter(id=>id!==current!.id);
+   msg=msg.replace(/\.$/,'')+'. This link did not return playable audio; try again, use a direct audio link, or import files.';
+  }
   setPlaybackState('error',msg);
   report(msg);
+  save();
  });
  audio.addEventListener('loadedmetadata',()=>{
   audio.defaultPlaybackRate=audio.playbackRate=prefs.speed;
