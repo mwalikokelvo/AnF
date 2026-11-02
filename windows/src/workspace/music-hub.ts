@@ -35,6 +35,7 @@ import {rankMusicFlowCandidates,filterMusicFlowCandidates,audioTrackToFlowItem,t
 import {
   streamService,
   cacheStreamTrack,
+  findBrokenStreamEntries,
   searchMultiSource,
   resolveDirectUrl,
   resolveBatchUrl,
@@ -1566,6 +1567,17 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    }
    content.append(row);
   }
+
+  const broken=tab==='music'?findBrokenStreamEntries(tracks):[];
+  if(broken.length)content.append(button('Remove broken stream entries ('+broken.length+')',async()=>{
+   if(!confirm('Remove '+broken.length+' broken stream '+(broken.length===1?'entry':'entries')+' ("Web Audio Stream" web pages that cannot play)? Nothing else is deleted.'))return;
+   const ids=new Set(broken.map(t=>t.id));
+   for(const id of ids)await library.remove(id);
+   const keep=(list:string[])=>list.filter(id=>!ids.has(id));
+   prefs.recent=keep(prefs.recent);prefs.favorites=keep(prefs.favorites);queue=keep(queue);prefs.originalQueue=keep(prefs.originalQueue||[]);
+   if(current&&ids.has(current.id)){current=undefined;audio.pause();}
+   save();await refresh();report('Removed '+ids.size+' broken stream '+(ids.size===1?'entry':'entries')+'.');
+  }));
 
   const grid=h('div',{class:'music-grid'});
   grid.append(...list.map(t=>card(t,list)));
