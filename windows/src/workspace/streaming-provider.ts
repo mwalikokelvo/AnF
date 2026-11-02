@@ -89,6 +89,25 @@ export function isAudioContentType(contentType: string | null | undefined): bool
   return type.startsWith('audio/') || ['application/ogg', 'application/octet-stream', 'binary/octet-stream', 'video/mp4', 'video/webm', 'video/ogg'].includes(type);
 }
 
+/** Placeholder title and artist the direct-link resolver gave pasted pages before PR #64. */
+const BROKEN_STREAM_TITLE = 'Web Audio Stream';
+const BROKEN_STREAM_ARTIST = 'Direct Stream';
+
+/**
+ * True only for a library entry that is provably a mistaken web page: the exact direct-stream
+ * placeholder title and artist, plus a stored type that was explicitly not audio (text/html etc.).
+ * Entries with no recorded type, an audio type, or any other title or artist never match.
+ */
+export function isBrokenStreamEntry(t: { title?: unknown; artist?: unknown; format?: unknown; blob?: { type?: unknown } | null }): boolean {
+  if (t.title !== BROKEN_STREAM_TITLE || t.artist !== BROKEN_STREAM_ARTIST) return false;
+  const types = [t.blob?.type, t.format].filter((v): v is string => typeof v === 'string' && v.trim() !== '');
+  return types.length > 0 && types.some(type => !isAudioContentType(type));
+}
+
+export function findBrokenStreamEntries<T extends Parameters<typeof isBrokenStreamEntry>[0] & { id: string }>(tracks: T[]): T[] {
+  return tracks.filter(isBrokenStreamEntry);
+}
+
 /**
  * Best-effort HEAD check of a direct link before it is handed to the audio element.
  * Refuses when the server answers with a non-audio type (for example text/html). A network
