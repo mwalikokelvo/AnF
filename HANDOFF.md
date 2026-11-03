@@ -237,3 +237,4 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Added boundary tests: framed audio decode (including an 8 MiB chunk and a truncated frame), invalid LRC seconds, and network aborts for lyrics, KOReader progress, and OPDS covers. Evidence: `.cursor/verification-artifacts/regression-boundary-audit.md`.
 - Bug: `isNeuralAudioChunk` compared four characters with `'ID3'`, so an ID3v2 header never counted as audio. It now matches the three magic bytes.
 - Labels: tested on Linux, twice (`npm test` 292 pass / 0 fail, `npm run test:e2e` 138 pass / 0 fail, `npx tsc --noEmit` clean). NOT installed. `bash scripts/simplify-code.sh` exited 1 (UTF-8 BOM on the shebang, `ponytail-cli` npm 404) and did not edit the tree. Debug `console.log` calls in `tts-cache.test.ts` were removed directly.
+- Commit `ef86f40` on `cursor/regression-boundary-audit-8f17`. PR: https://github.com/mwalikokelvo/AnF/pull/86
