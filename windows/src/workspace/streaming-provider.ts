@@ -7,7 +7,7 @@ import type { AudioTrack } from './audio-library';
 import { gatedFetch, ONLINE_LOOKUPS_OFF, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
 import { loadRemoteAudio, needsRustFetch } from './stream-source';
 
-export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url';
+export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url' | 'preview-only' | 'youtube-unavailable' | 'youtube-no-audio';
 
 /** A resolution failure with a message that is safe to show to the user as-is. */
 export class StreamResolutionError extends Error {
@@ -25,16 +25,36 @@ export class StreamResolutionError extends Error {
 export function unresolvedStreamError(track: { title: string; source?: string; id: string }): Error {
   if (track.source === 'youtube' || track.id.startsWith('yt:')) {
     return onlineLookupsEnabled()
-      ? new StreamResolutionError('youtube-unresolved', YOUTUBE_UNRESOLVED_MESSAGE)
+      ? youtubeFailureError(lastYouTubeFailure.get(track.id.replace(/^yt:/, '')) ?? 'unreachable')
       : new StreamResolutionError('lookups-off', YOUTUBE_LOOKUPS_OFF_MESSAGE);
   }
   return Error('Could not resolve a stream for ' + track.title + '.');
 }
 
+export type YouTubeLookupFailure = 'unreachable' | 'unavailable' | 'no-audio';
+/** Why the last lookup of a video id failed, so a result card can say the real reason. */
+const lastYouTubeFailure = new Map<string, YouTubeLookupFailure>();
+function youtubeFailureError(why: YouTubeLookupFailure): StreamResolutionError {
+  return why === 'unavailable' ? new StreamResolutionError('youtube-unavailable', YOUTUBE_UNAVAILABLE_MESSAGE)
+    : why === 'no-audio' ? new StreamResolutionError('youtube-no-audio', YOUTUBE_NO_AUDIO_MESSAGE)
+    : new StreamResolutionError('youtube-unresolved', YOUTUBE_UNRESOLVED_MESSAGE);
+}
+
 export const YOUTUBE_LOOKUPS_OFF_MESSAGE =
   'YouTube links need Online lookups. Turn on "Online lookups" in the Music Hub header, then try again.';
+const FULL_SOURCE_ROUTES = 'paste a direct audio link (MP3, M4A, Opus), or import the audio files into your library.';
+/** Every lookup service failed to answer (down, busy, rate limited or blocked). */
 export const YOUTUBE_UNRESOLVED_MESSAGE =
-  'YouTube stream could not be resolved right now. Try again in a moment, paste a direct audio link (MP3, M4A, Opus), or import the audio files into your library.';
+  'YouTube stream could not be resolved right now: none of the lookup services answered (public ones are often down or busy). Try again in a moment, ' + FULL_SOURCE_ROUTES;
+/** A lookup service answered that the video itself cannot be played. */
+export const YOUTUBE_UNAVAILABLE_MESSAGE =
+  'That YouTube video is unavailable (private, removed, age-restricted or blocked), so there is no audio to play. Try another video, ' + FULL_SOURCE_ROUTES;
+/** A lookup service answered but offered no audio stream (for example a live stream or a premiere). */
+export const YOUTUBE_NO_AUDIO_MESSAGE =
+  'That YouTube link has no playable audio stream (it may be a live stream or a premiere that has not started). Try another video, ' + FULL_SOURCE_ROUTES;
+/** Shown when only the 30 s clip a catalogue offers for a song could be found, and when someone tries to save such a clip. */
+export const PREVIEW_ONLY_MESSAGE =
+  'Only a 30 s preview of this song is available here, so it is not saved to your library. For the full song, paste its YouTube link (with Online lookups on), paste a direct audio link (MP3, M4A, Opus), or import the audio file into your library.';
 export const NOT_AUDIO_MESSAGE =
   'That link is a web page or file, not audio, so it was not played or saved. Paste a direct audio link (MP3, M4A, Opus) or a YouTube video link.';
 
@@ -140,6 +160,8 @@ export interface StreamTrackMetadata {
   coverUrl?: string;
   artworkUrl?: string;
   streamUrl?: string;
+  /** A catalogue's 30 s clip (iTunes / Spotify embed). It is not the song: it is only played, labelled, when no full source is found. */
+  previewUrl?: string;
   source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom';
   bitrate?: number;
   isrc?: string;
@@ -155,6 +177,8 @@ export interface ResolvedAudioStream {
   expiresAt?: number;
   blob?: Blob;
   cached?: boolean;
+  /** True when this is only a 30 s preview clip, not the full track. */
+  preview?: boolean;
 }
 
 export interface StreamingMetadataProvider {
@@ -187,14 +211,15 @@ export function parsePlaylistOrAlbumUrl(url: string): ParsedCollectionUrl | null
   const raw = url.trim();
   if (!raw) return null;
 
-  // 1. YouTube Playlist: list=PL... or list=UU... or list=OLAK... or list=RD...
-  const ytMatch = raw.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
-  if (ytMatch) {
-    return {
-      platform: 'youtube',
-      type: 'playlist',
-      id: ytMatch[1],
-    };
+  // 1. YouTube playlist: list=PL... / UU... / OLAK... on a YouTube (or Piped) host. Auto-generated radio mixes
+  // (list=RD<video id>, RDMM, RDEM ... with start_radio) are endless and not importable, so a watch link carrying one
+  // stays a single video. RDCLAK... are real curated YouTube Music playlists and still import.
+  const web = parseWebUrl(raw);
+  if (web && (web.protocol === 'https:' || web.protocol === 'http:') && (YOUTUBE_HOST.test(web.hostname) || /^piped\./i.test(web.hostname))) {
+    const list = web.searchParams.get('list');
+    if (list && /^[a-zA-Z0-9_-]+$/.test(list) && !/^RD(?!CLAK)/.test(list)) {
+      return { platform: 'youtube', type: 'playlist', id: list };
+    }
   }
 
   // 2. Spotify Playlist or Album
@@ -216,12 +241,45 @@ export function parsePlaylistOrAlbumUrl(url: string): ParsedCollectionUrl | null
 
 /** Each instance speaks one API: Piped (`/search`, `/streams/ID`, `/playlists/ID`) or Invidious (`/api/v1/...`). */
 export interface StreamInstance { url: string; kind: 'piped' | 'invidious' }
+/**
+ * Public instances change often. Checked 2026-11-02 against the Piped documentation's public-instances page and the
+ * Invidious documentation's instances list (the hosts below are on those lists); liveness could not be tested from the
+ * build sandbox. Every host here must also be in `connect-src` of tauri.conf.json (csp and devCsp); tests/stream-resolution.test.ts pins both.
+ */
 export const STREAM_INSTANCES: StreamInstance[] = [
   { url: 'https://pipedapi.kavin.rocks', kind: 'piped' },
-  { url: 'https://api.piped.privacy.com.de', kind: 'piped' },
-  { url: 'https://piped-api.lunar.icu', kind: 'piped' },
+  { url: 'https://pipedapi.leptons.xyz', kind: 'piped' },
+  { url: 'https://piped-api.privacy.com.de', kind: 'piped' },
+  { url: 'https://pipedapi.adminforge.de', kind: 'piped' },
   { url: 'https://inv.nadeko.net', kind: 'invidious' },
+  { url: 'https://invidious.nerdvpn.de', kind: 'invidious' },
 ];
+/** A failed instance goes to the back of the line for this long (it is still tried when nothing else answers). */
+const INSTANCE_COOLDOWN_MS = 2 * 60_000;
+/** Per-request timeout and the time after which no new instance is started in one lookup. */
+const INSTANCE_TIMEOUT_MS = 4000;
+const LOOKUP_BUDGET_MS = 16_000;
+const instanceFailedAt = new Map<string, number>();
+export function resetInstanceHealth(): void { instanceFailedAt.clear(); }
+/** Healthy instances first in list order, then recently failed ones, the longest-failed first. */
+function orderedInstances(): StreamInstance[] {
+  const now = Date.now();
+  const cooling = (i: StreamInstance) => { const t = instanceFailedAt.get(i.url); return t !== undefined && now - t < INSTANCE_COOLDOWN_MS; };
+  const failedAt = (i: StreamInstance) => instanceFailedAt.get(i.url) ?? 0;
+  return [...STREAM_INSTANCES.filter(i => !cooling(i)), ...STREAM_INSTANCES.filter(cooling).sort((a, b) => failedAt(a) - failedAt(b))];
+}
+function noteInstance(i: StreamInstance, answered: boolean): void { if (answered) instanceFailedAt.delete(i.url); else instanceFailedAt.set(i.url, Date.now()); }
+
+const BOT_BLOCK = /\b(bot|captcha|sign in to confirm|rate.?limit|too many requests)\b/i;
+const VIDEO_GONE = /\b(unavailable|not available|private|removed|deleted|terminated|age.?restricted|members.?only|copyright)\b/i;
+/** What an error answer means: the video cannot be played, or this instance is blocked/failing. */
+async function failureCause(res: Response): Promise<'unavailable' | 'instance'> {
+  if (res.status === 404 || res.status === 410) return 'unavailable';
+  let text = '';
+  try { const body: any = JSON.parse((await res.text()).slice(0, 4000)); text = [body?.error, body?.message].filter(x => typeof x === 'string').join(' '); } catch { /* not JSON */ }
+  if (text && BOT_BLOCK.test(text)) return 'instance';
+  return text && VIDEO_GONE.test(text) ? 'unavailable' : 'instance';
+}
 export const PIPED_INSTANCES = STREAM_INSTANCES.map(i => i.url);
 
 interface InstanceVideo { videoId: string; title?: string; artist?: string; duration?: number; thumbnail?: string }
@@ -318,7 +376,13 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (typeof localStorage === 'undefined') return;
       const stored: StreamTrackMetadata[] = JSON.parse(localStorage.getItem(this.cacheKey) || '[]');
       for (const t of stored) {
-        if (t && t.id) this.cache.set(t.id, t);
+        if (!t || !t.id) continue;
+        // Older versions kept the catalogue's 30 s clip in streamUrl; it was never the full song.
+        if ((t.source === 'spotube' || t.source === 'spotify') && t.streamUrl && !t.previewUrl) {
+          t.previewUrl = t.streamUrl;
+          delete t.streamUrl;
+        }
+        this.cache.set(t.id, t);
       }
     } catch {
       // Storage unavailable or empty
@@ -371,7 +435,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
           artworkUrl: item.artworkUrl100 || item.artworkUrl60 || undefined,
           coverUrl: item.artworkUrl100 || item.artworkUrl60 || undefined,
           source: 'spotube' as const,
-          streamUrl: item.previewUrl || undefined,
+          previewUrl: safeHttpsUrl(item.previewUrl),
           year: item.releaseDate ? new Date(item.releaseDate).getFullYear() : undefined,
         }));
 
@@ -394,17 +458,19 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
 
     let rawItems: InstanceVideo[] = [];
     // Music filter first (Piped only has it); then the general search. Invidious has one search, so it is not asked twice.
+    const failedHere = new Set<string>();
     for (const pass of ['music_songs', 'all'] as const) {
-      for (const instance of STREAM_INSTANCES) {
-        if (pass === 'all' && instance.kind === 'invidious') continue;
+      for (const instance of orderedInstances()) {
+        if (pass === 'all' && (instance.kind === 'invidious' || failedHere.has(instance.url))) continue;
         try {
-          const res = await gatedFetch(searchUrl(instance, q, pass), { signal: getTimeoutSignal(pass === 'all' ? 4000 : 4500) });
-          if (res.ok) {
-            const items = searchVideos(instance, await res.json());
-            if (items.length > 0) { rawItems = items; break; }
-          }
+          const res = await gatedFetch(searchUrl(instance, q, pass), { signal: getTimeoutSignal(INSTANCE_TIMEOUT_MS) });
+          noteInstance(instance, res.ok);
+          if (!res.ok) { failedHere.add(instance.url); continue; }
+          const items = searchVideos(instance, await res.json());
+          if (items.length > 0) { rawItems = items; break; }
         } catch {
-          // Try next instance
+          noteInstance(instance, false);
+          failedHere.add(instance.url);
         }
       }
       if (rawItems.length > 0) break;
@@ -432,31 +498,51 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     return results;
   }
 
-  /** Title, uploader and best audio stream of one video, from the first allow-listed instance that answers. */
-  async lookupYouTube(videoId: string): Promise<{ title?: string; uploader?: string; duration?: number; stream: ResolvedAudioStream } | null> {
+  /** Title, uploader and best audio stream of one video, or why none could be had. Instances are tried in order of health. */
+  async lookupYouTubeDetailed(videoId: string): Promise<
+    | { ok: true; title?: string; uploader?: string; duration?: number; stream: ResolvedAudioStream }
+    | { ok: false; why: YouTubeLookupFailure }
+  > {
     const cleanId = videoId.replace(/^yt:/, '');
-    if (!YOUTUBE_ID.test(cleanId) || !onlineLookupsEnabled()) return null;
-    for (const instance of STREAM_INSTANCES) {
+    if (!YOUTUBE_ID.test(cleanId) || !onlineLookupsEnabled()) return { ok: false, why: 'unreachable' };
+    const started = Date.now();
+    let noAudio = false;
+    for (const instance of orderedInstances()) {
+      if (Date.now() - started > LOOKUP_BUDGET_MS) break;
       try {
-        const res = await gatedFetch(streamsUrl(instance, cleanId), { signal: getTimeoutSignal(5000) });
-        if (res.ok) {
-          const data = videoDetails(instance, await res.json());
-          if (data.audio.length > 0) {
-            // Pick highest bitrate audio stream
-            const best = [...data.audio].sort((a, b) => b.bitrate - a.bitrate)[0];
-            return {
-              title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : undefined,
-              uploader: typeof data.uploader === 'string' && data.uploader.trim() ? data.uploader.trim().slice(0, 120) : undefined,
-              duration: data.duration,
-              stream: { streamUrl: best.url, mimeType: best.mimeType || 'audio/mp4', bitrate: best.bitrate, cached: false },
-            };
-          }
+        const res = await gatedFetch(streamsUrl(instance, cleanId), { signal: getTimeoutSignal(INSTANCE_TIMEOUT_MS) });
+        if (!res.ok) {
+          const cause = await failureCause(res);
+          noteInstance(instance, cause === 'unavailable');
+          if (cause === 'unavailable') { lastYouTubeFailure.set(cleanId, 'unavailable'); return { ok: false, why: 'unavailable' }; }
+          continue;
         }
+        const data = videoDetails(instance, await res.json());
+        noteInstance(instance, true);
+        if (data.audio.length === 0) { noAudio = true; continue; }
+        // Pick highest bitrate audio stream
+        const best = [...data.audio].sort((a, b) => b.bitrate - a.bitrate)[0];
+        lastYouTubeFailure.delete(cleanId);
+        return {
+          ok: true,
+          title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : undefined,
+          uploader: typeof data.uploader === 'string' && data.uploader.trim() ? data.uploader.trim().slice(0, 120) : undefined,
+          duration: data.duration,
+          stream: { streamUrl: best.url, mimeType: best.mimeType || 'audio/mp4', bitrate: best.bitrate, cached: false },
+        };
       } catch {
-        // Try next instance
+        noteInstance(instance, false);
       }
     }
-    return null;
+    const why: YouTubeLookupFailure = noAudio ? 'no-audio' : 'unreachable';
+    lastYouTubeFailure.set(cleanId, why);
+    return { ok: false, why };
+  }
+
+  /** Title, uploader and best audio stream of one video, from the first allow-listed instance that answers. */
+  async lookupYouTube(videoId: string): Promise<{ title?: string; uploader?: string; duration?: number; stream: ResolvedAudioStream } | null> {
+    const r = await this.lookupYouTubeDetailed(videoId);
+    return r.ok ? r : null;
   }
 
   /** Resolve direct YouTube stream URL using multi-instance fallback */
@@ -472,7 +558,6 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (ytCandidates.length > 0) {
         const resolved = await this.resolveYouTubeStream(ytCandidates[0].id);
         if (resolved) {
-          track.streamUrl = resolved.streamUrl;
           track.bitrate = resolved.bitrate;
           this.registerMetadata(track);
           return resolved;
@@ -482,13 +567,9 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // YouTube fallback failed
     }
 
-    if (track.streamUrl) {
-      return {
-        streamUrl: track.streamUrl,
-        mimeType: 'audio/mp4',
-        cached: false,
-      };
-    }
+    // No full source: the catalogue's 30 s clip, flagged so the UI can label it and never save it as the song.
+    const preview = safeHttpsUrl(track.previewUrl);
+    if (preview) return { streamUrl: preview, mimeType: 'audio/mp4', cached: false, preview: true };
     return null;
   }
 
@@ -584,8 +665,8 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const videoId = parseYouTubeVideoId(raw);
     if (videoId) {
       if (!onlineLookupsEnabled()) throw new StreamResolutionError('lookups-off', YOUTUBE_LOOKUPS_OFF_MESSAGE);
-      const video = await this.lookupYouTube(videoId);
-      if (!video) throw new StreamResolutionError('youtube-unresolved', YOUTUBE_UNRESOLVED_MESSAGE);
+      const video = await this.lookupYouTubeDetailed(videoId);
+      if (!video.ok) throw youtubeFailureError(video.why);
       const track: StreamTrackMetadata = {
         id: `yt:${videoId}`,
         title: video.title || 'YouTube Stream',
@@ -657,9 +738,10 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (!cleanId) return null;
 
     // 1. Try Piped API instances
-    for (const instance of STREAM_INSTANCES) {
+    for (const instance of orderedInstances()) {
       try {
-        const res = await gatedFetch(playlistUrl(instance, cleanId), { signal: getTimeoutSignal(5000) });
+        const res = await gatedFetch(playlistUrl(instance, cleanId), { signal: getTimeoutSignal(INSTANCE_TIMEOUT_MS) });
+        noteInstance(instance, res.ok);
         if (res.ok) {
           const data = await res.json();
           const videos = playlistVideos(instance, data);
@@ -695,7 +777,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
           }
         }
       } catch {
-        // Try next instance
+        noteInstance(instance, false);
       }
     }
 
@@ -865,7 +947,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
             const duration = typeof item.duration === 'number' && item.duration > 0
               ? Math.round(item.duration / 1000)
               : undefined;
-            const streamUrl = item.audioPreview?.url || undefined;
+            const previewUrl = safeHttpsUrl(item.audioPreview?.url);
 
             const track: StreamTrackMetadata = {
               id: `sp:${trackId}`,
@@ -876,7 +958,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
               artworkUrl,
               coverUrl: artworkUrl,
               source: 'spotube',
-              streamUrl,
+              previewUrl,
             };
             this.registerMetadata(track);
             tracks.push(track);
@@ -1061,6 +1143,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (typeof streamBlobOrUrl === 'string') {
       const safe = safeHttpsUrl(streamBlobOrUrl);
       if (!safe) throw Error('Stream audio must be an https URL.');
+      if (safe === safeHttpsUrl(track.previewUrl)) throw new StreamResolutionError('preview-only', PREVIEW_ONLY_MESSAGE);
       if (needsRustFetch(safe)) {
         // Desktop: the CSP does not allow this host for fetch(); Rust downloads it (audio content types only).
         if (!onlineLookupsEnabled()) throw new Error(ONLINE_LOOKUPS_OFF);

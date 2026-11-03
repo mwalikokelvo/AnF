@@ -41,6 +41,7 @@ import {
   resolveBatchUrl,
   describeStreamError,
   unresolvedStreamError,
+  PREVIEW_ONLY_MESSAGE,
   verifyAudioUrl,
   isAudioContentType,
   type StreamTrackMetadata
@@ -797,6 +798,25 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
   }
   const token=++epoch;
   pause();
+  if(!(track.blob&&track.blob.size>0)&&!track.streamUrl&&track.id.startsWith('stream:')){
+   // Queued from a playlist or album: only the metadata is known, so find the audio now.
+   const meta=await streamService.getTrack(track.id.slice('stream:'.length));
+   if(meta){
+    report('Resolving stream for '+track.title+'...');
+    try{
+     const resolved=await streamService.resolveStream(meta);
+     if(!resolved?.streamUrl)throw unresolvedStreamError(meta);
+     track={...track,streamUrl:resolved.streamUrl,preview:resolved.preview||undefined,...(resolved.preview?{duration:undefined}:{})};
+    }catch(err){
+     if(token!==epoch)return;
+     const msg=describeStreamError(err);
+     setPlaybackState('error',msg);
+     report(msg);
+     return;
+    }
+    if(token!==epoch)return;
+   }
+  }
   let remote:Blob|undefined;
   const remoteUrl=!(track.blob&&track.blob.size>0)&&track.streamUrl?safeHttpsUrl(track.streamUrl):undefined;
   if(remoteUrl&&needsRustFetch(remoteUrl)){
@@ -849,7 +869,7 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
   drawerTitle.textContent=track.title;
   drawerArtist.textContent=track.artist||'Unknown artist';
   drawerAlbum.textContent=track.album||'';
-  drawerPlayingBadge.textContent='READY · '+(formatBadge(track)||'320kbps');
+  drawerPlayingBadge.textContent=track.preview?'30 s PREVIEW':'READY · '+(formatBadge(track)||'320kbps');
   if(cover){
    drawerArtImg.src=cover;
    drawerArtImg.hidden=false;
@@ -870,6 +890,7 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
   save();
   renderQueue();
   if(play&&token===epoch)await resume();
+  if(track.preview&&token===epoch)report(PREVIEW_ONLY_MESSAGE);
  }
 
  async function step(direction:number,automatic=false){
@@ -995,7 +1016,7 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
     const row=h('div',{class:'music-queue-row'}),up=button('Move up '+t.title,()=>move(t.id,-1)),down=button('Move down '+t.title,()=>move(t.id,1));up.disabled=queue.indexOf(t.id)===0;down.disabled=queue.indexOf(t.id)===queue.length-1;
     const reorder=(label:string,msg:string,place:(idx:number)=>number|null)=>button(label,()=>{const idx=queue.indexOf(t.id);if(idx<0)return;const item=queue.splice(idx,1)[0];const at=place(idx);if(at===null||at===idx){queue.splice(idx,0,item);return;}queue.splice(at,0,item);prefs.originalQueue=[...queue];save();renderQueue();report(msg);});
     const toTop=reorder('Move to top','Moved to top of queue.',i=>i<=0?null:0),toBottom=reorder('Move to bottom','Moved to bottom of queue.',i=>i>=queue.length?null:queue.length),afterCur=reorder('Move after current','Moved after current track.',()=>{if(!current)return null;const c=queue.indexOf(current.id);return c<0?null:c+1;}),beforeCur=reorder('Move before current','Moved before current track.',()=>{if(!current)return null;const c=queue.indexOf(current.id);return c<=0?null:c;});
-    row.append(button(t.title+(t.id===current?.id?' (playing)':''),()=>select(t)),up,down,toTop,toBottom,afterCur,beforeCur,button('Remove from queue '+t.title,()=>{queue=removeTrack(queue,t.id);if(prefs.originalQueue)prefs.originalQueue=removeTrack(prefs.originalQueue,t.id);save();renderQueue();report('Removed from queue.');}));return row;
+    row.append(button(t.title+(t.preview?' (30 s preview)':'')+(t.id===current?.id?' (playing)':''),()=>select(t)),up,down,toTop,toBottom,afterCur,beforeCur,button('Remove from queue '+t.title,()=>{queue=removeTrack(queue,t.id);if(prefs.originalQueue)prefs.originalQueue=removeTrack(prefs.originalQueue,t.id);save();renderQueue();report('Removed from queue.');}));return row;
   })));
   if(!queuePanel.querySelector('button'))queuePanel.append(h('p',{class:'music-muted',text:'Your queue is empty. Add a track to play next.'}));
  }
@@ -1236,7 +1257,7 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
        if(!queue.includes(at.id))queue.push(at.id);
       }
       await select(audioTracks[0],true);
-      if(playbackState!=='error')report(`Playing ${batch.title} (${batch.tracks.length} tracks queued)`);
+      if(playbackState!=='error'&&!current?.preview)report(`Playing ${batch.title} (${batch.tracks.length} tracks queued)`);
       return;
      }
 
@@ -1336,20 +1357,22 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
      const batch=await resolveBatchUrl(raw);
      if(batch&&batch.tracks.length>0){
       report(`Found ${batch.tracks.length} tracks in ${batch.title}. Caching offline...`);
-      let successCount=0;
+      let successCount=0,previewOnly=0;
       for(let i=0;i<batch.tracks.length;i++){
        const trk=batch.tracks[i];
        report(`Caching [${i+1}/${batch.tracks.length}]: ${trk.title}...`);
        try{
         const stream=await streamService.resolveStream(trk);
-        if(stream?.streamUrl){
+        if(stream?.streamUrl&&!stream.preview){
          await cacheStreamTrack(library,trk,stream.streamUrl);
          successCount++;
+        }else if(stream?.preview){
+         previewOnly++;
         }
        }catch{}
       }
       await refresh();
-      report(`Downloaded ${successCount}/${batch.tracks.length} tracks from ${batch.title} offline.`);
+      report(`Downloaded ${successCount}/${batch.tracks.length} tracks from ${batch.title} offline.`+(previewOnly?` ${previewOnly} had only a 30 s preview and were not saved.`:''));
       return;
      }
 
@@ -1433,8 +1456,9 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
        kind:item.source==='audiobook'?'audiobook':'music',
        blob:new Blob([],{type:resolved.mimeType||'audio/mp4'}),
        streamUrl:resolved.streamUrl,
+       preview:resolved.preview||undefined,
        coverUrl:item.coverUrl||item.artworkUrl,
-       duration:item.duration,
+       duration:resolved.preview?undefined:item.duration,
        format:resolved.mimeType||'audio/mp4',
        created:Date.now(),
        chapters:item.chapters?.map(c=>({title:c.title,start:c.start}))
@@ -1463,6 +1487,7 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
        report('Resolving stream for offline caching...');
        const resolved=item.streamUrl?{streamUrl:item.streamUrl}:await streamService.resolveStream(item);
        if(!resolved?.streamUrl){report('No stream URL available to download.');return;}
+       if((resolved as {preview?:boolean}).preview){report(PREVIEW_ONLY_MESSAGE);return;}
        report('Saving streaming track offline...');
        await cacheStreamTrack(library,item,resolved.streamUrl);
        await refresh();

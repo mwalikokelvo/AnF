@@ -51,7 +51,7 @@ try{
  await search.fill(YT);await page.getByRole('button',{name:'Search',exact:true}).click();
  await page.getByText(/YouTube stream could not be resolved right now/).first().waitFor();await assertClean('search, instances busy');
  const hosts=new Set(outbound.map(x=>new URL(x.split(' ')[1]).hostname));
- for(const h of hosts)assert.ok(['pipedapi.kavin.rocks','api.piped.privacy.com.de','piped-api.lunar.icu','inv.nadeko.net'].includes(h),'unexpected host '+h);
+ for(const h of hosts)assert.ok(['pipedapi.kavin.rocks','pipedapi.leptons.xyz','piped-api.privacy.com.de','pipedapi.adminforge.de','inv.nadeko.net','invidious.nerdvpn.de'].includes(h),'unexpected host '+h);
 
  // 3. A link that answers with an HTML page is refused before playback and before saving.
  await direct.fill('https://example.org/stream');await page.getByRole('button',{name:'Play URL',exact:true}).click();
