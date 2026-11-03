@@ -143,6 +143,13 @@ try{
     assert.ok(ratio(after.reader.border,after.reader.buttonBg)>=3,`${theme} control border ${after.reader.border} on ${after.reader.buttonBg}`);
     const placeholder=await page.locator('.reader-aside textarea').evaluate(el=>getComputedStyle(el,'::placeholder').color);
     assert.ok(ratio(placeholder,after.reader.bg)>=4.5,`${theme} placeholder ${placeholder} on ${after.reader.bg} is ${ratio(placeholder,after.reader.bg).toFixed(2)}`);
+    const ocr=page.locator('.ocr-start-btn');
+    if(await ocr.count()){
+      const paint=await ocr.evaluate(el=>{const s=getComputedStyle(el);return {color:s.color,bg:s.backgroundColor,border:s.borderTopColor};});
+      assert.equal(paint.bg,after.reader.bg,`${theme} OCR fill uses the reader background, not the workspace surface`);
+      assert.ok(ratio(paint.color,paint.bg)>=4.5,`${theme} OCR text ${paint.color} on ${paint.bg} is ${ratio(paint.color,paint.bg).toFixed(2)}`);
+      assert.ok(ratio(paint.border,paint.bg)>=4.5,`${theme} OCR border ${paint.border} on ${paint.bg} is ${ratio(paint.border,paint.bg).toFixed(2)}`);
+    }
     seen.add(after.reader.bg);
     if(theme==='light'||theme==='amber'){
       await page.locator('.reader-overlay').screenshot({path:path.join(shotsDir,`reader-theme-${theme}.png`)});
@@ -150,6 +157,18 @@ try{
     }
   }
   assert.ok(seen.size>=4,'theme backgrounds differ');
+  await page.setViewportSize({width:1100,height:800});
+  await page.waitForTimeout(400);
+  const wide=await box('.reader-page');
+  for(const width of [640,1100]){
+    await page.setViewportSize({width,height:800});
+    const pageNow=await box('.reader-page');
+    const headerNow=await box('.reader-header');
+    await page.waitForTimeout(400);
+    same(pageNow,await box('.reader-page'),`${width}px page after resize`);
+    same(headerNow,await box('.reader-header'),`${width}px toolbar after resize`);
+  }
+  same(wide,await box('.reader-page'),'page restored after viewport toggle');
   const railBefore=await sample();
   await page.locator('#workspace-root').evaluate(el=>{el.dataset.theme='light';});
   same(originRail,await box('.glass-rail'),'glass rail during theme');
@@ -162,6 +181,16 @@ try{
   assert.notEqual(railAfter.header.border,railBefore.header.border);
   assert.notEqual(railAfter.rail.bg,railBefore.rail.bg);
   await page.locator('.reader-overlay').evaluate(el=>{el.hidden=true;});
+  const shell=await page.evaluate(()=>{
+    const rail=getComputedStyle(document.querySelector('.glass-rail'));
+    const header=getComputedStyle(document.querySelector('.workspace-header'));
+    const root=getComputedStyle(document.querySelector('#workspace-root'));
+    return {canvas:root.backgroundColor,railBg:rail.backgroundColor,railBorder:rail.borderTopColor,railBlur:rail.backdropFilter,headerBlur:header.backdropFilter,headerBg:header.backgroundColor};
+  });
+  assert.notEqual(shell.canvas,'rgb(16, 30, 33)',`light canvas stayed the dark page color ${shell.canvas}`);
+  assert.equal(shell.railBlur,'none',`light rail blur ${shell.railBlur}`);
+  assert.equal(shell.headerBlur,'none',`light header blur ${shell.headerBlur}`);
+  assert.ok(ratio(shell.railBorder,shell.railBg)>=4.5,`glass border ${shell.railBorder} on ${shell.railBg} is ${ratio(shell.railBorder,shell.railBg).toFixed(2)}`);
   await page.screenshot({path:path.join(shotsDir,'reader-theme-glass-light.png')});
   shots.push('reader-theme-glass-light.png');
   await page.locator('.reader-overlay').evaluate(el=>{el.hidden=false;});
@@ -169,6 +198,6 @@ try{
   assert.deepEqual(warnings,[]);
   const report={themes,shots,transition:origin.transition,backgrounds:[...seen],warnings,errors};
   await fs.writeFile(path.join(shotsDir,'reader-theme.json'),JSON.stringify(report,null,2));
-  await fs.writeFile(path.join(shotsDir,'reader-theme.md'),`# Reader theme transitions\n\nBrowser fixture (headless Chrome), not an installed app.\n\n- Themes ${themes.join(', ')} change background and ink.\n- Reading column, toolbar, glass rail, and header keep their boxes.\n- Scroll stays at 140px and the document text is not rebuilt.\n- Title, aside heading, and page text stay at least 4.5:1. Control borders stay at least 3:1. Placeholders stay at least 4.5:1.\n- Console warnings: none.\n- Transition: \`${origin.transition}\`.\n`);
+  await fs.writeFile(path.join(shotsDir,'reader-theme.md'),`# Reader theme contrast\n\nBrowser fixture (headless Chrome), not an installed app.\n\n## Before\n\nSampled from the previous fixture shots:\n\n| Surface | Measured |\n|---|---|\n| Dark, light, and amber borders | about 3.07:1 (\`#606d7a\`, \`#909090\`, \`#725b41\`) |\n| Light focus, meter, and quote | about 3.10:1 |\n| Start OCR Server | workspace surface \`#182a2d\` on every reader theme |\n| Light glass border | about 1.2:1, with a 24px blur halo over the dark page |\n| Light canvas behind the rail | \`#101e21\` showing through |\n\n## After\n\n- Themes ${themes.join(', ')} change background and ink.\n- Reading column, toolbar, glass rail, and header keep their boxes. Resizing 1100px to 640px and back does not leave the page mid-transition.\n- Scroll stays at 140px and the document text is not rebuilt.\n- Title, aside heading, page text, placeholders, and the OCR control stay at least 4.5:1. Shell borders, focus, meter, and quote stay at least 4.5:1.\n- The open light rail is opaque (\`backdrop-filter: none\`). Its border is ${shell.railBorder} on ${shell.railBg} (${ratio(shell.railBorder,shell.railBg).toFixed(2)}:1). The canvas is ${shell.canvas}, not the dark page color.\n- Console warnings: none.\n- Transition: \`${origin.transition}\`.\n`);
   console.log('PASS: reader themes ease color tokens without moving the viewport, and the glass shell border and overlay update together.');
 }finally{await browser.close();}

@@ -7,6 +7,7 @@
   color:var(--ink);color-scheme:dark;
   font-family:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
 }
+#workspace-root{background:var(--bg);min-height:100%}
 html[data-theme=light],#workspace-root[data-theme=light]{
   --bg:#f5f6f2;--side:#eef1eb;--surface:#ffffff;--panel:var(--surface);
   --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#4a6055;
@@ -45,7 +46,9 @@ p{line-height:1.65}pre{overflow-wrap:anywhere}
 .workspace-navigation button[aria-current=page]{background:var(--surface);border-color:var(--line);color:var(--accent);box-shadow:var(--shadow);font-weight:700}
 .history-sidebar>button{border-style:solid;border-radius:12px}
 .history-heading{margin-top:28px}.history-item{border-radius:12px;padding:12px}
-.workspace-header{padding:20px 36px;min-height:92px;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:90}
+.workspace-header{padding:20px 36px;min-height:92px;--shell-blur:16px;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(var(--shell-blur));-webkit-backdrop-filter:blur(var(--shell-blur));border-bottom:1px solid var(--line);position:sticky;top:0;z-index:90}
+#workspace-root[data-theme=light] .workspace-header{--shell-blur:0px;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
+@media(prefers-color-scheme:light){#workspace-root[data-theme=system] .workspace-header{--shell-blur:0px;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}}
 .workspace-header h1{font-size:24px;margin-bottom:4px}.workspace-header .hint{margin:0}
 .project-title input{border:1px solid var(--line);background:var(--surface);padding:9px 12px;font-size:13px;border-radius:10px}
 .panel-host{padding:36px;scrollbar-width:thin}.workspace-panel{max-width:1080px}

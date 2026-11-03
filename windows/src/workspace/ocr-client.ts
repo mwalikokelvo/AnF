@@ -282,13 +282,13 @@ export function createOcrStatusIndicator(options?: OcrStatusIndicatorOptions): O
       badge.style.fontSize = '11px';
       badge.style.fontWeight = '600';
       badge.style.letterSpacing = '0.02em';
-      badge.style.background = 'rgba(121, 228, 180, 0.14)';
-      badge.style.color = 'var(--accent, #79e4b4)';
-      badge.style.border = '1px solid rgba(121, 228, 180, 0.35)';
+      badge.style.background = 'color-mix(in srgb, var(--reader-control-mark, var(--accent, #79e4b4)) 18%, transparent)';
+      badge.style.color = 'var(--reader-control-ink, var(--ink, #edf4ef))';
+      badge.style.border = '1px solid var(--reader-control-mark, var(--accent, #79e4b4))';
 
       const dot = document.createElement('span');
       dot.textContent = '●';
-      dot.style.color = 'var(--accent, #79e4b4)';
+      dot.style.color = 'var(--reader-control-mark, var(--accent, #79e4b4))';
       dot.style.fontSize = '9px';
 
       const label = document.createElement('span');
@@ -332,9 +332,9 @@ export function createOcrStatusIndicator(options?: OcrStatusIndicatorOptions): O
       btn.style.borderRadius = '6px';
       btn.style.fontSize = '11px';
       btn.style.fontWeight = '500';
-      btn.style.background = 'var(--surface, #1e1e1e)';
-      btn.style.color = 'var(--ink, #e0e0e0)';
-      btn.style.border = '1px solid var(--line, #3a3a3a)';
+      btn.style.background = 'var(--reader-control-bg, var(--surface, #1e1e1e))';
+      btn.style.color = 'var(--reader-control-ink, var(--ink, #e0e0e0))';
+      btn.style.border = '1px solid var(--reader-control-line, var(--line, #3a3a3a))';
       btn.style.cursor = 'pointer';
 
       btn.addEventListener('click', async () => {
