@@ -209,6 +209,44 @@ test('a dropped progress push stays queued and is delivered on the next drain', 
   assert.equal(queue.count(), 0);
 });
 
+test('an aborted or timed-out progress push keeps that payload for a later drain', async () => {
+  const store = memoryQueue();
+  const queue = createKoreaderQueue(store, () => 1700000000);
+  const item = toKoreaderPayload(SHORT, legacy(4), { device: 'AnF', device_id: 'device-1', timestamp: 1700000000 });
+  const abort = new Error('The operation was aborted');
+  abort.name = 'AbortError';
+  assert.equal(await queue.sync(item, async () => { throw abort; }), 'queued');
+  assert.deepEqual(store.items(), [{ ...item, queued_at: 1700000000 }]);
+
+  const replaced = { ...item, progress: 'anf:9', percentage: 0.8, timestamp: 1700000001 };
+  assert.equal(await queue.sync(replaced, async () => ({ status: 408 })), 'queued');
+  assert.equal(queue.count(), 1);
+  assert.equal(store.items()[0].progress, 'anf:9');
+  assert.equal(store.items()[0].percentage, 0.8);
+  assert.equal(store.items()[0].document, item.document);
+  assert.equal(store.items()[0].device_id, 'device-1');
+
+  assert.equal(await queue.sync(replaced, async () => ({ status: 504 })), 'queued');
+  assert.equal(queue.count(), 1);
+  assert.equal(store.items()[0].timestamp, 1700000001);
+
+  let attempts = 0;
+  assert.equal(await queue.drain(async () => {
+    attempts += 1;
+    throw abort;
+  }), 0);
+  assert.equal(attempts, 1);
+  assert.equal(queue.count(), 1);
+
+  const sent: string[] = [];
+  assert.equal(await queue.drain(async (queuedItem) => {
+    sent.push(`${queuedItem.document}:${queuedItem.progress}:${queuedItem.percentage}`);
+    return true;
+  }), 1);
+  assert.deepEqual(sent, [`${item.document}:anf:9:0.8`]);
+  assert.equal(queue.count(), 0);
+});
+
 test('the offline queue keeps the latest progress for a document each day and drops expired entries', () => {
   const store = memoryQueue();
   let now = 1700000000;

@@ -280,6 +280,39 @@ test('a slow thumbnail falls back to the next image before the deadline', async 
   });
 });
 
+test('cover urls that never finish abort and leave the cache empty', async () => {
+  const book: OpdsBook = {
+    id: 'urn:book:a',
+    title: 'Book A',
+    thumbnailUrl: 'https://cdn.example/slow.jpg',
+    imageUrl: 'https://cdn.example/slower.jpg',
+  };
+  const seen: string[] = [];
+  await withCache((url, signal) => new Promise((_resolve, reject) => {
+    seen.push(url);
+    const timer = setTimeout(() => reject(new Error('hung past deadline')), 5000);
+    timer.unref?.();
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer);
+      const err = new Error('aborted');
+      err.name = 'AbortError';
+      reject(err);
+    });
+  }), 30, async (cache, dir) => {
+    const started = Date.now();
+    const [result] = await prefetchBookCovers([book], cache);
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed >= 40, `elapsed ${elapsed}`);
+    assert.ok(elapsed < 2000, `elapsed ${elapsed}`);
+    assert.deepEqual(seen, ['https://cdn.example/slow.jpg', 'https://cdn.example/slower.jpg']);
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'timeout');
+    assert.equal(result.bytes, undefined);
+    assert.equal(cache.memory.size, 0);
+    assert.deepEqual(await readdir(dir), []);
+  });
+});
+
 test('broken and corrupt cover urls leave the cache empty', async () => {
   const book: OpdsBook = {
     id: 'urn:book:a',

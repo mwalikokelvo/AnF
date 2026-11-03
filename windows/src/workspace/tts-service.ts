@@ -175,7 +175,9 @@ function isNeuralAudioChunk(bytes: Uint8Array): boolean {
   const wave = bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45;
   if (riff && wave) return true;
   const head = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
-  if (head === 'OggS' || head === 'fLaC' || head === 'ID3') return true;
+  if (head === 'OggS' || head === 'fLaC') return true;
+  // ID3 is three bytes; the fourth is the tag version and is not part of the magic.
+  if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return true;
   return bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0;
 }
 
