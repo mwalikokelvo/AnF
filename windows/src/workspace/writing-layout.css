@@ -39,3 +39,6 @@
   color: var(--accent, #79e4b4);
   font-feature-settings: 'tnum';
 }
+
+/* CodeMirror draws no focus indicator of its own (outline:none), so the Writing editor was invisible to keyboard focus. Same ring as the other controls (anf-design.css). */
+.live-markdown:focus-within{outline:3px solid var(--accent);outline-offset:3px}
