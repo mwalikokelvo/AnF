@@ -5,3 +5,9 @@
 
 .reader-meter{height:3px;border-radius:99px;background:var(--reader-line);overflow:hidden;margin:2px 0 8px}
 .reader-meter>span{display:block;height:100%;width:0;background:#79e4b4;border-radius:99px}
+
+/* The section bar hides in place. Its slot keeps its height, so the reading column does not move. */
+.reader-navigation{transition:opacity .18s ease,transform .22s cubic-bezier(.16,1,.3,1),visibility .22s}
+.reader-overlay[data-nav=collapsed] .reader-nav-slot{overflow:hidden}
+.reader-overlay[data-nav=collapsed] .reader-navigation{opacity:0;visibility:hidden;transform:translateY(-100%);pointer-events:none;transition:opacity .18s ease,transform .22s cubic-bezier(.16,1,.3,1),visibility 0s linear .22s}
+@media(prefers-reduced-motion:reduce){.reader-navigation,.reader-overlay[data-nav=collapsed] .reader-navigation{transition:none}}

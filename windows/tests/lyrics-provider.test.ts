@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanTitle, primaryArtist, fetchOnlineLyrics } from '../src/workspace/lyrics-provider.ts';
+import { cleanTitle, primaryArtist, fetchOnlineLyrics, parseSyncedLyrics, activeLyricLine } from '../src/workspace/lyrics-provider.ts';
 import { setOnlineLookups } from '../src/workspace/online-lookups.ts';
 import { parseLyrics, activeLine, toLrc, baseName, matchLyricsTrack } from '../src/workspace/lyrics.ts';
 
@@ -154,6 +154,83 @@ test('fetchOnlineLyrics ignores non-array search payloads and sparse entries', a
   }, async () => {
     assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), 'hello');
   });
+});
+
+test('parseSyncedLyrics reads [mm:ss.xx] boundaries and the line active at that playback time', () => {
+  const parsed = parseSyncedLyrics([
+    '[00:00.00]Start',
+    '[00:59.99]Just before a minute',
+    '[01:00.00]One minute',
+    '[01:02.50]Centiseconds',
+    '[1:02.5]Same instant',
+    '[01:02.500]Same instant milliseconds',
+  ].join('\n'));
+  assert.equal(parsed.syncType, 'LINE_SYNCED');
+  assert.equal(parsed.offsetMs, 0);
+  assert.deepEqual(parsed.lines.map(line => [line.time, line.text]), [
+    [0, 'Start'],
+    [59.99, 'Just before a minute'],
+    [60, 'One minute'],
+    [62.5, 'Centiseconds'],
+    [62.5, 'Same instant'],
+    [62.5, 'Same instant milliseconds'],
+  ]);
+
+  assert.equal(activeLyricLine(parsed, -0.01), null);
+  assert.equal(activeLyricLine(parsed, 0)?.text, 'Start');
+  assert.equal(activeLyricLine(parsed, 59.98)?.text, 'Start');
+  assert.equal(activeLyricLine(parsed, 59.99)?.text, 'Just before a minute');
+  assert.equal(activeLyricLine(parsed, 59.995)?.text, 'Just before a minute');
+  assert.equal(activeLyricLine(parsed, 60)?.text, 'One minute');
+  assert.equal(activeLyricLine(parsed, 62.5)?.text, 'Same instant milliseconds');
+  assert.equal(activeLyricLine(parsed, 62.5)?.time, 62.5);
+  assert.equal(activeLyricLine(parsed, 1000)?.text, 'Same instant milliseconds');
+  assert.equal(activeLyricLine(parsed, Number.NaN), null);
+});
+
+test('parseSyncedLyrics drops malformed timestamp tags', () => {
+  const parsed = parseSyncedLyrics([
+    '[00:60.00]sixty is not a valid seconds field',
+    '[00:99]rolled',
+    '[00:02.xx]not numbers',
+    '[00:01.00.00]extra fraction',
+    '[00:03]ok',
+    '[00:99][00:04.25]mixed',
+    'plain leftover',
+  ].join('\n'));
+  assert.equal(parsed.syncType, 'LINE_SYNCED');
+  assert.deepEqual(parsed.lines.map(line => [line.time, line.text]), [
+    [3, 'ok'],
+    [4.25, 'mixed'],
+  ]);
+});
+
+test('parseSyncedLyrics keeps unsynced plain text with no active line', () => {
+  const parsed = parseSyncedLyrics('[ti:Song]\nHello\n[00:99]nope\n\nWorld');
+  assert.equal(parsed.syncType, 'UNSYNCED');
+  assert.equal(parsed.offsetMs, 0);
+  assert.deepEqual(parsed.lines.map(line => line.text), ['Hello', 'nope', 'World']);
+  assert.equal(activeLyricLine(parsed, 0), null);
+  assert.equal(activeLyricLine(parsed, 10), null);
+  assert.equal(activeLyricLine(parseSyncedLyrics(''), 1), null);
+});
+
+test('parseSyncedLyrics sorts out-of-order timestamps before choosing the active line', () => {
+  const parsed = parseSyncedLyrics('[00:30.00]Third\r\n[00:10.00]First\r\n[00:20.00]Second\r\n[00:10.50][00:40.00]Shared');
+  assert.deepEqual(parsed.lines.map(line => [line.time, line.text]), [
+    [10, 'First'],
+    [10.5, 'Shared'],
+    [20, 'Second'],
+    [30, 'Third'],
+    [40, 'Shared'],
+  ]);
+  assert.equal(activeLyricLine(parsed, 9.9), null);
+  assert.equal(activeLyricLine(parsed, 10)?.text, 'First');
+  assert.equal(activeLyricLine(parsed, 10.5)?.time, 10.5);
+  assert.equal(activeLyricLine(parsed, 15)?.time, 10.5);
+  assert.equal(activeLyricLine(parsed, 20)?.text, 'Second');
+  assert.equal(activeLyricLine(parsed, 39)?.text, 'Third');
+  assert.equal(activeLyricLine(parsed, 40)?.time, 40);
 });
 
 test('fetchOnlineLyrics returns synced lyrics from a valid exact match', async () => {

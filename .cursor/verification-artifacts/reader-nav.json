@@ -1,0 +1,81 @@
+{
+  "shortcut": "Ctrl+B or Cmd+B toggles the section bar. Escape still closes the reader.",
+  "open": {
+    "nav": "open",
+    "inert": false,
+    "body": {
+      "x": 18,
+      "y": 206,
+      "width": 1064,
+      "height": 534
+    },
+    "text": {
+      "x": 78,
+      "y": 214,
+      "width": 640,
+      "height": 1269
+    },
+    "slot": {
+      "x": 18,
+      "y": 114.5,
+      "width": 1064,
+      "height": 48.5
+    },
+    "opacity": "1",
+    "transform": "none"
+  },
+  "collapsed": {
+    "nav": "collapsed",
+    "inert": true,
+    "body": {
+      "x": 18,
+      "y": 206,
+      "width": 1064,
+      "height": 534
+    },
+    "text": {
+      "x": 78,
+      "y": 214,
+      "width": 640,
+      "height": 1269
+    },
+    "slot": {
+      "x": 18,
+      "y": 114.5,
+      "width": 1064,
+      "height": 48.5
+    },
+    "opacity": "0",
+    "transform": "matrix(1, 0, 0, 1, 0, -48.5)"
+  },
+  "toggled": {
+    "nav": "open",
+    "inert": false,
+    "body": {
+      "x": 18,
+      "y": 206,
+      "width": 1064,
+      "height": 534
+    },
+    "text": {
+      "x": 78,
+      "y": 214,
+      "width": 640,
+      "height": 1269
+    },
+    "slot": {
+      "x": 18,
+      "y": 114.5,
+      "width": 1064,
+      "height": 48.5
+    },
+    "opacity": "1",
+    "transform": "none"
+  },
+  "buttonBg": "rgb(24, 33, 43)",
+  "shots": [
+    "reader-nav-open.png",
+    "reader-nav-collapsed.png",
+    "reader-nav-toggled.png"
+  ]
+}
