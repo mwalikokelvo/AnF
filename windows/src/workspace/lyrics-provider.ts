@@ -57,6 +57,33 @@ function describesRelease(text: string): boolean {
 /** A credit, a release label, or a performance note such as "Live at Wembley / 1986". */
 const isLabel = (text: string) => CREDIT.test(text) || describesRelease(text) || /^(?:live|recorded)\s+(?:at|in|from|on)\b/i.test(text);
 
+const MAX_CLEAN_LENGTH = 300;
+
+/** Index of the bracket closing the one at `start`, skipping nested pairs; -1 when unbalanced. */
+function matchingClose(text: string, start: number, close: string): number {
+  const open = text[start];
+  let depth = 0;
+  for (let i = start + 1; i < text.length; i++) {
+    if (text[i] === open) depth++;
+    else if (text[i] === close && depth-- === 0) return i;
+  }
+  return -1;
+}
+
+/** One left-to-right pass that drops empty or label-only bracketed groups. */
+function stripLabelGroups(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const close = BRACKETS[text[i]];
+    const end = close ? matchingClose(text, i, close) : -1;
+    if (end < 0) { out += text[i]; continue; }
+    const inner = text.slice(i + 1, end).trim();
+    if (inner === '' || isLabel(inner)) i = end;
+    else out += text[i];
+  }
+  return out;
+}
+
 /**
  * Removes upload and release labels from a track title so a lyrics search finds the song:
  * bracketed groups such as "(Official Video)" or "[Remastered 2009]", featured-artist credits,
@@ -64,14 +91,14 @@ const isLabel = (text: string) => CREDIT.test(text) || describesRelease(text) ||
  */
 export function cleanTitle(title: string): string {
   const original = title.trim();
-  let out = '';
-  for (let i = 0; i < original.length; i++) {
-    const close = BRACKETS[original[i]];
-    const end = close ? original.indexOf(close, i + 1) : -1;
-    if (end < 0) { out += original[i]; continue; }
-    const inner = original.slice(i + 1, end).trim();
-    if (inner === '' || isLabel(inner)) i = end;
-    else out += original[i];
+  // No real song title is this long; scanning it would be quadratic on hostile input.
+  if (original.length > MAX_CLEAN_LENGTH) return original;
+  let out = original;
+  // Repeat so nested groups such as "((Official Video))" collapse; each pass shortens or ends the loop.
+  for (let pass = 0; pass < 4; pass++) {
+    const next = stripLabelGroups(out);
+    if (next === out) break;
+    out = next;
   }
   let cleaned = out.split(/\s+\|\s*/)[0];
   const credit = cleaned.search(/\s(?:feat\.?|ft\.|featuring)\s/i);

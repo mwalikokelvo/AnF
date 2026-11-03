@@ -70,3 +70,22 @@ test('parseLyrics handles timestamps, offsets, and rejects malformed values', ()
   assert.deepEqual(parseLyrics('[00:99]invalid\n[00:02]valid').lines, [{ time: 2, text: 'valid' }]);
   assert.deepEqual(parseLyrics('[00:99][00:03]mixed').lines, [{ time: 3, text: 'mixed' }]);
 });
+
+test('cleanTitle stays fast on pathological input', () => {
+  const hostile = ' - '.repeat(50000);
+  const start = Date.now();
+  const out = cleanTitle(hostile);
+  assert.ok(Date.now() - start < 500, 'took too long');
+  assert.equal(out, hostile.trim());
+  const labels = 'Song' + ' - Live'.repeat(20000);
+  const t0 = Date.now();
+  assert.equal(cleanTitle(labels), labels);
+  assert.ok(Date.now() - t0 < 500, 'repeated labels took too long');
+  const brackets = cleanTitle('('.repeat(50000));
+  assert.equal(brackets.length, 50000);
+});
+
+test('cleanTitle removes nested label brackets without a stray character', () => {
+  assert.equal(cleanTitle('Song ((Official Video))'), 'Song');
+  assert.equal(cleanTitle('Song [(Official Video)]'), 'Song');
+});
