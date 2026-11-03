@@ -18,7 +18,7 @@ try{
  const context=await browser.newContext({viewport:{width:1440,height:1000},colorScheme:'dark'});
  await context.addInitScript(()=>{
   let current={id:'fixture',name:'Stream QA',title:'Saved work',draft:'',question:'',history:[],sources:[],memory:'',model:'fast'};
-  window.__TAURI_INTERNALS__={invoke:async(command,args={})=>{switch(command){case 'workspace_list_projects':return[{id:'fixture',name:'Stream QA',updated:Date.now()}];case 'workspace_load_project':return current;case 'workspace_save_project':current=args.project;return current;case 'workspace_diagnostics':return{runtime:true,fast:true,balanced:true,ocr:true,documents:'Local',log:'Fixture',version:'0.1.20'};case 'link_address':return'';case 'link_status':return false;case 'music_available':return false;case 'music_pause':return;case 'music_hide':return;case 'log_line':return;default:throw Error('Unexpected IPC '+command);}}};
+  window.__TAURI_INTERNALS__={invoke:async(command,args={})=>{switch(command){case 'workspace_list_projects':return[{id:'fixture',name:'Stream QA',updated:Date.now()}];case 'workspace_load_project':return current;case 'workspace_save_project':current=args.project;return current;case 'workspace_diagnostics':return{runtime:true,fast:true,balanced:true,ocr:true,documents:'Local',log:'Fixture',version:'0.1.20'};case 'link_address':return'';case 'link_status':return false;case 'music_available':return false;case 'music_pause':return;case 'music_hide':return;case 'log_line':return;case 'safe_fetch_audio':throw 'That address did not return audio.';default:throw Error('Unexpected IPC '+command);}}};
  });
  const outbound=[];
  await context.route(/^https:\/\//,route=>{

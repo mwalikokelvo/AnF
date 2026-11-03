@@ -1,6 +1,7 @@
 // Shared browser fixture for the Windows/Linux workspace: serves windows/dist with the REAL Tauri CSP from
 // tauri.conf.json (so violations surface), stubs Tauri IPC with inert answers, and collects problems.
 // Browser fixture only: not the installed app. Run `npm run build` in windows/ first.
+// Tests add IPC answers with context.addInitScript(()=>{window.__ipc={command:args=>...}}).
 // Env: CHROMIUM_BIN=<path> picks a browser (default: the msedge channel, like the other app-qa scripts); DIST_DIR=<dir> serves another build.
 import {chromium} from 'playwright-core';
 import {createServer} from 'node:http';
@@ -65,7 +66,7 @@ export async function start(){
         case 'workspace_ask':return{text:'Fixture answer.',notice:'Fixture notice.',evidence:[]};
         case 'ingest_bytes':return{path:'/tmp/qa-note.txt'};
         case 'workspace_read_file':return{name:'qa-note.txt',text,pages:[{number:1,text,ocr:false}],path:'/tmp/qa-note.txt',reading:null};
-        default:return null;}}};
+        default:if(window.__ipc&&window.__ipc[command])return window.__ipc[command](args);return null;}}};
     });
     const page=await context.newPage();
     page.on('console',m=>{if(m.type()==='error')problems.push('console.error: '+m.text())});

@@ -4,7 +4,8 @@
  */
 import type { AudioTrack } from './audio-library';
 
-import { gatedFetch, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
+import { gatedFetch, ONLINE_LOOKUPS_OFF, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
+import { loadRemoteAudio, needsRustFetch } from './stream-source';
 
 export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url';
 
@@ -42,6 +43,8 @@ export function describeStreamError(err: unknown): string {
   if (err instanceof StreamResolutionError) return err.message;
   const text = err instanceof Error ? err.message : String(err);
   if (/Online lookups are off/i.test(text)) return text;
+  // The desktop download (Rust safe_fetch_audio) refuses pages and other non-audio answers with this sentence.
+  if (/did not return audio/i.test(text)) return NOT_AUDIO_MESSAGE;
   return 'Could not play that link: ' + text.replace(/^Error:\s*/, '');
 }
 
@@ -114,6 +117,8 @@ export function findBrokenStreamEntries<T extends Parameters<typeof isBrokenStre
  * or policy failure is inconclusive and lets the player's own error handling decide.
  */
 export async function verifyAudioUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  // Desktop, host outside the CSP: fetch() cannot reach it; Rust checks the content type when it downloads.
+  if (needsRustFetch(url)) return;
   let res: Response;
   try {
     res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
@@ -209,12 +214,81 @@ export function parsePlaylistOrAlbumUrl(url: string): ParsedCollectionUrl | null
   return null;
 }
 
-export const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://api.piped.privacy.com.de',
-  'https://piped-api.lunar.icu',
-  'https://inv.nadeko.net',
+/** Each instance speaks one API: Piped (`/search`, `/streams/ID`, `/playlists/ID`) or Invidious (`/api/v1/...`). */
+export interface StreamInstance { url: string; kind: 'piped' | 'invidious' }
+export const STREAM_INSTANCES: StreamInstance[] = [
+  { url: 'https://pipedapi.kavin.rocks', kind: 'piped' },
+  { url: 'https://api.piped.privacy.com.de', kind: 'piped' },
+  { url: 'https://piped-api.lunar.icu', kind: 'piped' },
+  { url: 'https://inv.nadeko.net', kind: 'invidious' },
 ];
+export const PIPED_INSTANCES = STREAM_INSTANCES.map(i => i.url);
+
+interface InstanceVideo { videoId: string; title?: string; artist?: string; duration?: number; thumbnail?: string }
+interface InstanceAudio { url: string; mimeType?: string; bitrate: number }
+
+const videoIdOf = (item: any): string => {
+  if (typeof item?.videoId === 'string') return item.videoId;
+  let id = '';
+  if (typeof item?.url === 'string') {
+    const m = item.url.match(/v=([a-zA-Z0-9_-]{11})/);
+    if (m) id = m[1];
+  }
+  if (!id && item?.id) id = String(item.id).replace('/watch?v=', '');
+  return id;
+};
+/** Instances and their proxies serve thumbnails from their own hosts, which the img-src CSP blocks; only i.ytimg.com is allowed. */
+const ytimgThumb = (u: unknown): string | undefined => { const s = safeHttpsUrl(u); return s && new URL(s).hostname === 'i.ytimg.com' ? s : undefined; };
+const positive = (n: unknown): number | undefined => (typeof n === 'number' && n > 0 ? n : undefined);
+
+function searchUrl(i: StreamInstance, q: string, filter: 'music_songs' | 'all'): string {
+  return i.kind === 'invidious'
+    ? `${i.url}/api/v1/search?q=${encodeURIComponent(q)}&type=video`
+    : `${i.url}/search?q=${encodeURIComponent(q)}&filter=${filter}`;
+}
+function streamsUrl(i: StreamInstance, id: string): string {
+  return i.kind === 'invidious' ? `${i.url}/api/v1/videos/${id}?fields=title,author,lengthSeconds,adaptiveFormats` : `${i.url}/streams/${id}`;
+}
+function playlistUrl(i: StreamInstance, id: string): string {
+  return i.kind === 'invidious' ? `${i.url}/api/v1/playlists/${encodeURIComponent(id)}` : `${i.url}/playlists/${id}`;
+}
+/** Search results or playlist videos, in one shape for both APIs. */
+function videosOf(i: StreamInstance, items: unknown): InstanceVideo[] {
+  if (!Array.isArray(items)) return [];
+  const out: InstanceVideo[] = [];
+  for (const item of items as any[]) {
+    if (i.kind === 'invidious' && item?.type && item.type !== 'video') continue;
+    const videoId = videoIdOf(item);
+    if (!videoId) continue;
+    const thumb = i.kind === 'invidious' ? item.videoThumbnails?.find((t: any) => ytimgThumb(t?.url))?.url : item.thumbnail;
+    out.push({
+      videoId,
+      title: item.title,
+      artist: item.uploaderName || item.uploader || item.author,
+      duration: positive(item.duration) ?? positive(item.lengthSeconds),
+      thumbnail: ytimgThumb(thumb),
+    });
+  }
+  return out;
+}
+function searchVideos(i: StreamInstance, data: any): InstanceVideo[] {
+  return videosOf(i, Array.isArray(data) ? data : (data?.items || []));
+}
+function playlistVideos(i: StreamInstance, data: any): InstanceVideo[] {
+  return videosOf(i, i.kind === 'invidious' ? data?.videos : (Array.isArray(data?.relatedStreams) ? data.relatedStreams : data?.items));
+}
+function videoDetails(i: StreamInstance, data: any): { title?: string; uploader?: string; duration?: number; audio: InstanceAudio[] } {
+  const raw: any[] = i.kind === 'invidious' ? (data?.adaptiveFormats ?? []) : (data?.audioStreams ?? []);
+  const audio: InstanceAudio[] = [];
+  for (const x of Array.isArray(raw) ? raw : []) {
+    const mimeType: string | undefined = i.kind === 'invidious' ? x?.type : x?.mimeType;
+    const url = safeHttpsUrl(x?.url);
+    if (!url || (i.kind === 'invidious' ? !String(mimeType).startsWith('audio/') : mimeType && !String(mimeType).startsWith('audio/'))) continue;
+    const bitrate = Number(x.bitrate) || (x.quality ? parseInt(x.quality, 10) * 1000 : 0) || 128000;
+    audio.push({ url, mimeType, bitrate });
+  }
+  return { title: data?.title, uploader: i.kind === 'invidious' ? data?.author : data?.uploader, duration: positive(data?.duration) ?? positive(data?.lengthSeconds), audio };
+}
 
 function getTimeoutSignal(ms = 5000): AbortSignal {
   if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
@@ -318,69 +392,36 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const q = query.trim();
     if (!q) return [];
 
-    let rawItems: any[] = [];
-    for (const instance of PIPED_INSTANCES) {
-      try {
-        const res = await gatedFetch(
-          `${instance}/search?q=${encodeURIComponent(q)}&filter=music_songs`,
-          { signal: getTimeoutSignal(4500) }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const items = Array.isArray(data) ? data : (data?.items || []);
-          if (items.length > 0) {
-            rawItems = items;
-            break;
-          }
-        }
-      } catch {
-        // Try next instance
-      }
-    }
-
-    // Fallback: try general search if music filter returned empty
-    if (rawItems.length === 0) {
-      for (const instance of PIPED_INSTANCES) {
+    let rawItems: InstanceVideo[] = [];
+    // Music filter first (Piped only has it); then the general search. Invidious has one search, so it is not asked twice.
+    for (const pass of ['music_songs', 'all'] as const) {
+      for (const instance of STREAM_INSTANCES) {
+        if (pass === 'all' && instance.kind === 'invidious') continue;
         try {
-          const res = await gatedFetch(
-            `${instance}/search?q=${encodeURIComponent(q)}&filter=all`,
-            { signal: getTimeoutSignal(4000) }
-          );
+          const res = await gatedFetch(searchUrl(instance, q, pass), { signal: getTimeoutSignal(pass === 'all' ? 4000 : 4500) });
           if (res.ok) {
-            const data = await res.json();
-            const items = Array.isArray(data) ? data : (data?.items || []);
-            if (items.length > 0) {
-              rawItems = items;
-              break;
-            }
+            const items = searchVideos(instance, await res.json());
+            if (items.length > 0) { rawItems = items; break; }
           }
         } catch {
-          // Next
+          // Try next instance
         }
       }
+      if (rawItems.length > 0) break;
     }
 
     const results: StreamTrackMetadata[] = [];
     for (const item of rawItems) {
-      let videoId = '';
-      if (typeof item.url === 'string') {
-        const match = item.url.match(/v=([a-zA-Z0-9_-]{11})/);
-        if (match) videoId = match[1];
-        else if (item.url.startsWith('/watch?v=')) videoId = item.url.replace('/watch?v=', '');
-      }
-      if (!videoId && item.id) {
-        videoId = String(item.id).replace('/watch?v=', '');
-      }
-      if (!videoId) continue;
-
+      const videoId = item.videoId;
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
       const track: StreamTrackMetadata = {
         id: `yt:${videoId}`,
         title: item.title || 'Unknown Title',
-        artist: item.uploaderName || item.uploader || 'YouTube Artist',
+        artist: item.artist || 'YouTube Artist',
         album: 'YouTube Music',
-        duration: typeof item.duration === 'number' && item.duration > 0 ? item.duration : undefined,
-        artworkUrl: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        coverUrl: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        duration: item.duration,
+        artworkUrl: thumb,
+        coverUrl: thumb,
         source: 'youtube',
       };
       this.registerMetadata(track);
@@ -395,33 +436,24 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   async lookupYouTube(videoId: string): Promise<{ title?: string; uploader?: string; duration?: number; stream: ResolvedAudioStream } | null> {
     const cleanId = videoId.replace(/^yt:/, '');
     if (!YOUTUBE_ID.test(cleanId) || !onlineLookupsEnabled()) return null;
-    for (const instance of PIPED_INSTANCES) {
+    for (const instance of STREAM_INSTANCES) {
       try {
-        const res = await gatedFetch(`${instance}/streams/${cleanId}`, {
-          signal: getTimeoutSignal(5000),
-        });
+        const res = await gatedFetch(streamsUrl(instance, cleanId), { signal: getTimeoutSignal(5000) });
         if (res.ok) {
-          const data = await res.json();
-          const streams = (Array.isArray(data.audioStreams) ? data.audioStreams : [])
-            .filter((x: any) => safeHttpsUrl(x?.url) && (!x.mimeType || String(x.mimeType).startsWith('audio/')));
-          if (streams.length > 0) {
+          const data = videoDetails(instance, await res.json());
+          if (data.audio.length > 0) {
             // Pick highest bitrate audio stream
-            const best = [...streams].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+            const best = [...data.audio].sort((a, b) => b.bitrate - a.bitrate)[0];
             return {
               title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : undefined,
               uploader: typeof data.uploader === 'string' && data.uploader.trim() ? data.uploader.trim().slice(0, 120) : undefined,
-              duration: typeof data.duration === 'number' && data.duration > 0 ? data.duration : undefined,
-              stream: {
-                streamUrl: safeHttpsUrl(best.url)!,
-                mimeType: best.mimeType || 'audio/mp4',
-                bitrate: best.bitrate || (best.quality ? parseInt(best.quality, 10) * 1000 : 128000),
-                cached: false,
-              },
+              duration: data.duration,
+              stream: { streamUrl: best.url, mimeType: best.mimeType || 'audio/mp4', bitrate: best.bitrate, cached: false },
             };
           }
         }
       } catch {
-        // Try next piped instance
+        // Try next instance
       }
     }
     return null;
@@ -485,7 +517,6 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
             artworkUrl: `https://archive.org/services/img/${id}`,
             year: doc.year ? parseInt(doc.year, 10) : undefined,
             description: doc.description || undefined,
-            streamUrl: `https://archive.org/download/${id}/${id}_64kb_mp3.zip`,
           };
           this.registerMetadata(track);
           results.push(track);
@@ -520,17 +551,13 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (metaRes.ok) {
         const data = await metaRes.json();
         const files: any[] = data?.result || data?.files || [];
-        const mp3s = files.filter(f => f.name && (f.name.endsWith('.mp3') || f.format?.includes('MP3')) && !f.name.endsWith('_thumb.jpg'));
+        const mp3s = files.filter(f => typeof f.name === 'string' && /\.mp3$/i.test(f.name));
         if (mp3s.length > 0) {
           const streamUrl = `https://archive.org/download/${cleanId}/${encodeURIComponent(mp3s[0].name)}`;
-          const chapters = mp3s.map((f, idx) => ({
-            title: f.title || f.name.replace(/\.[^.]+$/, '').replace(/^[0-9_.-]+/, '') || `Chapter ${idx + 1}`,
-            start: 0,
-          }));
+          // Each file is its own recording, so there are no chapter start times inside this one stream.
           const track = this.cache.get(`ia:${cleanId}`);
           if (track) {
             track.streamUrl = streamUrl;
-            track.chapters = chapters;
             this.registerMetadata(track);
           }
           return {
@@ -544,13 +571,8 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // Metadata lookup failed
     }
 
-    // Fallback to direct archive download file
-    const streamUrl = `https://archive.org/download/${cleanId}/${cleanId}_64kb_mp3.zip`;
-    return {
-      streamUrl,
-      mimeType: 'audio/mpeg',
-      cached: false,
-    };
+    // No playable file list: a ZIP of the whole book is not audio, so there is nothing to play.
+    return null;
   }
 
   /** Direct URL Resolver: parse YouTube URLs or direct audio media URLs */
@@ -635,37 +657,25 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (!cleanId) return null;
 
     // 1. Try Piped API instances
-    for (const instance of PIPED_INSTANCES) {
+    for (const instance of STREAM_INSTANCES) {
       try {
-        const res = await gatedFetch(`${instance}/playlists/${cleanId}`, {
-          signal: getTimeoutSignal(5000),
-        });
+        const res = await gatedFetch(playlistUrl(instance, cleanId), { signal: getTimeoutSignal(5000) });
         if (res.ok) {
           const data = await res.json();
-          const rawStreams: any[] = Array.isArray(data.relatedStreams)
-            ? data.relatedStreams
-            : (Array.isArray(data.items) ? data.items : []);
-          if (rawStreams.length > 0) {
+          const videos = playlistVideos(instance, data);
+          if (videos.length > 0) {
             const title = data.name || data.title || 'YouTube Playlist';
             const tracks: StreamTrackMetadata[] = [];
-            for (const item of rawStreams) {
-              let videoId = '';
-              if (typeof item.url === 'string') {
-                const m = item.url.match(/v=([a-zA-Z0-9_-]{11})/);
-                if (m) videoId = m[1];
-                else if (item.url.startsWith('/watch?v=')) videoId = item.url.replace('/watch?v=', '');
-              }
-              if (!videoId && item.id) videoId = String(item.id).replace('/watch?v=', '');
-              if (!videoId) continue;
-
+            for (const item of videos) {
+              const thumb = item.thumbnail || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
               const track: StreamTrackMetadata = {
-                id: `yt:${videoId}`,
+                id: `yt:${item.videoId}`,
                 title: item.title || 'Unknown Title',
-                artist: item.uploaderName || item.uploader || 'YouTube Artist',
+                artist: item.artist || 'YouTube Artist',
                 album: title,
-                duration: typeof item.duration === 'number' && item.duration > 0 ? item.duration : undefined,
-                artworkUrl: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-                coverUrl: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+                duration: item.duration,
+                artworkUrl: thumb,
+                coverUrl: thumb,
                 source: 'youtube',
               };
               this.registerMetadata(track);
@@ -675,7 +685,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
             return {
               id: `yt:playlist:${cleanId}`,
               title,
-              artist: data.uploader || 'YouTube',
+              artist: data.uploader || data.author || 'YouTube',
               type: 'playlist',
               source: 'youtube',
               itemCount: tracks.length,
@@ -970,11 +980,15 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const abItems = abRes.status === 'fulfilled' ? abRes.value : [];
 
     const merged: StreamTrackMetadata[] = [];
+    const seenIds = new Set<string>();
+    const add = (t: StreamTrackMetadata | undefined) => {
+      if (t && merged.length < limit && !seenIds.has(t.id)) { seenIds.add(t.id); merged.push(t); }
+    };
     const maxLen = Math.max(ytItems.length, spItems.length, abItems.length);
     for (let i = 0; i < maxLen; i++) {
-      if (spItems[i] && merged.length < limit) merged.push(spItems[i]);
-      if (ytItems[i] && merged.length < limit) merged.push(ytItems[i]);
-      if (abItems[i] && merged.length < limit) merged.push(abItems[i]);
+      add(spItems[i]);
+      add(ytItems[i]);
+      add(abItems[i]);
     }
 
     return merged.slice(0, limit);
@@ -1047,10 +1061,16 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (typeof streamBlobOrUrl === 'string') {
       const safe = safeHttpsUrl(streamBlobOrUrl);
       if (!safe) throw Error('Stream audio must be an https URL.');
-      const res = await gatedFetch(safe);
-      if (!res.ok) throw Error(`Stream audio download failed (${res.status})`);
-      if (!isAudioContentType(res.headers.get('content-type'))) throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
-      blob = await res.blob();
+      if (needsRustFetch(safe)) {
+        // Desktop: the CSP does not allow this host for fetch(); Rust downloads it (audio content types only).
+        if (!onlineLookupsEnabled()) throw new Error(ONLINE_LOOKUPS_OFF);
+        blob = await loadRemoteAudio(safe);
+      } else {
+        const res = await gatedFetch(safe);
+        if (!res.ok) throw Error(`Stream audio download failed (${res.status})`);
+        if (!isAudioContentType(res.headers.get('content-type'))) throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+        blob = await res.blob();
+      }
     } else {
       blob = streamBlobOrUrl;
     }
