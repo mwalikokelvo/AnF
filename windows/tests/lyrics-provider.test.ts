@@ -113,12 +113,63 @@ test('fetchOnlineLyrics returns undefined on network failure without throwing', 
   });
 });
 
-test('fetchOnlineLyrics returns undefined on abort/timeout without throwing', async () => {
-  await withMockFetch(async (_url, init) => {
-    const err = new Error('The operation was aborted');
-    err.name = 'AbortError';
-    if (init?.signal?.aborted) throw err;
-    throw err;
+test('fetchOnlineLyrics waits for the request abort and still searches after the exact lookup times out', async () => {
+  const hops: { url: string; alreadyAborted: boolean; abortedAt: number }[] = [];
+  await withMockFetch(async (url, init) => {
+    const signal = init?.signal;
+    assert.ok(signal instanceof AbortSignal, url);
+    const alreadyAborted = signal.aborted;
+    const begun = Date.now();
+    await new Promise<never>((_resolve, reject) => {
+      const fail = (err: Error) => reject(err);
+      const aborted = () => {
+        hops.push({ url, alreadyAborted, abortedAt: Date.now() - begun });
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        fail(err);
+      };
+      if (signal.aborted) {
+        aborted();
+        return;
+      }
+      const timer = setTimeout(() => fail(new Error(`no abort for ${url}`)), 12_000);
+      signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        aborted();
+      }, { once: true });
+    });
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
+  });
+  assert.equal(hops.length, 2);
+  assert.match(hops[0].url, /^https:\/\/lrclib\.net\/api\/get\?/);
+  assert.match(hops[0].url, /track_name=Song/);
+  assert.match(hops[0].url, /artist_name=Artist/);
+  assert.match(hops[1].url, /^https:\/\/lrclib\.net\/api\/search\?q=Song%20Artist$/);
+  assert.equal(hops[0].alreadyAborted, false);
+  assert.equal(hops[1].alreadyAborted, false);
+  assert.ok(hops[0].abortedAt >= 4500 && hops[0].abortedAt < 12_000, `exact lookup aborted at ${hops[0].abortedAt}ms`);
+  assert.ok(hops[1].abortedAt >= 4500 && hops[1].abortedAt < 12_000, `search aborted at ${hops[1].abortedAt}ms`);
+});
+
+test('a timeout status does not return that body and the search result is used instead', async () => {
+  const urls: string[] = [];
+  await withMockFetch(async (url) => {
+    urls.push(url);
+    if (url.includes('/api/get')) {
+      return new Response(JSON.stringify({ syncedLyrics: '[00:01.00]From the timeout' }), { status: 408 });
+    }
+    return new Response(JSON.stringify([{ syncedLyrics: '[00:02.00]From search' }]), { status: 200 });
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), '[00:02.00]From search');
+  });
+  assert.equal(urls.length, 2);
+  assert.match(urls[0], /\/api\/get\?/);
+  assert.match(urls[1], /\/api\/search\?/);
+
+  await withMockFetch(async (url) => {
+    assert.match(url, /\/api\/(get|search)\?/);
+    return new Response('', { status: 504 });
   }, async () => {
     assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
   });
@@ -213,6 +264,57 @@ test('parseSyncedLyrics keeps unsynced plain text with no active line', () => {
   assert.equal(activeLyricLine(parsed, 0), null);
   assert.equal(activeLyricLine(parsed, 10), null);
   assert.equal(activeLyricLine(parseSyncedLyrics(''), 1), null);
+});
+
+test('parseSyncedLyrics keeps legal timestamp edges and drops invalid seconds', () => {
+  const parsed = parseSyncedLyrics([
+    '\uFEFF[00:00.000]zero',
+    '[00:59.999]under sixty',
+    '[00:60]sixty',
+    '[00:60.00]sixty with fraction',
+    '[00:60.000]sixty with millis',
+    '[61:00.00]sixty-one minutes',
+    '[120:00]two hours as minutes',
+    '[00:7.5]one digit second',
+    '[00:01:50]colon fraction',
+    '[00:01.1000]four digit fraction',
+    '[1000:00.00]four digit minutes',
+    '[offset:+1500]',
+    '[00:02.00]after offset <00:02.20>word',
+    '[00:04.00]',
+  ].join('\n'));
+  assert.equal(parsed.syncType, 'LINE_SYNCED');
+  assert.equal(parsed.offsetMs, 0);
+  assert.deepEqual(parsed.lines.map(line => [line.time, line.text]), [
+    [0, 'zero'],
+    [1.5, 'colon fraction'],
+    [2, 'after offset <00:02.20>word'],
+    [4, ''],
+    [7.5, 'one digit second'],
+    [59.999, 'under sixty'],
+    [3660, 'sixty-one minutes'],
+    [7200, 'two hours as minutes'],
+  ]);
+  assert.equal(activeLyricLine(parsed, 0)?.text, 'zero');
+  assert.equal(activeLyricLine(parsed, 59.998)?.text, 'one digit second');
+  assert.equal(activeLyricLine(parsed, 59.999)?.text, 'under sixty');
+  assert.equal(activeLyricLine(parsed, 60)?.text, 'under sixty');
+  assert.equal(activeLyricLine(parsed, 3659.9)?.text, 'under sixty');
+  assert.equal(activeLyricLine(parsed, 3660)?.text, 'sixty-one minutes');
+  assert.equal(activeLyricLine(parsed, 4)?.text, '');
+  assert.equal(activeLyricLine(parsed, Number.POSITIVE_INFINITY), null);
+  assert.equal(activeLyricLine(parsed, Number.NEGATIVE_INFINITY), null);
+
+  const onlyInvalid = parseSyncedLyrics('[00:60.00]nope\n[00:99.99]also\n[00:01.1000]leftover');
+  assert.equal(onlyInvalid.syncType, 'UNSYNCED');
+  assert.equal(onlyInvalid.offsetMs, 0);
+  assert.deepEqual(onlyInvalid.lines.map(line => line.text), ['nope', 'also', '[00:01.1000]leftover']);
+  assert.equal(activeLyricLine(onlyInvalid, 0), null);
+  assert.equal(activeLyricLine(onlyInvalid, 60), null);
+
+  const shifted = parseLyrics('[offset:+1000]\n[00:60.00]bad\n[00:02.50]kept');
+  assert.equal(shifted.synced, true);
+  assert.deepEqual(shifted.lines, [{ time: 1.5, text: 'kept' }]);
 });
 
 test('parseSyncedLyrics sorts out-of-order timestamps before choosing the active line', () => {

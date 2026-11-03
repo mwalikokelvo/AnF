@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm, readdir, readFile, writeFile, rename, unlink, mkdir, stat, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -101,14 +102,22 @@ test('a repeated chunk is served from disk and the provider is not called again'
     assert.equal(made.calls(), 1);
     const stored = (await readdir(dir)).filter((name) => name.endsWith('.chunk'));
     assert.equal(stored.length, 1);
+    const framed = await readFile(path.join(dir, stored[0]));
+    assert.equal(framed.subarray(0, 4).toString('utf8'), 'ANF1');
+    assert.equal(framed.readUInt32BE(36), WAV_A.length);
+    assert.deepEqual(Uint8Array.from(framed.subarray(40)), WAV_A);
 
-    console.log(`cache miss source=${first.source} providerCalls=${made.calls()} files=${stored.length}`);
     const second = await synthesizeChunk(disk, made.provider, request());
     assert.equal(second.source, 'cache');
     assert.equal(second.cacheStored, true);
     assert.deepEqual(second.audio, WAV_A);
     assert.equal(made.calls(), 1);
-    console.log(`cache hit source=${second.source} providerCalls=${made.calls()}`);
+    second.audio[0] ^= 0xff;
+    const third = await synthesizeChunk(disk, made.provider, request());
+    assert.equal(third.source, 'cache');
+    assert.equal(third.audio[0], WAV_A[0]);
+    assert.deepEqual(third.audio, WAV_A);
+    assert.equal(made.calls(), 1);
   });
 });
 
@@ -328,5 +337,155 @@ test('cleanup drops corrupt and expired chunks and trims to the byte budget', as
     assert.deepEqual((await readdir(dir)).filter((name) => name.endsWith('.chunk')), [newer]);
     const stillCached = await synthesizeChunk(disk, made.provider, request({ text: 'newer line' }));
     assert.equal(stillCached.source, 'cache');
+  });
+});
+
+/** Independent of the writer: same ANF1 layout the decoder accepts (SHA-256, big-endian length). */
+function frameAudio(audio: Uint8Array): Buffer {
+  const framed = Buffer.alloc(40 + audio.length);
+  framed.set([0x41, 0x4e, 0x46, 0x31], 0);
+  framed.set(createHash('sha256').update(audio).digest(), 4);
+  framed.writeUInt32BE(audio.length, 36);
+  framed.set(audio, 40);
+  return framed;
+}
+
+async function onlyChunk(dir: string): Promise<string> {
+  const names = (await readdir(dir)).filter((name) => name.endsWith('.chunk'));
+  assert.equal(names.length, 1);
+  return path.join(dir, names[0]);
+}
+
+test('decoding a planted frame returns that payload, and a non-audio frame is synthesized again', async () => {
+  const flac = new Uint8Array(16);
+  flac.set([0x66, 0x4c, 0x61, 0x43]);
+  flac[15] = 0x5a;
+  const id3 = new Uint8Array(16);
+  id3.set([0x49, 0x44, 0x33, 0x03]);
+  id3[10] = 0x11;
+  const shortOgg = new Uint8Array(15);
+  shortOgg.set([0x4f, 0x67, 0x67, 0x53]);
+  const riff = new Uint8Array(16);
+  riff.set([0x52, 0x49, 0x46, 0x46]);
+  const html = new TextEncoder().encode('<html>not audio</html>');
+
+  await withDisk(async (dir, disk) => {
+    const made = providerOf([WAV_A, WAV_B]);
+    await synthesizeChunk(disk, made.provider, request());
+    const file = await onlyChunk(dir);
+
+    await writeFile(file, frameAudio(flac));
+    const decoded = await synthesizeChunk(disk, made.provider, request());
+    assert.equal(decoded.source, 'cache');
+    assert.deepEqual(decoded.audio, flac);
+    assert.equal(decoded.audio[15], 0x5a);
+    assert.equal(made.calls(), 1);
+
+    await writeFile(file, frameAudio(id3));
+    const tagged = await synthesizeChunk(disk, made.provider, request());
+    assert.equal(tagged.source, 'cache');
+    assert.deepEqual(tagged.audio, id3);
+    assert.equal(made.calls(), 1);
+
+    for (const bogus of [shortOgg, riff, html]) {
+      await writeFile(file, frameAudio(bogus));
+      const before = made.calls();
+      const again = await synthesizeChunk(disk, made.provider, request());
+      assert.equal(again.source, 'provider');
+      assert.deepEqual(again.audio, WAV_B);
+      assert.equal(made.calls(), before + 1);
+      const stored = await readFile(file);
+      assert.equal(stored.subarray(0, 4).toString('utf8'), 'ANF1');
+      assert.deepEqual(Uint8Array.from(stored.subarray(40)), again.audio);
+    }
+  });
+});
+
+test('a truncated, overlong, zero-length, or hash-mismatched frame is not decoded', async () => {
+  await withDisk(async (dir, disk) => {
+    const made = providerOf([WAV_A]);
+    await synthesizeChunk(disk, made.provider, request());
+    const file = await onlyChunk(dir);
+    const original = Buffer.from(await readFile(file));
+    const mutations: Array<(framed: Buffer) => Buffer> = [
+      (framed) => framed.subarray(0, 39),
+      (framed) => framed.subarray(0, framed.length - 1),
+      (framed) => Buffer.concat([framed, Buffer.from([0])]),
+      (framed) => {
+        const copy = Buffer.from(framed);
+        copy.fill(0, 36, 40);
+        return copy;
+      },
+      (framed) => {
+        const copy = Buffer.from(framed);
+        copy[4] ^= 0xff;
+        return copy;
+      },
+      (framed) => {
+        const copy = Buffer.from(framed);
+        const length = copy.subarray(36, 40);
+        copy.set([length[3], length[2], length[1], length[0]], 36);
+        return copy;
+      },
+      (framed) => {
+        const copy = Buffer.from(framed);
+        copy[0] = 0x61;
+        return copy;
+      },
+    ];
+
+    for (const mutate of mutations) {
+      await writeFile(file, mutate(original));
+      const before = made.calls();
+      const again = await synthesizeChunk(disk, made.provider, request());
+      assert.equal(again.source, 'provider');
+      assert.deepEqual(again.audio, WAV_A);
+      assert.equal(made.calls(), before + 1);
+      const hit = await synthesizeChunk(disk, made.provider, request());
+      assert.equal(hit.source, 'cache');
+      assert.deepEqual(hit.audio, WAV_A);
+      assert.equal(made.calls(), before + 1);
+      const restored = await readFile(file);
+      assert.equal(restored.readUInt32BE(36), WAV_A.length);
+      assert.deepEqual(Uint8Array.from(restored.subarray(40)), WAV_A);
+    }
+  });
+});
+
+test('audio one byte past the cache limit is refused and the limit itself round-trips', async () => {
+  const limit = 8 * 1024 * 1024;
+  const accepted = new Uint8Array(limit);
+  accepted.set([0x4f, 0x67, 0x67, 0x53]);
+  accepted[100] = 0x11;
+  accepted[limit - 1] = 0x5a;
+  const rejected = new Uint8Array(limit + 1);
+  rejected.set([0x4f, 0x67, 0x67, 0x53]);
+
+  await withDisk(async (dir, disk) => {
+    const made = providerOf([rejected, accepted]);
+    await assert.rejects(
+      () => synthesizeChunk(disk, made.provider, request({ text: 'too big' })),
+      (err: unknown) => err instanceof VoiceCacheError && err.code === 'invalid-audio',
+    );
+    assert.equal(made.calls(), 1);
+    assert.deepEqual(await readdir(dir).catch(() => []), []);
+
+    const stored = await synthesizeChunk(disk, made.provider, request({ text: 'at the limit' }));
+    assert.equal(stored.source, 'provider');
+    assert.equal(stored.audio.length, limit);
+    assert.equal(stored.audio[100], 0x11);
+    assert.equal(stored.audio[limit - 1], 0x5a);
+    const file = await onlyChunk(dir);
+    const framed = await readFile(file);
+    assert.equal(framed.readUInt32BE(36), limit);
+    assert.equal(framed[40 + 100], 0x11);
+    assert.equal(framed[framed.length - 1], 0x5a);
+
+    const hit = await synthesizeChunk(disk, made.provider, request({ text: 'at the limit' }));
+    assert.equal(hit.source, 'cache');
+    assert.equal(hit.audio.length, limit);
+    assert.equal(hit.audio[100], 0x11);
+    assert.equal(hit.audio[limit - 1], 0x5a);
+    assert.equal(made.calls(), 2);
   });
 });
