@@ -25,7 +25,8 @@ describe('stream instances speak their own API', () => {
 
   test('the list tags each instance and nadeko is Invidious', () => {
     assert.equal(kindOf('inv.nadeko.net'), 'invidious');
-    for (const h of ['pipedapi.kavin.rocks', 'api.piped.privacy.com.de', 'piped-api.lunar.icu']) assert.equal(kindOf(h), 'piped', h);
+    for (const h of ['pipedapi.kavin.rocks', 'pipedapi.leptons.xyz', 'piped-api.privacy.com.de', 'pipedapi.adminforge.de']) assert.equal(kindOf(h), 'piped', h);
+    assert.equal(kindOf('invidious.nerdvpn.de'), 'invidious');
     assert.deepEqual(PIPED_INSTANCES, STREAM_INSTANCES.map(i => i.url));
   });
 

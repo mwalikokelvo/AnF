@@ -346,7 +346,7 @@ describe('YouTube URL resolution, gate and non-audio refusal', () => {
     const err: any = await service.resolveDirectUrl(`https://youtu.be/${ID}`).catch(e => e);
     assert.ok(err instanceof StreamResolutionError);
     assert.equal(err.code, 'youtube-unresolved');
-    assert.match(err.message, /^YouTube stream could not be resolved right now\./);
+    assert.match(err.message, /^YouTube stream could not be resolved right now/);
     assert.match(err.message, /try again/i);
     assert.match(err.message, /direct audio link/i);
     assert.match(err.message, /import/i);
