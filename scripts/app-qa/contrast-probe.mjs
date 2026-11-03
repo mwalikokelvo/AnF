@@ -10,6 +10,7 @@ export const collect=()=>{
   const out=[];const seen=new Set();const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let tn;
   while(tn=w.nextNode()){const t=tn.textContent.trim();if(!t)continue;const el=tn.parentElement;if(!el||seen.has(el)||['SCRIPT','STYLE','OPTION'].includes(el.tagName)||!vis(el))continue;seen.add(el);
     const d=el.closest('dialog');if(d&&!d.open)continue;
+    {let hiddenInDetails=false;for(let n=el.parentElement;n;n=n.parentElement)if(n.tagName==='DETAILS'&&!n.open&&!el.closest('summary')){hiddenInDetails=true;break;}if(hiddenInDetails)continue;} // a closed <details> does not paint its content
     const rg=document.createRange();rg.selectNodeContents(tn);const r=rg.getBoundingClientRect();if(r.width<2||r.height<2||r.bottom<=0||r.top>=innerHeight||r.right<=0||r.left>=innerWidth)continue;
     // text clipped away by a scrolling or overflow-hidden ancestor is not visible
     {const cx0=r.left+r.width/2,cy0=r.top+r.height/2;let clipped=false;for(let a=el.parentElement;a&&a!==document.documentElement;a=a.parentElement){const o=getComputedStyle(a);if(o.overflowX==='visible'&&o.overflowY==='visible')continue;const ar=a.getBoundingClientRect();if(cx0<ar.left||cx0>ar.right||cy0<ar.top||cy0>ar.bottom){clipped=true;break;}}if(clipped)continue;}
@@ -18,7 +19,7 @@ export const collect=()=>{
     const s=getComputedStyle(el);let op=1;for(let e=el;e;e=e.parentElement)op*=+getComputedStyle(e).opacity;const f=rgba(s.color);
     out.push({sel:sel(el),t:t.slice(0,30),x:Math.max(0,r.left),y:Math.max(0,r.top),w:Math.min(r.width,innerWidth-r.left),h:Math.min(r.height,innerHeight-r.top),fg:[f[0],f[1],f[2],f[3]*op],px:parseFloat(s.fontSize),bold:+s.fontWeight>=700,dis:!!el.closest(':disabled,[aria-disabled=true]'),rail:!!el.closest('.history-sidebar')});}
   return out;};
-const HIDE='*,*::before,*::after{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;caret-color:transparent!important}input::placeholder,textarea::placeholder{color:transparent!important}';
+const HIDE='*,*::before,*::after{transition:none!important;animation:none!important;color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;caret-color:transparent!important}input::placeholder,textarea::placeholder{color:transparent!important}';
 // Returns every text run in the current viewport with its worst-case contrast ratio and the ratio it needs.
 // A run only counts when it fails twice, 250ms apart, so a transition caught mid-way cannot fail the check.
 export async function measure(page,opts={}){const first=await measureOnce(page,opts);if(!first.length)return first;await page.waitForTimeout(250);const again=new Set((await measureOnce(page,opts)).map(r=>r.sel+'|'+r.t));return first.filter(r=>again.has(r.sel+'|'+r.t));}
@@ -27,6 +28,7 @@ async function measureOnce(page,{onlyRail=false}={}){
   await page.evaluate(()=>Promise.race([Promise.all(document.getAnimations().filter(a=>a.effect&&a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))),new Promise(r=>setTimeout(r,1500))]));
   const items=(await page.evaluate(collect)).filter(i=>onlyRail?i.rail:true);
   const handle=await page.evaluateHandle(css=>{const st=document.createElement('style');st.textContent=css;document.head.append(st);return st;},HIDE);
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))); // the style must be painted (no colour transition left) before the screenshot
   const png=(await page.screenshot()).toString('base64');
   await handle.evaluate(st=>st.remove());await handle.dispose();
   const res=await page.evaluate(async({png,items})=>{

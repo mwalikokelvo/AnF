@@ -9,14 +9,14 @@
 }
 html[data-theme=light],#workspace-root[data-theme=light]{
   --bg:#f5f6f2;--side:#eef1eb;--surface:#ffffff;--panel:var(--surface);
-  --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#52695f;
+  --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#4a6055;
   --accent:#246c54;--accent-ink:#ffffff;--paper:#ffffff;--input:#f9faf7;
   --shadow:0 12px 36px #25433309;color-scheme:light;
 }
 @media(prefers-color-scheme:light){
   html[data-theme=system],#workspace-root[data-theme=system]{
     --bg:#f5f6f2;--side:#eef1eb;--surface:#ffffff;--panel:var(--surface);
-    --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#52695f;
+    --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#4a6055;
     --accent:#246c54;--accent-ink:#ffffff;--paper:#ffffff;--input:#f9faf7;
     --shadow:0 12px 36px #25433309;color-scheme:light;
   }
