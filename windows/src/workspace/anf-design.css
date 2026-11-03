@@ -116,3 +116,8 @@ main,.panel-host,.drawer,pre{scrollbar-width:thin;scrollbar-color:var(--line) tr
 .history-item time{display:block;font-size:.72em;color:var(--muted);margin-top:3px}
 /* Narrow windows: the three mode tabs stack instead of clipping "Assistant" (plan UI-07) */
 @media(max-width:1000px){#workspace-root .mode-rail{grid-template-columns:1fr}#workspace-root .mode-rail button{min-height:34px;padding:6px 12px;text-align:left}}
+
+/* Target size (WCAG 2.5.8): disclosure rows were 20-21px tall, check rows 17-18px. Rows grow to 24px; nothing else moves. */
+summary{min-height:24px;align-content:center}
+.check-row{min-height:24px}
+label:has(>input[type=checkbox]):not(.check-row),label:has(>input[type=radio]):not(.check-row){display:inline-flex;align-items:center;gap:6px;min-height:24px}
