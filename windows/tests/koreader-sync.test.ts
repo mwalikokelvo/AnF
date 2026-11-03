@@ -7,8 +7,11 @@ import {
   describeReadingProgress,
   koreaderPullRequest,
   koreaderPushRequest,
+  koreaderQueueFromText,
+  readKoreaderQueue,
   restoreReadingState,
   toKoreaderPayload,
+  writeKoreaderQueue,
   type KoreaderQueueItem,
   type KoreaderQueueStore,
 } from '../src/workspace/koreader-sync.ts';
@@ -264,4 +267,129 @@ test('the offline queue keeps the latest progress for a document each day and dr
   now += 29 * 86400;
   queue.push({ document: 'bbbb', progress: 'anf:1', ...base, timestamp: now });
   assert.deepEqual(store.items().map(item => item.document), ['bbbb']);
+});
+
+test('a transient push is retried and a later success is not queued', async () => {
+  const store = memoryQueue();
+  const queue = createKoreaderQueue(store, () => 1700000000);
+  const item = toKoreaderPayload(SHORT, legacy(4), { device: 'AnF', device_id: 'device-1', timestamp: 1700000000 });
+  const waits: number[] = [];
+  let attempts = 0;
+  const result = await queue.sync(item, async () => {
+    attempts += 1;
+    if (attempts < 3) return { status: 503 };
+    return { status: 202 };
+  }, {
+    attempts: 3,
+    sleep: (ms) => { waits.push(ms); },
+  });
+  assert.equal(result, 'pushed');
+  assert.equal(attempts, 3);
+  assert.deepEqual(waits, [50, 100]);
+  assert.equal(queue.count(), 0);
+});
+
+test('repeated transport failures queue one progress record and stop at five tries', async () => {
+  const store = memoryQueue();
+  const queue = createKoreaderQueue(store, () => 1700000000);
+  const item = toKoreaderPayload(SHORT, legacy(4), { device: 'AnF', device_id: 'device-1', timestamp: 1700000000 });
+  let attempts = 0;
+  const result = await queue.sync(item, async () => {
+    attempts += 1;
+    throw new Error('connection reset');
+  }, { attempts: 100, sleep: () => {} });
+  assert.equal(result, 'queued');
+  assert.equal(attempts, 5);
+  assert.equal(queue.count(), 1);
+  assert.equal(store.items()[0].progress, 'anf:4');
+  assert.equal(store.items()[0].device_id, 'device-1');
+});
+
+test('an auth failure after a retryable status is not queued and is not retried further', async () => {
+  const store = memoryQueue();
+  const queue = createKoreaderQueue(store, () => 1700000000);
+  const item = toKoreaderPayload(SHORT, legacy(4), { device: 'AnF', device_id: 'device-1', timestamp: 1700000000 });
+  const waits: number[] = [];
+  let attempts = 0;
+  const result = await queue.sync(item, async () => {
+    attempts += 1;
+    if (attempts === 1) return { status: 503 };
+    return { status: 401 };
+  }, { attempts: 4, sleep: (ms) => { waits.push(ms); } });
+  assert.equal(result, 'rejected');
+  assert.equal(attempts, 2);
+  assert.deepEqual(waits, [50]);
+  assert.equal(queue.count(), 0);
+  assert.equal(JSON.stringify(store.items()).includes('secret'), false);
+});
+
+test('a reloaded queue file keeps progress fields, drops secrets, and survives a corrupt file', async () => {
+  const payload = toKoreaderPayload(SHORT, legacy(4), {
+    device: 'AnF',
+    device_id: 'device-1',
+    timestamp: 1700000000,
+    metadata: { title: 'Hello' },
+  });
+  const poisoned = JSON.stringify([{
+    ...payload,
+    queued_at: 1700000000,
+    userkey: 'secret-key',
+    bookmarks: [1],
+    offset: 4,
+  }]);
+  const loaded = readKoreaderQueue(poisoned);
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0].progress, 'anf:4');
+  assert.equal(loaded[0].percentage, 0.3636);
+  assert.equal(loaded[0].device_id, 'device-1');
+  assert.equal(loaded[0].timestamp, 1700000000);
+  assert.equal(loaded[0].queued_at, 1700000000);
+  assert.equal(loaded[0].metadata?.title, 'Hello');
+  assert.equal(JSON.stringify(loaded).includes('secret-key'), false);
+  assert.equal('bookmarks' in loaded[0], false);
+  assert.equal('offset' in loaded[0], false);
+  assert.deepEqual(readKoreaderQueue(writeKoreaderQueue(loaded)), loaded);
+  assert.deepEqual(readKoreaderQueue('{'), []);
+  assert.deepEqual(readKoreaderQueue(JSON.stringify([{ document: 'slash/id', progress: 'anf:1', percentage: 0.1, device: 'AnF', device_id: 'device-1', timestamp: 1, queued_at: 1 }])), []);
+
+  let text = '{';
+  const store = koreaderQueueFromText(() => text, (next) => { text = next; });
+  const queue = createKoreaderQueue(store, () => 1700000100);
+  assert.equal(queue.count(), 0);
+  const queued = await queue.sync(payload, async () => { throw new Error('offline'); }, { attempts: 1 });
+  assert.equal(queued, 'queued');
+  const again = readKoreaderQueue(text);
+  assert.equal(again.length, 1);
+  assert.equal(again[0].progress, 'anf:4');
+  assert.equal(again[0].metadata?.title, 'Hello');
+  assert.equal(JSON.stringify(again).includes('secret-key'), false);
+
+  const reloaded = createKoreaderQueue(store, () => 1700000100);
+  const sent: string[] = [];
+  const delivered = await reloaded.drain(async (item) => {
+    sent.push(item.progress);
+    return true;
+  });
+  assert.equal(delivered, 1);
+  assert.deepEqual(sent, ['anf:4']);
+  assert.equal(reloaded.count(), 0);
+});
+
+test('drain drops expired progress and still delivers the later record', async () => {
+  const store = memoryQueue();
+  const freshAt = 1700000000;
+  store.save([
+    { document: 'aaaa', progress: 'anf:1', percentage: 0.1, device: 'AnF', device_id: 'device-1', timestamp: 1, queued_at: freshAt - 29 * 86400 },
+    { document: 'bbbb', progress: 'anf:8', percentage: 0.2, device: 'AnF', device_id: 'device-1', timestamp: 2, queued_at: freshAt },
+  ]);
+  const queue = createKoreaderQueue(store, () => freshAt);
+  const sent: string[] = [];
+  const delivered = await queue.drain(async (item) => {
+    sent.push(item.document);
+    return item.document === 'bbbb';
+  });
+  assert.equal(delivered, 1);
+  assert.deepEqual(sent, ['bbbb']);
+  assert.equal(queue.count(), 0);
+  assert.deepEqual(Object.keys(store.items()[0] ?? {}).sort(), []);
 });

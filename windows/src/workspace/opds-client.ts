@@ -1,6 +1,7 @@
 /**
  * OPDS 1.2 / 2.0 catalog client: page cursors, multi-page walks, and cover prefetch.
- * Parsing stays local. Network and disk are injected by the caller.
+ * Parsing stays local. Network, the offline queue, and feed fallback are injected by the caller.
+ * Neither store is the project database; reading-state fields are not added here.
  */
 
 export interface OpdsBook {
@@ -26,7 +27,36 @@ export interface OpdsPage {
 export interface TraverseResult {
   books: OpdsBook[];
   pages: number;
-  stopped: 'end' | 'empty' | 'cycle' | 'limit';
+  stopped: 'end' | 'empty' | 'cycle' | 'limit' | 'offline';
+}
+
+/** Last good catalog body, plus the most recent body that did not parse. */
+export interface OpdsFeedRecord {
+  url: string;
+  parsedBody?: string;
+  unparsedBody?: string;
+}
+
+export interface OpdsFeedStore {
+  load(): OpdsFeedRecord[];
+  save(records: OpdsFeedRecord[]): void;
+}
+
+export interface OpdsQueuedRequest {
+  url: string;
+  queuedAt: number;
+}
+
+export interface OpdsQueueStore {
+  load(): OpdsQueuedRequest[];
+  save(items: OpdsQueuedRequest[]): void;
+}
+
+export interface OpdsResilience {
+  feeds: OpdsFeedStore;
+  queue: OpdsQueueStore;
+  now?: () => number;
+  attempts?: number;
 }
 
 export interface CoverDisk {
@@ -54,6 +84,12 @@ const DEFAULT_MAX_PAGES = 32;
 const MAX_BOOKS = 10_000;
 const MAX_XML_NODES = 20_000;
 const MAX_COVER_BYTES = 2 * 1024 * 1024;
+const MAX_FEED_RECORDS = 32;
+const MAX_PARSED_CHARS = 256 * 1024;
+const MAX_UNPARSED_CHARS = 64 * 1024;
+const MAX_OPDS_QUEUE = 100;
+const OPDS_MAX_AGE = 28 * 86400;
+const OPDS_ATTEMPT_CAP = 5;
 const THUMB = 'http://opds-spec.org/image/thumbnail';
 const IMAGE = 'http://opds-spec.org/image';
 
@@ -411,6 +447,245 @@ function parseJsonFeed(body: string, base: string): OpdsPage {
   return page;
 }
 
+function classifyFeed(body: string): 'parsed' | 'unparsed' | 'blank' | 'hostile' {
+  const trimmed = body.replace(/^\uFEFF/, '').trim();
+  if (!trimmed) return 'blank';
+  if (/<!DOCTYPE|<!ENTITY/i.test(trimmed)) return 'hostile';
+  if (trimmed.startsWith('{')) {
+    try {
+      const value = JSON.parse(trimmed) as unknown;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const record = value as Record<string, unknown>;
+        if ('metadata' in record || 'publications' in record || 'groups' in record || 'links' in record) return 'parsed';
+      }
+    } catch {
+      return 'unparsed';
+    }
+    return 'unparsed';
+  }
+  if (trimmed.startsWith('<') && /<\s*feed(?:\s|>|\/)/i.test(trimmed)) return 'parsed';
+  return 'unparsed';
+}
+
+function attemptCount(value: number | undefined, fallback: number): number {
+  const count = value ?? fallback;
+  if (!Number.isInteger(count) || count < 1) return 1;
+  return Math.min(count, OPDS_ATTEMPT_CAP);
+}
+
+function clock(resilience: OpdsResilience): number {
+  const value = resilience.now?.() ?? Math.floor(Date.now() / 1000);
+  if (Number.isSafeInteger(value) && value >= 0) return value;
+  return Math.floor(Date.now() / 1000);
+}
+
+function sanitizeFeeds(records: readonly OpdsFeedRecord[]): OpdsFeedRecord[] {
+  const kept: OpdsFeedRecord[] = [];
+  for (const record of records) {
+    if (!record || typeof record !== 'object') continue;
+    const url = typeof record.url === 'string' ? canonicalHttp(record.url) : undefined;
+    if (!url) continue;
+    const next: OpdsFeedRecord = { url };
+    if (typeof record.parsedBody === 'string' && record.parsedBody.length <= MAX_PARSED_CHARS && classifyFeed(record.parsedBody) === 'parsed') {
+      next.parsedBody = record.parsedBody;
+    }
+    if (typeof record.unparsedBody === 'string' && record.unparsedBody.length <= MAX_UNPARSED_CHARS && record.unparsedBody.trim() !== '') {
+      next.unparsedBody = record.unparsedBody;
+    }
+    if (!next.parsedBody && !next.unparsedBody) continue;
+    const index = kept.findIndex((item) => item.url === url);
+    if (index >= 0) kept.splice(index, 1);
+    kept.push(next);
+  }
+  while (kept.length > MAX_FEED_RECORDS) kept.shift();
+  return kept;
+}
+
+function sanitizeQueue(items: readonly OpdsQueuedRequest[], nowSec?: number): OpdsQueuedRequest[] {
+  const byUrl = new Map<string, number>();
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const url = typeof item.url === 'string' ? canonicalHttp(item.url) : undefined;
+    if (!url) continue;
+    if (typeof item.queuedAt !== 'number' || !Number.isSafeInteger(item.queuedAt) || item.queuedAt < 0) continue;
+    if (nowSec !== undefined && nowSec - item.queuedAt >= OPDS_MAX_AGE) continue;
+    byUrl.delete(url);
+    byUrl.set(url, item.queuedAt);
+  }
+  const next = [...byUrl].map(([url, queuedAt]) => ({ url, queuedAt }));
+  while (next.length > MAX_OPDS_QUEUE) next.shift();
+  return next;
+}
+
+export function readOpdsFeeds(text: string): OpdsFeedRecord[] {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  return Array.isArray(value) ? sanitizeFeeds(value as OpdsFeedRecord[]) : [];
+}
+
+export function writeOpdsFeeds(records: OpdsFeedRecord[]): string {
+  return JSON.stringify(sanitizeFeeds(records));
+}
+
+export function readOpdsQueue(text: string): OpdsQueuedRequest[] {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  return Array.isArray(value) ? sanitizeQueue(value as OpdsQueuedRequest[]) : [];
+}
+
+export function writeOpdsQueue(items: OpdsQueuedRequest[]): string {
+  return JSON.stringify(readOpdsQueue(JSON.stringify(items)));
+}
+
+export function opdsFeedsFromText(read: () => string, write: (text: string) => void): OpdsFeedStore {
+  return {
+    load() {
+      try {
+        return readOpdsFeeds(read());
+      } catch {
+        return [];
+      }
+    },
+    save(records) {
+      write(writeOpdsFeeds(records));
+    },
+  };
+}
+
+export function opdsQueueFromText(read: () => string, write: (text: string) => void): OpdsQueueStore {
+  return {
+    load() {
+      try {
+        return readOpdsQueue(read());
+      } catch {
+        return [];
+      }
+    },
+    save(items) {
+      write(writeOpdsQueue(items));
+    },
+  };
+}
+
+function writeFeed(store: OpdsFeedStore, url: string, next: OpdsFeedRecord | undefined): void {
+  const rest = sanitizeFeeds(store.load()).filter((item) => item.url !== url);
+  if (next) rest.push(next);
+  while (rest.length > MAX_FEED_RECORDS) rest.shift();
+  store.save(rest);
+}
+
+function rememberParsed(store: OpdsFeedStore, url: string, body: string): void {
+  if (body.length > MAX_PARSED_CHARS || classifyFeed(body) !== 'parsed') return;
+  writeFeed(store, url, { url, parsedBody: body });
+}
+
+function rememberUnparsed(store: OpdsFeedStore, url: string, body: string): void {
+  if (body.length > MAX_UNPARSED_CHARS || body.trim() === '') return;
+  const current = sanitizeFeeds(store.load()).find((item) => item.url === url);
+  const next: OpdsFeedRecord = { url, unparsedBody: body };
+  if (current?.parsedBody) next.parsedBody = current.parsedBody;
+  writeFeed(store, url, next);
+}
+
+function fallbackPage(store: OpdsFeedStore, url: string): OpdsPage | undefined {
+  const record = sanitizeFeeds(store.load()).find((item) => item.url === url);
+  if (!record?.parsedBody) return undefined;
+  return parseOpds(record.parsedBody, url);
+}
+
+function enqueueOpds(resilience: OpdsResilience, url: string): void {
+  const nowSec = clock(resilience);
+  const items = sanitizeQueue(resilience.queue.load(), nowSec).filter((item) => item.url !== url);
+  items.push({ url, queuedAt: nowSec });
+  while (items.length > MAX_OPDS_QUEUE) items.shift();
+  resilience.queue.save(items);
+}
+
+function dequeueOpds(queue: OpdsQueueStore, url: string): void {
+  const current = queue.load();
+  const next = current.filter((item) => item.url !== url);
+  if (next.length !== current.length) queue.save(next);
+}
+
+interface CatalogRead {
+  page: OpdsPage;
+  source: 'network' | 'fallback' | 'offline';
+}
+
+async function readCatalogPage(
+  url: string,
+  fetchText: (url: string) => Promise<string>,
+  attempts: number,
+  resilience?: OpdsResilience,
+): Promise<CatalogRead> {
+  const safe = canonicalHttp(url);
+  if (!safe) return { page: { title: '', books: [] }, source: 'offline' };
+  let body = '';
+  let fetched = false;
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      body = await fetchText(safe);
+      fetched = true;
+      break;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (!fetched) {
+    if (resilience) enqueueOpds(resilience, safe);
+    const fallback = resilience ? fallbackPage(resilience.feeds, safe) : undefined;
+    if (fallback) return { page: fallback, source: 'fallback' };
+    if (resilience) return { page: { title: '', books: [] }, source: 'offline' };
+    throw lastError instanceof Error ? lastError : new Error('OPDS catalog request failed.');
+  }
+  if (resilience) dequeueOpds(resilience.queue, safe);
+  const kind = classifyFeed(body);
+  if (resilience && kind === 'parsed') rememberParsed(resilience.feeds, safe, body);
+  if (resilience && (kind === 'unparsed' || kind === 'hostile')) rememberUnparsed(resilience.feeds, safe, body);
+  if (resilience && kind !== 'parsed' && kind !== 'blank') {
+    const stored = fallbackPage(resilience.feeds, safe);
+    if (stored) return { page: stored, source: 'network' };
+  }
+  return { page: parseOpds(body, safe), source: 'network' };
+}
+
+const opdsDrains = new WeakMap<OpdsQueueStore, boolean>();
+
+export async function drainOpdsQueue(
+  resilience: OpdsResilience,
+  fetchText: (url: string) => Promise<string>,
+): Promise<number> {
+  if (opdsDrains.get(resilience.queue)) return 0;
+  opdsDrains.set(resilience.queue, true);
+  let sent = 0;
+  try {
+    const pending = sanitizeQueue(resilience.queue.load(), clock(resilience));
+    resilience.queue.save(pending);
+    const attempts = attemptCount(resilience.attempts, 3);
+    for (const item of pending) {
+      const stillQueued = resilience.queue.load().some((entry) => entry.url === item.url && entry.queuedAt === item.queuedAt);
+      if (!stillQueued) continue;
+      const result = await readCatalogPage(item.url, fetchText, attempts, resilience);
+      if (result.source !== 'network') return sent;
+      const fresh = resilience.queue.load().filter((entry) => entry.url !== item.url);
+      resilience.queue.save(fresh);
+      sent += 1;
+    }
+    return sent;
+  } finally {
+    opdsDrains.set(resilience.queue, false);
+  }
+}
+
 export function parseOpds(body: string, baseUrl: string): OpdsPage {
   const trimmed = body.replace(/^\uFEFF/, '').trim();
   if (!trimmed) return { title: '', books: [] };
@@ -423,12 +698,13 @@ export function parseOpds(body: string, baseUrl: string): OpdsPage {
 export async function traverseOpds(
   startUrl: string,
   fetchText: (url: string) => Promise<string>,
-  options?: { maxPages?: number },
+  options?: { maxPages?: number; attempts?: number; resilience?: OpdsResilience },
 ): Promise<TraverseResult> {
   const start = canonicalHttp(startUrl);
   if (!start) throw new Error('OPDS catalog URL must be http(s).');
   const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
   if (!Number.isInteger(maxPages) || maxPages < 1) throw new Error('OPDS page limit must be a positive integer.');
+  const attempts = attemptCount(options?.attempts ?? options?.resilience?.attempts, options?.resilience ? 3 : 1);
   const seen = new Set<string>();
   const books: OpdsBook[] = [];
   let url: string | undefined = start;
@@ -444,19 +720,22 @@ export async function traverseOpds(
       break;
     }
     seen.add(url);
-    const body = await fetchText(url);
+    const result = await readCatalogPage(url, fetchText, attempts, options?.resilience);
+    if (result.source === 'offline') {
+      stopped = 'offline';
+      break;
+    }
     pages += 1;
-    const page = parseOpds(body, url);
-    if (page.books.length === 0) {
+    if (result.page.books.length === 0) {
       stopped = 'empty';
       break;
     }
-    books.push(...page.books);
-    if (!page.next) {
+    books.push(...result.page.books);
+    if (!result.page.next) {
       stopped = 'end';
       break;
     }
-    url = page.next.url;
+    url = result.page.next.url;
   }
   return { books, pages, stopped };
 }
