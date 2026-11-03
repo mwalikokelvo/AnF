@@ -1,7 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanTitle, primaryArtist } from '../src/workspace/lyrics-provider.ts';
+import { cleanTitle, primaryArtist, fetchOnlineLyrics } from '../src/workspace/lyrics-provider.ts';
+import { setOnlineLookups } from '../src/workspace/online-lookups.ts';
 import { parseLyrics, activeLine, toLrc, baseName, matchLyricsTrack } from '../src/workspace/lyrics.ts';
+
+async function withMockFetch(
+  impl: (url: string, init?: RequestInit) => Promise<Response> | Response,
+  run: () => Promise<void>,
+): Promise<void> {
+  const real = globalThis.fetch;
+  setOnlineLookups(true);
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+    impl(String(input), init)) as typeof fetch;
+  try {
+    await run();
+  } finally {
+    setOnlineLookups(false);
+    globalThis.fetch = real;
+  }
+}
 
 test('cleanTitle strips video, audio, lyric, and format markers', () => {
   assert.equal(cleanTitle('Midnight City (Official Video)'), 'Midnight City');
@@ -88,4 +105,62 @@ test('cleanTitle stays fast on pathological input', () => {
 test('cleanTitle removes nested label brackets without a stray character', () => {
   assert.equal(cleanTitle('Song ((Official Video))'), 'Song');
   assert.equal(cleanTitle('Song [(Official Video)]'), 'Song');
+});
+
+test('fetchOnlineLyrics returns undefined on network failure without throwing', async () => {
+  await withMockFetch(async () => { throw new TypeError('fetch failed'); }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist', duration: 200 }), undefined);
+  });
+});
+
+test('fetchOnlineLyrics returns undefined on abort/timeout without throwing', async () => {
+  await withMockFetch(async (_url, init) => {
+    const err = new Error('The operation was aborted');
+    err.name = 'AbortError';
+    if (init?.signal?.aborted) throw err;
+    throw err;
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
+  });
+});
+
+test('fetchOnlineLyrics tolerates unparseable and null JSON bodies', async () => {
+  let calls = 0;
+  await withMockFetch(async (url) => {
+    calls++;
+    if (url.includes('/api/get')) return new Response('<html>nope</html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    return new Response('null', { status: 200, headers: { 'content-type': 'application/json' } });
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
+    assert.ok(calls >= 1);
+  });
+
+  await withMockFetch(async () => new Response('{', { status: 200 }), async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
+  });
+});
+
+test('fetchOnlineLyrics ignores non-array search payloads and sparse entries', async () => {
+  await withMockFetch(async (url) => {
+    if (url.includes('/api/get')) return new Response('{}', { status: 404 });
+    return new Response(JSON.stringify({ syncedLyrics: 'not-an-array' }), { status: 200 });
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
+  });
+
+  await withMockFetch(async (url) => {
+    if (url.includes('/api/get')) return new Response('{}', { status: 404 });
+    return new Response(JSON.stringify([null, { plainLyrics: '  hello  ' }]), { status: 200 });
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), 'hello');
+  });
+});
+
+test('fetchOnlineLyrics returns synced lyrics from a valid exact match', async () => {
+  await withMockFetch(async (url) => {
+    assert.ok(url.includes('/api/get'));
+    return new Response(JSON.stringify({ syncedLyrics: '[00:01.00]Hi\n' }), { status: 200 });
+  }, async () => {
+    assert.equal(await fetchOnlineLyrics({ title: 'Song (Official Video)', artist: 'A & B', duration: 120 }), '[00:01.00]Hi');
+  });
 });

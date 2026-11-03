@@ -145,6 +145,26 @@ export async function fetchOnlineLyrics(track: {
     return controller.signal;
   };
 
+  /** Parse JSON without throwing; returns undefined for empty, invalid, or non-JSON bodies. */
+  const readJson = async (res: Response): Promise<unknown> => {
+    try {
+      const text = await res.text();
+      if (!text.trim()) return undefined;
+      return JSON.parse(text) as unknown;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const lyricsFrom = (data: unknown): string | undefined => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return undefined;
+    const row = data as RemoteLyrics;
+    const synced = typeof row.syncedLyrics === 'string' ? row.syncedLyrics.trim() : '';
+    if (synced) return synced;
+    const plain = typeof row.plainLyrics === 'string' ? row.plainLyrics.trim() : '';
+    return plain || undefined;
+  };
+
   // 1. Try exact match
   const params = new URLSearchParams();
   params.set('track_name', title);
@@ -165,13 +185,11 @@ export async function fetchOnlineLyrics(track: {
     }
 
     if (res.ok) {
-      const data: RemoteLyrics = await res.json();
-      if (data.syncedLyrics?.trim()) return data.syncedLyrics.trim();
-      if (data.plainLyrics?.trim()) return data.plainLyrics.trim();
+      const found = lyricsFrom(await readJson(res));
+      if (found) return found;
     }
   } catch {
-    // Network error or offline
-    return undefined;
+    // Timeout, network error, or offline — still try search below when the first hop failed hard.
   }
 
   // 2. Fuzzy search fallback with duration tolerance matching
@@ -191,9 +209,10 @@ export async function fetchOnlineLyrics(track: {
     }
 
     if (res.ok) {
-      const list: RemoteLyrics[] = await res.json();
-      if (Array.isArray(list) && list.length) {
-        const synced = list.filter(item => Boolean(item.syncedLyrics?.trim()));
+      const body = await readJson(res);
+      const list = Array.isArray(body) ? (body as RemoteLyrics[]) : [];
+      if (list.length) {
+        const synced = list.filter(item => item && typeof item === 'object' && typeof item.syncedLyrics === 'string' && item.syncedLyrics.trim());
         if (synced.length) {
           if (duration && duration > 0) {
             // Prefer versions within 5 s of the track's length, then within 8 s
@@ -207,17 +226,18 @@ export async function fetchOnlineLyrics(track: {
             return synced[0].syncedLyrics?.trim();
           }
         }
-        if (list[0].plainLyrics?.trim()) {
+        const plainRows = list.filter(item => item && typeof item === 'object' && typeof item.plainLyrics === 'string' && item.plainLyrics.trim());
+        if (plainRows.length) {
           if (duration && duration > 0) {
-            const toleranceMatches = list.filter(item => !item.duration || Math.abs(item.duration - duration) <= 5);
+            const toleranceMatches = plainRows.filter(item => !item.duration || Math.abs(item.duration - duration) <= 5);
             if (toleranceMatches.length) return toleranceMatches[0].plainLyrics?.trim();
           }
-          return list[0].plainLyrics.trim();
+          return plainRows[0].plainLyrics?.trim();
         }
       }
     }
   } catch {
-    // Network unavailable or offline
+    // Timeout, network unavailable, or offline
   }
 
   return undefined;
