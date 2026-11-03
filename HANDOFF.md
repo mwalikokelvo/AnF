@@ -191,3 +191,10 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 
 - Desktop environment for Ubuntu agents: WebKitGTK 4.1, gtk-layer-shell, Rust 1.99.0 (same pin as `.github/workflows/linux.yml`), Node 22, `npm ci` in `windows/` and `android/`, release `coucou-hook`, and placeholder `windows/local-ai` files so the Tauri crate can compile. Real weights stay on `windows/scripts/prepare-linux.mjs`. macOS and the Android SDK are outside this image.
 - Labels: tested on Linux (`npx tsc --noEmit`, `npm test` 240 pass, `npm run test:e2e` 138 pass, `node scripts/check-release.mjs` 11 pass, `cargo test` hook 3 / `_core` 14 / `anf-vault` 7 / vault-fixture 3). smoke-launched the debug Linux binary: workspace opened, model set to Fast · Qwen3 0.6B, quick note "Cloud agent hello" written to `~/.local/share/coucou/projects`. NOT a release install. Offline chat was not run (placeholders are not GGUF models).
+
+## 2026-11-03 Cursor: synced LRC timestamps and active line (branch `cursor/lrc-active-line-3590`)
+
+- `windows/src/workspace/lyrics-provider.ts`: `fetchOnlineLyrics` still returns the raw LRCLIB string (synced LRC when present, otherwise plain text). New `parseSyncedLyrics` reads `[mm:ss.xx]` (also `[mm:ss]` / 1–3 digit fractions), rejects seconds ≥ 60, skips ID3-style metadata tags, sorts out-of-order stamps, and marks plain text `UNSYNCED`. `activeLyricLine` returns the line whose time is the latest at or before the playback position (seconds), or null before the first stamp, for unsynced text, and for a non-finite time.
+- Tests: `windows/tests/lyrics-provider.test.ts` covers minute boundaries (`00:00.00`, `00:59.99`, `01:00.00`), duplicate timestamps, malformed tags, and shuffled stamps. Isolated file 16 pass / 0 fail. Full `npm test` 244 pass / 0 fail. `tsc --noEmit` clean.
+- `scripts/simplify-code.sh` still cannot run: the script's shebang has a UTF-8 BOM, and `ponytail-cli` is not on npm (404). No unrelated files were rewritten.
+- Labels: tested on Linux (unit + tsc). NOT installed. Music Hub still parses playback lyrics through `lyrics.ts`; this change does not touch player controls or persisted stores.
