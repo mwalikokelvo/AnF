@@ -1,6 +1,7 @@
 // KOReader progress sync (kosync): PUT/GET /syncs/progress.
 // Positions are derived from the existing reading state (offset, bookmarks, annotations).
 // The progress index and offline queue are separate from the project store, so sync does not migrate it.
+// Transient push failures are retried, then stored in the same queue fields. A queue file drops unknown keys.
 
 import { readingState, sectionIndex, sections, type ReadingState } from './reader-data';
 
@@ -76,6 +77,9 @@ const ACCEPT = 'application/vnd.koreader.v1+json';
 const DAY = 86400;
 const MAX_AGE = 28 * DAY;
 const MAX_ENTRIES = 200;
+const MAX_ATTEMPTS = 5;
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+const RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
 
 /** Same FNV-1a used for the reader's local scroll key. Not a project-store field. */
 export function documentDigest(text: string): string {
@@ -236,6 +240,64 @@ function documentFromPath(path: string): string | undefined {
   }
 }
 
+function attemptLimit(value: number | undefined, fallback: number): number {
+  const count = value ?? fallback;
+  if (!Number.isInteger(count) || count < 1) return 1;
+  return Math.min(count, MAX_ATTEMPTS);
+}
+
+function queueItem(raw: unknown): KoreaderQueueItem | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const record = raw as Record<string, unknown>;
+  if (record.timestamp === undefined) return undefined;
+  const payload = storedPayload(record, 0);
+  if (!payload) return undefined;
+  const item: KoreaderQueueItem = { ...payload };
+  if (record.queued_at !== undefined) {
+    if (typeof record.queued_at !== 'number' || !Number.isSafeInteger(record.queued_at) || record.queued_at < 0) return undefined;
+    item.queued_at = record.queued_at;
+  }
+  return item;
+}
+
+/** Reads a queue file. Unknown fields, including credentials, are dropped. A corrupt file is an empty queue. */
+export function readKoreaderQueue(text: string): KoreaderQueueItem[] {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(value)) return [];
+  const items: KoreaderQueueItem[] = [];
+  for (const entry of value) {
+    const item = queueItem(entry);
+    if (!item) continue;
+    items.push(item);
+    if (items.length > MAX_ENTRIES) items.shift();
+  }
+  return items;
+}
+
+export function writeKoreaderQueue(items: KoreaderQueueItem[]): string {
+  return JSON.stringify(readKoreaderQueue(JSON.stringify(items)));
+}
+
+export function koreaderQueueFromText(read: () => string, write: (text: string) => void): KoreaderQueueStore {
+  return {
+    load() {
+      try {
+        return readKoreaderQueue(read());
+      } catch {
+        return [];
+      }
+    },
+    save(items) {
+      write(writeKoreaderQueue(items));
+    },
+  };
+}
+
 export function createKoreaderProgressIndex(now: () => number = () => Math.floor(Date.now() / 1000)) {
   const records = new Map<string, KoreaderProgressPayload>();
   return {
@@ -296,6 +358,13 @@ export function createKoreaderQueue(store: KoreaderQueueStore, now: () => number
       try {
         for (const item of snapshot) {
           if (!store.load().some(entry => sameQueued(entry, item))) continue;
+          if (typeof item.queued_at === 'number' && now() - item.queued_at >= MAX_AGE) {
+            const stale = store.load();
+            const staleAt = stale.findIndex(entry => sameQueued(entry, item));
+            if (staleAt >= 0) stale.splice(staleAt, 1);
+            store.save(stale);
+            continue;
+          }
           let ok = false;
           try { ok = await send(item); } catch { ok = false; }
           if (!ok) return sent;
@@ -313,13 +382,26 @@ export function createKoreaderQueue(store: KoreaderQueueStore, now: () => number
     async sync(
       item: Omit<KoreaderQueueItem, 'queued_at'>,
       send: (item: Omit<KoreaderQueueItem, 'queued_at'>) => Promise<{ status?: number }>,
+      options?: { attempts?: number; sleep?: (ms: number) => void | Promise<void> },
     ): Promise<'pushed' | 'queued' | 'rejected'> {
-      try {
-        const result = await send(item);
-        if (result?.status === 200 || result?.status === 202) return 'pushed';
-        if (result?.status === 401) return 'rejected';
-      } catch {
-        // Dropped connections are queued below.
+      const attempts = attemptLimit(options?.attempts, 3);
+      for (let i = 0; i < attempts; i += 1) {
+        let status: number | undefined;
+        let thrown = false;
+        try {
+          const result = await send(item);
+          status = result?.status;
+        } catch {
+          thrown = true;
+        }
+        if (!thrown && (status === 200 || status === 202)) return 'pushed';
+        if (!thrown && status === 401) return 'rejected';
+        const retry = thrown || status === undefined || RETRYABLE_STATUS.has(status);
+        if (!retry || i === attempts - 1) {
+          push(item);
+          return 'queued';
+        }
+        if (options?.sleep) await options.sleep(RETRY_DELAYS_MS[Math.min(i, RETRY_DELAYS_MS.length - 1)]);
       }
       push(item);
       return 'queued';
