@@ -7,7 +7,7 @@ import type { AudioTrack } from './audio-library';
 import { gatedFetch, ONLINE_LOOKUPS_OFF, onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
 import { loadRemoteAudio, needsRustFetch } from './stream-source';
 
-export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url';
+export type StreamErrorCode = 'lookups-off' | 'youtube-unresolved' | 'not-audio' | 'unsupported-url' | 'invalid-url' | 'preview-only';
 
 /** A resolution failure with a message that is safe to show to the user as-is. */
 export class StreamResolutionError extends Error {
@@ -35,6 +35,9 @@ export const YOUTUBE_LOOKUPS_OFF_MESSAGE =
   'YouTube links need Online lookups. Turn on "Online lookups" in the Music Hub header, then try again.';
 export const YOUTUBE_UNRESOLVED_MESSAGE =
   'YouTube stream could not be resolved right now. Try again in a moment, paste a direct audio link (MP3, M4A, Opus), or import the audio files into your library.';
+/** Shown when only the 30 s clip a catalogue offers for a song could be found, and when someone tries to save such a clip. */
+export const PREVIEW_ONLY_MESSAGE =
+  'Only a 30 s preview of this song is available here, so it is not saved to your library. For the full song, paste its YouTube link (with Online lookups on), paste a direct audio link (MP3, M4A, Opus), or import the audio file into your library.';
 export const NOT_AUDIO_MESSAGE =
   'That link is a web page or file, not audio, so it was not played or saved. Paste a direct audio link (MP3, M4A, Opus) or a YouTube video link.';
 
@@ -140,6 +143,8 @@ export interface StreamTrackMetadata {
   coverUrl?: string;
   artworkUrl?: string;
   streamUrl?: string;
+  /** A catalogue's 30 s clip (iTunes / Spotify embed). It is not the song: it is only played, labelled, when no full source is found. */
+  previewUrl?: string;
   source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom';
   bitrate?: number;
   isrc?: string;
@@ -155,6 +160,8 @@ export interface ResolvedAudioStream {
   expiresAt?: number;
   blob?: Blob;
   cached?: boolean;
+  /** True when this is only a 30 s preview clip, not the full track. */
+  preview?: boolean;
 }
 
 export interface StreamingMetadataProvider {
@@ -318,7 +325,13 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (typeof localStorage === 'undefined') return;
       const stored: StreamTrackMetadata[] = JSON.parse(localStorage.getItem(this.cacheKey) || '[]');
       for (const t of stored) {
-        if (t && t.id) this.cache.set(t.id, t);
+        if (!t || !t.id) continue;
+        // Older versions kept the catalogue's 30 s clip in streamUrl; it was never the full song.
+        if ((t.source === 'spotube' || t.source === 'spotify') && t.streamUrl && !t.previewUrl) {
+          t.previewUrl = t.streamUrl;
+          delete t.streamUrl;
+        }
+        this.cache.set(t.id, t);
       }
     } catch {
       // Storage unavailable or empty
@@ -371,7 +384,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
           artworkUrl: item.artworkUrl100 || item.artworkUrl60 || undefined,
           coverUrl: item.artworkUrl100 || item.artworkUrl60 || undefined,
           source: 'spotube' as const,
-          streamUrl: item.previewUrl || undefined,
+          previewUrl: safeHttpsUrl(item.previewUrl),
           year: item.releaseDate ? new Date(item.releaseDate).getFullYear() : undefined,
         }));
 
@@ -472,7 +485,6 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (ytCandidates.length > 0) {
         const resolved = await this.resolveYouTubeStream(ytCandidates[0].id);
         if (resolved) {
-          track.streamUrl = resolved.streamUrl;
           track.bitrate = resolved.bitrate;
           this.registerMetadata(track);
           return resolved;
@@ -482,13 +494,9 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // YouTube fallback failed
     }
 
-    if (track.streamUrl) {
-      return {
-        streamUrl: track.streamUrl,
-        mimeType: 'audio/mp4',
-        cached: false,
-      };
-    }
+    // No full source: the catalogue's 30 s clip, flagged so the UI can label it and never save it as the song.
+    const preview = safeHttpsUrl(track.previewUrl);
+    if (preview) return { streamUrl: preview, mimeType: 'audio/mp4', cached: false, preview: true };
     return null;
   }
 
@@ -865,7 +873,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
             const duration = typeof item.duration === 'number' && item.duration > 0
               ? Math.round(item.duration / 1000)
               : undefined;
-            const streamUrl = item.audioPreview?.url || undefined;
+            const previewUrl = safeHttpsUrl(item.audioPreview?.url);
 
             const track: StreamTrackMetadata = {
               id: `sp:${trackId}`,
@@ -876,7 +884,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
               artworkUrl,
               coverUrl: artworkUrl,
               source: 'spotube',
-              streamUrl,
+              previewUrl,
             };
             this.registerMetadata(track);
             tracks.push(track);
@@ -1061,6 +1069,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (typeof streamBlobOrUrl === 'string') {
       const safe = safeHttpsUrl(streamBlobOrUrl);
       if (!safe) throw Error('Stream audio must be an https URL.');
+      if (safe === safeHttpsUrl(track.previewUrl)) throw new StreamResolutionError('preview-only', PREVIEW_ONLY_MESSAGE);
       if (needsRustFetch(safe)) {
         // Desktop: the CSP does not allow this host for fetch(); Rust downloads it (audio content types only).
         if (!onlineLookupsEnabled()) throw new Error(ONLINE_LOOKUPS_OFF);

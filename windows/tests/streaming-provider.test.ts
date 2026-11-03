@@ -157,18 +157,19 @@ describe('Spotube Streaming Audio Service', () => {
     assert.equal(track.bitrate, 64000);
   });
 
-  test('resolveSpotubeStream falls back to existing preview stream URL when offline', async () => {
+  test('resolveSpotubeStream falls back to the preview clip when offline, flagged as a preview', async () => {
     const service = new SpotubeStreamService();
     const track: StreamTrackMetadata = {
       id: 'sp-offline-1',
       title: 'Offline Song',
       artist: 'Spotube Artist',
       source: 'spotube',
-      streamUrl: 'https://preview.example.org/audio.mp3',
+      previewUrl: 'https://preview.example.org/audio.mp3',
     };
     const resolved = await service.resolveSpotubeStream(track);
     assert.ok(resolved);
     assert.equal(resolved.streamUrl, 'https://preview.example.org/audio.mp3');
+    assert.equal(resolved.preview, true);
   });
 
   test('searchMultiSource returns direct track when URL is supplied', async () => {
