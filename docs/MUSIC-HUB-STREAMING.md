@@ -387,7 +387,7 @@ export class SpotubeStreamService {
 ### Phase 3: Audiobook Player Enhancements
 1. **Transport Buttons**: Add 15s backward and 30s forward buttons in the player transport.
 2. **Speed Chips**: Provide fast-toggle speed chips (`0.75x` to `2.0x`).
-3. **Sleep Timer Extensions**: Support `End of Chapter` and custom minute durations.
+3. **Sleep Timer Extensions**: Support `End of Chapter` (done, see `docs/specs/sleep-end-of-chapter.md`) and custom minute durations (open).
 
 ### Verification Checklist
 - [ ] Run `npm exec tsc -- --noEmit` to verify type compliance.
