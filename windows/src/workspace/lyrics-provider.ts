@@ -242,3 +242,46 @@ export async function fetchOnlineLyrics(track: {
 
   return undefined;
 }
+
+const LRC_META = /^\s*\[(?:ar|ti|al|au|by|length|offset|re|ve|#):/i;
+const MAX_LRC_CHARS = 200_000;
+const MAX_LRC_LINES = 5_000;
+
+/** Parse LRCLIB/LRC text. Synced lines use `[mm:ss.xx]`; plain text stays unsynced. */
+export function parseSyncedLyrics(source: string): ParsedLyrics {
+  const timed: LyricLine[] = [];
+  const plain: LyricLine[] = [];
+  const text = source.slice(0, MAX_LRC_CHARS).replace(/^\uFEFF/, '');
+  for (const raw of text.split(/\r?\n/)) {
+    if (LRC_META.test(raw)) continue;
+    const stamp = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
+    const times: number[] = [];
+    for (const match of raw.matchAll(stamp)) {
+      const seconds = Number(match[2]);
+      if (seconds >= 60) continue;
+      const fraction = match[3] ? Number(match[3]) / 10 ** match[3].length : 0;
+      times.push(Number(match[1]) * 60 + seconds + fraction);
+    }
+    stamp.lastIndex = 0;
+    const lyric = raw.replace(stamp, '').trim();
+    if (times.length) {
+      for (const time of times) timed.push({ time, text: lyric });
+    } else if (lyric) plain.push({ time: 0, text: lyric });
+  }
+  if (timed.length) {
+    timed.sort((a, b) => a.time - b.time);
+    return { lines: timed.slice(0, MAX_LRC_LINES), offsetMs: 0, syncType: 'LINE_SYNCED' };
+  }
+  return { lines: plain.slice(0, MAX_LRC_LINES), offsetMs: 0, syncType: 'UNSYNCED' };
+}
+
+/** Line being sung at `playbackSeconds`, or null before the first stamp or when the text is unsynced. */
+export function activeLyricLine(lyrics: ParsedLyrics, playbackSeconds: number): LyricLine | null {
+  if (lyrics.syncType === 'UNSYNCED' || !Number.isFinite(playbackSeconds)) return null;
+  let active: LyricLine | null = null;
+  for (const line of lyrics.lines) {
+    if (line.time > playbackSeconds) break;
+    active = line;
+  }
+  return active;
+}
