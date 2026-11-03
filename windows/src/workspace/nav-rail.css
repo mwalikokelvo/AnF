@@ -1,8 +1,9 @@
 /* Glass navigation rail (nav-rail.ts). Windows workspace only: Android keeps its own bottom navigation. */
 .glass-rail{
   --rail-open:248px;--rail-closed:68px;--rail-pad:12px;--rail-ease:cubic-bezier(.16,1,.3,1);
+  --shell-blur:24px;
   background:color-mix(in srgb,var(--side) 78%,transparent);
-  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  backdrop-filter:blur(var(--shell-blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--shell-blur)) saturate(160%);
   border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);
   box-shadow:0 14px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
 }
@@ -39,9 +40,9 @@
   body.has-glass-rail .music-player:not(.music-full-player){left:max(50%,calc(var(--rail-open,248px) + 28px + min(calc(100vw - 320px),1140px) / 2))!important}
 }
 
-/* Light theme: over the dark Music Hub the 78% glass left the open rail's muted labels at ~3.3:1. Open, it is nearly opaque; the collapsed icon rail keeps the glass. */
-#workspace-root[data-theme=light] .glass-rail:not([data-rail=collapsed]){background:color-mix(in srgb,var(--side) 94%,transparent);border-color:color-mix(in srgb,var(--ink) 10%,transparent)}
-@media(prefers-color-scheme:light){#workspace-root[data-theme=system] .glass-rail:not([data-rail=collapsed]){background:color-mix(in srgb,var(--side) 94%,transparent);border-color:color-mix(in srgb,var(--ink) 10%,transparent)}}
+/* Light theme: a translucent rail blurred the dark page into its edge and left the border near 1.2:1. Open, it is opaque with no blur; the collapsed icon rail keeps the glass. */
+#workspace-root[data-theme=light] .glass-rail:not([data-rail=collapsed]){--shell-blur:0px;--glass-line:#5b7067;background:var(--side);border-color:var(--glass-line);backdrop-filter:none;-webkit-backdrop-filter:none}
+@media(prefers-color-scheme:light){#workspace-root[data-theme=system] .glass-rail:not([data-rail=collapsed]){--shell-blur:0px;--glass-line:#5b7067;background:var(--side);border-color:var(--glass-line);backdrop-filter:none;-webkit-backdrop-filter:none}}
 
 @media(max-width:767px){
   /* Narrow windows: every section as an icon in a floating bottom bar, within thumb reach. */
