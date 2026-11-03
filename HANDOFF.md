@@ -217,3 +217,4 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - `prefetchBookCovers` tries the thumbnail, then the full image. HTTP errors and non-image bodies are not stored. A slow URL is aborted and the next candidate is used. Memory is checked before disk (SHA-256 file name). A corrupt disk file is fetched again.
 - Playback, TTS, and the Rust `_core` OPDS parser are unchanged. No screen calls this module yet.
 - Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 273 pass / 0 fail). Evidence in `.cursor/verification-artifacts/opds-client.md`. NOT installed. No live OPDS catalog. `scripts/simplify-code.sh` still cannot run (UTF-8 BOM on the shebang, `ponytail-cli` npm 404).
+- Commit `b58d539` on `cursor/opds-pagination-covers-7c97`. PR: https://github.com/mwalikokelvo/AnF/pull/82
