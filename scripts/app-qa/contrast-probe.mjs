@@ -11,7 +11,7 @@ export const collect=()=>{
   while(tn=w.nextNode()){const t=tn.textContent.trim();if(!t)continue;const el=tn.parentElement;if(!el||seen.has(el)||['SCRIPT','STYLE','OPTION'].includes(el.tagName)||!vis(el))continue;seen.add(el);
     const d=el.closest('dialog');if(d&&!d.open)continue;
     {let hiddenInDetails=false;for(let n=el.parentElement;n;n=n.parentElement)if(n.tagName==='DETAILS'&&!n.open&&!el.closest('summary')){hiddenInDetails=true;break;}if(hiddenInDetails)continue;} // a closed <details> does not paint its content
-    const rg=document.createRange();rg.selectNodeContents(tn);const r=rg.getBoundingClientRect();if(r.width<2||r.height<2||r.bottom<=0||r.top>=innerHeight||r.right<=0||r.left>=innerWidth)continue;
+    const rg=document.createRange();rg.selectNodeContents(tn);const r=rg.getBoundingClientRect();{const eb=el.getBoundingClientRect();if(eb.width<=2||eb.height<=2)continue;}if(r.width<2||r.height<2||r.bottom<=0||r.top>=innerHeight||r.right<=0||r.left>=innerWidth)continue;
     // text clipped (even partly) at the top or bottom by a scrolling or overflow-hidden ancestor is mid-scroll under an edge, not a resting state
     {let clipped=false;for(let a=el.parentElement;a&&a!==document.documentElement;a=a.parentElement){const o=getComputedStyle(a);if(o.overflowX==='visible'&&o.overflowY==='visible')continue;const ar=a.getBoundingClientRect();if(r.top<ar.top-1||r.bottom>ar.bottom+1){clipped=true;break;}}if(clipped)continue;}
     const top=document.elementFromPoint(Math.min(innerWidth-1,Math.max(0,r.left+r.width/2)),Math.min(innerHeight-1,Math.max(0,r.top+r.height/2)));if(!top||!(top===el||el.contains(top)||top.contains(el)))continue;
