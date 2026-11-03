@@ -923,7 +923,7 @@ function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Lis
   const coverEl=art(t);
   const badge=trackBadge(t);
   coverEl.append(h('span',{class:`music-card-badge music-badge-${badge.kind}`,text:badge.label}));
-  play.replaceChildren(coverEl,h('strong',{text:t.title}),h('span',{text:meta}));
+  play.replaceChildren(coverEl,h('strong',{text:t.title,title:t.title}),h('span',{text:meta,title:meta}));
   const liked=prefs.favorites.includes(t.id);
   const likeBtn=button(liked?'Unlike '+t.title:'Like '+t.title,()=>{prefs.favorites=liked?prefs.favorites.filter(id=>id!==t.id):[...prefs.favorites,t.id];save();render();},'heart');
   likeBtn.setAttribute('aria-pressed',String(liked));
