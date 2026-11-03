@@ -31,6 +31,16 @@ export async function seedTracks(page){
     await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();
   });
 }
+// Test-only: give a seeded track a longer title/artist (to check truncation). Reload afterwards.
+export async function retitleTrack(page,id,fields){
+  await page.evaluate(async({id,fields})=>{
+    const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('coucou-audio',2);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+    const tx=db.transaction('tracks','readwrite'),store=tx.objectStore('tracks');
+    const track=await new Promise((resolve,reject)=>{const q=store.get(id);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+    store.put({...track,...fields});
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();
+  },{id,fields});
+}
 export async function start(){
   const conf=JSON.parse(await readFile(path.join(root,'windows/src-tauri/tauri.conf.json'),'utf8'));
   const csp=conf.app.security.csp;
