@@ -4,12 +4,23 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
+  drainOpdsQueue,
+  opdsFeedsFromText,
+  opdsQueueFromText,
   parseOpds,
   prefetchBookCovers,
+  readOpdsFeeds,
+  readOpdsQueue,
   traverseOpds,
+  writeOpdsFeeds,
+  writeOpdsQueue,
   type CoverCache,
   type CoverDisk,
   type OpdsBook,
+  type OpdsFeedRecord,
+  type OpdsFeedStore,
+  type OpdsQueueStore,
+  type OpdsQueuedRequest,
 } from '../src/workspace/opds-client.ts';
 
 const ROOT = 'https://example.org/catalog/root';
@@ -335,6 +346,318 @@ test('a cover already on disk or in memory is not fetched again', async () => {
     assert.equal(calls, 2);
     assert.deepEqual(new Uint8Array(await readFile(path.join(dir, names[0]))), PNG);
   });
+});
+
+function memoryFeeds(initial: OpdsFeedRecord[] = []): OpdsFeedStore & { records(): OpdsFeedRecord[] } {
+  let records = initial.map((record) => ({ ...record }));
+  return {
+    load: () => records.map((record) => ({ ...record })),
+    save: (next) => { records = next.map((record) => ({ ...record })); },
+    records: () => records.map((record) => ({ ...record })),
+  };
+}
+
+function memoryRequests(initial: OpdsQueuedRequest[] = []): OpdsQueueStore & { items(): OpdsQueuedRequest[] } {
+  let items = initial.map((item) => ({ ...item }));
+  return {
+    load: () => items.map((item) => ({ ...item })),
+    save: (next) => { items = next.map((item) => ({ ...item })); },
+    items: () => items.map((item) => ({ ...item })),
+  };
+}
+
+const HTML_PAGE = '<html><title>502 Bad Gateway</title></html>';
+
+test('a catalog fetch that fails twice then succeeds is stored and not queued', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests();
+  let attempts = 0;
+  const result = await traverseOpds(ROOT, async () => {
+    attempts += 1;
+    if (attempts < 3) throw new Error('connection reset');
+    return PAGE_3;
+  }, { attempts: 3, resilience: { feeds, queue, attempts: 3, now: () => 1700000000 } });
+  assert.equal(attempts, 3);
+  assert.equal(result.pages, 1);
+  assert.equal(result.stopped, 'end');
+  assert.deepEqual(result.books.map((book) => book.id), ['urn:book:c']);
+  assert.equal(queue.items().length, 0);
+  assert.equal(feeds.records()[0].url, ROOT);
+  assert.equal(feeds.records()[0].parsedBody?.includes('Book C'), true);
+  assert.equal(feeds.records()[0].unparsedBody, undefined);
+});
+
+test('an offline page keeps the books already read and serves the stored next page', async () => {
+  const feeds = memoryFeeds([{ url: PAGE_2_URL, parsedBody: PAGE_3 }]);
+  const queue = memoryRequests();
+  const { bodies, fetched } = catalog();
+  let attempts = 0;
+  const result = await traverseOpds(ROOT, async (url) => {
+    if (url === PAGE_2_URL) {
+      attempts += 1;
+      throw new Error('offline');
+    }
+    return pull(bodies, fetched, url);
+  }, { resilience: { feeds, queue, attempts: 2, now: () => 50 } });
+  assert.equal(attempts, 2);
+  assert.deepEqual(fetched, [ROOT]);
+  assert.deepEqual(result.books.map((book) => book.id), ['urn:book:a', 'urn:book:c']);
+  assert.equal(result.stopped, 'end');
+  assert.deepEqual(queue.items(), [{ url: PAGE_2_URL, queuedAt: 50 }]);
+  assert.equal(feeds.records()[0].parsedBody, PAGE_3);
+});
+
+test('an unparsed catalog page is stored and does not replace the last parsed feed', async () => {
+  const feeds = memoryFeeds([{ url: ROOT, parsedBody: PAGE_3 }]);
+  const queue = memoryRequests();
+  const result = await traverseOpds(ROOT, async () => HTML_PAGE, {
+    resilience: { feeds, queue, attempts: 3, now: () => 1 },
+  });
+  assert.equal(result.books[0].id, 'urn:book:c');
+  assert.equal(result.stopped, 'end');
+  assert.equal(queue.items().length, 0);
+  assert.equal(feeds.records()[0].parsedBody, PAGE_3);
+  assert.equal(feeds.records()[0].unparsedBody, HTML_PAGE);
+});
+
+test('a hostile catalog body is stored unparsed and is never served as a fallback', async () => {
+  const hostile = '<!DOCTYPE feed [<!ENTITY x SYSTEM "https://evil.example/x">]><feed><title>Nope</title><link rel="next" href="https://evil.example/next"/></feed>';
+  const feeds = memoryFeeds();
+  const queue = memoryRequests();
+  const first = await traverseOpds(ROOT, async () => hostile, {
+    resilience: { feeds, queue, attempts: 1, now: () => 1 },
+  });
+  assert.deepEqual(first.books, []);
+  assert.equal(first.stopped, 'empty');
+  assert.equal(queue.items().length, 0);
+  assert.equal(feeds.records()[0].parsedBody, undefined);
+  assert.equal(feeds.records()[0].unparsedBody, hostile);
+
+  let attempts = 0;
+  const second = await traverseOpds(ROOT, async () => {
+    attempts += 1;
+    throw new Error('offline');
+  }, { resilience: { feeds, queue, attempts: 1, now: () => 2 } });
+  assert.equal(attempts, 1);
+  assert.deepEqual(second.books, []);
+  assert.equal(second.stopped, 'offline');
+  assert.equal(feeds.records()[0].parsedBody, undefined);
+  assert.deepEqual(queue.items().map((item) => item.url), [ROOT]);
+});
+
+test('a real empty feed replaces the stored catalog instead of replaying stale books', async () => {
+  const feeds = memoryFeeds([{ url: ROOT, parsedBody: PAGE_3, unparsedBody: HTML_PAGE }]);
+  const queue = memoryRequests();
+  const empty = '<feed xmlns="http://www.w3.org/2005/Atom"><title>Library</title></feed>';
+  const result = await traverseOpds(ROOT, async () => empty, {
+    resilience: { feeds, queue, now: () => 1 },
+  });
+  assert.deepEqual(result.books, []);
+  assert.equal(result.stopped, 'empty');
+  assert.equal(feeds.records()[0].parsedBody, empty);
+  assert.equal(feeds.records()[0].unparsedBody, undefined);
+  assert.equal(queue.items().length, 0);
+});
+
+test('a blank catalog body does not overwrite the stored feed or queue a request', async () => {
+  let saves = 0;
+  const feeds: OpdsFeedStore = {
+    load: () => [{ url: ROOT, parsedBody: PAGE_3 }],
+    save: () => { saves += 1; },
+  };
+  const queue = memoryRequests();
+  const result = await traverseOpds(ROOT, async () => ' \n\t', {
+    resilience: { feeds, queue, now: () => 1 },
+  });
+  assert.deepEqual(result.books, []);
+  assert.equal(result.stopped, 'empty');
+  assert.equal(saves, 0);
+  assert.equal(queue.items().length, 0);
+});
+
+test('an oversized unparsed body is not stored and the parsed feed stays in use', async () => {
+  const feeds = memoryFeeds([{ url: ROOT, parsedBody: PAGE_3 }]);
+  const queue = memoryRequests();
+  const huge = `<html>${'x'.repeat(70_000)}</html>`;
+  const result = await traverseOpds(ROOT, async () => huge, {
+    resilience: { feeds, queue, now: () => 1 },
+  });
+  assert.equal(result.books[0].id, 'urn:book:c');
+  assert.equal(feeds.records()[0].parsedBody, PAGE_3);
+  assert.equal(feeds.records()[0].unparsedBody, undefined);
+});
+
+test('feed and queue files round-trip, drop unsafe urls, and collapse duplicate requests', () => {
+  const written = writeOpdsFeeds([{
+    url: ROOT,
+    parsedBody: PAGE_3,
+    unparsedBody: HTML_PAGE,
+    extra: 'drop',
+  } as OpdsFeedRecord & { extra: string }]);
+  const feeds = readOpdsFeeds(written);
+  assert.equal(feeds.length, 1);
+  assert.equal('extra' in feeds[0], false);
+  assert.equal(feeds[0].parsedBody, PAGE_3);
+  assert.equal(feeds[0].unparsedBody, HTML_PAGE);
+  assert.deepEqual(readOpdsFeeds('{'), []);
+  assert.deepEqual(readOpdsFeeds(JSON.stringify([
+    { url: 'javascript:alert(1)', parsedBody: PAGE_3 },
+    { url: 'https://user:secret@example.org/catalog', parsedBody: PAGE_3 },
+    { url: ROOT, parsedBody: '<!DOCTYPE feed [<!ENTITY x SYSTEM "file:///etc/passwd">]><feed></feed>' },
+  ])), []);
+
+  const queued = writeOpdsQueue([
+    { url: ROOT, queuedAt: 10 },
+    { url: ROOT, queuedAt: 12 },
+    { url: 'javascript:alert(1)', queuedAt: 9 },
+    { url: 'https://user:secret@example.org/p', queuedAt: 9 },
+  ]);
+  assert.deepEqual(readOpdsQueue(queued), [{ url: ROOT, queuedAt: 12 }]);
+  assert.deepEqual(readOpdsQueue('nope'), []);
+});
+
+test('a successful catalog read removes that url from the offline queue', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests([
+    { url: ROOT, queuedAt: 1 },
+    { url: PAGE_3_URL, queuedAt: 2 },
+  ]);
+  const result = await traverseOpds(ROOT, async () => PAGE_3, {
+    resilience: { feeds, queue, now: () => 3 },
+  });
+  assert.equal(result.books[0].id, 'urn:book:c');
+  assert.deepEqual(queue.items(), [{ url: PAGE_3_URL, queuedAt: 2 }]);
+});
+
+test('drain retries a queued catalog and leaves the next url queued when it stays offline', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests([
+    { url: ROOT, queuedAt: 10 },
+    { url: PAGE_3_URL, queuedAt: 11 },
+  ]);
+  let rootTries = 0;
+  let pageTries = 0;
+  const sent = await drainOpdsQueue({ feeds, queue, attempts: 3, now: () => 20 }, async (url) => {
+    if (url === ROOT) {
+      rootTries += 1;
+      if (rootTries < 3) throw new Error('reset');
+      return PAGE_3;
+    }
+    pageTries += 1;
+    throw new Error('still down');
+  });
+  assert.equal(sent, 1);
+  assert.equal(rootTries, 3);
+  assert.equal(pageTries, 3);
+  assert.deepEqual(queue.items().map((item) => item.url), [PAGE_3_URL]);
+  assert.equal(feeds.records()[0].url, ROOT);
+  assert.match(feeds.records()[0].parsedBody ?? '', /Book C/);
+});
+
+test('drain drops expired and credentialed urls without requesting them', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests([
+    { url: ROOT, queuedAt: 1 },
+    { url: 'https://user:secret@example.org/catalog', queuedAt: 1700000000 },
+  ]);
+  let calls = 0;
+  const sent = await drainOpdsQueue({
+    feeds,
+    queue,
+    attempts: 1,
+    now: () => 1700000000,
+  }, async () => {
+    calls += 1;
+    return PAGE_3;
+  });
+  assert.equal(calls, 0);
+  assert.equal(sent, 0);
+  assert.equal(queue.items().length, 0);
+  assert.equal(JSON.stringify(queue.items()).includes('secret'), false);
+});
+
+test('a second drain does not send the queued catalog while the first request is in flight', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests([{ url: ROOT, queuedAt: 1 }]);
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let calls = 0;
+  const first = drainOpdsQueue({ feeds, queue, attempts: 1, now: () => 2 }, async () => {
+    calls += 1;
+    await gate;
+    return PAGE_3;
+  });
+  const second = await drainOpdsQueue({ feeds, queue, attempts: 1, now: () => 2 }, async () => PAGE_3);
+  assert.equal(second, 0);
+  assert.equal(calls, 1);
+  release();
+  assert.equal(await first, 1);
+  assert.equal(calls, 1);
+  assert.equal(queue.items().length, 0);
+});
+
+test('text stores reload parsed feeds and queued urls after a corrupt file', async () => {
+  let feedText = '{';
+  let queueText = '{';
+  const feeds = opdsFeedsFromText(() => feedText, (next) => { feedText = next; });
+  const queue = opdsQueueFromText(() => queueText, (next) => { queueText = next; });
+  assert.deepEqual(feeds.load(), []);
+  assert.deepEqual(queue.load(), []);
+  const result = await traverseOpds(ROOT, async () => HTML_PAGE, {
+    resilience: { feeds, queue, now: () => 4 },
+  });
+  assert.deepEqual(result.books, []);
+  const stored = readOpdsFeeds(feedText);
+  assert.equal(stored[0].unparsedBody, HTML_PAGE);
+  assert.equal(stored[0].parsedBody, undefined);
+  feeds.save([{ url: ROOT, parsedBody: PAGE_3, unparsedBody: HTML_PAGE }]);
+  let attempts = 0;
+  const offline = await traverseOpds(ROOT, async () => {
+    attempts += 1;
+    throw new Error('offline');
+  }, { resilience: { feeds, queue, attempts: 1, now: () => 8 } });
+  assert.equal(attempts, 1);
+  assert.equal(offline.books[0].id, 'urn:book:c');
+  assert.deepEqual(readOpdsQueue(queueText), [{ url: ROOT, queuedAt: 8 }]);
+  const reloadedFeeds = opdsFeedsFromText(() => feedText, (next) => { feedText = next; });
+  assert.equal(reloadedFeeds.load()[0].parsedBody, PAGE_3);
+});
+
+test('local fallback storage keeps only the newest catalog pages', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests();
+  for (let i = 0; i < 33; i += 1) {
+    const url = `https://example.org/catalog/${i}`;
+    const body = `<feed xmlns="http://www.w3.org/2005/Atom"><title>L</title><entry><id>urn:book:${i}</id><title>T</title><link rel="http://opds-spec.org/acquisition" href="https://example.org/b.epub"/></entry></feed>`;
+    await traverseOpds(url, async () => body, { resilience: { feeds, queue, attempts: 1, now: () => i } });
+  }
+  const records = feeds.records();
+  assert.equal(records.length, 32);
+  assert.equal(records.some((record) => record.url === 'https://example.org/catalog/0'), false);
+  assert.equal(records[records.length - 1].url, 'https://example.org/catalog/32');
+});
+
+test('the offline catalog queue keeps one entry per url and the newest hundred', async () => {
+  const feeds = memoryFeeds();
+  const queue = memoryRequests();
+  for (let i = 0; i < 101; i += 1) {
+    const url = `https://example.org/catalog/${i}`;
+    await traverseOpds(url, async () => { throw new Error('offline'); }, {
+      resilience: { feeds, queue, attempts: 1, now: () => 1000 + i },
+    });
+  }
+  await traverseOpds(ROOT, async () => { throw new Error('offline'); }, {
+    resilience: { feeds, queue, attempts: 1, now: () => 5 },
+  });
+  await traverseOpds(ROOT, async () => { throw new Error('offline'); }, {
+    resilience: { feeds, queue, attempts: 1, now: () => 9000 },
+  });
+  const items = queue.items();
+  assert.equal(items.length, 100);
+  assert.equal(items.some((item) => item.url === 'https://example.org/catalog/0'), false);
+  assert.equal(items.some((item) => item.url === 'https://example.org/catalog/1'), false);
+  assert.equal(items.filter((item) => item.url === ROOT).length, 1);
+  assert.equal(items.find((item) => item.url === ROOT)?.queuedAt, 9000);
 });
 
 test('cover prefetch does not request a url that carries userinfo', async () => {
