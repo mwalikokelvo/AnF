@@ -1305,3 +1305,14 @@ body:has(#app) .native-music-source{display:flex}
    card titles). Inside the hub the workspace tokens are the dark ones (the values anf-design.css gives the dark theme), which is exactly how the hub looks in the dark theme. */
 #workspace-root[data-theme=light] .music-hub{--bg:#101e21;--side:#0c171a;--surface:#182a2d;--panel:#182a2d;--hover:#233c40;--line:#385052;--ink:#edf4ef;--muted:#b0c4bd;--accent:#a3e5cd;--accent-ink:#10392e;--paper:#182a2d;--input:#142427;color-scheme:dark}
 @media(prefers-color-scheme:light){#workspace-root[data-theme=system] .music-hub{--bg:#101e21;--side:#0c171a;--surface:#182a2d;--panel:#182a2d;--hover:#233c40;--line:#385052;--ink:#edf4ef;--muted:#b0c4bd;--accent:#a3e5cd;--accent-ink:#10392e;--paper:#182a2d;--input:#142427;color-scheme:dark}}
+
+/* Reduced motion: the hub and its player set transitions behind !important rules (some with three classes) that beat the global reset in
+   anf-design.css. The ID in :not(#reduced-motion) only raises specificity so this reset wins. */
+@media (prefers-reduced-motion: reduce) {
+  html:not(#reduced-motion) :is(.music-hub, .music-player, .music-dialog),
+  html:not(#reduced-motion) :is(.music-hub, .music-player, .music-dialog) * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
