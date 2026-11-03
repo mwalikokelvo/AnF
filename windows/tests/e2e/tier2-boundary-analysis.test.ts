@@ -116,10 +116,13 @@ describe('Tier 2: Boundary Value Analysis (Corner Cases & Error Handling)', () =
       assert.equal(activeLine(lyrics, 99999), 1);
     });
 
-    test('F2-B5: Malformed timestamps are handled without crashing', () => {
+    test('F2-B5: Malformed timestamps are dropped and the valid line is kept', () => {
       const malformed = '[invalid:time]Broken text\n[00:99.99]Weird time\n[01:00.00]Valid line';
       const parsed = parseLyrics(malformed);
-      assert.ok(parsed.lines.length >= 1);
+      assert.equal(parsed.synced, true);
+      assert.deepEqual(parsed.lines, [{ time: 60, text: 'Valid line' }]);
+      assert.equal(activeLine(parsed, 59.9), -1);
+      assert.equal(activeLine(parsed, 60), 0);
     });
 
     test('F2-B6: cleanTitle and primaryArtist handle null, empty, and unusual character strings', () => {
