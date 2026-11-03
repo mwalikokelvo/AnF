@@ -12,6 +12,7 @@
     "predev": "cargo build --release --locked -p coucou-hook",
     "prebuild": "cargo build --release --locked -p coucou-hook",
     "pack": "tauri build && node scripts/pack.mjs",
+    "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "test:e2e": "node scripts/test-e2e.mjs"
   },
