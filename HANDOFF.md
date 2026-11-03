@@ -210,8 +210,23 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 251 pass / 0 fail before this merge, `node scripts/check-release.mjs` 11 pass). After merging `origin/main` (`b963835`), `npm test` is 259 pass / 0 fail. Evidence in `.cursor/verification-artifacts/tts-cache.md`. NOT installed. No live TTS provider. `scripts/simplify-code.sh` still cannot run (`ponytail-cli` npm 404, and the script shebang has a UTF-8 BOM).
 - Commit `b30308b` on `cursor/tts-voice-cache-578b`. PR: https://github.com/mwalikokelvo/AnF/pull/81
 
+## 2026-11-03 Cursor: OPDS page walk and cover prefetch (branch `cursor/opds-pagination-covers-7c97`)
+
+- `windows/src/workspace/opds-client.ts`: `parseOpds` reads Atom and OPDS 2 JSON (including grouped publications and localized titles). A feed-level `rel="next"` becomes a cursor with `page`, `offset`, and `cursor`. OpenSearch `startIndex` + `itemsPerPage` supplies the next offset when the link has none. An entry-level `rel="next"` is not a page link. `javascript:` URLs and URLs with userinfo are dropped. A `<!DOCTYPE` or `<!ENTITY` page is not followed.
+- `traverseOpds` keeps requesting the next page until the link is gone, the page has no books, the body is blank, the URL repeats, or the page cap is hit.
+- `prefetchBookCovers` tries the thumbnail, then the full image. HTTP errors and non-image bodies are not stored. A slow URL is aborted and the next candidate is used. Memory is checked before disk (SHA-256 file name). A corrupt disk file is fetched again.
+- Playback, TTS, and the Rust `_core` OPDS parser are unchanged. No screen calls this module yet.
+- Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 273 pass / 0 fail). Evidence in `.cursor/verification-artifacts/opds-client.md`. NOT installed. No live OPDS catalog. `scripts/simplify-code.sh` still cannot run (UTF-8 BOM on the shebang, `ponytail-cli` npm 404).
+- Commit `b58d539` on `cursor/opds-pagination-covers-7c97`. PR: https://github.com/mwalikokelvo/AnF/pull/82
+
+## 2026-11-03 Cursor: KOReader reading progress sync (branch `cursor/koreader-progress-sync-19bf`)
+
+- `windows/src/workspace/koreader-sync.ts`: existing reading state stays `{offset, bookmarks, annotations}`. Chapter, percentage, and the `anf:<offset>` locator are derived from that state and the same FNV-1a document digest the reader already uses for its scroll key. Payloads match the kosync progress fields (`document`, `progress`, `percentage`, `device`, `device_id`, `timestamp`, optional metadata). `PUT`/`GET /syncs/progress` use a side index, not the project store. A dropped push is queued (one entry per document per UTC day, 28-day expiry, stop on the next failure); 401 is not queued.
+- Labels: tested on Linux (`npm run typecheck` clean, `npm test` 266 pass / 0 fail). Evidence in `.cursor/verification-artifacts/koreader-sync.md`. NOT installed. No reader view calls this module. `scripts/simplify-code.sh` still cannot run (UTF-8 BOM on the shebang, `ponytail-cli` npm 404). After merging `origin/main` (`41f6ac1`, OPDS page walk), `npm run typecheck` is clean and `npm test` is 280 pass / 0 fail.
+- Commit `f1d62ee` on `cursor/koreader-progress-sync-19bf`. PR: https://github.com/mwalikokelvo/AnF/pull/83
+
 ## 2026-11-03 Cursor: reader theme transitions
 
 - Reader themes (soft dark, black, sepia, light, night amber) ease `--reader-bg`, `--reader-ink`, `--reader-line`, and the focus, meter, and quote tokens. A theme change only sets `data-theme`; it does not restyle the type or rebuild the page. Shell borders are at least 3:1 and text, headings, and placeholders at least 4.5:1 on every theme. Amber uses the same tokens as the other themes. The glass rail's light theme sets its border with its overlay, and the header eases background and border only. Existing rail size variables are unchanged.
 - Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 264 pass / 0 fail, including `windows/tests/reader-theme.test.ts`). Browser fixture `node scripts/app-qa/reader-theme.mjs` (headless Chrome): five themes, scroll stayed at 140px, page text was not rebuilt, column/toolbar/rail/header boxes did not move, no console warnings. Evidence in `.cursor/verification-artifacts/reader-theme.md`. NOT installed. `scripts/simplify-code.sh` still cannot run (`ponytail-cli` npm 404, and the script shebang has a UTF-8 BOM).
-- Commit `b12e96a` on `cursor/reader-theme-transitions-674a`. PR: https://github.com/mwalikokelvo/AnF/pull/84
+- Commit `b12e96a` on `cursor/reader-theme-transitions-674a`. PR: https://github.com/mwalikokelvo/AnF/pull/84. Merged with `origin/main` (`8e1a85b`). The OPDS and KOReader files do not touch the reader theme styles.
