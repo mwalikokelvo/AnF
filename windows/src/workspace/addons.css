@@ -79,6 +79,9 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+/* The amber star count measured 2.15:1 on the light cards; a darker amber reaches 6:1 and the dark theme keeps #f59e0b. */
+[data-theme=light] .addons .rating-badge { color: #8a5300; }
+@media (prefers-color-scheme: light) { [data-theme=system] .addons .rating-badge { color: #8a5300; } }
 .addons .badge {
   margin-left: auto;
   padding: 2px 10px;

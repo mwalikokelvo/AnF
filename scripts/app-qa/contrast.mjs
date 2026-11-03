@@ -10,6 +10,7 @@ import {measureScrolled,measure} from './contrast-probe.mjs';
 const AREAS={
   'music-hub-light':{views:['music','music-playing']},
   'audio-light':{views:['audio','audio-open']},
+  'workspace-light':{views:['home','chat','documents','writing','settings']},
   // the open rail (translucent glass) over a light page and over the dark Music Hub
   'rail-light':{views:['home','music'],rail:true},
 };
@@ -28,7 +29,7 @@ try{
       if(view==='audio-open'){await page.locator('.audio-playlist button').filter({hasText:'Morning Light'}).first().click();await page.waitForFunction(()=>!document.querySelector('.audio-studio').hasAttribute('aria-busy'));}
       if(view==='music-playing'){await page.locator('.music-card-play[aria-label^="Play Morning"]').click();await page.locator('.music-player button[aria-label="Pause"]').waitFor();}
       await page.mouse.move(width*.6,height*.5);await page.waitForTimeout(700);
-      for(const r of await measureScrolled(page))failures.push(`${width}x${height}/${theme}/${size} ${view}: "${r.t}" ${r.ratio.toFixed(2)}:1 < ${r.need} (${r.sel})`);
+      for(const r of await measureScrolled(page))failures.push(`${width}x${height}/${theme}/${size} ${view}: "${r.t}" ${r.ratio.toFixed(2)}:1 < ${r.need} (${r.sel}) at ${Math.round(r.x)},${Math.round(r.y)}`);
       if(process.env.RAIL||railViews.has(view)){await page.locator('.history-sidebar').hover({force:true});await page.waitForTimeout(700);
         for(const r of await measure(page,{onlyRail:true}))failures.push(`${width}x${height}/${theme}/${size} ${view} rail open: "${r.t}" ${r.ratio.toFixed(2)}:1 < ${r.need} (${r.sel})`);}
     }
