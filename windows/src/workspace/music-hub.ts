@@ -27,6 +27,7 @@ import {
   type PodcastEpisode
 } from './podcast-feeds';
 import {parseLyrics,activeLine,matchLyricsTrack,type Lyrics} from './lyrics';
+import {chapterEndAt,chapterSleepStep} from './sleep-timer';
 import {fetchOnlineLyrics} from './lyrics-provider';
 import {cssUrl,onlineLookupsEnabled,safeHttpsUrl,setOnlineLookups,ONLINE_LOOKUPS_OFF} from './online-lookups';
 import {echoLyrics} from './echo-lyrics-orchestrator';
@@ -38,6 +39,7 @@ import {
   searchMultiSource,
   resolveDirectUrl,
   resolveBatchUrl,
+  queueWithArchiveParts,
   describeStreamError,
   unresolvedStreamError,
   verifyAudioUrl,
@@ -318,9 +320,20 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const seek=h('input',{type:'range',min:0,max:1,step:.1,value:0,'aria-label':'Music position'}),elapsed=h('span',{text:'0:00'}),total=h('span',{text:'0:00'}),volume=h('input',{type:'range',min:0,max:1,step:.01,value:prefs.volume,'aria-label':'Music volume'});
  const mute=button('Mute volume',()=>{audio.muted=!audio.muted;mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';});
  const speed=h('select',{'aria-label':'Playback speed'},...[.75,1,1.25,1.5,1.75,2].map(n=>h('option',{value:String(n),text:n+'×'})));speed.value=String(prefs.speed);
- const sleep=h('select',{'aria-label':'Sleep timer'},...[['0','Off'],['15','15 min'],['30','30 min'],['45','45 min'],['60','60 min'],['end','End of track']].map(([value,text])=>h('option',{value,text})));
+ const sleep=h('select',{'aria-label':'Sleep timer'},...[['0','Off'],['15','15 min'],['30','30 min'],['45','45 min'],['60','60 min'],['end','End of track'],['chapter','End of chapter']].map(([value,text])=>h('option',{value,text})));
  let sleepTimer:ReturnType<typeof setTimeout>|undefined;
- function armSleep(minutes:number){if(sleepTimer)clearTimeout(sleepTimer);sleepTimer=undefined;if(minutes<=0){report('');return;}sleepTimer=setTimeout(()=>{pause();report('Sleep timer ended playback.');},minutes*60*1000);report('Sleep timer set for '+minutes+' minutes.');}
+ let chapterStopAt:number|null=null;
+ function clearChapterSleep(){chapterStopAt=null;}
+ function armSleep(minutes:number){clearChapterSleep();if(sleepTimer)clearTimeout(sleepTimer);sleepTimer=undefined;if(!Number.isFinite(minutes)||minutes<=0){report('');return;}sleepTimer=setTimeout(()=>{pause();report('Sleep timer ended playback.');},minutes*60*1000);report('Sleep timer set for '+minutes+' minutes.');}
+ function armChapterSleep(){
+  if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}
+  const at=chapterEndAt(current?.chapters,audio.currentTime||0,duration());
+  if(at===null){clearChapterSleep();sleep.value='end';report('No chapters in this track. Sleep timer will stop at end of track.');updateChips();return;}
+  chapterStopAt=at;
+  sleep.value='chapter';
+  report('Sleep timer will stop at the end of this chapter.');
+  updateChips();
+ }
 
  const speedChips=h('div',{class:'music-speed-chips','aria-label':'Playback speed chips'});
  for(const s of [.75,1,1.25,1.5,2]){
@@ -330,8 +343,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  const sleepChips=h('div',{class:'music-sleep-chips','aria-label':'Sleep timer chips'});
- for(const [v,label] of [['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m'],['end','End']]){
-  const b=h('button',{type:'button',class:'music-chip'+(sleep.value===v?' active':''),text:label,onclick:()=>{sleep.value=v;if(v==='end'){report('Sleep timer will stop at end of track.');}else{armSleep(Number(v));}updateChips();}});
+ for(const [v,label] of [['0','Off'],['15','15m'],['30','30m'],['45','45m'],['60','60m'],['end','End'],['chapter','Chapter']]){
+  const b=h('button',{type:'button',class:'music-chip'+(sleep.value===v?' active':''),text:label,onclick:()=>{sleep.value=v;if(v==='chapter'){armChapterSleep();}else if(v==='end'){clearChapterSleep();if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}report('Sleep timer will stop at end of track.');}else{armSleep(Number(v));}updateChips();}});
   b.dataset.sleep=v;
   sleepChips.append(b);
  }
@@ -631,7 +644,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
  dock.append(
   h('div',{class:'music-now'},dockArt,h('button',{class:'music-now-info',type:'button','aria-label':'Open full player',onclick:()=>openFullPlayer()},dockTitle,dockArtist,dockLyric),miniVis,like),
-  h('div',{class:'music-transport'},h('div',{class:'music-controls'},shuffle,button('Previous track',()=>step(-1),'previous'),toggle,stopBtn,button('Next track',()=>step(1),'next'),repeat),h('div',{class:'music-progress'},elapsed,seek,total)),
+  h('div',{class:'music-transport'},h('div',{class:'music-controls'},shuffle,button('Previous track',()=>step(-1),'previous'),toggle,stopBtn,button('Next track',()=>step(1),'next'),repeat,Object.assign(button('Equalizer',()=>openEqModal(),'eq'),{className:'music-eq-dock'})),h('div',{class:'music-progress'},elapsed,seek,total)),
   h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 30s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+30);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('DNA',()=>{if(current)void showMusicDna(current);}),button('Flow',()=>openMusicFlow()),button('Find lyrics',lookupLyrics),button('EQ',()=>openEqModal(),'eq'),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep),h('label',{class:'music-volume'},'Volume',volume),mute),
   queuePanel,
   lyricsPanel
@@ -781,6 +794,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }
   const token=++epoch;
   pause();
+  clearChapterSleep();
+  if(sleep.value==='chapter')sleep.value='0';
   lastWall=0;
   if(source&&source.startsWith('blob:'))URL.revokeObjectURL(source);
   if(cover&&cover.startsWith('blob:'))URL.revokeObjectURL(cover);
@@ -1405,6 +1420,25 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
        created:Date.now(),
        chapters:item.chapters?.map(c=>({title:c.title,start:c.start}))
       };
+      const follow=(resolved.parts??[]).slice(1).map((part,index):AudioTrack=>({
+       id:track.id+':'+(index+2),
+       title:part.title,
+       artist:item.artist,
+       name:part.title,
+       album:item.title,
+       kind:'audiobook',
+       blob:new Blob([],{type:'audio/mpeg'}),
+       streamUrl:part.streamUrl,
+       coverUrl:item.coverUrl||item.artworkUrl,
+       format:'audio/mpeg',
+       created:Date.now()
+      }));
+      for(const part of [track,...follow]){
+       const at=tracks.findIndex(t=>t.id===part.id);
+       if(at>=0)tracks[at]=part;else tracks.push(part);
+      }
+      queue=queueWithArchiveParts(queue,track.id,follow.map(part=>part.id));
+      save();
       await select(track,true);
      });
      playBtn.className='music-card-play';
@@ -1640,7 +1674,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  seek.addEventListener('input',()=>{audio.currentTime=Number(seek.value);paint();});
  volume.addEventListener('input',()=>{audio.volume=prefs.volume=Number(volume.value);save();});
  speed.addEventListener('change',()=>{sample();audio.playbackRate=prefs.speed=Number(speed.value);ensurePreservesPitch(audio, true);resetClock();save();});
- sleep.addEventListener('change',()=>armSleep(Number(sleep.value)));
+ sleep.addEventListener('change',()=>{if(sleep.value==='chapter'){armChapterSleep();return;}if(sleep.value==='end'){clearChapterSleep();if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}report('Sleep timer will stop at end of track.');return;}armSleep(Number(sleep.value));});
 
  audio.addEventListener('loadstart',()=>setPlaybackState('buffering'));
  audio.addEventListener('waiting',()=>setPlaybackState('buffering'));
@@ -1706,6 +1740,17 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  });
  audio.addEventListener('timeupdate',()=>{
+  if(chapterStopAt!==null){
+   const step=chapterSleepStep(chapterStopAt,current?.chapters,audio.currentTime||0,duration());
+   chapterStopAt=step.at;
+   if(step.stop){
+    clearChapterSleep();
+    sleep.value='0';
+    pause();
+    report('Sleep timer ended playback at the end of the chapter.');
+    updateChips();
+   }
+  }
   sample();
   if(audio.currentTime){
    pending=audio.currentTime;
@@ -1734,6 +1779,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   suspend:()=>{
    pause();
    if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';}
+   clearChapterSleep();
    suspended=true;
    if(fullPlayer.open)fullPlayer.close();
    dock.hidden=true;

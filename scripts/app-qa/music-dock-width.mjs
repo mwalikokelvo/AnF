@@ -18,6 +18,9 @@ try{
       const rail=document.querySelector('.history-sidebar').getBoundingClientRect();
       return{title:title.getBoundingClientRect().width,full:title.scrollWidth,outside,bottom:pb.bottom,railTop:rail.top,narrow:innerWidth<768};
     });
+    const eq=page.locator('.music-player:not(.music-full-player) button.music-eq-dock');
+    if(width<=1280)assert(await eq.isVisible(),`equalizer is not in the dock at ${width}x${height}`);
+    else assert(!(await eq.isVisible()),`equalizer duplicates the extras column at ${width}x${height}`);
     assert(m.title>=Math.min(m.full,60),`track title only ${Math.round(m.title)}px wide at ${width}x${height}`);
     assert.deepEqual(m.outside,[],`player controls outside the pill at ${width}x${height}`);
     if(m.narrow)assert(m.bottom<=m.railTop+1,`player overlaps the bottom bar at ${width}x${height}`);

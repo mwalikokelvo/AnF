@@ -5,6 +5,10 @@
 body.music-view .workspace-header,body.music-view .mobile-project{display:none!important}body.music-view .panel-host{padding:16px!important}body.music-view .workspace-panel{max-width:none}body.music-view .panel{padding:0!important}body.has-music-player #app>main{padding-bottom:130px}
 body.has-music-player .panel-host{scroll-padding-bottom:140px}
 @media(max-width:1200px){.music-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.music-player{left:234px;gap:12px}.music-extras{display:none}.music-player{grid-template-columns:1fr 1.4fr}}
+/* Extras (including EQ) are hidden from 1280 down so the title keeps its width. One Equalizer control stays in the transport. */
+.music-player:not(.music-full-player) .music-eq-dock{display:none}
+.music-full-player .music-eq-dock{display:none!important}
+@media(max-width:1280px){.music-player:not(.music-full-player) .music-controls>.music-eq-dock{display:grid!important}}
 /* At 1280 and narrower the extras column squeezed the title to ~70px; the extras stay in the full player. The pill keeps its left edge until 1200. */
 @media(max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player) .music-extras{display:none}}
 @media(min-width:1201px) and (max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr)!important}}

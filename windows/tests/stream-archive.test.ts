@@ -1,6 +1,6 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SpotubeStreamService } from '../src/workspace/streaming-provider.js';
+import { SpotubeStreamService, queueWithArchiveParts } from '../src/workspace/streaming-provider.js';
 import { setOnlineLookups } from '../src/workspace/online-lookups.js';
 
 const realFetch = globalThis.fetch;
@@ -20,6 +20,10 @@ test('Internet Archive audiobook: resolves to a single mp3 file, never invents c
   const resolved = await service.resolveInternetArchiveStream('ia:book_one');
   assert.equal(resolved?.streamUrl, 'https://archive.org/download/book_one/book_one_01.mp3');
   assert.equal(resolved?.mimeType, 'audio/mpeg');
+  assert.deepEqual(resolved?.parts?.map(part => part.streamUrl), [
+    'https://archive.org/download/book_one/book_one_01.mp3',
+    'https://archive.org/download/book_one/book_one_02.mp3',
+  ]);
   const meta = await service.getTrack('ia:book_one');
   assert.equal(meta?.chapters, undefined, 'files are not positions inside one stream, so no chapter starts');
 });
@@ -29,6 +33,17 @@ test('Internet Archive audiobook: when the file list is unavailable nothing is r
   globalThis.fetch = (async () => new Response('x', { status: 503 })) as typeof fetch;
   const service = new SpotubeStreamService();
   assert.equal(await service.resolveInternetArchiveStream('ia:book_one'), null);
+});
+
+test('archive parts sit in the queue after the book and leave the rest of the queue alone', () => {
+  assert.deepEqual(
+    queueWithArchiveParts(['local-a', 'stream:ia:book', 'local-b'], 'stream:ia:book', ['stream:ia:book:2', 'stream:ia:book:3']),
+    ['local-a', 'stream:ia:book', 'stream:ia:book:2', 'stream:ia:book:3', 'local-b'],
+  );
+  assert.deepEqual(
+    queueWithArchiveParts(['local-a'], 'stream:ia:book', ['stream:ia:book:2']),
+    ['local-a', 'stream:ia:book', 'stream:ia:book:2'],
+  );
 });
 
 test('audiobook search results carry no stream URL (the only one the archive lists up front is a zip)', async () => {
