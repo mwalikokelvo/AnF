@@ -10,6 +10,8 @@ import {measureScrolled,measure} from './contrast-probe.mjs';
 const AREAS={
   'music-hub-light':{views:['music','music-playing']},
   'audio-light':{views:['audio','audio-open']},
+  // the open rail (translucent glass) over a light page and over the dark Music Hub
+  'rail-light':{views:['home','music'],rail:true},
 };
 const views=process.env.VIEWS?process.env.VIEWS.split(','):[...new Set(Object.values(AREAS).flatMap(a=>a.views))];
 const railViews=new Set(Object.values(AREAS).filter(a=>a.rail).flatMap(a=>a.views));
