@@ -39,6 +39,10 @@
   body.has-glass-rail .music-player:not(.music-full-player){left:max(50%,calc(var(--rail-open,248px) + 28px + min(calc(100vw - 320px),1140px) / 2))!important}
 }
 
+/* Light theme: over the dark Music Hub the 78% glass left the open rail's muted labels at ~3.3:1. Open, it is nearly opaque; the collapsed icon rail keeps the glass. */
+#workspace-root[data-theme=light] .glass-rail:not([data-rail=collapsed]){background:color-mix(in srgb,var(--side) 94%,transparent)}
+@media(prefers-color-scheme:light){#workspace-root[data-theme=system] .glass-rail:not([data-rail=collapsed]){background:color-mix(in srgb,var(--side) 94%,transparent)}}
+
 @media(max-width:767px){
   /* Narrow windows: every section as an icon in a floating bottom bar, within thumb reach. */
   .workspace-layout.has-glass-rail{grid-template-columns:minmax(0,1fr)}

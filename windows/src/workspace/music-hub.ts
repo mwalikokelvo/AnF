@@ -188,7 +188,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const playlistFile=h('input',{type:'file',accept:'.json,application/json',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
  playlistFile.addEventListener('change',()=>void run(async()=>{try{const file=playlistFile.files?.[0];if(!file)return;if(file.size>2_000_000)throw Error('Playlist files must be smaller than 2 MB.');const recipe=playlistRecipe(JSON.parse(await file.text()));const match=matchPlaylist(recipe,tracks);if(!confirm('Import '+recipe.name+' with '+match.order.length+' matched items? '+match.missing+' missing or ambiguous items will be skipped. Audio files are not included.'))return;await library.savePlaylist({id:crypto.randomUUID(),name:recipe.name,order:match.order});await refresh();report('Playlist imported. '+match.missing+' items skipped.');}finally{playlistFile.value='';}}));
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
- function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{if(!confirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
+ function focusBack(dlg:HTMLDialogElement,fallback?:()=>HTMLElement|null){const opener=document.activeElement instanceof HTMLElement&&document.activeElement!==document.body?document.activeElement:null;const back=()=>setTimeout(()=>{const t=opener?.isConnected&&opener.getClientRects().length?opener:fallback?.();t?.focus();},0);dlg.addEventListener('close',back,{once:true});dlg.addEventListener('cancel',back,{once:true});}
+function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{if(!confirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);focusBack(el,()=>document.querySelector<HTMLElement>('.music-listening-options summary'));el.showModal();}
 
  const tabButtons=['Music','Audiobooks','Podcasts','Streaming','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
@@ -653,6 +654,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    )
   );
   dock.hidden=true;
+  focusBack(fullPlayer,()=>document.querySelector<HTMLElement>('.music-now-info, [aria-label="Open full player"]'));
   fullPlayer.showModal();
   lyricIndex=-2;
   paintLyrics();
@@ -921,7 +923,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const coverEl=art(t);
   const badge=trackBadge(t);
   coverEl.append(h('span',{class:`music-card-badge music-badge-${badge.kind}`,text:badge.label}));
-  play.replaceChildren(coverEl,h('strong',{text:t.title}),h('span',{text:meta}));
+  play.replaceChildren(coverEl,h('strong',{text:t.title,title:t.title}),h('span',{text:meta,title:meta}));
   const liked=prefs.favorites.includes(t.id);
   const likeBtn=button(liked?'Unlike '+t.title:'Like '+t.title,()=>{prefs.favorites=liked?prefs.favorites.filter(id=>id!==t.id):[...prefs.favorites,t.id];save();render();},'heart');
   likeBtn.setAttribute('aria-pressed',String(liked));
@@ -939,7 +941,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const lyricsFile=h('input',{type:'file',accept:'.lrc,.txt,text/plain','aria-label':'Import timed lyrics'});
   lyricsFile.addEventListener('change',()=>void run(async()=>{const file=lyricsFile.files?.[0];if(!file)return;if(file.size>200000)throw Error('Lyrics files must be under 200 KB.');const text=await file.text();if(!parseLyrics(text).lines.length)throw Error('Choose a nonempty lyrics file.');await update({lyrics:text});report('Lyrics saved locally.');}));
   dialog.append(h('h3',{text:track.title}),h('p',{text:[track.name,track.artist,track.album,track.year,track.genre,formatBadge(track)].filter(Boolean).join(' · ')}),kind,button('Save content type',()=>update({kind:kind.value as 'music'|'audiobook'|'podcast'})),lyricsFile,button('Close details',close));
-  dialog.addEventListener('cancel',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
+  dialog.addEventListener('cancel',()=>dialog.remove());document.body.append(dialog);focusBack(dialog,()=>document.querySelector<HTMLElement>('.music-now-info, .music-item-actions summary'));dialog.showModal();
  }
 
  async function choosePlaylist(t:AudioTrack){
