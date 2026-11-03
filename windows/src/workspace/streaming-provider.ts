@@ -194,14 +194,15 @@ export function parsePlaylistOrAlbumUrl(url: string): ParsedCollectionUrl | null
   const raw = url.trim();
   if (!raw) return null;
 
-  // 1. YouTube Playlist: list=PL... or list=UU... or list=OLAK... or list=RD...
-  const ytMatch = raw.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
-  if (ytMatch) {
-    return {
-      platform: 'youtube',
-      type: 'playlist',
-      id: ytMatch[1],
-    };
+  // 1. YouTube playlist: list=PL... / UU... / OLAK... on a YouTube (or Piped) host. Auto-generated radio mixes
+  // (list=RD<video id>, RDMM, RDEM ... with start_radio) are endless and not importable, so a watch link carrying one
+  // stays a single video. RDCLAK... are real curated YouTube Music playlists and still import.
+  const web = parseWebUrl(raw);
+  if (web && (web.protocol === 'https:' || web.protocol === 'http:') && (YOUTUBE_HOST.test(web.hostname) || /^piped\./i.test(web.hostname))) {
+    const list = web.searchParams.get('list');
+    if (list && /^[a-zA-Z0-9_-]+$/.test(list) && !/^RD(?!CLAK)/.test(list)) {
+      return { platform: 'youtube', type: 'playlist', id: list };
+    }
   }
 
   // 2. Spotify Playlist or Album
