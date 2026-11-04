@@ -10,6 +10,12 @@ try{
     const {context,page}=await fx.open({width,height});
     for(const view of ['home','chat','documents','writing','music','audio','settings']){
       await go(page,view);
+      const before=await page.evaluate(()=>{
+        const panel=document.querySelector('.workspace-panel:not([hidden])'),main=document.querySelector('main.workspace-content'),header=document.querySelector('.workspace-header');
+        main.scrollTop=0;
+        return{panelTop:Math.round(panel.getBoundingClientRect().top),header:Math.round(header.getBoundingClientRect().height),inner:innerHeight};
+      });
+      assert(before.panelTop<before.inner*0.42,`${view} starts at ${before.panelTop}px under a ${before.header}px header in a ${before.inner}px window`);
       const m=await page.evaluate(()=>{
         const main=document.querySelector('main.workspace-content'),bar=document.querySelector('.activity-bar'),header=document.querySelector('.workspace-header'),rail=document.querySelector('.history-sidebar');
         main.scrollTop=header.getBoundingClientRect().height; // scroll the header away

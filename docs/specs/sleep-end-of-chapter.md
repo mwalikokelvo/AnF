@@ -1,6 +1,6 @@
 # Sleep timer: "End of chapter"
 
-Status: implemented on `feat/sleep-end-of-chapter`.
+Status: wired in Music Hub (`music-hub.ts`). The pure logic stays in `sleep-timer.ts`.
 
 ## Why
 `docs/MUSIC-HUB-STREAMING.md` (Phase 3, "Sleep Timer Extensions") lists "End of Chapter" for the audiobook sleep timer. The player already stores chapter markers (`AudioTrack.chapters`, filled from M4B metadata by `audio-metadata.ts`) and shows a Chapters list, but the sleep timer only offers fixed minutes or "End of track". Falling asleep to a long audiobook means the timer either cuts mid-chapter or runs to the end of the whole book.

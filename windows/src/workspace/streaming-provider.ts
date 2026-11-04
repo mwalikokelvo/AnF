@@ -170,6 +170,11 @@ export interface StreamTrackMetadata {
   chapters?: { title: string; start: number; end?: number }[];
 }
 
+export interface ArchivePart {
+  title: string;
+  streamUrl: string;
+}
+
 export interface ResolvedAudioStream {
   streamUrl: string;
   mimeType?: string;
@@ -179,6 +184,48 @@ export interface ResolvedAudioStream {
   cached?: boolean;
   /** True when this is only a 30 s preview clip, not the full track. */
   preview?: boolean;
+  /** Every playable file in an Internet Archive item, in listening order. The first is `streamUrl`. */
+  parts?: ArchivePart[];
+}
+
+const ARCHIVE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,180}$/;
+
+/** MP3 files in an Internet Archive item, in numeric filename order. A zip is not a part. */
+export function internetArchiveParts(identifier: string, files: { name?: unknown }[]): ArchivePart[] {
+  const cleanId = identifier.replace(/^ia:/, '');
+  if (!ARCHIVE_ID.test(cleanId)) return [];
+  const names: string[] = [];
+  for (const file of files) {
+    const name = file?.name;
+    if (typeof name !== 'string' || !/\.mp3$/i.test(name)) continue;
+    if (name.includes('..') || name.includes('/') || name.includes('\\') || name.includes('\0')) continue;
+    names.push(name);
+  }
+  names.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  const seen = new Set<string>();
+  const parts: ArchivePart[] = [];
+  for (const name of names) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parts.push({
+      title: name.replace(/\.mp3$/i, '').replace(/[_]+/g, ' '),
+      streamUrl: `https://archive.org/download/${cleanId}/${encodeURIComponent(name)}`,
+    });
+    if (parts.length >= 500) break;
+  }
+  return parts;
+}
+
+/** Insert an audiobook's later files immediately after the book, without disturbing the rest of the queue. */
+export function queueWithArchiveParts(queue: string[], bookId: string, partIds: string[]): string[] {
+  const ids = [bookId, ...partIds.filter(id => id && id !== bookId)];
+  const set = new Set(ids);
+  const at = queue.indexOf(bookId);
+  if (at < 0) return [...queue.filter(id => !set.has(id)), ...ids];
+  const head = queue.slice(0, at).filter(id => !set.has(id));
+  const tail = queue.slice(at + 1).filter(id => !set.has(id));
+  return [...head, ...ids, ...tail];
 }
 
 export interface StreamingMetadataProvider {
@@ -632,9 +679,9 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       if (metaRes.ok) {
         const data = await metaRes.json();
         const files: any[] = data?.result || data?.files || [];
-        const mp3s = files.filter(f => typeof f.name === 'string' && /\.mp3$/i.test(f.name));
-        if (mp3s.length > 0) {
-          const streamUrl = `https://archive.org/download/${cleanId}/${encodeURIComponent(mp3s[0].name)}`;
+        const parts = internetArchiveParts(cleanId, files);
+        if (parts.length > 0) {
+          const streamUrl = parts[0].streamUrl;
           // Each file is its own recording, so there are no chapter start times inside this one stream.
           const track = this.cache.get(`ia:${cleanId}`);
           if (track) {
@@ -645,6 +692,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
             streamUrl,
             mimeType: 'audio/mpeg',
             cached: false,
+            parts,
           };
         }
       }
