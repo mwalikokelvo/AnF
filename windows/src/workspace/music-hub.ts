@@ -30,6 +30,8 @@ import {parseLyrics,activeLine,matchLyricsTrack,type Lyrics} from './lyrics';
 import {chapterEndAt,chapterSleepStep} from './sleep-timer';
 import {fetchOnlineLyrics} from './lyrics-provider';
 import {cssUrl,onlineLookupsEnabled,safeHttpsUrl,setOnlineLookups,ONLINE_LOOKUPS_OFF} from './online-lookups';
+import {hasSafeFetch,safeFetchImage} from './safe-fetch';
+import {resolveCoverSrc} from './cover-src';
 import {echoDna} from './echo-music-dna';
 import {handOffLockScreen,lockScreenPlan,nativeBridgeId} from './lock-screen';
 import {rankMusicFlowCandidates,filterMusicFlowCandidates,audioTrackToFlowItem,type MusicFlowItem} from './music-flow';
@@ -488,16 +490,21 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
   function renderCard(item: MusicFlowItem) {
    const cardEl = h('div', { class: 'music-flow-card' });
-   const bgUrl = safeHttpsUrl(item.coverUrl) || '';
    const backdrop = h('div', {
     class: 'music-flow-backdrop',
-    style: bgUrl ? `background-image: ${cssUrl(bgUrl)}` : 'background: #12181a;'
+    style: 'background: #12181a;'
    });
    const scrim = h('div', { class: 'music-flow-scrim' });
 
    const artContainer = h('div', { class: 'music-flow-artwork-container' });
-   if (bgUrl) {
-    artContainer.append(h('img', { src: bgUrl, alt: item.title }));
+   if (safeHttpsUrl(item.coverUrl)) {
+    const flowImg = h('img', { alt: item.title });
+    artContainer.append(flowImg);
+    void resolveHubCover(item.coverUrl).then(src => {
+     if (!src) return;
+     flowImg.src = src;
+     backdrop.style.backgroundImage = cssUrl(src);
+    });
    } else {
     artContainer.append(svg(icons.music, 64, { stroke: 1.2 }));
    }
@@ -815,7 +822,11 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    source='';
   }
 
-  cover=track.cover?URL.createObjectURL(track.cover):(safeHttpsUrl(track.coverUrl)||'');
+  if(track.cover){
+   cover=URL.createObjectURL(track.cover);
+  }else{
+   cover=await resolveHubCover(track.coverUrl);
+  }
   const domColor = extractDominantColor(track);
   root.style.setProperty('--ambient-glow-color', domColor);
   root.style.setProperty('--music-accent-glow', domColor.replace('hsl', 'hsla').replace(')', ', 0.4)'));
@@ -895,7 +906,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    artUrls.push(url);
    el.append(h('img',{src:url,alt:'',loading:'lazy'}));
   }else if(safeHttpsUrl(track.coverUrl)){
-   el.append(h('img',{src:safeHttpsUrl(track.coverUrl)!,alt:'',loading:'lazy'}));
+   el.append(coverImg(track.coverUrl));
   }else{
    el.style.setProperty('--cover-hue',String(Array.from(track.id).reduce((n,c)=>n+c.charCodeAt(0),0)%360));
    el.append(svg(icons.music,40,{stroke:1.2}));
@@ -903,6 +914,24 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   return el;
  }
  let artUrls:string[]=[];
+ const coverFetchEnabled=hasSafeFetch();
+ function rememberArtBlob(url:string){if(url.startsWith('blob:'))artUrls.push(url);}
+ async function resolveHubCover(url:string|undefined):Promise<string>{
+  const direct=safeHttpsUrl(url);
+  if(!direct)return '';
+  if(!coverFetchEnabled)return direct;
+  try{
+   const src=await resolveCoverSrc(url,coverFetchEnabled,safeFetchImage);
+   return src??direct;
+  }catch{
+   return direct;
+  }
+ }
+ function coverImg(url:string|undefined){
+  const img=h('img',{alt:'',loading:'lazy'});
+  void resolveHubCover(url).then(src=>{if(!src)return;img.src=src;rememberArtBlob(src);});
+  return img;
+ }
 
  function visible():AudioTrack[]{
   const term=search.value.trim().toLocaleLowerCase();
@@ -1078,7 +1107,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     for(const f of feeds){
      const unplayed=f.episodes.filter(ep=>!ep.played).length;
      const card=h('article',{class:'music-feed-card'},
-      h('div',{class:'music-feed-art'},f.image?h('img',{src:f.image,alt:''}):svg(icons.music,40,{stroke:1.2})),
+      h('div',{class:'music-feed-art'},f.image?coverImg(f.image):svg(icons.music,40,{stroke:1.2})),
       h('div',{class:'music-feed-meta'},h('strong',{text:f.title||f.url}),h('span',{text:(f.episodes.length)+' episodes · '+unplayed+' unplayed'})),
       button('Open podcast',()=>void run(async()=>{selectedFeed=f;render();})),
       button('Refresh feed',()=>void run(()=>refreshFeed(f))),
@@ -1100,7 +1129,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     // Level 2: Feed Detail & Episodes List
     const f=selectedFeed;
     const header=h('div',{class:'music-feed-header'},
-     h('div',{class:'music-feed-header-art'},f.image?h('img',{src:f.image,alt:''}):svg(icons.music,50,{stroke:1.2})),
+     h('div',{class:'music-feed-header-art'},f.image?coverImg(f.image):svg(icons.music,50,{stroke:1.2})),
      h('div',{class:'music-feed-header-info'},
       h('h3',{text:f.title||f.url}),
       h('p',{text:f.description||'Podcast subscription'}),
@@ -1455,7 +1484,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      playBtn.className='music-card-play';
      const coverWrap=h('div',{class:'music-cover'});
      if(safeHttpsUrl(item.coverUrl)||safeHttpsUrl(item.artworkUrl)){
-      coverWrap.append(h('img',{src:(safeHttpsUrl(item.coverUrl)||safeHttpsUrl(item.artworkUrl))!,alt:'',loading:'lazy'}));
+      coverWrap.append(coverImg(safeHttpsUrl(item.coverUrl)||safeHttpsUrl(item.artworkUrl)));
      }else{
       coverWrap.append(svg(icons.music,40,{stroke:1.2}));
      }
