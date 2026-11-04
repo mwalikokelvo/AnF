@@ -200,6 +200,20 @@ function titledPreviewClip(title?: string): boolean {
 }
 
 /**
+ * Catalogue lengths are seconds. Piped's music filter has also returned milliseconds
+ * (a 30 s clip as 30000). Scale only when that value is nearer the song than the raw number.
+ */
+function durationSeconds(duration: number | undefined, songSeconds?: number): number | undefined {
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) return undefined;
+  const song = typeof songSeconds === 'number' && Number.isFinite(songSeconds) && songSeconds > 0 ? songSeconds : undefined;
+  if (song && duration >= 30_000 && duration / song >= 50) {
+    const scaled = duration / 1000;
+    if (scaled >= 1 && scaled <= 12 * 3600 && Math.abs(scaled - song) < Math.abs(duration - song)) return Math.round(scaled);
+  }
+  return duration;
+}
+
+/**
  * Order public-video matches so a full recording is tried before a 30 s clip.
  * A clip is dropped when the song is longer than one (or the song length is unknown).
  * Nothing is returned when every hit is a clip — the caller then keeps the labelled catalogue preview.
@@ -208,19 +222,23 @@ export function rankFullSongCandidates<T extends { duration?: number; title?: st
   candidates: T[],
   songDuration?: number,
 ): T[] {
-  const song = typeof songDuration === 'number' && songDuration > 0 ? songDuration : undefined;
+  const song = typeof songDuration === 'number' && songDuration > 0 && Number.isFinite(songDuration) ? songDuration : undefined;
+  const seconds = (c: T) => durationSeconds(c.duration, song);
   const clip = (c: T) => {
-    if (c.duration !== undefined && c.duration <= PREVIEW_CLIP_MAX_SEC && (song === undefined || song > PREVIEW_CLIP_MAX_SEC)) return true;
-    return titledPreviewClip(c.title) && (c.duration === undefined || (song !== undefined && c.duration < song * 0.5));
+    const d = seconds(c);
+    if (d !== undefined && d <= PREVIEW_CLIP_MAX_SEC && (song === undefined || song > PREVIEW_CLIP_MAX_SEC)) return true;
+    return titledPreviewClip(c.title) && (d === undefined || (song !== undefined && d < song * 0.5));
   };
   const full = candidates.filter(c => !clip(c));
   if (!full.length) return [];
   // Closest to the catalogue length first. A longer recording stays in line so a dead stream
   // can fall through to it instead of the 30 s clip.
   return [...full].sort((a, b) => {
-    if (!song) return (b.duration ?? 0) - (a.duration ?? 0);
-    const da = a.duration === undefined ? Number.POSITIVE_INFINITY : Math.abs(a.duration - song);
-    const db = b.duration === undefined ? Number.POSITIVE_INFINITY : Math.abs(b.duration - song);
+    const sb = seconds(b);
+    const sa = seconds(a);
+    if (!song) return (sb ?? 0) - (sa ?? 0);
+    const da = sa === undefined ? Number.POSITIVE_INFINITY : Math.abs(sa - song);
+    const db = sb === undefined ? Number.POSITIVE_INFINITY : Math.abs(sb - song);
     return da - db;
   });
 }
@@ -250,6 +268,21 @@ export function internetArchiveParts(identifier: string, files: { name?: unknown
     if (parts.length >= 500) break;
   }
   return parts;
+}
+
+/**
+ * A queued catalogue row with no audio of its own, or one still pointing at the labelled 30 s clip,
+ * has to be resolved. A local file and a stream that is already a full recording stay as they are.
+ */
+export function shouldResolveCatalogueTrack(
+  track: { blobSize?: number; streamUrl?: string; preview?: boolean },
+  previewUrl?: string,
+): boolean {
+  if (track.blobSize && track.blobSize > 0) return false;
+  if (!track.streamUrl || track.preview) return true;
+  const stream = safeHttpsUrl(track.streamUrl);
+  const preview = safeHttpsUrl(previewUrl);
+  return !!stream && !!preview && stream === preview;
 }
 
 /** Insert an audiobook's later files immediately after the book, without disturbing the rest of the queue. */
@@ -533,15 +566,18 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     return cachedMatches.slice(0, limit);
   }
 
-  /** YouTube / Piped Multi-Instance Search */
-  async searchYouTube(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+  /** YouTube / Piped Multi-Instance Search. `songDuration` (seconds) asks the general search when the music filter only has clips. */
+  async searchYouTube(query: string, limit = 20, songDuration?: number): Promise<StreamTrackMetadata[]> {
     const q = query.trim();
     if (!q) return [];
 
     let rawItems: InstanceVideo[] = [];
+    let clipFallback: InstanceVideo[] = [];
     // Music filter first (Piped only has it); then the general search. Invidious has one search, so it is not asked twice.
     const failedHere = new Set<string>();
+    const wantFull = typeof songDuration === 'number' && songDuration > PREVIEW_CLIP_MAX_SEC;
     for (const pass of ['music_songs', 'all'] as const) {
+      let passItems: InstanceVideo[] = [];
       for (const instance of orderedInstances()) {
         if (pass === 'all' && (instance.kind === 'invidious' || failedHere.has(instance.url))) continue;
         try {
@@ -549,14 +585,21 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
           noteInstance(instance, res.ok);
           if (!res.ok) { failedHere.add(instance.url); continue; }
           const items = searchVideos(instance, await res.json());
-          if (items.length > 0) { rawItems = items; break; }
+          if (items.length > 0) { passItems = items; break; }
         } catch {
           noteInstance(instance, false);
           failedHere.add(instance.url);
         }
       }
-      if (rawItems.length > 0) break;
+      if (!passItems.length) continue;
+      if (wantFull && pass === 'music_songs' && !rankFullSongCandidates(passItems, songDuration).length) {
+        if (!clipFallback.length) clipFallback = passItems;
+        continue;
+      }
+      rawItems = passItems;
+      break;
     }
+    if (!rawItems.length) rawItems = clipFallback;
 
     const results: StreamTrackMetadata[] = [];
     for (const item of rawItems) {
@@ -639,7 +682,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       const gathered: StreamTrackMetadata[] = [];
       const seen = new Set<string>();
       for (const q of queries) {
-        for (const candidate of await this.searchYouTube(q, 8)) {
+        for (const candidate of await this.searchYouTube(q, 8, track.duration)) {
           if (seen.has(candidate.id)) continue;
           seen.add(candidate.id);
           gathered.push(candidate);
@@ -649,7 +692,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       for (const candidate of rankFullSongCandidates(gathered, track.duration)) {
         const video = await this.lookupYouTube(candidate.id);
         if (!video) continue;
-        const seconds = video.duration ?? candidate.duration;
+        const seconds = durationSeconds(video.duration ?? candidate.duration, track.duration);
         if (!rankFullSongCandidates([{ duration: seconds, title: video.title || candidate.title }], track.duration).length) continue;
         track.bitrate = video.stream.bitrate;
         if (seconds) track.duration = seconds;
