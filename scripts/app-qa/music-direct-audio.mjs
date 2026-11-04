@@ -38,8 +38,9 @@ try{
  // 4. A podcast episode (host outside media-src) plays from a Rust download and the "Loading audio..." notice does not linger.
  await page.evaluate(()=>{window.__fetched.length=0;});
  await page.getByRole('tab',{name:'Podcasts',exact:true}).click();
- page.once('dialog',d=>d.accept('https://feeds.example.com/qa.xml'));
  await page.getByRole('button',{name:'Add feed',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Podcast RSS URL').fill('https://feeds.example.com/qa.xml');
+ await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
  await page.getByText('QA Cast').first().waitFor();
  await page.getByRole('button',{name:'Open podcast'}).click();
  await page.getByRole('button',{name:'Play episode',exact:true}).click();

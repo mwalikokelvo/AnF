@@ -164,7 +164,7 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 
 - Base: `origin/main` (#72 had already been merged, so it is in main) plus `origin/feat/sleep-end-of-chapter` (#71) merged in. Method: real built UI with the real `tauri.conf.json` CSP, stubbed Tauri IPC and stubbed network (`scripts/app-qa/fixture.mjs`, now with a `window.__ipc` hook). Audited local playback, queue/next/prev, seek, volume, speed, repeat/shuffle at track end, sleep timers, mini-dock vs full player, playlists, lyrics, podcasts, streaming (YouTube/youtu.be/direct links, lookups on and off), offline cache.
 - Fixed (each with a red-first unit test or Playwright check): (1) direct audio, podcast episodes and proxied YouTube streams on hosts outside CSP `media-src` never played (CSP block while the UI said "Playing"): in the desktop app they are now downloaded by Rust `safe_fetch_audio` and played from a blob, CSP unchanged (`stream-source.ts`); (2) success notice overwrote a playback error; (3) `inv.nadeko.net` is Invidious but was queried with Piped paths: instances are now tagged and use `/api/v1/*` shapes; (4) duplicate results in "All services"; (5) stale "Loading audio..." notice; (6) Rust "did not return audio" now reads as the plain not-audio message; (7) Internet Archive audiobooks: zip as stream URL / fallback, zip picked as an mp3, fake chapter starts; (8) instance thumbnails on hosts blocked by `img-src`.
-- Not fixed: podcast artwork on arbitrary hosts is blocked by `img-src` (needs a Rust image fetch kind; CSP deliberately not loosened); direct/streamed tracks are not in the library so they are absent from "Recently played" and vanish on reload unless saved offline; Internet Archive audiobooks play only the first mp3; Rust download is whole-file before playback (cap 200 MB, so long YouTube videos start slowly); `prompt()`/`confirm()` are used for Add feed, New playlist and Remove (not testable here on WebView2/WebKitGTK); no radio feature exists.
+- Not fixed: podcast artwork on arbitrary hosts is blocked by `img-src` (needs a Rust image fetch kind; CSP deliberately not loosened); direct/streamed tracks are not in the library so they are absent from "Recently played" and vanish on reload unless saved offline; Internet Archive audiobooks play only the first mp3; Rust download is whole-file before playback (cap 200 MB, so long YouTube videos start slowly); no radio feature exists.
 - Labels: tested in browser fixture (headless Chrome, stubbed IPC and network, synthetic WAVs) and tested on Linux (tsc, `npm test`, `npm run test:e2e`, `check-release`). CI-built only after the PR's runs finish. NOT installed. Live YouTube NOT tested; no real Piped/Invidious instance was contacted.
 
 ## 2026-11-02 Claude: second UI pass (branch `fix/ui-polish-2026-11-02`)
@@ -301,8 +301,14 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Commit `f27697f` on `cursor/either-host-backup-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/92. The sync and lock-screen work landed on `main` as `a66437f` (PR #91).
 - Left in place on purpose: the phone SQL table and the Windows SQL table both say schema version 1 and are not the same shape; copying `coucou.db` between them still fails. Music, lyrics, and podcasts stay out of conversation backup and sync. The DNA button can still call its existing lookups. Reader scroll position and the character offset are still different coordinates. KOReader, OPDS, and the neural voice cache are still library modules with no screen calling them. The Android settings heading is the literal `0.1.48`. The pairing code is still the AES key; the screen already says to keep it private and to stop sharing on Windows to revoke it. Three Android players remain (HTML audio, Media3, optional Spotube).
 
-### 2026-11-04 — OPDS catalog UI (Windows Documents)
+### 2026-11-04 -- OPDS catalog UI (Windows Documents)
 
-- Wired `opds-client.ts` acquisition URLs into parsing; new `opds-panel.ts` in Documents (`OPDS catalogs` details): save catalog URLs, opt-in **Allow catalog requests**, browse up to 5 pages, **Open link** via `open_url` or HTML via `workspace_read_web`.
-- Labels: **tested on Linux** (`npx tsc --noEmit`, `npm test` 332 pass, `check-release.mjs` 11 pass). Not installed.
-- Branch `cursor/opds-catalog-ui-d2fe` (worktree `.worktrees/opds-ui`). No PR.
+- Wired opds-client.ts acquisition URLs into parsing; new opds-panel.ts in Documents (OPDS catalogs details): save catalog URLs, opt-in Allow catalog requests, browse up to 5 pages, Open link via open_url or HTML via workspace_read_web.
+- Labels: tested on Linux (npx tsc --noEmit, npm test 332 pass, check-release.mjs 11 pass). Not installed.
+- Branch cursor/opds-catalog-ui-d2fe (worktree .worktrees/opds-ui). No PR.
+
+## 2026-11-04 Cursor: Music Hub in-app dialogs (branch cursor/playlist-dialogs-d2fe)
+
+- Replaced every prompt() / confirm() in music-hub.ts with askText / askConfirm (music-dialogs.ts, existing music-dialog modal styling): New playlist, Save queue as playlist, Delete playlist, Add feed, Remove feed, plus import playlist confirm, clear listening totals, and clear entire queue.
+- scripts/app-qa/music-audit.mjs, music-hub.mjs, and music-direct-audio.mjs drive the new dialogs instead of native page.on('dialog').
+- Labels: Linux npm test 335 pass / 0 fail, npm run typecheck clean, npm run build ok. NOT installed WebView2.
