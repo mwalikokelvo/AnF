@@ -102,7 +102,7 @@ async fn request_inner(
                 .header(reqwest::header::CONTENT_TYPE, "application/json")
                 .body(body.unwrap().to_string());
         }
-        let response = req
+        let mut response = req
             .send()
             .await
             .map_err(|_| "Could not reach the sync server.".to_string())?;
