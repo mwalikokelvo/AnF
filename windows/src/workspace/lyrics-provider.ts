@@ -1,6 +1,9 @@
 import { gatedFetch } from './online-lookups';
+import { activeLine, parseLyrics } from './lyrics';
 // Online synced lyrics from LRCLIB's public API (https://lrclib.net/docs), behind the opt-in
 // "Online lookups" switch. AnF's own code: no third-party lyrics client is copied or translated here.
+// LRC parsing and active-line selection reuse `lyrics.ts` so imported .lrc files and LRCLIB text
+// agree on offsets, malformed stamps, and minute boundaries.
 export type RemoteLyrics = {
   id?: number;
   trackName?: string;
@@ -243,45 +246,29 @@ export async function fetchOnlineLyrics(track: {
   return undefined;
 }
 
-const LRC_META = /^\s*\[(?:ar|ti|al|au|by|length|offset|re|ve|#):/i;
-const MAX_LRC_CHARS = 200_000;
-const MAX_LRC_LINES = 5_000;
-
 /** Parse LRCLIB/LRC text. Synced lines use `[mm:ss.xx]`; plain text stays unsynced. */
 export function parseSyncedLyrics(source: string): ParsedLyrics {
-  const timed: LyricLine[] = [];
-  const plain: LyricLine[] = [];
-  const text = source.slice(0, MAX_LRC_CHARS).replace(/^\uFEFF/, '');
-  for (const raw of text.split(/\r?\n/)) {
-    if (LRC_META.test(raw)) continue;
-    const stamp = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
-    const times: number[] = [];
-    for (const match of raw.matchAll(stamp)) {
-      const seconds = Number(match[2]);
-      if (seconds >= 60) continue;
-      const fraction = match[3] ? Number(match[3]) / 10 ** match[3].length : 0;
-      times.push(Number(match[1]) * 60 + seconds + fraction);
-    }
-    stamp.lastIndex = 0;
-    const lyric = raw.replace(stamp, '').trim();
-    if (times.length) {
-      for (const time of times) timed.push({ time, text: lyric });
-    } else if (lyric) plain.push({ time: 0, text: lyric });
+  const parsed = parseLyrics(source);
+  if (parsed.synced) {
+    return {
+      lines: parsed.lines.map((line) => ({ time: line.time ?? 0, text: line.text })),
+      offsetMs: 0,
+      syncType: 'LINE_SYNCED',
+    };
   }
-  if (timed.length) {
-    timed.sort((a, b) => a.time - b.time);
-    return { lines: timed.slice(0, MAX_LRC_LINES), offsetMs: 0, syncType: 'LINE_SYNCED' };
-  }
-  return { lines: plain.slice(0, MAX_LRC_LINES), offsetMs: 0, syncType: 'UNSYNCED' };
+  return {
+    lines: parsed.lines.map((line) => ({ time: 0, text: line.text })),
+    offsetMs: 0,
+    syncType: 'UNSYNCED',
+  };
 }
 
 /** Line being sung at `playbackSeconds`, or null before the first stamp or when the text is unsynced. */
 export function activeLyricLine(lyrics: ParsedLyrics, playbackSeconds: number): LyricLine | null {
   if (lyrics.syncType === 'UNSYNCED' || !Number.isFinite(playbackSeconds)) return null;
-  let active: LyricLine | null = null;
-  for (const line of lyrics.lines) {
-    if (line.time > playbackSeconds) break;
-    active = line;
-  }
-  return active;
+  const index = activeLine(
+    { synced: true, lines: lyrics.lines.map((line) => ({ time: line.time, text: line.text })) },
+    playbackSeconds,
+  );
+  return index >= 0 ? lyrics.lines[index] : null;
 }
