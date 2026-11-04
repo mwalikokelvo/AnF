@@ -30,8 +30,8 @@ import {parseLyrics,activeLine,matchLyricsTrack,type Lyrics} from './lyrics';
 import {chapterEndAt,chapterSleepStep} from './sleep-timer';
 import {fetchOnlineLyrics} from './lyrics-provider';
 import {cssUrl,onlineLookupsEnabled,safeHttpsUrl,setOnlineLookups,ONLINE_LOOKUPS_OFF} from './online-lookups';
-import {echoLyrics} from './echo-lyrics-orchestrator';
 import {echoDna} from './echo-music-dna';
+import {handOffLockScreen,lockScreenPlan,nativeBridgeId} from './lock-screen';
 import {rankMusicFlowCandidates,filterMusicFlowCandidates,audioTrackToFlowItem,type MusicFlowItem} from './music-flow';
 import {
   streamService,
@@ -395,22 +395,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function lookupLyrics(){
   if(!current)return;
   if(!onlineLookupsEnabled()){report(ONLINE_LOOKUPS_OFF);return;}
-  report('Searching synced lyrics across Echo Music providers...');
+  report('Searching LRCLIB for synced lyrics...');
   try{
-   const echoRes = await echoLyrics.fetchLyrics({
-     title: current.title,
-     artist: current.artist,
-     album: current.album,
-     duration: current.duration
-   });
-   if(echoRes && echoRes.rawLrc){
-    current.lyrics = echoRes.rawLrc;
-    await library.put(current);
-    renderLyrics();
-    paintLyrics();
-    report(`Synced lyrics loaded via Echo Music (${echoRes.provider}).`);
-    return;
-   }
    const online=await fetchOnlineLyrics({title:current.title,artist:current.artist,album:current.album,duration:current.duration});
    if(online){
     current.lyrics=online;
@@ -1010,34 +996,37 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }
  }
 
+ let nativeRequest=0;
+ function mediaCall(op:string,data:unknown){
+  const native=(window as unknown as {AnFAndroid?:{mediaRequest?:(id:string,op:string,json:string)=>void}}).AnFAndroid;
+  if(!native?.mediaRequest)return Promise.reject(Error('Lock-screen controls are on the Android app.'));
+  const id=nativeBridgeId(++nativeRequest);
+  return new Promise<unknown>((resolve,reject)=>{
+   const win=window as unknown as {AnFMediaResult?:(id:string,value:string,error:string)=>void;coucouMediaResult?:(id:string,value:string,error:string)=>void};
+   const prevAnF=win.AnFMediaResult,prevCoucou=win.coucouMediaResult;
+   const timer=setTimeout(()=>{win.AnFMediaResult=prevAnF;win.coucouMediaResult=prevCoucou;reject(Error('Android player did not respond.'));},20000);
+   const handler=(rid:string,value:string,error:string)=>{
+    if(rid!==id){prevAnF?.(rid,value,error);prevCoucou?.(rid,value,error);return;}
+    clearTimeout(timer);win.AnFMediaResult=prevAnF;win.coucouMediaResult=prevCoucou;
+    if(error)reject(Error(error));else{try{resolve(value?JSON.parse(value):{});}catch{reject(Error('Invalid Android player response.'));}}
+   };
+   win.AnFMediaResult=handler;win.coucouMediaResult=handler;
+   native.mediaRequest!(id,op,JSON.stringify(data));
+  });
+ }
  async function playOnLockScreen(){
   const native=(window as unknown as {AnFAndroid?:{mediaRequest?:(id:string,op:string,json:string)=>void}}).AnFAndroid;
   if(!native?.mediaRequest){report('Lock-screen controls are on the Android app. Here, headset keys control playback.');return;}
   if(!current){report('Play something first.');return;}
-  const id=String(Date.now());
-  const op=(current.kind==='podcast'||current.streamUrl)?'play_remote':'play';
-  await new Promise<void>((resolve,reject)=>{
-   const win=window as any;
-   const prevAnF=win.AnFMediaResult;
-   const prevCoucou=win.coucouMediaResult;
-   const timer=setTimeout(()=>{
-    win.AnFMediaResult=prevAnF;
-    win.coucouMediaResult=prevCoucou;
-    reject(Error('Android player did not respond.'));
-   },20000);
-   const handler=(rid:string,value:string,error:string)=>{
-    if(rid!==id){prevAnF?.(rid,value,error);prevCoucou?.(rid,value,error);return;}
-    clearTimeout(timer);
-    win.AnFMediaResult=prevAnF;
-    win.coucouMediaResult=prevCoucou;
-    if(error)reject(Error(error));else resolve();
-   };
-   win.AnFMediaResult=handler;
-   win.coucouMediaResult=handler;
-   native.mediaRequest!(id,op,JSON.stringify({url:safeHttpsUrl(current!.streamUrl)||current!.id,title:current!.title,artist:current!.artist||'',album:current!.album||'',position:audio.currentTime||0}));
-  });
-  pause();
-  report('Handed to the Android player.');
+  const track=current;
+  const blobSize=track.streamUrl?1:track.blob.size;
+  const plan=lockScreenPlan({id:track.id,name:track.name,title:track.title,artist:track.artist,album:track.album,kind:track.kind,streamUrl:track.streamUrl,blobSize});
+  if(plan.kind==='stay'){report(plan.reason);return;}
+  const bytes=plan.kind==='file'?new Uint8Array(await track.blob.arrayBuffer()):undefined;
+  const sha256=bytes?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(b=>b.toString(16).padStart(2,'0')).join(''):undefined;
+  const message=await handOffLockScreen({id:track.id,name:track.name,title:track.title,artist:track.artist,album:track.album,kind:track.kind,streamUrl:track.streamUrl,blobSize,bytes,sha256},audio.currentTime||0,mediaCall);
+  if(message==='Handed to the Android player.')pause();
+  report(message);
  }
 
  function sorted(list:AudioTrack[]){

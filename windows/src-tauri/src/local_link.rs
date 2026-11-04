@@ -3,11 +3,23 @@ use crate::{projects, sync_data};
 use ring::{aead,rand::{SecureRandom,SystemRandom}};
 use serde_json::{json,Value};
 use tauri::Manager;
-use std::{collections::HashSet,io::{Read,Write},net::{Ipv4Addr,TcpListener,TcpStream},sync::{Arc,Mutex,atomic::{AtomicBool,AtomicUsize,Ordering}},time::Duration};
+use std::{collections::{HashSet,VecDeque},io::{Read,Write},net::{Ipv4Addr,TcpListener,TcpStream},sync::{Arc,Mutex,atomic::{AtomicBool,AtomicUsize,Ordering}},time::Duration};
 const LIMIT:usize=16_000_000;
 #[derive(Default)]
 pub struct Host(Mutex<Option<Arc<Session>>>);
-struct Session {key:[u8;32],stop:AtomicBool,active:AtomicUsize,seen:Mutex<HashSet<[u8;12]>>,gate:Mutex<()>,allow_ai:bool}
+struct Nonces {set:HashSet<[u8;12]>,order:VecDeque<[u8;12]>}
+impl Nonces {
+    fn remember(&mut self, nonce:[u8;12]) -> bool {
+        if !self.set.insert(nonce) { return false; }
+        self.order.push_back(nonce);
+        if self.order.len() > 10_000 {
+            if let Some(old) = self.order.pop_front() { self.set.remove(&old); }
+        }
+        true
+    }
+}
+impl Default for Nonces { fn default() -> Self { Self { set: HashSet::new(), order: VecDeque::new() } } }
+struct Session {key:[u8;32],stop:AtomicBool,active:AtomicUsize,seen:Mutex<Nonces>,gate:Mutex<()>,allow_ai:bool}
 impl Drop for Host {fn drop(&mut self){if let Some(s)=self.0.get_mut().unwrap().take(){s.stop.store(true,Ordering::SeqCst);}}}
 fn private(ip:Ipv4Addr)->bool{ip.is_private()||ip.is_loopback()}
 #[tauri::command]
@@ -44,7 +56,7 @@ pub fn link_start(app:tauri::AppHandle,host:tauri::State<Host>,store:tauri::Stat
     let mut key=[0;32];SystemRandom::new().fill(&mut key).map_err(|_|"Random generator unavailable")?;
     let code=format!("coucou1:{ip}:{port}:{}",hex(&key));
     stop(&host);
-    let session=Arc::new(Session{key,stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(HashSet::new()),gate:Mutex::new(()),allow_ai:allow_ai.unwrap_or(false)});
+    let session=Arc::new(Session{key,stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(Nonces::default()),gate:Mutex::new(()),allow_ai:allow_ai.unwrap_or(false)});
     *host.0.lock().unwrap()=Some(session.clone());let store=store.inner().clone();
     std::thread::spawn(move||{while !session.stop.load(Ordering::SeqCst){match listener.accept(){Ok((stream,peer))=>{
         if !peer.ip().is_ipv4()||!private(match peer.ip(){std::net::IpAddr::V4(ip)=>ip,_=>continue})||session.active.load(Ordering::SeqCst)>=2{continue;}
@@ -73,16 +85,23 @@ fn dispatch(path:&str,v:Value,store:&projects::Store)->Result<Value,String>{
         _=>Err("Unknown operation".into())
     }
 }
+fn phone_ask_context(v:&Value)->Result<(String,String),String>{
+    let memory=v["memory"].as_str().unwrap_or("").to_string();
+    if memory.len()>12_000{return Err("Too much project memory.".into());}
+    let model=match v["model"].as_str(){Some("balanced")=>"balanced",_=>"fast"}.to_string();
+    Ok((memory,model))
+}
 fn ask(v:Value,s:&Session,app:Option<&tauri::AppHandle>)->Result<Value,String>{
     if !s.allow_ai{return Err("Phone access to offline AI is off. Enable it on Windows and start sharing again.".into());}
     let app=app.ok_or("Offline AI is unavailable")?;let chat=app.state::<crate::ai::Chat>();
     let query=v["query"].as_str().ok_or("Enter a question")?.to_string();
     let sources=serde_json::from_value(v["sources"].clone()).map_err(|_|"Invalid sources")?;
     let history=serde_json::from_value(v["history"].clone()).map_err(|_|"Invalid history")?;
+    let (memory,model)=phone_ask_context(&v)?;
     let result=tauri::async_runtime::block_on(async{
         let cancelled=async{loop{if s.stop.load(Ordering::SeqCst){break;}tokio::time::sleep(Duration::from_millis(200)).await;}};
         tokio::select!{
-            r=crate::workspace_commands::ask_local(&chat,query,sources,history,String::new(),"fast".into(),v["longResponse"].as_bool())=>r,
+            r=crate::workspace_commands::ask_local(&chat,query,sources,history,memory,model,v["longResponse"].as_bool())=>r,
             _=cancelled=>Err("Windows sharing stopped.".into()),
             _=tokio::time::sleep(Duration::from_secs(900))=>Err("Offline reply timed out. Try a shorter question.".into())
         }
@@ -92,7 +111,7 @@ fn ask(v:Value,s:&Session,app:Option<&tauri::AppHandle>)->Result<Value,String>{
 fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&tauri::AppHandle>)->Result<(),String>{
     let(path,body)=request(&mut stream)?;let plain=open(&s.key,&format!("coucou-v1-request|{path}"),&body)?;
     let nonce:[u8;12]=body[..12].try_into().unwrap();
-    {let mut seen=s.seen.lock().unwrap();if seen.len()>=100000||!seen.insert(nonce){return Err("Session expired or repeated request".into());}}
+    {let mut seen=s.seen.lock().unwrap();if !seen.remember(nonce){return Err("Session expired or repeated request".into());}}
     if s.stop.load(Ordering::SeqCst){return Err("Sharing stopped".into());}
     let result=serde_json::from_slice(&plain).map_err(|_|"Invalid JSON".into()).and_then(|v|{
         if path=="/v1/ask"{ask(v,s,app)}else{let _gate=s.gate.lock().unwrap();if s.stop.load(Ordering::SeqCst){return Err("Sharing stopped".into());}dispatch(&path,v,store)}
@@ -115,11 +134,26 @@ fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&taur
         assert!(projects::validate(&p).is_ok());assert!(sync_data::clean(p.clone(),false).sources.is_empty());
         p.sources[0].reading.as_mut().unwrap().annotations[0].quote="Other".into();assert!(projects::validate(&p).is_err());
     }
+    #[test]fn phone_question_keeps_memory_and_balanced_model(){
+        let (memory,model)=phone_ask_context(&json!({"memory":"user is a doctor","model":"balanced"})).unwrap();
+        assert_eq!(memory,"user is a doctor");assert_eq!(model,"balanced");
+        let (empty,fast)=phone_ask_context(&json!({})).unwrap();
+        assert_eq!(empty,"");assert_eq!(fast,"fast");
+        assert!(phone_ask_context(&json!({"memory":"x".repeat(12_001)})).is_err());
+    }
+    #[test]fn replay_window_forgets_old_nonces_instead_of_ending_the_session(){
+        let mut seen=Nonces::default();
+        let first=[0;12];
+        assert!(seen.remember(first));
+        assert!(!seen.remember(first));
+        for n in 1..=10_000u32 { let mut nonce=[0;12]; nonce[..4].copy_from_slice(&n.to_le_bytes()); assert!(seen.remember(nonce)); }
+        assert!(seen.remember(first));
+    }
     #[test]fn encryption_authenticates_direction_key_and_content(){let key=[7;32];let msg=seal(&key,"request",b"private notes").unwrap();assert_eq!(open(&key,"request",&msg).unwrap(),b"private notes");assert!(open(&key,"response",&msg).is_err());assert!(open(&[8;32],"request",&msg).is_err());let mut bad=msg.clone();bad[15]^=1;assert!(open(&key,"request",&bad).is_err());assert_ne!(seal(&key,"request",b"private notes").unwrap(),msg);}
     #[test]fn private_addresses_only(){assert!(private("192.168.1.2".parse().unwrap()));assert!(private("172.16.1.2".parse().unwrap()));assert!(!private("8.8.8.8".parse().unwrap()));assert!(!private("0.0.0.0".parse().unwrap()));}
     #[test]fn encrypted_request_replay_is_rejected(){
         let listener=TcpListener::bind("127.0.0.1:0").unwrap();let address=listener.local_addr().unwrap();
-        let session=Session{key:[7;32],stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(HashSet::new()),gate:Mutex::new(()),allow_ai:false};
+        let session=Session{key:[7;32],stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(Nonces::default()),gate:Mutex::new(()),allow_ai:false};
         let body=seal(&session.key,"coucou-v1-request|/v1/list",b"{}").unwrap();let client=std::thread::spawn(move||{for _ in 0..2{let mut stream=TcpStream::connect(address).unwrap();write!(stream,"POST /v1/list HTTP/1.1\r\nContent-Length: {}\r\n\r\n",body.len()).unwrap();stream.write_all(&body).unwrap();let mut result=Vec::new();stream.read_to_end(&mut result).unwrap();}});
         let db=projects::Store::default();assert!(serve(listener.accept().unwrap().0,&session,&db,None).is_ok());assert!(serve(listener.accept().unwrap().0,&session,&db,None).unwrap_err().contains("repeated"));client.join().unwrap();
     }
@@ -128,7 +162,7 @@ fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&taur
     fn java_transport_interoperates(){
         let listener=TcpListener::bind("127.0.0.1:0").unwrap();let address=listener.local_addr().unwrap();let code=format!("coucou1:127.0.0.1:{}:{}",address.port(),hex(&[7;32]));
         let mut child=std::process::Command::new(std::env::var("COUCOU_TEST_JAVA").unwrap()).args(["-cp",&std::env::var("COUCOU_TEST_CLASSES").unwrap(),"com.coucou.workspace.LinkCheck",&code]).spawn().unwrap();
-        let session=Session{key:[7;32],stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(HashSet::new()),gate:Mutex::new(()),allow_ai:false};let db=projects::Store::default();listener.set_nonblocking(true).unwrap();
+        let session=Session{key:[7;32],stop:AtomicBool::new(false),active:AtomicUsize::new(0),seen:Mutex::new(Nonces::default()),gate:Mutex::new(()),allow_ai:false};let db=projects::Store::default();listener.set_nonblocking(true).unwrap();
         let until=std::time::Instant::now()+Duration::from_secs(30);let mut count=0;
         while count<4&&std::time::Instant::now()<until{match listener.accept(){Ok((stream,_))=>{let _=serve(stream,&session,&db,None);count+=1;},Err(_)=>std::thread::sleep(Duration::from_millis(20))}}
         if count!=4{let _=child.kill();panic!("Java did not complete requests");}assert!(child.wait().unwrap().success());
