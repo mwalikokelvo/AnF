@@ -301,19 +301,7 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Commit `f27697f` on `cursor/either-host-backup-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/92. The sync and lock-screen work landed on `main` as `a66437f` (PR #91).
 - Left in place on purpose: the phone SQL table and the Windows SQL table both say schema version 1 and are not the same shape; copying `coucou.db` between them still fails. Music, lyrics, and podcasts stay out of conversation backup and sync. The DNA button can still call its existing lookups. Reader scroll position and the character offset are still different coordinates. KOReader, OPDS, and the neural voice cache are still library modules with no screen calling them. The Android settings heading is the literal `0.1.48`. The pairing code is still the AES key; the screen already says to keep it private and to stop sharing on Windows to revoke it. Three Android players remain (HTML audio, Media3, optional Spotube).
 
-### 2026-11-04 -- OPDS catalog UI (Windows Documents)
+## 2026-11-04 Cursor: Wire KOReader kosync through Rust and the deep reader (branch cursor/koreader-sync-ui-d2fe)
 
-- Wired opds-client.ts acquisition URLs into parsing; new opds-panel.ts in Documents (OPDS catalogs details): save catalog URLs, opt-in Allow catalog requests, browse up to 5 pages, Open link via open_url or HTML via workspace_read_web.
-- Labels: tested on Linux (npx tsc --noEmit, npm test 332 pass, check-release.mjs 11 pass). Not installed.
-- Branch cursor/opds-catalog-ui-d2fe (worktree .worktrees/opds-ui). No PR.
-
-## 2026-11-04 Cursor: Music Hub in-app dialogs (branch cursor/playlist-dialogs-d2fe)
-
-- Replaced every prompt() / confirm() in music-hub.ts with askText / askConfirm (music-dialogs.ts, existing music-dialog modal styling): New playlist, Save queue as playlist, Delete playlist, Add feed, Remove feed, plus import playlist confirm, clear listening totals, and clear entire queue.
-- scripts/app-qa/music-audit.mjs, music-hub.mjs, and music-direct-audio.mjs drive the new dialogs instead of native page.on('dialog').
-- Labels: Linux npm test 335 pass / 0 fail, npm run typecheck clean, npm run build ok. NOT installed WebView2.
-
-## 2026-11-04 Cursor: broken stream cleanup re-land (branch cursor/broken-streams-reland-d2fe)
-
-- Restored Music tab Remove broken stream entries (N) when N>0; uses askConfirm (stacked on playlist-dialogs); removes via findBrokenStreamEntries; prunes recent/liked/queue/originalQueue and playlist order via pruneIdsFromPlaylistOrders + library.savePlaylist.
-- Labels: tested on Linux (tsc, npm test). NOT installed.
+- Add a safe HTTPS Tauri command that reads the user key from the secret store, settings to configure sync, and reader pull/push with the offline queue helpers already in koreader-sync.ts.
+- Labels: tested on Linux (tsc, npm test).
