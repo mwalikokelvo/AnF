@@ -290,3 +290,12 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 331 pass / 0 fail, `npm run test:e2e` 138 pass / 0 fail, `node scripts/check-release.mjs` 11 pass, `cargo test -p coucou --lib` 131 pass / 12 ignored, `cargo test -p anf-vault` 7 pass). `SafeHttps` refusal checks compiled and passed on this JDK (http, userinfo, non-443, loopback, LAN, CGNAT, documentation, 240/4, IPv6 loopback, IPv4-mapped loopback, `.local`, single-label). Android `main.ts` bundles with esbuild. NOT installed. Not a release. No phone, no Windows installer, no live LRCLIB, no live LAN sync.
 - Commit `edb6197` on `cursor/repair-sync-playback-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/91
 - Left in place on purpose: the phone SQL table and the Windows SQL table both say schema version 1 and are not the same shape; copying `coucou.db` between them still fails. Music, lyrics, and podcasts stay out of conversation backup and sync. The DNA button can still call its existing lookups. Reader scroll position and the character offset are still different coordinates. KOReader, OPDS, and the neural voice cache are still library modules with no screen calling them. The Android settings heading is the literal `0.1.48`. The pairing code is still the AES key; the screen already says to keep it private and to stop sharing on Windows to revoke it. Three Android players remain (HTML audio, Media3, optional Spotube).
+
+## 2026-11-04 Cursor: neural read-aloud wiring (Phase 5 prep)
+
+- `windows/src/workspace/neural-speech.ts`: `playNeuralSentence`, `createNeuralUtterancePlayer`, `registerNeuralSpeechProvider`, `neuralSpeechEnabled()` (`anf-neural-tts=1`), `NullTtsProvider` stub, in-memory disk helper for tests.
+- `speech-player.ts`: optional per-player `{ disk, provider, config }`; Reader tries neural when flag + provider, else system/Android speech.
+- Settings: **Neural read-aloud (experimental)** `<details>`; checkbox disabled until a provider is registered.
+- `docs/specs/neural-tts-wire.md`: Phase 5 checklist (Piper/Kokoro or Tauri command + disk registration).
+- Labels: tested on Linux (`tsc` clean, `npm test` 335 pass / 0 fail, `check-release.mjs` 11 pass). NOT installed. No live neural model.
+- Branch: `cursor/tts-cache-wire-d2fe`.
