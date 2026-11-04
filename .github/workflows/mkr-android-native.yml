@@ -5,6 +5,9 @@ on:
     paths:
       - integrations/mkr-music/**
       - .github/workflows/mkr-android-native.yml
+      - scripts/prepare-android-sdk.mjs
+      - scripts/check-android-sdk-cli.mjs
+      - scripts/app-qa/run-mkr-android-native.sh
   workflow_dispatch:
 permissions:
   contents: read
@@ -44,6 +47,7 @@ jobs:
       - name: Install test SDK and emulator image
         run: |
           set -euo pipefail
+          node scripts/check-android-sdk-cli.mjs
           node scripts/prepare-android-sdk.mjs
           cli="$(node scripts/prepare-android-sdk.mjs --print-cli)"
           "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
@@ -73,6 +77,7 @@ jobs:
           path: |
             integrations/mkr-music/android-catalog/build/test-results/**/*.xml
             integrations/mkr-music/android-catalog/build/reports/android-runtime.json
+            integrations/mkr-music/android-catalog/build/reports/dependency-verification/**/*.html
             ${{ runner.temp }}/mkr-native-qa/*.txt
           if-no-files-found: ignore
           retention-days: 7
