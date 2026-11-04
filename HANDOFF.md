@@ -300,7 +300,7 @@ Sleep-time autonomy run. Design: `docs/superpowers/specs/2026-11-04-overnight-wi
 | `cursor/opds-catalog-ui-d2fe` | #93 | Documents OPDS browse panel; acquisition URLs; tested on Linux 332 unit |
 | `cursor/overnight-polish-d2fe` | #94 | Shared LRC parser + simplify-code BOM; tested on Linux 331 unit |
 | `cursor/tts-cache-wire-d2fe` | #95 | Neural read-aloud flag + disk-cache player; Phase 5 provider still missing; 334 unit |
-| `cursor/safe-fetch-image-d2fe` | pending | Rust `Kind::Image` + cover blob helper (in flight) |
-| `cursor/koreader-sync-ui-d2fe` | pending | kosync Tauri bridge + Settings/reader (in flight) |
+| `cursor/safe-fetch-image-d2fe` | #98 | Rust `Kind::Image` + Music Hub blob covers; TS 335 + Rust policy 11 |
+| `cursor/koreader-sync-ui-d2fe` | #97 | kosync Tauri bridge + Settings/reader; TS 333 + Rust koreader 2; mut-response fix |
 
 Rules kept: no merge to `main`, no restyle of shipped pills/Settings chrome, no pill renames, verification labels honest (NOT installed).
