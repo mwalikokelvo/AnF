@@ -305,3 +305,12 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 
 - Add a safe HTTPS Tauri command that reads the user key from the secret store, settings to configure sync, and reader pull/push with the offline queue helpers already in koreader-sync.ts.
 - Labels: tested on Linux (tsc, npm test).
+
+## 2026-11-04 Cursor: neural read-aloud wiring (Phase 5 prep)
+
+- `windows/src/workspace/neural-speech.ts`: `playNeuralSentence`, `createNeuralUtterancePlayer`, `registerNeuralSpeechProvider`, `neuralSpeechEnabled()` (`anf-neural-tts=1`), `NullTtsProvider` stub, in-memory disk helper for tests.
+- `speech-player.ts`: optional per-player `{ disk, provider, config }`; Reader tries neural when flag + provider, else system/Android speech.
+- Settings: **Neural read-aloud (experimental)** `<details>`; checkbox disabled until a provider is registered.
+- `docs/specs/neural-tts-wire.md`: Phase 5 checklist (Piper/Kokoro or Tauri command + disk registration).
+- Labels: tested on Linux (`tsc` clean, `npm test` 335 pass / 0 fail, `check-release.mjs` 11 pass). NOT installed. No live neural model.
+- Branch: `cursor/tts-cache-wire-d2fe`.
