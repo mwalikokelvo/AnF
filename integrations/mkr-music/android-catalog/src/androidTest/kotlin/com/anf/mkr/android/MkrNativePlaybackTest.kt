@@ -34,7 +34,7 @@ class MkrNativePlaybackTest {
         assertEquals("801e0e26a6f69c415fd06370b0fed08688802f031ba2da13046e1646aaaafd0a",digest)
         return data
     }
-    private class GeneratedCdn(private val data:ByteArray,private val responseCode:Int=206) {
+    private class GeneratedCdn(private val data:ByteArray,private val statusCode:Int=206) {
         val requests=CopyOnWriteArrayList<String>()
         fun connect(ignored:String): HttpURLConnection = object : HttpURLConnection(URL("https://r1.googlevideo.com/generated-test")) {
             private fun span(): IntRange {
@@ -45,7 +45,7 @@ class MkrNativePlaybackTest {
             override fun connect() {}
             override fun usingProxy()=false
             override fun disconnect() {}
-            override fun getResponseCode():Int {requests.add(getRequestProperty("Range"));return responseCode}
+            override fun getResponseCode():Int {this@GeneratedCdn.requests.add(getRequestProperty("Range"));return this@GeneratedCdn.statusCode}
             override fun getHeaderField(name:String?):String? {
                 val span=span()
                 return when(name){"Content-Range"->"bytes ${span.first}-${span.last}/${data.size}";"Content-Length"->"${span.last-span.first+1}";"Content-Type"->"audio/mp4";else->null}
@@ -72,7 +72,11 @@ class MkrNativePlaybackTest {
         val data=fixture();val cdn=GeneratedCdn(data);val lease=lease(data,cdn)
         val source=MkrMediaDataSource(lease)
         try {
-            val spec=DataSpec.Builder().setUri(lease.receipt).setPosition(5).setLength(10).build()
+            val probe=GeneratedCdn(data).connect("")
+            probe.setRequestProperty("Range","bytes=5-14")
+            assertEquals(206,probe.responseCode);probe.disconnect()
+            val spec=DataSpec.Builder().setUri(lease.receipt).setPosition(5).setLength(10)
+                .setHttpRequestHeaders(mapOf("Icy-MetaData" to "1")).build()
             assertEquals(10L,source.open(spec));assertEquals(lease.receipt,source.uri.toString())
             val out=ByteArray(20);assertEquals(10,source.read(out,0,out.size));assertArrayEquals(data.copyOfRange(5,15),out.copyOfRange(0,10))
             assertEquals(C.RESULT_END_OF_INPUT,source.read(out,0,1));assertEquals(listOf("bytes=5-14"),cdn.requests.toList())
@@ -80,6 +84,8 @@ class MkrNativePlaybackTest {
             assertEquals(0L,source.open(DataSpec.Builder().setUri(lease.receipt).setPosition(data.size.toLong()).build()))
             assertEquals(C.RESULT_END_OF_INPUT,source.read(out,0,1));source.close()
             try { source.open(DataSpec.Builder().setUri("https://example.invalid/redirect").build());fail("arbitrary URI accepted") }
+            catch(expected:IOException) {assertEquals(1,cdn.requests.size)}
+            try { source.open(DataSpec.Builder().setUri(lease.receipt).setHttpRequestHeaders(mapOf("Authorization" to "synthetic-rejected")).build());fail("caller credentials accepted") }
             catch(expected:IOException) {assertEquals(1,cdn.requests.size)}
         } finally {source.close();lease.close()}
     }

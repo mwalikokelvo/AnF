@@ -11,6 +11,7 @@ test "$(adb -s "$serial" shell getprop ro.build.version.sdk | tr -d '\r')" = 35
 test -f "$apk"
 actual=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
 test "$actual" = "$package"
+trap 'adb -s "$serial" logcat -d -s TestRunner:I AndroidRuntime:E ExoPlayerImplInternal:E > "$qa_dir/native-logcat.txt" || true' EXIT
 # This fresh emulator has no AnF library/data or production signing identity.
 adb -s "$serial" install -t "$apk"
 adb -s "$serial" shell am instrument -w -r \
@@ -18,5 +19,4 @@ adb -s "$serial" shell am instrument -w -r \
   "$package/androidx.test.runner.AndroidJUnitRunner" | tee "$qa_dir/instrumentation.txt"
 grep -Fq 'OK (3 tests)' "$qa_dir/instrumentation.txt"
 ! grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|Process crashed' "$qa_dir/instrumentation.txt"
-adb -s "$serial" logcat -d -s TestRunner:I AndroidRuntime:E ExoPlayerImplInternal:E > "$qa_dir/native-logcat.txt"
 printf '%s\n' 'Generated transport/AAC only. Actual Media3 decoder tests; no provider or production app/upgrade verification.' > "$qa_dir/scope.txt"

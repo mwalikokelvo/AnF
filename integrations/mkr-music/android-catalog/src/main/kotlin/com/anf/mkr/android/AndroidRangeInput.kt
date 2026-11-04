@@ -15,6 +15,11 @@ import java.util.concurrent.atomic.AtomicLong
 internal class NativeInputFailure(val reason: String) : IOException("Native music input unavailable: $reason")
 internal data class AudioChunk(val bytes: ByteArray, val total: Long)
 
+// Media3 1.6.1 always requests optional ICY metadata for progressive input.
+// Accept that exact benign framework hint, but never forward caller headers.
+internal fun validNativeMediaHeaders(headers: Map<String,String>): Boolean =
+    headers.size<=1 && headers.all { (name,value) -> name.equals("Icy-MetaData",ignoreCase=true) && value=="1" }
+
 /** Bound a Media3 request before allocating or fetching even its first chunk. */
 internal fun mediaChunkEnd(start: Long, total: Long?, requestedLength: Long, chunk: Long): Long {
     require(start in 0 until MkrCatalog.MAX_AUDIO_BYTES)

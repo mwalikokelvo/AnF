@@ -125,4 +125,13 @@ class AndroidRangeInputTest {
         val connection=NativeHttpConnection(URL("https://r1.googlevideo.com/?signed-private-fixture=1"))
         assertFalse(connection.toString().contains("signed-private"));connection.disconnect()
     }
+    @Test fun onlyExactBenignFrameworkMetadataHintIsAcceptedAndNeverCredentials() {
+        assertTrue(validNativeMediaHeaders(emptyMap()))
+        assertTrue(validNativeMediaHeaders(mapOf("Icy-MetaData" to "1")))
+        assertTrue(validNativeMediaHeaders(mapOf("icy-metadata" to "1")))
+        for(headers in listOf(mapOf("Authorization" to "fixture"),mapOf("Cookie" to "fixture"),
+            mapOf("Range" to "bytes=0-1"),mapOf("Icy-MetaData" to "1\r\nCookie: fixture"),
+            mapOf("Icy-MetaData" to "1","Origin" to "https://example.invalid")))
+            assertFalse(validNativeMediaHeaders(headers))
+    }
 }

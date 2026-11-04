@@ -20,7 +20,7 @@ internal class MkrMediaDataSource(private val lease: AndroidMediaLease) : BaseDa
     override fun open(spec: DataSpec): Long {
         close()
         if (spec.uri.toString() != lease.receipt || spec.httpMethod != DataSpec.HTTP_METHOD_GET
-            || spec.httpBody != null || spec.httpRequestHeaders.isNotEmpty() || spec.position < 0)
+            || spec.httpBody != null || !validNativeMediaHeaders(spec.httpRequestHeaders) || spec.position < 0)
             throw IOException("Invalid native music receipt.")
         lease.checkActive()
         transferInitializing(spec)
