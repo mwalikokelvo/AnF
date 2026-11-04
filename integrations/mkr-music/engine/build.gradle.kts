@@ -31,18 +31,42 @@ sourceSets.main { kotlin.srcDir(prepared.dir("innertube/src/main/kotlin")) }
 sourceSets.main { kotlin.srcDir("src/windowsMain/kotlin") }
 tasks.named("compileKotlin") { dependsOn(sourceGate) }
 
+// Use the already-selected core version across compile/runtime/plugins, not a
+// mixture of 3.4.0 compile APIs and 3.5.2 runtime APIs. Ktor's supported BOM:
+// https://ktor.io/docs/client-dependencies.html#using-the-ktor-bom-dependency
+val ktorVersion = "3.5.2"
 dependencies {
-    implementation("io.ktor:ktor-client-core:3.4.0")
-    implementation("io.ktor:ktor-client-okhttp:3.4.0")
-    implementation("io.ktor:ktor-client-content-negotiation:3.4.0")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.4.0")
-    implementation("io.ktor:ktor-client-encoding:3.4.0")
+    implementation(platform("io.ktor:ktor-bom:$ktorVersion"))
+    implementation("io.ktor:ktor-client-core")
+    implementation("io.ktor:ktor-client-okhttp")
+    implementation("io.ktor:ktor-client-content-negotiation")
+    implementation("io.ktor:ktor-serialization-kotlinx-json")
+    implementation("io.ktor:ktor-client-encoding")
     implementation("org.brotli:dec:0.1.2")
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
     implementation("com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.0")
     testImplementation(kotlin("test-junit"))
-    testImplementation("io.ktor:ktor-client-mock:3.4.0")
+    testImplementation("io.ktor:ktor-client-mock")
 }
+
+val verifyKtorAlignment by tasks.registering {
+    doLast {
+        val selected = listOf("compileClasspath","runtimeClasspath","testCompileClasspath","testRuntimeClasspath").associateWith { name ->
+            configurations.getByName(name).resolvedConfiguration.resolvedArtifacts
+                .filter { it.moduleVersion.id.group == "io.ktor" }
+                .map { it.moduleVersion.id.version }.toSortedSet().toList()
+        }
+        check(selected.values.all { it == listOf(ktorVersion) }) {
+            "Ktor compile/runtime/plugin versions diverged; resolve the graph before packaging."
+        }
+        layout.buildDirectory.file("reports/ktor-alignment.json").get().asFile.apply {
+            parentFile.mkdirs();writeText(JsonOutput.prettyPrint(JsonOutput.toJson(mapOf("schema" to 1,"expectedVersion" to ktorVersion,"configurations" to selected,"readyForPublication" to false))))
+        }
+        logger.lifecycle("PASS: Ktor compile/runtime/test modules all use $ktorVersion. Source and publication review remain required.")
+    }
+}
+tasks.named("test") { dependsOn(verifyKtorAlignment) }
+tasks.named("check") { dependsOn(verifyKtorAlignment) }
 
 tasks.withType<Jar>().configureEach {
     from(prepared.file("LICENSE")) { into("META-INF/mkr") }
@@ -193,6 +217,8 @@ tasks.register<Exec>("probeWindowsPlaybackHost") {
     standardOutput=captured;errorOutput=captured;isIgnoreExitValue=true
     doFirst {
         val executable=System.getenv("ANF_MKR_NATIVE_TEST_EXE") ?: error("Select compiled native fixture harness.")
+        val audio=System.getenv("ANF_MKR_TEST_AUDIO") ?: error("Select a generated AAC fixture with ANF_MKR_TEST_AUDIO before native host QA.")
+        check(File(audio).isFile && File(audio).length() in 1..5_242_880) { "Expected a bounded generated AAC fixture file." }
         val launcher=javaToolchains.launcherFor {languageVersion.set(JavaLanguageVersion.of(21))}.get()
         environment("ANF_MKR_TEST_JAVA",launcher.executablePath.asFile.absolutePath)
         environment("ANF_MKR_TEST_CLASSPATH",sourceSets.test.get().runtimeClasspath.asPath)

@@ -1,0 +1,77 @@
+name: MKR Android native QA
+on:
+  push:
+    branches: ['qa/mkr-native-**']
+    paths:
+      - integrations/mkr-music/**
+      - .github/workflows/mkr-android-native.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-android-native-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  native-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare exact reviewed catalog sources
+        run: |
+          set -euo pipefail
+          git init "$RUNNER_TEMP/mkr-upstream"
+          git -C "$RUNNER_TEMP/mkr-upstream" remote add origin https://github.com/mkr-infinity/mkr-music.git
+          git -C "$RUNNER_TEMP/mkr-upstream" fetch --depth=1 origin 78ac80c5101c293a5591a4cd5a1ebc90ccbc3138
+          node integrations/mkr-music/prepare-catalog.mjs --source "$RUNNER_TEMP/mkr-upstream"
+      - name: Install test SDK and emulator image
+        run: |
+          set -euo pipefail
+          node scripts/prepare-android-sdk.mjs
+          "$ANDROID_HOME/cmdline-tools/latest/bin/android" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
+      - name: Build disposable instrumentation APK with strict dependency verification
+        working-directory: integrations/mkr-music/android-catalog
+        run: gradle --no-daemon --no-configuration-cache testDebugUnitTest auditAndroidCatalogRuntime assembleDebugAndroidTest
+      - name: Grant runner user access to KVM device
+        run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Run real native generated-media tests on Android 15
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          avd-name: anf-mkr-native-qa
+          ram-size: 1536M
+          cores: 2
+          disk-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048
+          script: bash scripts/app-qa/run-mkr-android-native.sh
+      - name: Retain QA reports only, never release APKs or signing material
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: MKR-Android-native-fixture-evidence
+          path: |
+            integrations/mkr-music/android-catalog/build/test-results/**/*.xml
+            integrations/mkr-music/android-catalog/build/reports/android-runtime.json
+            ${{ runner.temp }}/mkr-native-qa/*.txt
+          if-no-files-found: ignore
+          retention-days: 7

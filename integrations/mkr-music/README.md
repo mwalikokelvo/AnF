@@ -13,6 +13,10 @@ bounded media lease now also feeds that generated AAC into the real muted native
 decoder, including failure recovery, seek, deadline handling and reopen. This
 engineering integration test uses injected fixture bytes; it verifies neither
 live MKR service playback nor an available AnF source.
+The separate [Android catalog library](android-catalog/README.md) now compiles
+the pinned common sources against actual Android dependency variants. Its range
+input, controller and ExoPlayer wrapper compile and pass 41 host-side tests.
+Android foreground/UI integration and real decoder playback remain unverified.
 No usable integrated MKR host, streaming player, or installer is supplied yet.
 The AnF-owned `mkr-browser.ts` renderer now supplies an in-app search/results
 panel and persistent dock adapter with responsive controls. Its browser fixture
@@ -74,7 +78,7 @@ fails closed when that pause fails. Missing host never opens a website fallback.
 
 ## Implementation and acceptance still required
 
-1. Preserve the conflict-resolved but uncommitted AnF merge and its passing source
+1. Preserve the reconciled AnF merge and its passing source
    gate, local music/Spotube, podcast/audiobook, Studio and document functions.
 2. Produce a reproducible Android library/host from the pinned upstream source
    with compatible Hilt initialization, Compose navigation, service and database
@@ -91,3 +95,37 @@ fails closed when that pause fails. Missing host never opens a website fallback.
    offline/error states, restart, lock screen and lifecycle on both platforms.
    No unlimited availability, service access or bypass of provider limits is
    promised. Package matching builds with notices/source and accurate capabilities.
+
+## Dependency source evidence
+
+The catalog uses the Ktor 3.5.2 BOM to keep compile, runtime and test artifacts
+on one version. `verifyKtorAlignment` rejects a mixed graph. The locked runtime
+contains 38 dependency JARs; source collection does not enable the player or
+authorize distribution.
+
+Run `collect-source-artifacts.py` after `auditWindowsRuntime`. The optional
+`--reuse-source-report` accepts a prior local report and reuses source archives
+only when the coordinate, audited binary hash, repository URL and source bytes
+still match. Changed coordinates are fetched from their fixed repository.
+Integrity errors and access/rate refusals stop collection; sources are inspected
+without extraction or execution. Run `review-source-artifacts.py --sources PATH`
+to regenerate `source-artifact-evidence.json` for that exact runtime audit.
+
+The evidence index records observed headers, notice filenames and native entries;
+it is not a license conclusion. In particular, the QuickJS runtime contains
+native libraries whose complete sources/build recipes require separate review.
+JDK sources/notices and the combined distribution boundary remain outstanding.
+Production discovery remains disabled pending this review and real provider
+acceptance. Generated Java/AAC tests verify the host, not upstream streaming.
+
+`native-source-evidence.json` separately records the QuickJS wrapper and both
+pinned native submodules, with source archive hashes and build-recipe paths.
+The collected archives were checked against every listed Git blob without
+extraction or execution. This locates native sources; it does not establish a
+reproducible binary match. The same index identifies the exact Microsoft JDK
+source commit matching the runtime's release file. A separate full source
+archive has now been collected and its reconstructed Git tree matches the
+pinned commit, including native JVM code and build recipes. Its archive hash
+and inventory are recorded in the index. Bundled `lib/src.zip` alone would
+not provide those sources. Binary/build correspondence and distribution
+review remain separate requirements.

@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "readyForPublication": false,
+  "completeCorrespondingSourcePrepared": false,
+  "dependencyCoordinate": "io.github.dokar3:quickjs-kt-jvm:1.0.14",
+  "sourceArchives": [
+    {
+      "repository": "https://github.com/dokar3/quickjs-kt",
+      "commit": "6e51ae878be54f22272381e62118535790ba9940",
+      "archiveUrl": "https://codeload.github.com/dokar3/quickjs-kt/zip/6e51ae878be54f22272381e62118535790ba9940",
+      "archiveName": "dokar3__quickjs-kt-6e51ae878be54f22272381e62118535790ba9940.zip",
+      "archiveSha256": "b92ea5840a7557219f4064677679ce65fe8f3f6a4faca304f8f9b83c552a502d",
+      "bytes": 1636961,
+      "verifiedGitBlobCount": 492,
+      "archiveInventory": {
+        "entries": 756,
+        "sourceFiles": 325,
+        "nativeBinaryEntries": 0,
+        "classEntries": 0,
+        "noticeEntryNames": [
+          "quickjs-kt-6e51ae878be54f22272381e62118535790ba9940/LICENSE.txt",
+          "quickjs-kt-6e51ae878be54f22272381e62118535790ba9940/quickjs/native/winpthreads/COPYING"
+        ],
+        "sourceCorrespondenceApproved": false
+      },
+      "noticeFiles": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "b57a9ee546cffc4958d7a3b8ae6757963c3880bbf421d1a570e8064d575818a9"
+        },
+        {
+          "path": "quickjs/native/winpthreads/COPYING",
+          "sha256": "63263614cdd29f2f93cba85e992f041b31f9fc7b4033692f31269489a8a1b177"
+        }
+      ],
+      "submodules": [
+        {
+          "path": "quickjs/native/c-vector",
+          "mode": "160000",
+          "type": "commit",
+          "sha": "774773d4cb1e66dd736e90e7f482d4f22af464c6"
+        },
+        {
+          "path": "quickjs/native/quickjs",
+          "mode": "160000",
+          "type": "commit",
+          "sha": "04be246001599f5995fa2f2d8c91a0f198d3f34c"
+        }
+      ],
+      "buildRecipePaths": [
+        "quickjs/native/CMakeLists.txt",
+        "quickjs/native/cmake/zig-toolchain-windows_x64.cmake",
+        "build-logic/src/main/kotlin/com/dokar/quickjs/buildQuickJsNativeLibrary.kt",
+        ".github/workflows/publish.yaml"
+      ],
+      "binarySourceCorrespondenceApproved": false
+    },
+    {
+      "repository": "https://github.com/bellard/quickjs",
+      "commit": "04be246001599f5995fa2f2d8c91a0f198d3f34c",
+      "archiveUrl": "https://codeload.github.com/bellard/quickjs/zip/04be246001599f5995fa2f2d8c91a0f198d3f34c",
+      "archiveName": "bellard__quickjs-04be246001599f5995fa2f2d8c91a0f198d3f34c.zip",
+      "archiveSha256": "ecaba88397e1ed8e0a5e195967dec540c4999bc302adf31879593c056642c0e4",
+      "bytes": 674436,
+      "verifiedGitBlobCount": 77,
+      "archiveInventory": {
+        "entries": 85,
+        "sourceFiles": 35,
+        "nativeBinaryEntries": 0,
+        "classEntries": 0,
+        "noticeEntryNames": [
+          "quickjs-04be246001599f5995fa2f2d8c91a0f198d3f34c/LICENSE"
+        ],
+        "sourceCorrespondenceApproved": false
+      },
+      "noticeFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "598fd7fc928e4350abce36e337ba5a1346923c5c692f5be92c3d8e29ddd7c18d"
+        }
+      ],
+      "submodules": [],
+      "binarySourceCorrespondenceApproved": false
+    },
+    {
+      "repository": "https://github.com/eteran/c-vector",
+      "commit": "774773d4cb1e66dd736e90e7f482d4f22af464c6",
+      "archiveUrl": "https://codeload.github.com/eteran/c-vector/zip/774773d4cb1e66dd736e90e7f482d4f22af464c6",
+      "archiveName": "eteran__c-vector-774773d4cb1e66dd736e90e7f482d4f22af464c6.zip",
+      "archiveSha256": "8caa3dc2fc9bd6b4d4ee71e85067d268d6b92664b8e26941c3b632d04599cfd4",
+      "bytes": 27967,
+      "verifiedGitBlobCount": 14,
+      "archiveInventory": {
+        "entries": 18,
+        "sourceFiles": 6,
+        "nativeBinaryEntries": 0,
+        "classEntries": 0,
+        "noticeEntryNames": [
+          "c-vector-774773d4cb1e66dd736e90e7f482d4f22af464c6/LICENSE"
+        ],
+        "sourceCorrespondenceApproved": false
+      },
+      "noticeFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "e1cfcf4f5ae40870038105b1474721a532746867c6c6a4288baa9cafd58424e6"
+        }
+      ],
+      "submodules": [],
+      "binarySourceCorrespondenceApproved": false
+    }
+  ],
+  "quickJsBuildObservations": {
+    "publishedWorkflowZigVersion": "0.12.0",
+    "windowsTarget": "x86_64-windows-gnu",
+    "generator": "Ninja",
+    "jniRequired": true,
+    "rebuildAndBinaryComparisonComplete": false,
+    "gitTagSignatureVerified": false
+  },
+  "jdkSource": {
+    "implementor": "Microsoft",
+    "runtimeVersion": "21.0.12.1+1-LTS",
+    "build": "Microsoft-14941484",
+    "releaseFileSha256": "25d8eccb6c159180584389bdc8f0c821dccf5f60dd6efd599f764f8216a1260b",
+    "javaApiSourcesSha256": "16e63665c5473c03fd4c5e22ea5183e5501d0a8698666e99cb6451d6c794b044",
+    "repository": "https://github.com/microsoft/openjdk-jdk21u",
+    "commit": "6f26c6b2b098814858e76ad2986c01d5e1c8987a",
+    "officialReleaseSourceLink": "https://github.com/microsoft/openjdk-jdk21u/tree/release/jdk-21.0.12.1_1",
+    "publisherReference": "https://learn.microsoft.com/en-us/java/openjdk/older-releases",
+    "releaseSourceCommitPrefixMatches": true,
+    "signatureVerified": false,
+    "completeSourceArchiveCollected": true,
+    "note": "lib/src.zip is Java API source, not the complete native JVM/build tree.",
+    "sourceArchiveEvidence": {
+      "schema": 1,
+      "repository": "https://github.com/microsoft/openjdk-jdk21u",
+      "commit": "6f26c6b2b098814858e76ad2986c01d5e1c8987a",
+      "archiveUrl": "https://codeload.github.com/microsoft/openjdk-jdk21u/tar.gz/6f26c6b2b098814858e76ad2986c01d5e1c8987a",
+      "archiveName": "openjdk-jdk21u-6f26c6b2b098814858e76ad2986c01d5e1c8987a.tar.gz",
+      "archiveBytes": 114208860,
+      "archiveSha256": "ef1d6319bc132c9504b7506cd7c3df161d25be4031a2ee825b2fcfda047572b3",
+      "inventory": {
+        "files": 69042,
+        "archivedSymlinksNotExtracted": 0,
+        "expandedBytes": 676548408,
+        "gitTreeSha1": "31194619012ea8649d7b156ad2cd5089b54ca554",
+        "fullPinnedGitTreeMatches": true,
+        "noticePaths": [
+          "ADDITIONAL_LICENSE_INFO",
+          "LICENSE",
+          "make/data/cldr/LICENSE.txt",
+          "make/scripts/addNotices.sh",
+          "src/java.desktop/share/native/libsplashscreen/giflib/COPYING",
+          "src/java.desktop/share/native/libsplashscreen/libpng/LICENSE",
+          "src/java.smartcardio/unix/native/libj2pcsc/MUSCLE/COPYING",
+          "src/jdk.jlink/share/classes/jdk/tools/jlink/internal/plugins/LegalNoticeFilePlugin.java",
+          "src/utils/hsdis/hsdis-license.txt",
+          "test/jdk/tools/jpackage/linux/LicenseTypeTest.java",
+          "test/jdk/tools/jpackage/resources/license.txt",
+          "test/jdk/tools/jpackage/share/LicenseTest.java",
+          "test/langtools/jdk/javadoc/doclet/testLegalNotices/TestLegalNotices.java"
+        ],
+        "buildRecipePaths": [
+          "configure",
+          "doc/building.html",
+          "doc/building.md"
+        ]
+      },
+      "readyForPublication": false,
+      "reproducibleBinaryComparisonComplete": false,
+      "completeDistributionSourceReviewApproved": false
+    }
+  },
+  "remaining": [
+    "Rebuild native QuickJS and compare artifacts or document binary/source correspondence evidence.",
+    "Complete exact JDK build/binary correspondence review and preserve bundled module notices.",
+    "Complete all runtime dependency notices/source obligations and distribution-boundary review.",
+    "No production player, provider availability or signed release approval follows from this evidence."
+  ]
+}
