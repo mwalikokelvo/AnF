@@ -1,6 +1,6 @@
 // Browser fixture (real CSP, stubbed IPC and stubbed network) for the 30 s preview report: a catalogue clip must never be
-// presented or stored as the full song. Stubs: iTunes search (previewUrl -> a 30 s WAV), YouTube instances (down, then up with a
-// 4-minute track). Not the installed app; no live network. Run `npm run build` in windows/ first.
+// presented or stored as the full song. Stubs: iTunes search (previewUrl -> a 30 s WAV), YouTube instances (down, then up
+// with a 30 s clip listed before a 4-minute track). Not the installed app; no live network. Run `npm run build` in windows/ first.
 import assert from 'node:assert/strict';
 import {start,go} from './fixture.mjs';
 const wav=seconds=>{const rate=8000,n=rate*seconds,b=Buffer.alloc(44+n);b.write('RIFF',0);b.writeUInt32LE(36+n,4);b.write('WAVEfmt ',8);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(rate,24);b.writeUInt32LE(rate,28);b.writeUInt16LE(1,32);b.writeUInt16LE(8,34);b.write('data',36);b.writeUInt32LE(n,40);b.fill(128,44);return b;};
@@ -17,7 +17,8 @@ try{
   if(u.hostname==='audio-ssl.itunes.apple.com')return route.fulfill({contentType:'audio/wav',body:clip});
   if(u.hostname==='rr1.googlevideo.com')return route.fulfill({contentType:'audio/wav',body:full});
   if(!youtubeUp)return route.fulfill({status:503,contentType:'text/plain',body:'busy'});
-  if(u.pathname.startsWith('/search'))return route.fulfill({contentType:'application/json',body:JSON.stringify({items:[{url:'/watch?v=zn1FHSWPaTk',title:'WIMBO WANGU (full)',uploaderName:'JTC ARUSHA',duration:240}]})});
+  if(u.pathname.startsWith('/search'))return route.fulfill({contentType:'application/json',body:JSON.stringify({items:[{url:'/watch?v=shortclip11',title:'WIMBO WANGU (Preview)',uploaderName:'JTC',duration:30},{url:'/watch?v=zn1FHSWPaTk',title:'WIMBO WANGU (full)',uploaderName:'JTC ARUSHA',duration:240}]})});
+  if(u.pathname.includes('shortclip11'))return route.fulfill({contentType:'application/json',body:JSON.stringify({title:'WIMBO WANGU (Preview)',uploader:'JTC',duration:30,audioStreams:[{url:'https://audio-ssl.itunes.apple.com/clip.wav',mimeType:'audio/wav',bitrate:96000}]})});
   return route.fulfill({contentType:'application/json',body:JSON.stringify({title:'WIMBO WANGU (full)',uploader:'JTC ARUSHA',duration:240,audioStreams:[{url:'https://rr1.googlevideo.com/full.wav',mimeType:'audio/wav',bitrate:128000}]})});
  });
  await go(page,'music');await page.getByRole('tab',{name:'Streaming',exact:true}).click();

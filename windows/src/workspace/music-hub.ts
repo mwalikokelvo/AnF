@@ -44,6 +44,7 @@ import {
   unresolvedStreamError,
   verifyAudioUrl,
   isAudioContentType,
+  PREVIEW_ONLY_MESSAGE,
   type StreamTrackMetadata
 } from './streaming-provider';
 import {
@@ -710,7 +711,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const stateLabel=playbackState==='buffering'?' [Buffering...]':playbackState==='error'?' [Error]':'';
   dockArtist.textContent=(current?kindLabel(current.kind||'music')+' · ':'')+(current?.artist||'Unknown artist')+(current?.album?' · '+current.album:'')+(trackLabel?' · '+trackLabel:'')+(current?.year?' · '+current.year:'')+(current?.genre?' · '+current.genre:'')+(current&&formatBadge(current)?' · '+formatBadge(current):'')+(pct>0?' · '+pct+'%':'')+qPos+(next?' · Up next: '+next.title:'')+stateLabel;
   if(current){
-   drawerPlayingBadge.textContent=(playing?'PLAYING':'PAUSED')+' · '+(formatBadge(current)||'320kbps');
+   drawerPlayingBadge.textContent=(playing?'PLAYING':'PAUSED')+' · '+playbackMark(current);
    drawerLikeBtn.style.color=prefs.favorites.includes(current.id)?'var(--music-accent, #79e4b4)':'var(--music-ink)';
    drawerLikeBtn.setAttribute('aria-pressed',String(prefs.favorites.includes(current.id)));
   }
@@ -787,12 +788,29 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  }
 
+ function playbackMark(track:AudioTrack){return track.preview?'30 s PREVIEW':(formatBadge(track)||'320kbps');}
+
+ async function ensurePlayable(track:AudioTrack):Promise<AudioTrack>{
+  if((track.blob&&track.blob.size>0)||track.streamUrl)return track;
+  const id=track.id.startsWith('stream:')?track.id.slice('stream:'.length):track.id;
+  const meta=await streamService.getTrack(id);
+  if(!meta||(meta.source!=='spotube'&&meta.source!=='spotify'&&meta.source!=='youtube'))return track;
+  const resolved=await streamService.resolveStream(meta);
+  if(!resolved?.streamUrl)return track;
+  const next:AudioTrack={...track,streamUrl:resolved.streamUrl,duration:resolved.duration??track.duration,preview:!!resolved.preview,format:resolved.mimeType||track.format};
+  const at=tracks.findIndex(t=>t.id===track.id);
+  if(at>=0)tracks[at]=next;
+  return next;
+ }
+
  async function select(track:AudioTrack,play=true,position?:number){
+  const token=++epoch;
+  track=await ensurePlayable(track);
+  if(token!==epoch)return;
   if(track.blob&&track.blob.size>0&&!isAudioContentType(track.blob.type)){
    report('"'+track.title+'" is stored as '+(track.blob.type||'unknown data')+', not audio, so it cannot be played. Remove it from your library.');
    return;
   }
-  const token=++epoch;
   pause();
   clearChapterSleep();
   if(sleep.value==='chapter')sleep.value='0';
@@ -830,7 +848,9 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   drawerTitle.textContent=track.title;
   drawerArtist.textContent=track.artist||'Unknown artist';
   drawerAlbum.textContent=track.album||'';
-  drawerPlayingBadge.textContent='READY · '+(formatBadge(track)||'320kbps');
+  drawerPlayingBadge.textContent='READY · '+playbackMark(track);
+  if(play&&track.preview)report(PREVIEW_ONLY_MESSAGE);
+  else if(play&&track.id.startsWith('stream:'))report('Playing '+track.title);
   if(cover){
    drawerArtImg.src=cover;
    drawerArtImg.hidden=false;
@@ -1415,9 +1435,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
        blob:new Blob([],{type:resolved.mimeType||'audio/mp4'}),
        streamUrl:resolved.streamUrl,
        coverUrl:item.coverUrl||item.artworkUrl,
-       duration:item.duration,
+       duration:resolved.duration??item.duration,
        format:resolved.mimeType||'audio/mp4',
        created:Date.now(),
+       preview:!!resolved.preview,
        chapters:item.chapters?.map(c=>({title:c.title,start:c.start}))
       };
       const follow=(resolved.parts??[]).slice(1).map((part,index):AudioTrack=>({

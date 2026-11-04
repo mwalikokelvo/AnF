@@ -184,11 +184,46 @@ export interface ResolvedAudioStream {
   cached?: boolean;
   /** True when this is only a 30 s preview clip, not the full track. */
   preview?: boolean;
+  /** Length of the audio that will actually play, in seconds. A full match uses the recording, not the 30 s clip. */
+  duration?: number;
   /** Every playable file in an Internet Archive item, in listening order. The first is `streamUrl`. */
   parts?: ArchivePart[];
 }
 
 const ARCHIVE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,180}$/;
+
+/** iTunes and Spotify catalogue clips, and short YouTube "preview" uploads, are about 30 s. */
+const PREVIEW_CLIP_MAX_SEC = 45;
+
+function titledPreviewClip(title?: string): boolean {
+  return /\b(?:preview|snippet|teaser)\b/i.test(title || '') || /\b30\s*(?:s|sec|seconds?)\b/i.test(title || '');
+}
+
+/**
+ * Order public-video matches so a full recording is tried before a 30 s clip.
+ * A clip is dropped when the song is longer than one (or the song length is unknown).
+ * Nothing is returned when every hit is a clip — the caller then keeps the labelled catalogue preview.
+ */
+export function rankFullSongCandidates<T extends { duration?: number; title?: string }>(
+  candidates: T[],
+  songDuration?: number,
+): T[] {
+  const song = typeof songDuration === 'number' && songDuration > 0 ? songDuration : undefined;
+  const clip = (c: T) => {
+    if (c.duration !== undefined && c.duration <= PREVIEW_CLIP_MAX_SEC && (song === undefined || song > PREVIEW_CLIP_MAX_SEC)) return true;
+    return titledPreviewClip(c.title) && (c.duration === undefined || (song !== undefined && c.duration < song * 0.5));
+  };
+  const full = candidates.filter(c => !clip(c));
+  if (!full.length) return [];
+  // Closest to the catalogue length first. A longer recording stays in line so a dead stream
+  // can fall through to it instead of the 30 s clip.
+  return [...full].sort((a, b) => {
+    if (!song) return (b.duration ?? 0) - (a.duration ?? 0);
+    const da = a.duration === undefined ? Number.POSITIVE_INFINITY : Math.abs(a.duration - song);
+    const db = b.duration === undefined ? Number.POSITIVE_INFINITY : Math.abs(b.duration - song);
+    return da - db;
+  });
+}
 
 /** MP3 files in an Internet Archive item, in numeric filename order. A zip is not a part. */
 export function internetArchiveParts(identifier: string, files: { name?: unknown }[]): ArchivePart[] {
@@ -597,18 +632,29 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     return (await this.lookupYouTube(videoId))?.stream ?? null;
   }
 
-  /** Spotube Resolver: matches Spotify/iTunes track with YouTube audio stream */
+  /** Spotube Resolver: matches Spotify/iTunes track with a full-length YouTube audio stream. */
   async resolveSpotubeStream(track: StreamTrackMetadata): Promise<ResolvedAudioStream | null> {
     try {
-      const q = `${track.artist} - ${track.title}`;
-      const ytCandidates = await this.searchYouTube(q, 3);
-      if (ytCandidates.length > 0) {
-        const resolved = await this.resolveYouTubeStream(ytCandidates[0].id);
-        if (resolved) {
-          track.bitrate = resolved.bitrate;
-          this.registerMetadata(track);
-          return resolved;
+      const queries = [`${track.artist} - ${track.title}`, `${track.title} ${track.artist} audio`];
+      const gathered: StreamTrackMetadata[] = [];
+      const seen = new Set<string>();
+      for (const q of queries) {
+        for (const candidate of await this.searchYouTube(q, 8)) {
+          if (seen.has(candidate.id)) continue;
+          seen.add(candidate.id);
+          gathered.push(candidate);
         }
+        if (rankFullSongCandidates(gathered, track.duration).length) break;
+      }
+      for (const candidate of rankFullSongCandidates(gathered, track.duration)) {
+        const video = await this.lookupYouTube(candidate.id);
+        if (!video) continue;
+        const seconds = video.duration ?? candidate.duration;
+        if (!rankFullSongCandidates([{ duration: seconds, title: video.title || candidate.title }], track.duration).length) continue;
+        track.bitrate = video.stream.bitrate;
+        if (seconds) track.duration = seconds;
+        this.registerMetadata(track);
+        return { ...video.stream, duration: seconds };
       }
     } catch {
       // YouTube fallback failed
