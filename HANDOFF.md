@@ -290,3 +290,17 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 331 pass / 0 fail, `npm run test:e2e` 138 pass / 0 fail, `node scripts/check-release.mjs` 11 pass, `cargo test -p coucou --lib` 131 pass / 12 ignored, `cargo test -p anf-vault` 7 pass). `SafeHttps` refusal checks compiled and passed on this JDK (http, userinfo, non-443, loopback, LAN, CGNAT, documentation, 240/4, IPv6 loopback, IPv4-mapped loopback, `.local`, single-label). Android `main.ts` bundles with esbuild. NOT installed. Not a release. No phone, no Windows installer, no live LRCLIB, no live LAN sync.
 - Commit `edb6197` on `cursor/repair-sync-playback-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/91
 - Left in place on purpose: the phone SQL table and the Windows SQL table both say schema version 1 and are not the same shape; copying `coucou.db` between them still fails. Music, lyrics, and podcasts stay out of conversation backup and sync. The DNA button can still call its existing lookups. Reader scroll position and the character offset are still different coordinates. KOReader, OPDS, and the neural voice cache are still library modules with no screen calling them. The Android settings heading is the literal `0.1.48`. The pairing code is still the AES key; the screen already says to keep it private and to stop sharing on Windows to revoke it. Three Android players remain (HTML audio, Media3, optional Spotube).
+
+## 2026-11-04 Cursor: overnight wiring (multi-agent)
+
+Sleep-time autonomy run. Design: `docs/superpowers/specs/2026-11-04-overnight-wiring-design.md` on `cursor/overnight-buildup-d2fe`.
+
+| Branch | PR | State |
+|---|---|---|
+| `cursor/opds-catalog-ui-d2fe` | #93 | Documents OPDS browse panel; acquisition URLs; tested on Linux 332 unit |
+| `cursor/overnight-polish-d2fe` | #94 | Shared LRC parser + simplify-code BOM; tested on Linux 331 unit |
+| `cursor/tts-cache-wire-d2fe` | #95 | Neural read-aloud flag + disk-cache player; Phase 5 provider still missing; 334 unit |
+| `cursor/safe-fetch-image-d2fe` | pending | Rust `Kind::Image` + cover blob helper (in flight) |
+| `cursor/koreader-sync-ui-d2fe` | pending | kosync Tauri bridge + Settings/reader (in flight) |
+
+Rules kept: no merge to `main`, no restyle of shipped pills/Settings chrome, no pill renames, verification labels honest (NOT installed).
