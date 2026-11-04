@@ -1,6 +1,6 @@
 import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SpotubeStreamService, StreamResolutionError, cacheStreamTrack, PREVIEW_ONLY_MESSAGE, rankFullSongCandidates, type StreamTrackMetadata } from '../src/workspace/streaming-provider.js';
+import { SpotubeStreamService, StreamResolutionError, cacheStreamTrack, PREVIEW_ONLY_MESSAGE, rankFullSongCandidates, shouldResolveCatalogueTrack, type StreamTrackMetadata } from '../src/workspace/streaming-provider.js';
 import { setOnlineLookups } from '../src/workspace/online-lookups.js';
 
 const PREVIEW = 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview/v4/clip.m4a';
@@ -45,6 +45,59 @@ describe('full-length matches outrank 30 s clips', () => {
 
   test('every hit being a clip leaves nothing to play as the song', () => {
     assert.deepEqual(rankFullSongCandidates([{ id: 'clip', title: 'Song', duration: 30 }], 240), []);
+  });
+
+  test('a music-filter clip does not hide the full recording on the general search', async () => {
+    setOnlineLookups(true);
+    globalThis.fetch = (async (input: any) => {
+      const u = new URL(String(input));
+      if (u.hostname === 'itunes.apple.com') return json(itunes);
+      if (u.pathname.startsWith('/search') && u.searchParams.get('filter') === 'music_songs') {
+        return json({ items: [{ url: '/watch?v=shortclip11', title: 'WIMBO WANGU', duration: 30 }] });
+      }
+      if (u.pathname.startsWith('/search')) {
+        return json({ items: [{ url: '/watch?v=zn1FHSWPaTk', title: 'WIMBO WANGU', uploaderName: 'JTC ARUSHA', duration: 240 }] });
+      }
+      if (u.pathname.includes('shortclip11')) return json({ title: 'WIMBO WANGU', duration: 30, audioStreams: [{ url: 'https://rr1.googlevideo.com/clip30', mimeType: 'audio/mp4', bitrate: 96000 }] });
+      return json({ title: 'WIMBO WANGU', uploader: 'JTC ARUSHA', duration: 240, audioStreams: [{ url: 'https://rr1.googlevideo.com/full', mimeType: 'audio/mp4', bitrate: 128000 }] });
+    }) as typeof fetch;
+    const s = new SpotubeStreamService();
+    const [t] = await s.searchTracks('wimbo wangu');
+    t.streamUrl = PREVIEW;
+    const r = await s.resolveStream(t);
+    assert.ok(r);
+    assert.equal(r.streamUrl, 'https://rr1.googlevideo.com/full');
+    assert.notEqual(r.streamUrl, PREVIEW);
+    assert.ok(!r.preview);
+    assert.equal(r.duration, 240);
+  });
+
+  test('a 30 s hit reported in milliseconds does not block the full recording', async () => {
+    setOnlineLookups(true);
+    let queries = 0;
+    globalThis.fetch = (async (input: any) => {
+      const u = new URL(String(input));
+      if (u.hostname === 'itunes.apple.com') return json(itunes);
+      if (u.pathname.startsWith('/search')) {
+        queries += 1;
+        const q = u.searchParams.get('q') || '';
+        if (q.includes('audio')) {
+          return json({ items: [{ url: '/watch?v=zn1FHSWPaTk', title: 'WIMBO WANGU', duration: 240 }] });
+        }
+        return json({ items: [{ url: '/watch?v=shortclip11', title: 'WIMBO WANGU', duration: 30000 }] });
+      }
+      if (u.pathname.includes('shortclip11')) return json({ title: 'WIMBO WANGU', duration: 30, audioStreams: [{ url: 'https://rr1.googlevideo.com/clip30', mimeType: 'audio/mp4', bitrate: 96000 }] });
+      return json({ title: 'WIMBO WANGU', duration: 240, audioStreams: [{ url: 'https://rr1.googlevideo.com/full', mimeType: 'audio/mp4', bitrate: 128000 }] });
+    }) as typeof fetch;
+    const s = new SpotubeStreamService();
+    const [t] = await s.searchTracks('wimbo wangu');
+    const r = await s.resolveStream(t);
+    assert.ok(r);
+    assert.equal(r.streamUrl, 'https://rr1.googlevideo.com/full');
+    assert.notEqual(r.streamUrl, PREVIEW);
+    assert.ok(!r.preview);
+    assert.equal(r.duration, 240);
+    assert.ok(queries >= 2);
   });
 });
 
@@ -137,6 +190,16 @@ describe('30 s previews are never presented as the full song', () => {
     assert.match(PREVIEW_ONLY_MESSAGE, /YouTube/);
     assert.match(PREVIEW_ONLY_MESSAGE, /direct audio link/i);
     assert.match(PREVIEW_ONLY_MESSAGE, /import/i);
+  });
+
+  test('a queued catalogue row still pointing at the 30 s preview is resolved again', () => {
+    const full = 'https://rr1.googlevideo.com/full';
+    assert.equal(shouldResolveCatalogueTrack({ streamUrl: PREVIEW, preview: true }, PREVIEW), true);
+    assert.equal(shouldResolveCatalogueTrack({ streamUrl: PREVIEW }, PREVIEW), true);
+    assert.equal(shouldResolveCatalogueTrack({ streamUrl: full }, PREVIEW), false);
+    assert.equal(shouldResolveCatalogueTrack({ streamUrl: full, preview: true }, PREVIEW), true);
+    assert.equal(shouldResolveCatalogueTrack({ blobSize: 1200, streamUrl: PREVIEW }, PREVIEW), false);
+    assert.equal(shouldResolveCatalogueTrack({}, PREVIEW), true);
   });
 
   test('stored tracks from older versions had the preview as streamUrl: it moves to previewUrl', () => {
