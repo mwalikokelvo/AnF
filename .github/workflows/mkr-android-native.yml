@@ -45,7 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/prepare-android-sdk.mjs
-          "$ANDROID_HOME/cmdline-tools/latest/bin/android" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
+          cli="$(node scripts/prepare-android-sdk.mjs --print-cli)"
+          "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
       - name: Build disposable instrumentation APK with strict dependency verification
         working-directory: integrations/mkr-music/android-catalog
         run: gradle --no-daemon --no-configuration-cache testDebugUnitTest auditAndroidCatalogRuntime assembleDebugAndroidTest
