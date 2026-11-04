@@ -33,6 +33,9 @@ pub struct Part {
 pub struct Turn {
     pub role: String,
     pub content: Vec<Part>,
+    /// Phone-only speaker. Absent on desktop turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -91,6 +94,7 @@ pub fn validate(p: &Project) -> Result<(), String> {
         !matches!(t.role.as_str(), "user" | "assistant")
             || t.content.len() != 1
             || t.content[0].text.len() > 200_000
+            || !matches!(t.label.as_deref(), None | Some("pc") | Some("browser"))
     }) || p.sources.iter().any(|s| s.text.len() > 2_000_000 || s.name.len() > 2000)
     {
         return Err("Project contains invalid conversation or sources.".into());
@@ -183,12 +187,14 @@ mod tests {
                     content: vec![Part {
                         text: "Hello from the fixture.".into(),
                     }],
+                    label: None,
                 },
                 Turn {
                     role: "assistant".into(),
                     content: vec![Part {
                         text: "Schema is 1.".into(),
                     }],
+                    label: None,
                 },
             ],
             sources: vec![Source {
