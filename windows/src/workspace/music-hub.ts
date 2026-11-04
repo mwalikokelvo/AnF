@@ -45,6 +45,7 @@ import {
   verifyAudioUrl,
   isAudioContentType,
   PREVIEW_ONLY_MESSAGE,
+  shouldResolveCatalogueTrack,
   type StreamTrackMetadata
 } from './streaming-provider';
 import {
@@ -791,9 +792,9 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  function playbackMark(track:AudioTrack){return track.preview?'30 s PREVIEW':(formatBadge(track)||'320kbps');}
 
  async function ensurePlayable(track:AudioTrack):Promise<AudioTrack>{
-  if((track.blob&&track.blob.size>0)||track.streamUrl)return track;
   const id=track.id.startsWith('stream:')?track.id.slice('stream:'.length):track.id;
   const meta=await streamService.getTrack(id);
+  if(!shouldResolveCatalogueTrack({blobSize:track.blob?.size||0,streamUrl:track.streamUrl,preview:track.preview},meta?.previewUrl))return track;
   if(!meta||(meta.source!=='spotube'&&meta.source!=='spotify'&&meta.source!=='youtube'))return track;
   const resolved=await streamService.resolveStream(meta);
   if(!resolved?.streamUrl)return track;
