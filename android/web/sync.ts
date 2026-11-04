@@ -1,5 +1,5 @@
 import {readingState} from '../../windows/src/workspace/reader-data';
-import type {Project,Source} from './project-data';
+import {restoreProjects,type Project,type Source} from './project-data';
 export type WireTurn={role:string;content:{text:string}[];label?:'pc'|'browser'};
 export type Wire={id:string;name:string;title:string;question:string;draft:string;history:WireTurn[];sources:(Source&{path:null;pages:{number:number;text:string;ocr:boolean}[]})[];memory:string;model:string};
 export type Snapshot={project:Wire;revision:string};
@@ -37,6 +37,30 @@ export function toWire(p:Project,documents:boolean):Wire{
   if(bytes(wire.question)>10000)throw Error(`“${p.name}” has a question longer than Windows accepts (10,000 bytes). Move background material into a document before syncing.`);
   if(bytes(wire.name)>160||bytes(wire.title)>300||bytes(wire.draft)>200000||wire.history.length>1000||wire.history.some(t=>bytes(t.content[0].text)>200000)||wire.sources.some(s=>bytes(s.text)>2000000))throw Error(`“${p.name}” exceeds Windows text limits. Export it and split it before syncing.`);
   return wire;
+}
+function notesFromWindowsHistory(history:unknown):{role:string;text:string}[]{
+  if(history==null)return [];
+  if(!Array.isArray(history))throw Error('Backup contains invalid conversations.');
+  return history.map(turn=>{
+    const role=turn?.role,label=turn?.label;
+    if(role!=='user'&&role!=='assistant')throw Error('Backup contains invalid conversations.');
+    if(label!=null&&label!=='pc'&&label!=='browser')throw Error('Backup contains invalid conversations.');
+    const text=turn?.content?.[0]?.text;
+    if(typeof text!=='string')throw Error('Backup contains invalid conversations.');
+    return {role:phoneRole(turn),text};
+  });
+}
+function windowsSync(source:any):SyncMeta|undefined{
+  if(!source||typeof source.id!=='string'||!/^[0-9a-f]{64}$/.test(source.id)||typeof source.title!=='string'||typeof source.memory!=='string'||typeof source.model!=='string')return undefined;
+  return {id:source.id,title:source.title,memory:source.memory,model:source.model};
+}
+/** Restore a phone backup or a Windows backup as new phone copies. */
+export function restoreEitherHost(value:any,newId:()=>string,now=Date.now()):Project[]{
+  if(value?.kind!=='coucou-windows-backup')return restoreProjects(value,newId,now);
+  if(value.version!==1||!Array.isArray(value.projects))throw Error('Choose a AnF Windows backup.');
+  const projects=value.projects.map((p:any)=>({name:p?.name,draft:p?.draft,prompt:p?.question,notes:notesFromWindowsHistory(p?.history),sources:p?.sources,pendingReply:p?.pendingReply,responseLength:p?.responseLength,replyPlacement:p?.replyPlacement}));
+  const restored=restoreProjects({kind:'coucou-mobile-backup',version:1,projects},newId,now);
+  return restored.map((project,index)=>{const sync=windowsSync(value.projects[index]);return sync?{...project,sync}:project;});
 }
 export function fromWire(s:Snapshot,previous:Project|undefined,documents:boolean,newId:()=>string):Project{
   const p=s.project;

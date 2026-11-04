@@ -40,4 +40,5 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - Before specialized work (a framework, external service, design system, code review), check installed skills first. If none fits, use `find-skills` (or `skills find <query>`) to search skills.sh, and suggest or install the match.
 - Skip the search for routine edits and tasks that installed skills already cover.
 - Default working style is Ponytail: the smallest complete change. Reuse first, no speculative abstractions, never skip validation, security or tests for non-trivial logic.
+- Solve issues by dispatching one subagent per independent problem. The controller reviews the result, runs the tests, and makes the commit. Do not start the app over.
 - Keep skills current with `skills update -g`. After a release is built, report the final release (links, platforms, exact version) back to the primary AnF conversation.

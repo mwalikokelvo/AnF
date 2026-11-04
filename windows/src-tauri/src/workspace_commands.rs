@@ -345,11 +345,70 @@ pub async fn workspace_restore_pack(store:State<'_,projects::Store>,text:String)
 
 fn validated_restore(text:&str)->Result<Vec<projects::Project>,String>{
  if text.len()>10_000_000{return Err("Decrypted backup exceeds 10 MB.".into());}
+ if let Ok(value)=serde_json::from_str::<Value>(text){
+  if value.get("kind").and_then(|kind|kind.as_str())==Some("coucou-mobile-backup"){return mobile_projects(&value);}
+ }
   #[derive(serde::Deserialize)]struct Backup{kind:String,version:u32,projects:Vec<projects::Project>}
   let mut backup:Backup=serde_json::from_str(&text).map_err(|_|"Choose a AnF Windows backup.")?;
   if backup.kind!="coucou-windows-backup"||backup.version!=1||backup.projects.len()>200{return Err("Unsupported Windows backup.".into());}
   for p in &mut backup.projects{p.id=crate::local_ai::random_key()?;for source in &mut p.sources{source.path=None;}projects::validate(p)?;}
  Ok(backup.projects)
+}
+fn mobile_projects(value:&Value)->Result<Vec<projects::Project>,String>{
+ let version=value.get("version").and_then(|v|v.as_u64());
+ let raw=value.get("projects").and_then(|v|v.as_array()).ok_or("Choose a AnF Windows backup.")?;
+ if version!=Some(1)||raw.len()>200{return Err("Unsupported Windows backup.".into());}
+ let mut projects=Vec::with_capacity(raw.len());
+ for item in raw{
+  let sync=item.get("sync");
+  let model=sync.and_then(|s|s.get("model")).and_then(|v|v.as_str()).unwrap_or("fast");
+  let project=projects::Project{
+   id:crate::local_ai::random_key()?,
+   name:item.get("name").and_then(|v|v.as_str()).unwrap_or("").into(),
+   title:sync.and_then(|s|s.get("title")).and_then(|v|v.as_str()).unwrap_or("My document").into(),
+   question:item.get("prompt").and_then(|v|v.as_str()).unwrap_or("").into(),
+   draft:item.get("draft").and_then(|v|v.as_str()).unwrap_or("").into(),
+   history:mobile_notes(item.get("notes"))?,
+   sources:mobile_sources(item.get("sources"))?,
+   memory:sync.and_then(|s|s.get("memory")).and_then(|v|v.as_str()).unwrap_or("").into(),
+   model:if matches!(model,"fast"|"balanced"){model}else{"fast"}.into(),
+  };
+  projects::validate(&project)?;
+  projects.push(project);
+ }
+ Ok(projects)
+}
+fn mobile_notes(notes:Option<&Value>)->Result<Vec<projects::Turn>,String>{
+ let notes=notes.and_then(|v|v.as_array()).ok_or("Backup contains invalid conversations.")?;
+ notes.iter().map(mobile_note).collect()
+}
+fn mobile_note(note:&Value)->Result<projects::Turn,String>{
+ let text=note.get("text").and_then(|v|v.as_str()).ok_or("Backup contains invalid conversations.")?;
+ let (role,label)=match note.get("role").and_then(|v|v.as_str()){
+  Some("You")=>("user",None),
+  Some("PC offline AI")=>("assistant",Some("pc".into())),
+  Some("Browser reply")=>("assistant",Some("browser".into())),
+  Some("Assistant")=>("assistant",None),
+  _=>return Err("Backup contains invalid conversations.".into()),
+ };
+ Ok(projects::Turn{role:role.into(),content:vec![projects::Part{text:text.into()}],label})
+}
+fn mobile_sources(sources:Option<&Value>)->Result<Vec<Source>,String>{
+ let sources=sources.and_then(|v|v.as_array()).ok_or("Backup contains invalid conversations.")?;
+ sources.iter().map(mobile_source).collect()
+}
+fn mobile_source(source:&Value)->Result<Source,String>{
+ let name=source.get("name").and_then(|v|v.as_str()).ok_or("Backup contains invalid conversations.")?;
+ let text=source.get("text").and_then(|v|v.as_str()).ok_or("Backup contains invalid conversations.")?;
+ let pages=match source.get("pages").filter(|v|!v.is_null()){
+  Some(pages)=>serde_json::from_value(pages.clone()).map_err(|_| "Backup contains invalid conversations.".to_string())?,
+  None=>Vec::new(),
+ };
+ let reading=match source.get("reading").filter(|v|!v.is_null()){
+  Some(reading)=>Some(serde_json::from_value(reading.clone()).map_err(|_| "Backup contains invalid conversations.".to_string())?),
+  None=>None,
+ };
+ Ok(Source{reading,name:name.into(),text:text.into(),pages,path:None})
 }
 
 #[cfg(test)] mod backup_tests {
@@ -357,6 +416,155 @@ fn validated_restore(text:&str)->Result<Vec<projects::Project>,String>{
  fn sample()->serde_json::Value{serde_json::json!({"kind":"coucou-windows-backup","version":1,"projects":[{"id":"old-id","name":"Saved","title":"Draft","question":"","draft":"Private writing","history":[],"sources":[{"name":"text.txt","text":"Source","pages":[],"path":"C:\\untrusted\\file.txt"}],"memory":"","model":"fast"}]})}
  #[test]fn restore_assigns_new_ids_and_drops_paths(){let value=sample().to_string();let first=validated_restore(&value).unwrap();let second=validated_restore(&value).unwrap();assert_ne!(first[0].id,second[0].id);assert_eq!(first[0].id.len(),64);assert!(first[0].sources[0].path.is_none());assert_eq!(first[0].draft,"Private writing");}
  #[test]fn restore_validates_entire_batch(){let mut value=sample();let mut bad=value["projects"][0].clone();bad["model"]=serde_json::json!("not-a-model");value["projects"].as_array_mut().unwrap().push(bad);assert!(validated_restore(&value.to_string()).is_err());value["kind"]=serde_json::json!("other-app");assert!(validated_restore(&value.to_string()).is_err());assert!(validated_restore(&"x".repeat(10_000_001)).is_err());}
+ #[test]
+ fn restore_mobile_backup_becomes_a_new_windows_copy() {
+  let phone = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  let sync = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  let pack = serde_json::json!({
+   "kind": "coucou-mobile-backup",
+   "version": 1,
+   "projects": [{
+    "id": phone,
+    "name": "Trip",
+    "draft": "Pack light",
+    "prompt": "What should I bring?",
+    "notes": [
+     {"role": "You", "text": "Help me pack"},
+     {"role": "PC offline AI", "text": "Bring a coat"},
+     {"role": "Browser reply", "text": "And socks"},
+     {"role": "Assistant", "text": "Done"}
+    ],
+    "sources": [{"name": "list.txt", "text": "coat", "path": "C:\\secret\\list.txt"}],
+    "updated": 1,
+    "sync": {"id": sync, "title": "Packing list", "memory": "Likes trains", "model": "balanced"}
+   }]
+  });
+  let text = pack.to_string();
+  let first = validated_restore(&text).unwrap();
+  let second = validated_restore(&text).unwrap();
+  assert_ne!(first[0].id, second[0].id);
+  assert_eq!(first[0].id.len(), 64);
+  assert!(first[0].id.bytes().all(|b| b.is_ascii_hexdigit()));
+  assert_ne!(first[0].id, phone);
+  assert_ne!(first[0].id, sync);
+  assert_eq!(first[0].name, "Trip");
+  assert_eq!(first[0].draft, "Pack light");
+  assert_eq!(first[0].question, "What should I bring?");
+  assert_eq!(first[0].title, "Packing list");
+  assert_eq!(first[0].memory, "Likes trains");
+  assert_eq!(first[0].model, "balanced");
+  assert_eq!(first[0].history[0].role, "user");
+  assert!(first[0].history[0].label.is_none());
+  assert_eq!(first[0].history[0].content[0].text, "Help me pack");
+  assert_eq!(first[0].history[1].role, "assistant");
+  assert_eq!(first[0].history[1].label.as_deref(), Some("pc"));
+  assert_eq!(first[0].history[1].content[0].text, "Bring a coat");
+  assert_eq!(first[0].history[2].role, "assistant");
+  assert_eq!(first[0].history[2].label.as_deref(), Some("browser"));
+  assert_eq!(first[0].history[2].content[0].text, "And socks");
+  assert_eq!(first[0].history[3].role, "assistant");
+  assert!(first[0].history[3].label.is_none());
+  assert_eq!(first[0].history[3].content[0].text, "Done");
+  assert_eq!(first[0].sources.len(), 1);
+  assert_eq!(first[0].sources[0].name, "list.txt");
+  assert_eq!(first[0].sources[0].text, "coat");
+  assert!(first[0].sources[0].path.is_none());
+  assert!(first[0].sources[0].pages.is_empty());
+  assert!(first[0].sources[0].reading.is_none());
+ }
+ #[test]
+ fn restore_mobile_backup_defaults_missing_sync_strings() {
+  let pack = serde_json::json!({
+   "kind": "coucou-mobile-backup",
+   "version": 1,
+   "projects": [
+    {"id": "phone", "name": "Bare", "draft": "Text", "prompt": "Ask", "notes": [], "sources": []},
+    {"id": "phone", "name": "Odd", "draft": "", "prompt": "", "notes": [], "sources": [], "sync": {"id": "sync", "title": 4, "memory": null, "model": "smart"}},
+    {"id": "phone", "name": "Fast", "draft": "", "prompt": "", "notes": [], "sources": [], "sync": {"title": "", "memory": "Kept", "model": "fast"}}
+   ]
+  });
+  let restored = validated_restore(&pack.to_string()).unwrap();
+  assert_eq!(restored[0].title, "My document");
+  assert_eq!(restored[0].memory, "");
+  assert_eq!(restored[0].model, "fast");
+  assert_eq!(restored[0].question, "Ask");
+  assert_eq!(restored[1].title, "My document");
+  assert_eq!(restored[1].memory, "");
+  assert_eq!(restored[1].model, "fast");
+  assert_eq!(restored[2].title, "");
+  assert_eq!(restored[2].memory, "Kept");
+  assert_eq!(restored[2].model, "fast");
+ }
+ #[test]
+ fn restore_mobile_backup_rejects_bad_notes_for_the_whole_batch() {
+  let good = serde_json::json!({"id":"p","name":"Ok","draft":"","prompt":"","notes":[{"role":"You","text":"Hi"}],"sources":[]});
+  let unknown = serde_json::json!({"id":"p","name":"Bad","draft":"","prompt":"","notes":[{"role":"System","text":"no"}],"sources":[]});
+  let missing = serde_json::json!({"id":"p","name":"Bad","draft":"","prompt":"","sources":[]});
+  let number = serde_json::json!({"id":"p","name":"Bad","draft":"","prompt":"","notes":[{"role":"You","text":1}],"sources":[]});
+  for projects in [vec![unknown.clone()], vec![missing], vec![number], vec![good, unknown]] {
+   let pack = serde_json::json!({"kind":"coucou-mobile-backup","version":1,"projects":projects});
+   assert!(validated_restore(&pack.to_string()).is_err(), "{pack}");
+  }
+ }
+ #[test]
+ fn restore_mobile_backup_keeps_pages_and_reading_that_validate() {
+  let pack = serde_json::json!({
+   "kind":"coucou-mobile-backup","version":1,
+   "projects":[{
+    "id":"phone","name":"Doc","draft":"","prompt":"","notes":[],
+    "sources":[
+     {"name":"a.txt","text":"Source","path":"C:\\secret\\a.txt","pages":[{"number":2,"text":"Hello","ocr":false}],
+      "reading":{"offset":0,"bookmarks":[0],"annotations":[{"id":"h1","start":0,"end":6,"quote":"Source","color":"gold","note":"mark"}]}},
+     {"name":"b.txt","text":"Plain"}
+    ]
+   }]
+  });
+  let restored = validated_restore(&pack.to_string()).unwrap();
+  let page = &restored[0].sources[0].pages[0];
+  assert_eq!((page.number, page.text.as_str(), page.ocr), (2, "Hello", false));
+  let reading = restored[0].sources[0].reading.as_ref().unwrap();
+  assert_eq!(reading.offset, 0);
+  assert_eq!(reading.bookmarks, vec![0]);
+  assert_eq!(reading.annotations[0].id, "h1");
+  assert_eq!(reading.annotations[0].quote, "Source");
+  assert_eq!(reading.annotations[0].color, "gold");
+  assert_eq!(reading.annotations[0].note, "mark");
+  assert!(restored[0].sources[0].path.is_none());
+  assert!(restored[0].sources[1].pages.is_empty());
+  assert!(restored[0].sources[1].reading.is_none());
+ }
+ #[test]
+ fn restore_mobile_backup_returns_project_validate_errors() {
+  let bad_reading = serde_json::json!({
+   "kind":"coucou-mobile-backup","version":1,
+   "projects":[{
+    "id":"phone","name":"Doc","draft":"","prompt":"","notes":[],
+    "sources":[{"name":"a.txt","text":"Source","reading":{"offset":0,"bookmarks":[],"annotations":[{"id":"h1","start":0,"end":6,"quote":"Source","color":"blue","note":""}]}}]
+   }]
+  });
+  match validated_restore(&bad_reading.to_string()) {
+   Err(message) => assert_eq!(message, "Project contains invalid conversation or sources."),
+   Ok(_) => panic!("invalid reading was restored"),
+  }
+  let mut long = bad_reading;
+  long["projects"][0]["sources"] = serde_json::json!([{"name":"a.txt","text":"Source"}]);
+  long["projects"][0]["prompt"] = serde_json::json!("q".repeat(10001));
+  match validated_restore(&long.to_string()) {
+   Err(message) => assert_eq!(message, "Project is too large or invalid. Start a new project and keep the old one saved."),
+   Ok(_) => panic!("oversized prompt was restored"),
+  }
+ }
+ #[test]
+ fn restore_mobile_backup_rejects_wrong_version_and_over_200_projects() {
+  let one = serde_json::json!({"id":"p","name":"N","draft":"","prompt":"","notes":[],"sources":[]});
+  let mut pack = serde_json::json!({"kind":"coucou-mobile-backup","version":2,"projects":[one.clone()]});
+  assert!(validated_restore(&pack.to_string()).is_err());
+  pack["version"] = serde_json::json!(1);
+  pack["projects"] = serde_json::Value::Array(vec![one.clone(); 200]);
+  assert_eq!(validated_restore(&pack.to_string()).map(|items| items.len()).ok(), Some(200));
+  pack["projects"] = serde_json::Value::Array(vec![one; 201]);
+  assert!(validated_restore(&pack.to_string()).is_err());
+ }
 }
 
 #[tauri::command]
