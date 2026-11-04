@@ -131,6 +131,19 @@ export function findBrokenStreamEntries<T extends Parameters<typeof isBrokenStre
   return tracks.filter(isBrokenStreamEntry);
 }
 
+/** Returns playlists whose `order` had at least one id removed; does not mutate inputs. */
+export function pruneIdsFromPlaylistOrders<T extends { id: string; order: string[] }>(
+  playlists: readonly T[],
+  ids: ReadonlySet<string>
+): T[] {
+  const pruned: T[] = [];
+  for (const p of playlists) {
+    const order = p.order.filter(id => !ids.has(id));
+    if (order.length !== p.order.length) pruned.push({ ...p, order });
+  }
+  return pruned;
+}
+
 /**
  * Best-effort HEAD check of a direct link before it is handed to the audio element.
  * Refuses when the server answers with a non-audio type (for example text/html). A network

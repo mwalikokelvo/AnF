@@ -296,3 +296,8 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Replaced every `prompt()` / `confirm()` in `music-hub.ts` with `askText` / `askConfirm` (`music-dialogs.ts`, existing `music-dialog` modal styling): New playlist, Save queue as playlist, Delete playlist, Add feed, Remove feed, plus import playlist confirm, clear listening totals, and clear entire queue.
 - `scripts/app-qa/music-audit.mjs`, `music-hub.mjs`, and `music-direct-audio.mjs` drive the new dialogs instead of native `page.on('dialog')`.
 - Labels: Linux `npm test` 335 pass / 0 fail, `npm run typecheck` clean, `npm run build` ok. NOT installed WebView2.
+
+## 2026-11-04 Cursor: broken stream cleanup re-land (branch `cursor/broken-streams-reland-d2fe`)
+
+- Restored Music tab **Remove broken stream entries (N)** when N>0; uses `askConfirm` (stacked on playlist-dialogs); removes via `findBrokenStreamEntries`; prunes recent/liked/queue/originalQueue and playlist `order` via `pruneIdsFromPlaylistOrders` + `library.savePlaylist`.
+- Labels: tested on Linux (`tsc`, `npm test`). NOT installed.
