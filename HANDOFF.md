@@ -296,3 +296,9 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Wired `opds-client.ts` acquisition URLs into parsing; new `opds-panel.ts` in Documents (`OPDS catalogs` details): save catalog URLs, opt-in **Allow catalog requests**, browse up to 5 pages, **Open link** via `open_url` or HTML via `workspace_read_web`.
 - Labels: **tested on Linux** (`npx tsc --noEmit`, `npm test` 332 pass, `check-release.mjs` 11 pass). Not installed.
 - Branch `cursor/opds-catalog-ui-d2fe` (worktree `.worktrees/opds-ui`). No PR.
+
+## 2026-11-04 Cursor: safe_fetch Document + OPDS download (branch `cursor/safe-fetch-document-d2fe`)
+
+- Stacked on `cursor/safe-fetch-image-d2fe` with OPDS panel cherry-pick (`348cfb6`). Rust `Kind::Document` (50 MB cap; `application/epub+zip`, `application/pdf`, cautious `octet-stream` / `.epub` zip), `safe_fetch_document`, TS `safeFetchDocument`. OPDS **Open link** uses `safeFetchDocument` + `ingest_bytes` when `hasSafeFetch()`; otherwise EPUB still uses `open_url`.
+- Labels: **tested on Linux** (`npx tsc --noEmit`, `npm test` 339 pass / 0 fail). Rust policy tests not run locally (Tauri build needs gitignored `local-ai/`). NOT installed.
+- Commits `0b1414a`, `4832bcc` on `cursor/safe-fetch-document-d2fe`. No PR.
