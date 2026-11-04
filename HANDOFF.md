@@ -303,4 +303,7 @@ Sleep-time autonomy run. Design: `docs/superpowers/specs/2026-11-04-overnight-wi
 | `cursor/safe-fetch-image-d2fe` | #98 | Rust `Kind::Image` + Music Hub blob covers; TS 335 + Rust policy 11 |
 | `cursor/koreader-sync-ui-d2fe` | #97 | kosync Tauri bridge + Settings/reader; TS 333 + Rust koreader 2; mut-response fix |
 
+| `cursor/playlist-dialogs-d2fe` | #99 | In-app askText/askConfirm for Music Hub |
+| `cursor/broken-streams-reland-d2fe` | #100 | Re-land broken stream cleanup (stacked on #99) |
+
 Rules kept: no merge to `main`, no restyle of shipped pills/Settings chrome, no pill renames, verification labels honest (NOT installed).
