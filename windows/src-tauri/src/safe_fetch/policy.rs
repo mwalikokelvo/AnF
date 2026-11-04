@@ -10,9 +10,12 @@ pub enum Kind {
     Feed,
     /// A podcast enclosure. Binary, capped at `AUDIO_CAP`.
     Audio,
+    /// Podcast / stream cover art. Binary, capped at `IMAGE_CAP`.
+    Image,
 }
 
 pub const TEXT_CAP: usize = 2_000_000;
+pub const IMAGE_CAP: usize = 2_000_000;
 pub const AUDIO_CAP: usize = 200_000_000;
 pub const MAX_REDIRECTS: usize = 3;
 
@@ -21,6 +24,7 @@ impl Kind {
         match value {
             "feed" | "json" | "text" => Some(Kind::Feed),
             "audio" => Some(Kind::Audio),
+            "image" => Some(Kind::Image),
             _ => None,
         }
     }
@@ -28,12 +32,14 @@ impl Kind {
         match self {
             Kind::Feed => TEXT_CAP,
             Kind::Audio => AUDIO_CAP,
+            Kind::Image => IMAGE_CAP,
         }
     }
     pub fn timeout_secs(self) -> u64 {
         match self {
             Kind::Feed => 20,
             Kind::Audio => 300,
+            Kind::Image => 20,
         }
     }
 }
@@ -151,6 +157,12 @@ pub fn content_type_allowed(kind: Kind, header: Option<&str>) -> bool {
                     "application/ogg" | "application/octet-stream" | "binary/octet-stream"
                 )
         }
+        Kind::Image => {
+            matches!(
+                essence.as_str(),
+                "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "image/avif"
+            )
+        }
     }
 }
 
@@ -263,12 +275,32 @@ mod tests {
     }
 
     #[test]
+    fn image_content_types() {
+        for t in [
+            "image/jpeg",
+            "image/png",
+            "IMAGE/WEBP",
+            "image/gif; charset=binary",
+            "image/avif",
+        ] {
+            assert!(content_type_allowed(Kind::Image, Some(t)), "{t}");
+        }
+        for t in ["text/html", "application/json", "audio/mpeg", "image/svg+xml", "video/mp4"] {
+            assert!(!content_type_allowed(Kind::Image, Some(t)), "{t}");
+        }
+        assert!(!content_type_allowed(Kind::Image, None));
+    }
+
+    #[test]
     fn kinds_and_limits() {
         assert_eq!(Kind::parse("feed"), Some(Kind::Feed));
         assert_eq!(Kind::parse("json"), Some(Kind::Feed));
         assert_eq!(Kind::parse("audio"), Some(Kind::Audio));
+        assert_eq!(Kind::parse("image"), Some(Kind::Image));
         assert_eq!(Kind::parse("html"), None);
         assert_eq!(Kind::Feed.cap(), 2_000_000);
+        assert_eq!(Kind::Image.cap(), 2_000_000);
+        assert_eq!(Kind::Image.timeout_secs(), 20);
         assert_eq!(MAX_REDIRECTS, 3);
     }
 
