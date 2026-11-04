@@ -9,6 +9,8 @@ export interface OpdsBook {
   title: string;
   thumbnailUrl?: string;
   imageUrl?: string;
+  acquisitionUrl?: string;
+  acquisitionType?: string;
 }
 
 export interface OpdsCursor {
@@ -103,6 +105,7 @@ interface XmlEl {
 interface RawLink {
   href: string;
   rels: string[];
+  type?: string;
 }
 
 function localName(name: string): string {
@@ -303,13 +306,27 @@ function xmlLink(attrs: Record<string, string>, base: string): RawLink | undefin
   if (!attrs.href) return undefined;
   const href = resolveHref(attrs.href, base);
   if (!href) return undefined;
-  return { href, rels: (attrs.rel ?? '').split(/\s+/).filter(Boolean) };
+  const type = typeof attrs.type === 'string' && attrs.type.trim() ? attrs.type.trim() : undefined;
+  return { href, rels: (attrs.rel ?? '').split(/\s+/).filter(Boolean), type };
 }
 
 function isAcquisition(rel: string): boolean {
   return rel === 'download'
     || rel === 'http://opds-spec.org/acquisition'
     || rel.startsWith('http://opds-spec.org/acquisition/');
+}
+
+function isOpenAccess(rel: string): boolean {
+  return rel === 'http://opds-spec.org/acquisition/open-access';
+}
+
+function pickAcquisitionLink(links: readonly RawLink[]): { url?: string; type?: string } {
+  const acq = links.filter((link) => link.rels.some(isAcquisition));
+  if (!acq.length) return {};
+  const chosen = acq.find((link) => link.rels.some(isOpenAccess)) ?? acq[0];
+  const out: { url?: string; type?: string } = { url: chosen.href };
+  if (chosen.type) out.type = chosen.type;
+  return out;
 }
 
 function atomBook(entry: XmlEl, base: string): OpdsBook | undefined {
@@ -319,19 +336,20 @@ function atomBook(entry: XmlEl, base: string): OpdsBook | undefined {
     .filter((link): link is RawLink => link !== undefined);
   let thumbnail: string | undefined;
   let image: string | undefined;
-  let acquisition = false;
+  const acquisition = pickAcquisitionLink(links);
   for (const link of links) {
     if (!thumbnail && link.rels.includes(THUMB)) thumbnail = link.href;
     if (!image && link.rels.includes(IMAGE)) image = link.href;
-    if (!acquisition && link.rels.some(isAcquisition)) acquisition = true;
   }
-  if (!acquisition && !thumbnail && !image) return undefined;
+  if (!acquisition.url && !thumbnail && !image) return undefined;
   const title = directText(entry.children.find((child) => child.name === 'title'));
   const id = directText(entry.children.find((child) => child.name === 'id')) || title;
   if (!id) return undefined;
   const book: OpdsBook = { id, title: title || id };
   if (thumbnail) book.thumbnailUrl = thumbnail;
   if (image) book.imageUrl = image;
+  if (acquisition.url) book.acquisitionUrl = acquisition.url;
+  if (acquisition.type) book.acquisitionType = acquisition.type;
   return book;
 }
 
@@ -388,7 +406,8 @@ function linkList(value: unknown, base: string): RawLink[] {
     if (!record || typeof record.href !== 'string') continue;
     const href = resolveHref(record.href, base);
     if (!href) continue;
-    links.push({ href, rels: relsOf(record.rel) });
+    const mediaType = typeof record.type === 'string' && record.type.trim() ? record.type.trim() : undefined;
+    links.push({ href, rels: relsOf(record.rel), type: mediaType });
   }
   return links;
 }
@@ -418,9 +437,12 @@ function collectPublications(value: Record<string, unknown>, base: string, books
     const id = textValue(metadata.identifier) || title;
     if (!id) continue;
     const covers = coverFields(linkList(record.images, base));
+    const acquisition = pickAcquisitionLink(linkList(record.links, base));
     const book: OpdsBook = { id, title: title || id };
     if (covers.thumbnail) book.thumbnailUrl = covers.thumbnail;
     if (covers.image) book.imageUrl = covers.image;
+    if (acquisition.url) book.acquisitionUrl = acquisition.url;
+    if (acquisition.type) book.acquisitionType = acquisition.type;
     books.push(book);
   }
   const groups = Array.isArray(value.groups) ? value.groups : [];

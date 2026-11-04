@@ -291,7 +291,8 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Commit `edb6197` on `cursor/repair-sync-playback-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/91
 - Left in place on purpose: the phone SQL table and the Windows SQL table both say schema version 1 and are not the same shape; copying `coucou.db` between them still fails. Music, lyrics, and podcasts stay out of conversation backup and sync. The DNA button can still call its existing lookups. Reader scroll position and the character offset are still different coordinates. KOReader, OPDS, and the neural voice cache are still library modules with no screen calling them. The Android settings heading is the literal `0.1.48`. The pairing code is still the AES key; the screen already says to keep it private and to stop sharing on Windows to revoke it. Three Android players remain (HTML audio, Media3, optional Spotube).
 
-### 2026-11-04 — Cursor (`cursor/safe-fetch-image-d2fe`, commits `752cd81`, `81692a1`)
+### 2026-11-04 — OPDS catalog UI (Windows Documents)
 
-- Rust `safe_fetch` gains `Kind::Image` (2 MB cap, 20 s timeout, jpeg/png/webp/gif/avif) and Tauri command `safe_fetch_image`. TypeScript `safeFetchImage` plus `resolveCoverSrc`; Music Hub loads podcast/stream/flow/player covers via blob URLs when desktop safe-fetch is available. CSP unchanged.
-- Labels: tested on Linux (`rustc --test` on `safe_fetch/policy.rs` 11 pass; `npm test` 335 pass; `check-release.mjs` 11 pass). Full `cargo test -p coucou` not run locally (gitignored Tauri bundle resources). NOT installed.
+- Wired `opds-client.ts` acquisition URLs into parsing; new `opds-panel.ts` in Documents (`OPDS catalogs` details): save catalog URLs, opt-in **Allow catalog requests**, browse up to 5 pages, **Open link** via `open_url` or HTML via `workspace_read_web`.
+- Labels: **tested on Linux** (`npx tsc --noEmit`, `npm test` 332 pass, `check-release.mjs` 11 pass). Not installed.
+- Branch `cursor/opds-catalog-ui-d2fe` (worktree `.worktrees/opds-ui`). No PR.
