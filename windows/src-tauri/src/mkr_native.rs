@@ -18,7 +18,7 @@ struct Inner {
     #[cfg(all(windows, feature = "embedded-mkr"))]
     host: Mutex<Option<Arc<anf_mkr_windows_audio::host::PlaybackHost>>>,
     #[cfg(all(windows, feature = "embedded-mkr"))]
-    starting: std::sync::atomic::AtomicBool,
+    starting: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(all(windows, feature = "embedded-mkr"))]
     stopped: std::sync::atomic::AtomicBool,
 }
@@ -154,9 +154,8 @@ async fn host(
         };
     }
     let manifest = REVIEWED_MANIFEST.ok_or(UNAVAILABLE)?;
-    if inner.starting.swap(true, Ordering::AcqRel) {
-        return Err("MKR is starting.".into());
-    }
+    let admission = crate::mkr_startup::Reservation::acquire(inner.starting.clone())
+        .ok_or("MKR is starting.")?;
     let app = app.clone();
     let launched = tauri::async_runtime::spawn_blocking(move || {
         let root = app
@@ -164,13 +163,15 @@ async fn host(
             .resolve("mkr-runtime", tauri::path::BaseDirectory::Resource)
             .map_err(|_| UNAVAILABLE)?;
         let runtime = anf_mkr_windows_audio::resources::VerifiedRuntime::verify(&root, manifest)?;
-        anf_mkr_windows_audio::host::PlaybackHost::launch(runtime, false).map(Arc::new)
+        let host = anf_mkr_windows_audio::host::PlaybackHost::launch(runtime, false).map(Arc::new)?;
+        // The blocking worker retains admission if its async receiver is cancelled.
+        Ok::<_, String>((host, admission))
     })
     .await
     .map_err(|_| "MKR startup did not complete.".to_owned())
     .and_then(|v| v);
-    inner.starting.store(false, Ordering::Release);
-    let host = launched?;
+    // Keep admission until the prepared host has been installed or discarded.
+    let (host, _publication) = launched?;
     let mut slot = inner.host.lock().map_err(|_| UNAVAILABLE)?;
     if inner.stopped.load(Ordering::Acquire) {
         host.shutdown();

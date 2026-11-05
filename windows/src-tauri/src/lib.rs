@@ -30,6 +30,8 @@ mod managed_proxy;
 mod music_native;
 mod mkr_native;
 mod mkr_handoff;
+#[cfg(all(windows, feature = "embedded-mkr"))]
+mod mkr_startup;
 mod pdf_preview;
 mod projects;
 mod reader;
