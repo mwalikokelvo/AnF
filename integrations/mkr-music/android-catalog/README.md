@@ -48,7 +48,7 @@ owns queue/lease cleanup. Shutdown completes native release even from a cancelle
 owner coroutine. ExoPlayer uses only the opaque-lease progressive source with
 automatic load retries disabled. All player access is on the Android main thread.
 
-The current suite passes 41 host tests: 19 catalog/policy, 12 input/bounds/privacy
+That controller milestone passed 41 host tests: 19 catalog/policy, 12 input/bounds/privacy
 and 10 controller tests with fake audio. Compiling ExoPlayer is not native
 decoder or framework lifecycle acceptance.
 
@@ -61,7 +61,7 @@ The `MKR Android native QA` workflow runs them on an isolated Android 15 emulato
 and retains reports only. Emulator results remain separate from host unit tests,
 production-app integration, physical-device tests and update-signer verification.
 
-This is not an available in-app player. Foreground MediaSession/service integration,
+This is not an available in-app player. Foreground service/notification and production application integration,
 the real cross-engine handoff/bridge and emulator/device/provider
 acceptance remain required. No production capability is enabled by this build.
 Prepared upstream sources retain their original licenses; this build adapter
@@ -86,3 +86,42 @@ exact candidate pin; historical runtime-evidence.json still refers to v0.7.0.
 These checks do not prove live provider playback. Full Android source/distribution review and
 production service/provider playback remain incomplete; no release app is linked
 or made available by this dependency update.
+
+
+## Android system media controls
+
+`AndroidMediaSession` owns a controller and a platform media session. It remains
+inactive until explicit activation. Play, pause, stop, selected track, previous,
+next and seek callbacks use the same controller and acknowledged audio handoff;
+URI/search/custom-action callbacks cannot bypass the selected queue. Its token
+stays native. Metadata includes track identity, title, artist and duration, never
+the stream URL or headers. Command/native failures publish fixed safe messages
+and remain latched until an explicit successful command or refresh.
+
+Media3 player events update the session on its main dispatcher. There is no
+periodic status timer: Android extrapolates playing position from the published
+speed and monotonic update time. Buffering, decoder errors and focus/play state
+changes arrive through the player listener. Closing cancels owned commands,
+closes the supplied controller and releases the session, including from a
+cancelled owner coroutine. Do not share the supplied controller with another
+session owner.
+
+[Run42082623789](https://github.com/mwalikokelvo/AnF/actions/runs/42082623789)
+at `d025b95` passed43 host tests and7 Android15 instrumentation tests with strict
+dependency verification and the unchanged62-artifact runtime graph. This includes
+actual platform MediaController/MediaSession transport and one joint route through
+the controller to muted Media3 decoding of the hash-checked generated AAC. Other
+session edge cases use fake catalog/audio; no test contacted a music provider.
+An internal lease factory enables that generated transport in tests; its default
+is the original native lease construction, with no renderer or environment input.
+The denial fixture still requires one request, a decoder error and a revoked
+lease whether denial latches before or after the play command.
+
+These checks do not verify foreground service survival, notifications, actual
+AnF app wiring, physical devices, provider access or signed installed upgrades.
+No manifest permissions, production app IDs, signers, dependency versions or
+availability flags changed. This library is not linked into either release app.
+
+Platform references: [session lifecycle and callbacks](https://developer.android.com/reference/android/media/session/MediaSession),
+[playback state timing](https://developer.android.com/reference/android/media/session/PlaybackState.Builder),
+and [Android15 system position calculation](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-15.0.0_r1/services/core/java/com/android/server/media/MediaSessionRecord.java).
