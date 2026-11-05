@@ -6,12 +6,12 @@ body.music-view .workspace-header,body.music-view .mobile-project{display:none!i
 body.has-music-player .panel-host{scroll-padding-bottom:140px}
 @media(max-width:1200px){.music-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.music-player{left:234px;gap:12px}.music-extras{display:none}.music-player{grid-template-columns:1fr 1.4fr}}
 /* Extras (including EQ) are hidden from 1280 down so the title keeps its width. One Equalizer control stays in the transport. */
-.music-player:not(.music-full-player) .music-eq-dock{display:none}
+.music-player:not(.music-full-player,.mkr-dock) .music-eq-dock{display:none}
 .music-full-player .music-eq-dock{display:none!important}
-@media(max-width:1280px){.music-player:not(.music-full-player) .music-controls>.music-eq-dock{display:grid!important}}
+@media(max-width:1280px){.music-player:not(.music-full-player,.mkr-dock) .music-controls>.music-eq-dock{display:grid!important}}
 /* At 1280 and narrower the extras column squeezed the title to ~70px; the extras stay in the full player. The pill keeps its left edge until 1200. */
-@media(max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player) .music-extras{display:none}}
-@media(min-width:1201px) and (max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr)!important}}
+@media(max-width:1280px){.music-player:not(.music-full-player,.mkr-dock):not(.native-music-player) .music-extras{display:none}}
+@media(min-width:1201px) and (max-width:1280px){.music-player:not(.music-full-player,.mkr-dock):not(.native-music-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr)!important}}
 @media(max-width:760px){.music-heading{flex-wrap:wrap;gap:14px}.music-heading>div{flex:1}.music-monogram{order:0}.music-search{order:1;flex-basis:100%}.music-hub{padding:20px 14px 115px;border-radius:0}.music-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}.music-tabs{justify-content:space-between}.music-tabs button{flex:1;padding:12px 4px}.music-section-title{flex-wrap:wrap}.music-recent{grid-template-columns:1fr}.music-player{left:190px;right:10px;bottom:10px;grid-template-columns:minmax(0,1fr) auto;padding:9px;gap:8px}.music-player-art{width:48px;height:48px}.music-now{gap:10px}.music-now>button:not(.music-now-info){display:none}.music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}.music-progress span{display:none}.music-progress input{height:4px!important;min-height:4px!important}.music-controls{gap:0}.music-controls>button:not(.music-play){display:none}.music-now strong{font-size:12px}.music-now span{font-size:10px}.music-playlist-create{flex-wrap:wrap}}
 #app~.music-player,body:has(#app)>.music-player{left:10px;right:10px;bottom:var(--mobile-player-bottom,88px);grid-template-columns:minmax(0,1fr) auto;gap:12px}body:has(#app) .music-player .music-extras{display:none}body:has(#app) .music-player-art{width:48px;height:48px}body:has(#app) .music-player .music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}body:has(#app) .music-player .music-progress span{display:none}body:has(#app) .music-player .music-controls>button:not(.music-play){display:none}body:has(#app) .music-player .music-now>button:not(.music-now-info){display:none}body:has(#app) .bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr))!important}body:has(#app) .bottom-nav button{font-size:9px}
 
@@ -78,8 +78,8 @@ body.has-native-music-player #app>main{padding-bottom:130px}
 /* Lift the whole content column, status footer included, above the docked player. */
 body.has-music-player .workspace-content,body.has-native-music-player .workspace-content{padding-bottom:112px}
 /* The docked bar keeps seek and queue; the rest stays in the full player. */
-.music-player:not(.music-full-player) .music-extras{min-width:0;overflow:hidden;justify-content:flex-end}
-.music-player:not(.music-full-player) .music-extras>:is([aria-label="Clear queue"],[aria-label="Lock screen"],.music-speed,.music-sleep,.music-volume){display:none}
+.music-player:not(.music-full-player,.mkr-dock) .music-extras{min-width:0;overflow:hidden;justify-content:flex-end}
+.music-player:not(.music-full-player,.mkr-dock) .music-extras>:is([aria-label="Clear queue"],[aria-label="Lock screen"],.music-speed,.music-sleep,.music-volume){display:none}
 @media(max-width:760px){.native-music-player .music-controls>button{display:grid!important;padding:6px;min-width:34px}.native-music-source{display:flex}.native-music-player .music-now-info{padding:0}.native-music-player .music-progress{height:4px}}
 body:has(#app) .native-music-player .music-controls>button{display:grid!important;padding:6px;min-width:34px}
 body:has(#app) .native-music-source{display:flex}
@@ -163,7 +163,7 @@ body:has(#app) .native-music-source{display:flex}
 
 
 /* Lyrics: full player only. */
-.music-player:not(.music-full-player) .music-lyrics{display:none}
+.music-player:not(.music-full-player,.mkr-dock) .music-lyrics{display:none}
 .music-full-player .music-lyrics{width:min(100%,560px);max-height:42vh;overflow:auto;display:grid;gap:4px;justify-items:center;text-align:center;padding:8px 0 24px;scrollbar-width:thin}
 .music-full-player .music-lyric{margin:0;padding:6px 12px;border:0;border-radius:10px;background:transparent;color:#f4f7f580;font-size:18px;line-height:1.45;font-weight:500;transition:color .2s ease,transform .2s ease}
 .music-full-player button.music-lyric:hover{color:#f4f7f5;background:#ffffff10}
@@ -971,7 +971,7 @@ body:has(#app) .native-music-source{display:flex}
 }
 
 /* 2. Floating Frosted-Glass Pill Player Bar */
-.music-player:not(.music-full-player) {
+.music-player:not(.music-full-player,.mkr-dock) {
   position: fixed !important;
   bottom: 24px !important;
   left: 50% !important;
@@ -997,21 +997,21 @@ body:has(#app) .native-music-source{display:flex}
 /* At 1200px and below the extras column is hidden (legacy rule above), but the pill still reserved its grid column and the now-playing
    title shrank to 2px. Drop that column, hide the decorative bars, tighten the transport, and below 900px move Like to the full player. */
 @media(min-width:768px) and (max-width:1200px){
-  .music-player:not(.music-full-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr) !important;gap:14px !important;padding:10px 18px !important}
-  .music-player:not(.music-full-player) .music-controls{gap:6px}
+  .music-player:not(.music-full-player,.mkr-dock){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr) !important;gap:14px !important;padding:10px 18px !important}
+  .music-player:not(.music-full-player,.mkr-dock) .music-controls{gap:6px}
 }
-@media(max-width:1200px){.music-player:not(.music-full-player) .music-visualizer-mini{display:none}}
-@media(max-width:900px){.music-player:not(.music-full-player) .music-now>button:not(.music-now-info){display:none}}
+@media(max-width:1200px){.music-player:not(.music-full-player,.mkr-dock) .music-visualizer-mini{display:none}}
+@media(max-width:900px){.music-player:not(.music-full-player,.mkr-dock) .music-now>button:not(.music-now-info){display:none}}
 /* Bottom-bar layout (under 768px): span the window and sit above the bar (nav-rail.css asks for bottom:92px but loses to the pill's !important), instead of the 280-380px of the desktop width formula overlapping the bar. */
-@media(max-width:767px){.music-player:not(.music-full-player){width:calc(100vw - 32px) !important;bottom:92px !important;grid-template-columns:minmax(0,1fr) auto !important;gap:12px !important;padding:10px 14px !important}}
+@media(max-width:767px){.music-player:not(.music-full-player,.mkr-dock){width:calc(100vw - 32px) !important;bottom:92px !important;grid-template-columns:minmax(0,1fr) auto !important;gap:12px !important;padding:10px 14px !important}}
 /* Android has two navigation rows whose measured height varies with text size.
    The shared desktop pill must not cover either row, including on tablets. */
-body:has(#app)>.music-player:not(.music-full-player){bottom:var(--mobile-player-bottom,calc(112px + env(safe-area-inset-bottom)))!important;width:calc(100vw - 20px)!important;left:50%!important;right:auto!important;grid-template-columns:minmax(0,1fr) auto!important;gap:12px!important;padding:10px 14px!important}
-.music-player:not(.music-full-player):hover {
+body:has(#app)>.music-player:not(.music-full-player,.mkr-dock){bottom:var(--mobile-player-bottom,calc(112px + env(safe-area-inset-bottom)))!important;width:calc(100vw - 20px)!important;left:50%!important;right:auto!important;grid-template-columns:minmax(0,1fr) auto!important;gap:12px!important;padding:10px 14px!important}
+.music-player:not(.music-full-player,.mkr-dock):hover {
   box-shadow: 0 24px 56px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
 }
 
-.music-player:not(.music-full-player) .music-player-art {
+.music-player:not(.music-full-player,.mkr-dock) .music-player-art {
   width: 52px !important;
   height: 52px !important;
   border-radius: 50% !important;
@@ -1323,3 +1323,5 @@ body:has(#app)>.music-player:not(.music-full-player){bottom:var(--mobile-player-
     scroll-behavior: auto !important;
   }
 }
+
+/* MKR owns a separate responsive dock; compact Music Hub rules exclude it above. */
