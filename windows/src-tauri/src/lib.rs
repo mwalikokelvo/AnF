@@ -29,6 +29,7 @@ mod managed_process;
 mod managed_proxy;
 mod music_native;
 mod mkr_native;
+mod mkr_handoff;
 mod pdf_preview;
 mod projects;
 mod reader;

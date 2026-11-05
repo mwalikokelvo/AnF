@@ -14,7 +14,7 @@ const REVIEWED_MANIFEST: Option<&'static str> = None;
 pub struct Managed(Arc<Inner>);
 #[derive(Default)]
 struct Inner {
-    pending: Mutex<Option<(String, tokio::sync::oneshot::Sender<bool>)>>,
+    pending: crate::mkr_handoff::PendingSlot<tokio::sync::oneshot::Sender<bool>>,
     #[cfg(all(windows, feature = "embedded-mkr"))]
     host: Mutex<Option<Arc<anf_mkr_windows_audio::host::PlaybackHost>>>,
     #[cfg(all(windows, feature = "embedded-mkr"))]
@@ -189,32 +189,17 @@ async fn acknowledge_pause(app: &tauri::AppHandle, inner: &Inner) -> Result<(), 
         .map_err(|_| "MKR handoff unavailable.")?;
     let token: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
     let (reply, wait) = tokio::sync::oneshot::channel();
-    {
-        let mut pending = inner
-            .pending
-            .lock()
-            .map_err(|_| "MKR handoff unavailable.")?;
-        if pending.is_some() {
-            return Err("MKR handoff is already in progress.".into());
-        }
-        *pending = Some((token.clone(), reply));
+    // Drop releases this exact token on success, failure, timeout or cancelled IPC.
+    let _reservation = crate::mkr_handoff::Reservation::reserve(
+        inner.pending.clone(), token.clone(), reply,
+    ).map_err(str::to_owned)?;
+    crate::music_native::music_pause().await?;
+    app.emit_to("workspace", "mkr-pause-request", json!({"token":token}))
+        .map_err(|_| "MKR workspace unavailable.")?;
+    match tokio::time::timeout(std::time::Duration::from_secs(4), wait).await {
+        Ok(Ok(true)) => Ok(()),
+        _ => Err("Other audio did not acknowledge pausing. MKR playback was cancelled.".into()),
     }
-    let outcome = async {
-        crate::music_native::music_pause().await?;
-        app.emit_to("workspace", "mkr-pause-request", json!({"token":token}))
-            .map_err(|_| "MKR workspace unavailable.")?;
-        match tokio::time::timeout(std::time::Duration::from_secs(4), wait).await {
-            Ok(Ok(true)) => Ok(()),
-            _ => Err("Other audio did not acknowledge pausing. MKR playback was cancelled.".into()),
-        }
-    }
-    .await;
-    if let Ok(mut pending) = inner.pending.lock() {
-        if pending.as_ref().is_some_and(|(value, _)| value == &token) {
-            pending.take();
-        }
-    }
-    outcome
 }
 
 #[tauri::command]
