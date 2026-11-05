@@ -10,3 +10,7 @@ windows/src/workspace/assets/*.ttf binary
 
 # Windows batch files need CRLF in the working tree.
 *.cmd text eol=crlf
+
+# Candidate inventory hashes identify exact LF report bytes on all hosts.
+integrations/mkr-music/engine/runtime-evidence.json text eol=lf
+integrations/mkr-music/source-artifact-evidence.json text eol=lf
