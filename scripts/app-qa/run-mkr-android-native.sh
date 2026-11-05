@@ -15,8 +15,8 @@ trap 'adb -s "$serial" logcat -d -s TestRunner:I AndroidRuntime:E ExoPlayerImplI
 # This fresh emulator has no AnF library/data or production signing identity.
 adb -s "$serial" install -t "$apk"
 adb -s "$serial" shell am instrument -w -r \
-  -e class com.anf.mkr.android.MkrNativePlaybackTest,com.anf.mkr.android.AndroidMediaSessionTest \
+  -e class com.anf.mkr.android.MkrNativePlaybackTest,com.anf.mkr.android.AndroidMediaSessionTest,com.anf.mkr.android.AndroidForegroundPlaybackTest \
   "$package/androidx.test.runner.AndroidJUnitRunner" | tee "$qa_dir/instrumentation.txt"
-grep -Fq 'OK (7 tests)' "$qa_dir/instrumentation.txt"
+grep -Fq 'OK (8 tests)' "$qa_dir/instrumentation.txt"
 ! grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|Process crashed' "$qa_dir/instrumentation.txt"
-printf '%s\n' 'Generated transport/AAC only; fake catalog plus both fake and actual Media3 audio for session routing. Actual Media3 decoder and Android framework media-session tests; no provider, foreground-service or production app/upgrade verification.' > "$qa_dir/scope.txt"
+printf '%s\n' 'Generated transport/AAC only; fake catalog plus fake and actual Media3 audio. Actual Android framework media session, isolated foreground service and MediaStyle notification tests; no provider or production app/upgrade verification.' > "$qa_dir/scope.txt"

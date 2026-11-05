@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <application>
         <activity android:name="com.anf.mkr.android.MkrNativeQaActivity" android:exported="false" />
+        <service android:name="com.anf.mkr.android.MkrPlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
     </application>
 </manifest>
