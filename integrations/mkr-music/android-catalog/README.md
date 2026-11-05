@@ -165,3 +165,33 @@ provider access, signer compatibility or installed upgrade verification.
 
 Platform references: [foreground service launch rules](https://developer.android.com/develop/background-work/services/fgs/launch)
 and [mediaPlayback service requirements](https://developer.android.com/develop/background-work/services/fgs/service-types#media).
+
+## Native browsing connection
+
+`AndroidMkrConnection` binds a native Activity to an already approved service
+session. The same-process Binder exposes catalog search and typed playback
+status, plus the framework token for standard playback controls. It exposes no
+source URL, request headers, decoder or raw controller. Closing a connection
+detaches that UI without stopping accepted background playback. Search uses the
+existing catalog validation/selected-queue policy and does not resolve a stream.
+
+Every connection rechecks the current session token, including when Android
+reuses a cached Binder. A stopped/stale session cannot answer browsing requests.
+The service retains its ownership reservation through cleanup and actual service
+destruction; bound clients must detach before a successor can be started.
+Cancellation unregisters the binding both while waiting for connection and when
+a successfully bound result is discarded during return to a cancelled caller's
+dispatcher. Unbind is serialized on Main and repeated closes are harmless.
+
+This is a native library connection, not an installed JavaScript bridge or an
+AnF release-app bootstrap. Production manifest registration, reviewed dependency
+packaging/licensing and actual app integration remain separate gates. [Run42096801862](https://github.com/mwalikokelvo/AnF/actions/runs/42096801862)
+at `5b77657` passed strict compilation,43 host and9 Android15 instrumentation
+tests, with the unchanged62-artifact runtime graph. This includes the real
+cached-Binder token check, native browsing after service start, UI detachment,
+stopped bound-owner/successor lifecycle and deterministic cancellation while
+the bound result waits in the caller dispatcher. Generated AAC/fake catalog
+only; no provider requests or production application availability are inferred.
+
+References: [Android bound service lifecycle](https://developer.android.com/develop/background-work/services/bound-services)
+and [cancellable result delivery](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-cancellable-continuation/resume.html).
