@@ -58,12 +58,16 @@ class AndroidMediaSessionTest {
         controller.search("fixture")
         val owner=AndroidMediaSession.create(context,controller)
         try {
-            owner.activate();val remote=MediaController(context,owner.token)
+            val remote=MediaController(context,owner.token)
+            remote.transportControls.play();delay(200)
+            assertEquals(0,backend.requests.get());assertEquals(0,audio.starts.get())
+            assertFalse(requested.isCompleted)
+            owner.activate()
             remote.transportControls.play();withTimeout(8000){requested.await()}
             assertEquals(0,backend.requests.get());assertEquals(0,audio.starts.get())
             allow.complete(true)
             until {remote.playbackState?.state==PlaybackState.STATE_PLAYING}
-            assertEquals(first.id,remote.metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))
+            assertEquals(first.id,remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))
             remote.transportControls.seekTo(4321)
             until {remote.playbackState?.position==4321L}
             remote.transportControls.skipToNext()
@@ -78,7 +82,7 @@ class AndroidMediaSessionTest {
             assertEquals(count,backend.requests.get())
             remote.transportControls.playFromUri(Uri.parse("https://private.invalid/token"),null)
             delay(200);assertEquals(count,backend.requests.get())
-            assertFalse(remote.playbackState.errorMessage.toString().contains("private.invalid"))
+            assertFalse(remote.playbackState?.errorMessage.toString().contains("private.invalid"))
         } finally {owner.close()}
         assertEquals(1,audio.releases.get())
     }
@@ -94,7 +98,7 @@ class AndroidMediaSessionTest {
         try {
             owner.activate();remote.transportControls.play()
             until {remote.playbackState?.state==PlaybackState.STATE_ERROR}
-            assertEquals("Music command unavailable.",remote.playbackState.errorMessage.toString())
+            assertEquals("Music command unavailable.",remote.playbackState?.errorMessage.toString())
             assertEquals(0,backend.requests.get());assertEquals(0,audio.starts.get())
             val cleanup=launch(start=CoroutineStart.UNDISPATCHED){try{awaitCancellation()}finally{owner.close()}}
             cleanup.cancelAndJoin();withTimeout(8000){destroyed.await()}
@@ -116,7 +120,7 @@ class AndroidMediaSessionTest {
             until {remote.playbackState?.state==PlaybackState.STATE_PLAYING}
             audio.state=audio.state.copy(playing=false,failed=true);audio.changed!!.invoke()
             until {remote.playbackState?.state==PlaybackState.STATE_ERROR}
-            assertEquals("Music playback unavailable.",remote.playbackState.errorMessage.toString())
+            assertEquals("Music playback unavailable.",remote.playbackState?.errorMessage.toString())
         } finally {owner.close()}
         assertNull(audio.changed)
     }

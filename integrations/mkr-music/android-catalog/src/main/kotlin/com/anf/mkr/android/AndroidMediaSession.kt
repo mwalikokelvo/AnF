@@ -45,7 +45,7 @@ internal class AndroidMediaSession private constructor(context: Context,
         },Handler(Looper.getMainLooper()))
     }
     private fun command(action: suspend () -> Unit) {
-        if(closed.get()) return
+        if(closed.get() || !session.isActive) return
         val ticket=++revision
         scope.launch {
             try { action(); publish(ticket) }
