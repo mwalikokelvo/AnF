@@ -9,7 +9,11 @@ class Guards(unittest.TestCase):
         for name,valid in [('src/file.c',True),('../file.c',False),('C:/file.c',False),('/file.c',False),('src\\file.c',False)]:
             with self.subTest(name=name),tempfile.TemporaryDirectory() as tmp:
                 p=Path(tmp);archive=p/'source.zip'
-                with zipfile.ZipFile(archive,'w') as z:z.writestr(name,'fixture')
+                with zipfile.ZipFile(archive,'w') as z:z.writestr(name.replace(chr(92),'/'),'fixture')
+                # Windows ZipInfo normalizes names while writing: mutate both raw ZIP names
+                # to exercise an actual hostile incoming backslash, not a safe normalized ZIP.
+                if chr(92) in name:
+                    archive.write_bytes(archive.read_bytes().replace(name.replace(chr(92),'/').encode(),name.encode()))
                 if valid:
                     m.unpack(archive,p/'out');self.assertEqual((p/'out/src/file.c').read_text(),'fixture')
                 else:
