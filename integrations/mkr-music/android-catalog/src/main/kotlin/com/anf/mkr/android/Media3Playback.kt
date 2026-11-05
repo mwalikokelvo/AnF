@@ -13,6 +13,14 @@ import kotlinx.coroutines.withContext
 internal class Media3Playback private constructor(private val player: ExoPlayer) : NativePlayback {
     private var source: AndroidMediaLease?=null
     private var released=false
+    private var changed: (() -> Unit)?=null
+    private val events=object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) { changed?.invoke() }
+    }
+    init { player.addListener(events) }
+    override suspend fun setStateListener(listener: (() -> Unit)?) = onMain {
+        check(!released); changed=listener
+    }
     override suspend fun prepare(track: com.anf.mkr.MkrTrack, lease: AndroidMediaLease, positionMs: Long) = onMain {
         check(!released)
         clear()
@@ -31,14 +39,14 @@ internal class Media3Playback private constructor(private val player: ExoPlayer)
         else { source!!.checkActive(); player.play(); true }
     }
     private fun state() = NativePlaybackState(player.isPlaying,player.currentPosition.coerceAtLeast(0),
-        player.duration.takeIf { it!=C.TIME_UNSET && it>0 } ?: 0,player.playerError!=null)
+        player.duration.takeIf { it!=C.TIME_UNSET && it>0 } ?: 0,player.playerError!=null,player.playWhenReady && player.playbackState==Player.STATE_BUFFERING)
     override suspend fun snapshot(): NativePlaybackState = onMain { check(!released); state() }
     override suspend fun pauseAndRelease(): NativePlaybackState = onMain {
         check(!released)
         val before=state()
         clear()
         check(!player.playWhenReady && !player.isPlaying)
-        before.copy(playing=false)
+        before.copy(playing=false,buffering=false)
     }
     override suspend fun seek(positionMs: Long) = onMain {
         check(!released); require(positionMs in 0..86_400_000); player.seekTo(positionMs)
@@ -48,7 +56,7 @@ internal class Media3Playback private constructor(private val player: ExoPlayer)
         player.pause(); player.stop(); player.clearMediaItems()
     }
     override suspend fun release() = onMain {
-        if(!released) { clear(); player.release(); released=true }
+        if(!released) { changed=null; player.removeListener(events); clear(); player.release(); released=true }
     }
     private suspend fun <T> onMain(action: () -> T): T = withContext(Dispatchers.Main.immediate) { action() }
     companion object {

@@ -10,7 +10,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 internal data class NativePlaybackState(val playing: Boolean=false, val positionMs: Long=0,
-    val durationMs: Long=0, val failed: Boolean=false)
+    val durationMs: Long=0, val failed: Boolean=false, val buffering: Boolean=false)
 internal data class AndroidPlaybackState(val track: MkrTrack?, val audio: NativePlaybackState)
 internal class PlaybackCommandFailure(val reason: String) : IllegalStateException("Music command unavailable: $reason")
 
@@ -21,6 +21,7 @@ internal interface NativePlayback {
     suspend fun snapshot(): NativePlaybackState
     suspend fun seek(positionMs: Long)
     suspend fun release()
+    suspend fun setStateListener(listener: (() -> Unit)?) {}
 }
 
 /** Owns preparation jobs and native leases; no URI/header payload crosses this API. */
@@ -139,6 +140,9 @@ internal class AndroidPlaybackController(
             results[index+delta].id
         }
         play(id)
+    }
+    suspend fun setStateListener(listener: (() -> Unit)?) = gate.withLock {
+        checkOpen(); audio.setStateListener(listener)
     }
     suspend fun status(): AndroidPlaybackState = gate.withLock {
         checkOpen(); AndroidPlaybackState(current,if(lease!=null) audio.snapshot() else paused)
