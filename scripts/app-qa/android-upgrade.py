@@ -52,10 +52,16 @@ for storage in ['encrypted','legacy']:
         if phase=='verify':run(device+['install','--no-incremental','-r',str(out/'candidate.apk')])
         run(device+['shell','am','force-stop',a.application_id])
         label=storage+'-'+phase
-        result=run(device+['shell','am','instrument','-w','-e','phase',phase,'-e','storage',storage,a.application_id+'.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
+        result=run(device+['shell','am','instrument','-w','-e','class','com.anf.workspace.UpgradeUiTest','-e','phase',phase,'-e','storage',storage,a.application_id+'.test/androidx.test.runner.AndroidJUnitRunner'],timeout=600)
         (out/(label+'.txt')).write_text(result)
         print(result)
         if 'OK (1 test)' not in result or any(s in result for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):
             (out/(label+'-logcat.txt')).write_text(run(device+['logcat','-d','-s','chromium','AndroidRuntime','TestRunner']))
             raise SystemExit('Installed Android app failed phase: '+label)
+        if phase=='verify':
+            # Entry-point assertions belong to the candidate, not the old baseline.
+            entries=run(device+['shell','am','instrument','-w','-e','class','com.anf.workspace.EntryPointsTest',a.application_id+'.test/androidx.test.runner.AndroidJUnitRunner'])
+            (out/(label+'-entrypoints.txt')).write_text(entries)
+            if 'OK (1 test)' not in entries or any(s in entries for s in ['FAILURES','Process crashed','INSTRUMENTATION_FAILED']):
+                raise SystemExit('Updated app failed native entry-point checks: '+label)
 print('PASS: Android release startup, encrypted and legacy saved data, writing, PDF/text import and restart')
