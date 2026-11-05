@@ -13,6 +13,44 @@ const compatibility=new Map([
  ['.github/workflows/android.yml',['com.coucou.workspace']],
  ['.github/workflows/windows.yml',['Coucou-Windows-setup']],
  ['android/build.gradle',['com.coucou.workspace']],
+ ['scripts/app-qa/android-upgrade-baselines.json',['com.coucou.workspace']],
+ ["android/identity-resources.gradle",["com.coucou.workspace"]],
+ ["android/java-test/com/anf/workspace/QuickCaptureActionCheck.java",["com.coucou.workspace", "com.coucou.QUICK_NOTE"]],
+ ["android/java/com/anf/workspace/EntryPointIdentity.java",["com.coucou.workspace"]],
+ ["android/java/com/anf/workspace/QuickCaptureAction.java",["com.coucou.QUICK_NOTE"]],
+ ["android/java/com/coucou/workspace/QuickNoteTile.java",["com.coucou.workspace"]],
+ ["android/java/com/coucou/workspace/PlaybackService.java",["com.coucou.workspace"]],
+ ["android/src/androidTest/java/com/anf/workspace/EntryPointsTest.java",["com.coucou.workspace", "com.coucou.QUICK_NOTE"]],
+ ["android/web/main.ts",["coucoupack", "coucou-last-sync", "coucou-mobile-backup"]],
+ ["android/web/project-data.ts",["coucou-mobile-backup"]],
+ ["android/web/sync.ts",["coucou-mobile-backup", "coucou-windows-backup"]],
+ ["scripts/app-qa/prepare-mkr-native-qa.py",["https-github-com-louis-cfm-coucou"]],
+ ["scripts/app-qa/run-android-entrypoints.py",["com.coucou.workspace"]],
+ ["scripts/check-android-contract.mjs",["com.coucou.workspace"]],
+ ["scripts/check-android-entrypoints.py",["com.coucou.workspace", "com.coucou.QUICK_NOTE", "com.coucou."]],
+ ["scripts/test-android-entrypoints.py",["com.coucou.workspace", "com.coucou."]],
+ ["windows/src-tauri/src/hashing.rs",["coucou-conflict-v1"]],
+ ["windows/src-tauri/src/sync_data.rs",["coucou-conflict-v1"]],
+ ["windows/src-tauri/src/local_link.rs",["coucou-v1-request", "coucou1:"]],
+ ["windows/src-tauri/src/vault.rs",["Coucou SQLCipher vault"]],
+ ["windows/src-tauri/src/workspace_commands.rs",["coucou-mobile-backup", "coucou-windows-backup"]],
+ ["windows/src/workspace/music-hub.ts",["coucouMediaResult"]],
+ ["windows/src/workspace/reader.ts",["coucou-scroll-"]],
+ ["windows/src/workspace/tts-service.ts",["coucou-audio"]],
+ ["windows/tests/e2e/tier3-pairwise-combinatorial.test.ts",["coucoupack"]],
+ ["windows/tests/phone-sync.test.ts",["coucou-mobile-backup", "coucou-windows-backup"]],
+ ["windows/tests/safe-fetch.test.ts",["coucouFeedResult"]],
+ [".cursor/verification-artifacts/tts-cache.md",["coucou-audio"]],
+ ["TEST_INFRA.md",["coucou-audio"]],
+ ["scripts/app-qa/contrast.mjs",["coucou-appearance"]],
+ ["scripts/app-qa/controls-a11y.mjs",["coucou-appearance"]],
+ ["scripts/app-qa/focus-visible.mjs",["coucou-appearance"]],
+ ["scripts/app-qa/music-tabs-fit.mjs",["coucou-appearance"]],
+ ["scripts/app-qa/fixture.mjs",["coucou-audio"]],
+ ["scripts/app-qa/music-bar-overlap.mjs",["coucou-audio"]],
+ ["scripts/app-qa/music-handoff.mjs",["coucou-audio"]],
+ ["scripts/app-qa/music-preview.mjs",["coucou-audio"]],
+ ["scripts/app-qa/sleep-chapter.mjs",["coucou-audio"]],
  ['android/java/com/anf/workspace/MainActivity.java',['com.coucou.workspace','https://coucou.local/','coucouDownloadResult','coucouFeedResult']],
  ['android/src/androidTest/java/com/anf/workspace/UpgradeUiTest.java',['com.coucou.workspace','coucou.local','CoucouAndroid','coucou-mobile']],
  ['crates/anf-vault/src/lib.rs',['coucou-conflict-v1']],
@@ -34,7 +72,9 @@ const auditFiles=new Set(['scripts/check-branding.mjs','scripts/check-branding-t
 
 export function brandingProblems(name,text){
  const problems=[];
- if(old.test(name))problems.push(name+' (obsolete source path)');
+ // Only these two native compatibility shims retain historical class paths.
+ const nativeShim=name==='android/java/com/coucou/workspace/QuickNoteTile.java'||name==='android/java/com/coucou/workspace/PlaybackService.java';
+ if(old.test(name)&&!nativeShim)problems.push(name+' (obsolete source path)');
  if(auditFiles.has(name))return problems; // The audit and visible-body assertion must name the rejected brand.
  if(historicalDoc(name)){
   // History, upstream copyright, old artifact filenames and migration paths

@@ -973,11 +973,11 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const id=nativeBridgeId(++nativeRequest);
   return new Promise<unknown>((resolve,reject)=>{
    const win=window as unknown as {AnFMediaResult?:(id:string,value:string,error:string)=>void;coucouMediaResult?:(id:string,value:string,error:string)=>void};
-   const prevAnF=win.AnFMediaResult,prevCoucou=win.coucouMediaResult;
-   const timer=setTimeout(()=>{win.AnFMediaResult=prevAnF;win.coucouMediaResult=prevCoucou;reject(Error('Android player did not respond.'));},20000);
+   const prevAnF=win.AnFMediaResult,prevLegacy=win.coucouMediaResult;
+   const timer=setTimeout(()=>{win.AnFMediaResult=prevAnF;win.coucouMediaResult=prevLegacy;reject(Error('Android player did not respond.'));},20000);
    const handler=(rid:string,value:string,error:string)=>{
-    if(rid!==id){prevAnF?.(rid,value,error);prevCoucou?.(rid,value,error);return;}
-    clearTimeout(timer);win.AnFMediaResult=prevAnF;win.coucouMediaResult=prevCoucou;
+    if(rid!==id){prevAnF?.(rid,value,error);prevLegacy?.(rid,value,error);return;}
+    clearTimeout(timer);win.AnFMediaResult=prevAnF;win.coucouMediaResult=prevLegacy;
     if(error)reject(Error(error));else{try{resolve(value?JSON.parse(value):{});}catch{reject(Error('Invalid Android player response.'));}}
    };
    win.AnFMediaResult=handler;win.coucouMediaResult=handler;

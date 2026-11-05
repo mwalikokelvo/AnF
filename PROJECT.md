@@ -222,7 +222,7 @@ export interface LocalAiManager {
 - `windows/src-tauri/`: Tauri 2 Rust desktop host.
   - `src/main.rs`, `src/lib.rs`, `src/addons.rs`, `src/local_ai.rs`.
 - `android/`: Android native host.
-  - `android/java/com/coucou/workspace/`: Java host, `MediaBridge.java`, `PlaybackService.java`, `VaultRepository.java`.
+  - `android/java/com/anf/workspace/`: Java host, `MediaBridge.java`, `PlaybackService.java`, `VaultRepository.java`.
   - `scripts/build-android.mjs`: esbuild bundling of web assets.
 - `marketplace/`: Addon registry and offline snapshots.
   - `marketplace/registry.json`, `marketplace/catalog-snapshot.json`.

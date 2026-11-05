@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 const read=file=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
+// Compare retained identifier bytes, regardless of source literal escape style.
+const decoded=file=>read(file).replace(/\\x([0-9a-f]{2})/gi,(_,hex)=>String.fromCharCode(parseInt(hex,16)));
 const legacy=String.fromCharCode(99,111,117,99,111,117);
 const source=read('windows/src/workspace/encrypted-pack.ts');
 const pack=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
@@ -27,7 +29,7 @@ assert.equal(payload.projects[0].id,'original');
 for(const file of ['windows/src-tauri/src/platform/windows.rs','windows/src-tauri/src/platform/linux.rs'])assert.match(read(file),/identity::data_dir/);
 assert.match(read('windows/src-tauri/src/lib.rs'),/data_directory\(settings::local_dir\(\).join\("webview-v014"\)\)/);
 assert.ok(read('windows/src-tauri/src/secrets.rs').includes('fr.louisraille.\\x63\\x6f\\x75\\x63\\x6f\\x75'));
-assert.ok(read('windows/src-tauri/src/vault.rs').includes('\\x43\\x6f\\x75\\x63\\x6f\\x75 SQLCipher vault'));
+assert.ok(decoded('windows/src-tauri/src/vault.rs').includes(legacy[0].toUpperCase()+legacy.slice(1)+' SQLCipher vault'));
 assert.match(read('android/build.gradle'),/applicationId 'com\.anf\.workspace'/);
 assert.match(read('android/build.gradle'),/hasProperty\('legacyApplicationId'\)\) applicationId 'com\.coucou\.workspace'/);
 // Java namespace is shared by both app-ID variants. Keeping the old namespace
@@ -35,5 +37,5 @@ assert.match(read('android/build.gradle'),/hasProperty\('legacyApplicationId'\)\
 const hosts=readdirSync(new URL('../android/spotube-host/',import.meta.url),{recursive:true}).filter(name=>name.endsWith('.java')).map(name=>name.replaceAll('\\','/')).sort();
 assert.deepEqual(hosts,['com/anf/workspace/MusicActivity.java','com/anf/workspace/SpotubeHost.java']);
 for(const name of hosts)assert.match(read('android/spotube-host/'+name),/^package com\.anf\.workspace;/);
-for(const [file,suffix] of [['windows/src/workspace/audio-library.ts','-audio'],['windows/src/workspace/dashboard.ts','-quick-capture'],['windows/src/workspace/reader.ts','-scroll-']])assert.ok(read(file).includes('\\x63\\x6f\\x75\\x63\\x6f\\x75'+suffix),file+' preserves existing saved data');
+for(const [file,suffix] of [['windows/src/workspace/audio-library.ts','-audio'],['windows/src/workspace/dashboard.ts','-quick-capture'],['windows/src/workspace/reader.ts','-scroll-']])assert.ok(decoded(file).includes(legacy+suffix),file+' preserves existing saved data');
 console.log('PASS: independent legacy encrypted backup, wrong-key rejection, new export, non-destructive Android restore and desktop storage identity.');

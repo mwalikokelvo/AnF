@@ -84,7 +84,7 @@ cd android
 
 1. **Zero Telemetry**: No trackers, no analytics, no external calls except to user-configured APIs.
 2. **Key Security**: Secrets must go in native secure storage (macOS Keychain, Windows Credential Manager, Linux Secret Service), never in plain text or git.
-3. **Responsive & Non-Blocking**: The CLI relay hook (`coucou-hook`) must never block coding agents. If the app is closed or unresponsive, exit immediately.
+3. **Responsive & Non-Blocking**: The CLI relay hook (`anf-hook`) must never block coding agents. If the app is closed or unresponsive, exit immediately.
 4. **Performance**: Zero CPU usage when the notch/island is hidden.
 5. **Stable Identifiers**: Keep bundle ID (`fr.louisraille.NotchBuddy`) and storage keys stable to ensure seamless updates and data retention.
 

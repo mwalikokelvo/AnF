@@ -7,7 +7,7 @@ apk="releases/AnF-Android-$version-debug.apk"
 out="${RUNNER_TEMP:?}/anf-android-smoke"
 mkdir -p "$out"
 adb="$ANDROID_HOME/platform-tools/adb"
-pkg=com.coucou.workspace
+pkg=com.anf.workspace
 "$adb" wait-for-device
 "$adb" logcat -c
 "$adb" install --no-incremental -r "$apk"

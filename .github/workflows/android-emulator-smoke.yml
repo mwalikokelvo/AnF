@@ -38,7 +38,7 @@ jobs:
         with:
           gradle-version: 9.4.1
       - name: Install SDK
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+        run: node scripts/prepare-android-sdk.mjs
       - name: Install frontend dependencies
         run: |
           npm ci --prefix windows
@@ -51,8 +51,8 @@ jobs:
         run: node scripts/check-release.mjs
       - name: Marketplace trust rules (Java)
         run: |
-          javac -d "$RUNNER_TEMP/addon-check" android/java/com/coucou/workspace/AddonRules.java android/java-test/com/coucou/workspace/AddonRulesCheck.java
-          java -cp "$RUNNER_TEMP/addon-check" com.coucou.workspace.AddonRulesCheck
+          javac -d "$RUNNER_TEMP/addon-check" android/java/com/anf/workspace/AddonRules.java android/java-test/com/anf/workspace/AddonRulesCheck.java
+          java -cp "$RUNNER_TEMP/addon-check" com.anf.workspace.AddonRulesCheck
       - name: Enable emulator hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

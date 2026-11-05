@@ -18,3 +18,10 @@ bad('android/java/com/coucou/workspace/Obsolete.java','package com.anf.workspace
 bad('android/build.gradle',"applicationId 'com.coucou.workspace';label='Coucou'");
 bad('windows/src/workspace/other.ts',"kind:'coucou-windows-backup'");
 console.log('PASS: visible branding failures remain enforced while exact legacy identity/payload and historical attribution fixtures pass.');
+
+// Historical component shims preserve pinned system identities, not visible branding.
+good('android/java/com/coucou/workspace/QuickNoteTile.java','package com.coucou.workspace;');
+good('android/java/com/coucou/workspace/PlaybackService.java','package com.coucou.workspace;');
+bad('android/java/com/coucou/workspace/PlaybackService.java','package com.coucou.workspace; String title="Coucou";');
+bad('windows/src/workspace/reader.ts',"const key='coucou-scroll-';title='Coucou';");
+bad('scripts/app-qa/fixture.mjs',"indexedDB.open('coucou-audio');title='Coucou';");

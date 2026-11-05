@@ -93,11 +93,10 @@ def main():
     dest = {k: os.path.join(out_dir, n) for k, n in names.items()}
 
     win_rel = os.path.join(root, "windows", "release")
-    apk_dir = os.path.join(root, "android", "gradle-build", "outputs", "apk")
     sources = {
         "setup": os.path.join(win_rel, names["setup"]),
-        "debug": os.path.join(apk_dir, "debug", "CoucouAndroid-debug.apk"),
-        "unsigned": os.path.join(apk_dir, "release", "CoucouAndroid-release-unsigned.apk"),
+        "debug": os.path.join(root, "releases", names["debug"]),
+        "unsigned": os.path.join(root, "releases", names["unsigned"]),
     }
     portable_base = f"AnF-Windows-{version}-portable"
     portable_dir = os.path.join(win_rel, portable_base)

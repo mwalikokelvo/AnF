@@ -1,0 +1,16 @@
+{
+  "legacy": {
+    "tag": "anf-0.1.22-legacy-review-c8337c3",
+    "filename": "AnF-Android-0.1.22.apk",
+    "sha256": "531e50c233c1fa1ef187d06f5cbc7d3f421fd024e288d75b4024ef2a5bb7a96b",
+    "applicationId": "com.coucou.workspace",
+    "signerSha256": "27789eee03090b2aa4c5fbf37737c8e4dbda61352c2557c076aec233ef4a7a2a"
+  },
+  "modern": {
+    "tag": "v0.1.41",
+    "filename": "AnF-Android-0.1.41-debug.apk",
+    "sha256": "0724a3fa0fb5f1953681bf3563793a84c3b264a205b77b86ad89c75efd57886f",
+    "applicationId": "com.anf.workspace",
+    "signerSha256": "51a4f7d3677a4e63335b274ad8ce9b532c8816501057ad9d3cfc328136b32e1e"
+  }
+}
