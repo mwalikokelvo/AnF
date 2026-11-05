@@ -40,6 +40,10 @@ jobs:
           if (!(Test-Path media/SOURCES.txt)) {
             'FFmpeg was not downloaded on this runner. Audio export features that need a bundled ffmpeg.exe may be unavailable in this development package.' | Set-Content media/SOURCES.txt
           }
+          if (!(Test-Path media/ffmpeg.exe)) {
+            # Placeholder so the Tauri resource path exists when the prepare step is skipped.
+            Set-Content -LiteralPath media/ffmpeg.exe -Value 'placeholder'
+          }
       - name: Build the hook relay
         run: cargo build --release -p coucou-hook
       - name: Build the base installer without offline AI assets
