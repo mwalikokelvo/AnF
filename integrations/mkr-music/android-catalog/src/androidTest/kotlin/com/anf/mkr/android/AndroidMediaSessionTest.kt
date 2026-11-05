@@ -51,7 +51,10 @@ class AndroidMediaSessionTest {
         override suspend fun setStateListener(listener: (() -> Unit)?) {changed=listener}
         override suspend fun release() {changed=null;pauseAndRelease();releases.incrementAndGet()}
     }
-    private suspend fun until(condition: () -> Boolean) {withTimeout(8000){while(!condition())delay(20)}}
+    private suspend fun until(stage: String="native state", condition: () -> Boolean) {
+        try {withTimeout(8000){while(!condition())delay(20)}}
+        catch(error: TimeoutCancellationException){throw AssertionError("Timed out waiting for $stage",error)}
+    }
     private fun guardSandbox(){assertEquals("com.anf.mkr.catalog.test",context.packageName)}
     @Test fun systemControlsHonorHandoffAndPublishMetadataAndPosition() = runBlocking {
         guardSandbox()
@@ -68,19 +71,19 @@ class AndroidMediaSessionTest {
             remote.transportControls.play();withTimeout(8000){requested.await()}
             assertEquals(0,backend.requests.get());assertEquals(0,audio.starts.get())
             allow.complete(true)
-            until {remote.playbackState?.state==PlaybackState.STATE_PLAYING}
+            until("system play") {remote.playbackState?.state==PlaybackState.STATE_PLAYING}
             assertEquals(first.id,remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))
             remote.transportControls.seekTo(4321)
-            until {remote.playbackState?.position==4321L}
+            until("system seek") {remote.playbackState?.position==4321L}
             remote.transportControls.skipToNext()
-            until {remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)==second.id}
+            until("system next track") {remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)==second.id}
             remote.transportControls.skipToPrevious()
-            until {remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)==first.id}
+            until("system previous track") {remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)==first.id}
             remote.transportControls.pause()
-            until {remote.playbackState?.state==PlaybackState.STATE_PAUSED}
+            until("system pause") {remote.playbackState?.state==PlaybackState.STATE_PAUSED}
             val count=backend.requests.get()
             remote.transportControls.playFromMediaId("not-selected",null)
-            until {remote.playbackState?.state==PlaybackState.STATE_ERROR}
+            until("unknown ID error") {remote.playbackState?.state==PlaybackState.STATE_ERROR}
             assertEquals(count,backend.requests.get())
             remote.transportControls.playFromUri(Uri.parse("https://private.invalid/token"),null)
             delay(200);assertEquals(count,backend.requests.get())
@@ -152,6 +155,12 @@ class AndroidMediaSessionTest {
             audio.state=audio.state.copy(playing=false,failed=true);audio.changed!!.invoke()
             until {remote.playbackState?.state==PlaybackState.STATE_ERROR}
             assertEquals("Music playback unavailable.",remote.playbackState?.errorMessage.toString())
+            // Late healthy decoder events must not erase the failed operation.
+            audio.state=audio.state.copy(failed=false);audio.changed!!.invoke();delay(100)
+            assertEquals(PlaybackState.STATE_ERROR,remote.playbackState!!.state)
+            remote.transportControls.pause()
+            until {remote.playbackState?.state==PlaybackState.STATE_PAUSED}
+
         } finally {owner.close()}
         assertNull(audio.changed)
     }

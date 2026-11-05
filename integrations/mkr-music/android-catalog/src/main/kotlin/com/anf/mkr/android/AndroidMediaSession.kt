@@ -25,6 +25,7 @@ internal class AndroidMediaSession private constructor(context: Context,
     private val closed=AtomicBoolean()
     private val closeGate=Mutex()
     private var revision=0L
+    private var failedRevision: Long?=null
     val token: MediaSession.Token get()=session.sessionToken
     private val actions=PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
         PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP or
@@ -48,15 +49,15 @@ internal class AndroidMediaSession private constructor(context: Context,
         if(closed.get() || !session.isActive) return
         val ticket=++revision
         scope.launch {
-            try { action(); publish(ticket) }
+            try { action(); publish(ticket,recover=true) }
             catch(error: CancellationException) { throw error }
             catch(error: Exception) { failure(ticket) }
         }
     }
     private fun changed() {
         if(closed.get()) return
-        val ticket=revision
         scope.launch {
+            val ticket=revision // Observe revision on the owning main dispatcher.
             try { publish(ticket) }
             catch(error: CancellationException) { throw error }
             catch(error: Exception) { failure(ticket) }
@@ -64,13 +65,16 @@ internal class AndroidMediaSession private constructor(context: Context,
     }
     private fun failure(ticket: Long) {
         if(closed.get() || ticket!=revision) return
+        failedRevision=ticket
         session.setPlaybackState(PlaybackState.Builder().setActions(actions)
             .setState(PlaybackState.STATE_ERROR,0,0f,SystemClock.elapsedRealtime())
             .setErrorMessage("Music command unavailable.").build())
     }
-    private suspend fun publish(ticket: Long) {
+    private suspend fun publish(ticket: Long, recover: Boolean=false) {
         val state=controller.status()
         if(closed.get() || ticket!=revision) return
+        if(failedRevision==ticket && !recover) return
+        if(recover) failedRevision=null
         val audio=state.audio
         val phase=when {
             audio.failed -> PlaybackState.STATE_ERROR
@@ -87,15 +91,15 @@ internal class AndroidMediaSession private constructor(context: Context,
             .putLong(MediaMetadata.METADATA_KEY_DURATION,audio.durationMs).build())
         val playback=PlaybackState.Builder().setActions(actions)
             .setState(phase,audio.positionMs,if(audio.playing)1f else 0f,SystemClock.elapsedRealtime())
-        if(audio.failed) playback.setErrorMessage("Music playback unavailable.")
+        if(audio.failed) { failedRevision=ticket; playback.setErrorMessage("Music playback unavailable.") }
         session.setPlaybackState(playback.build())
     }
     suspend fun activate() = withContext(Dispatchers.Main.immediate) {
-        check(!closed.get()); publish(revision); session.isActive=true
+        check(!closed.get()); publish(revision,recover=true); session.isActive=true
     }
     /** UI callers may refresh after a command; native decoder events refresh automatically. */
     suspend fun refresh() = withContext(Dispatchers.Main.immediate) {
-        check(!closed.get()); publish(revision)
+        check(!closed.get()); publish(revision,recover=true)
     }
     suspend fun close() = withContext(NonCancellable) {
         closeGate.withLock {
