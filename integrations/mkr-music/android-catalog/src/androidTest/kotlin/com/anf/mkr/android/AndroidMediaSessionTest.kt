@@ -74,7 +74,10 @@ class AndroidMediaSessionTest {
             until("system play") {remote.playbackState?.state==PlaybackState.STATE_PLAYING}
             assertEquals(first.id,remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))
             remote.transportControls.seekTo(4321)
-            until("system seek") {remote.playbackState?.position==4321L}
+            // Framework MediaSession extrapolates a playing position from speed/time.
+            // Verify exact native seek plus a bounded forward system position.
+            until("system seek") {audio.state.positionMs==4321L && (remote.playbackState?.position?:-1) in 4321L..120000L}
+            assertEquals(4321L,audio.state.positionMs)
             remote.transportControls.skipToNext()
             until("system next track") {remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)==second.id}
             remote.transportControls.skipToPrevious()
