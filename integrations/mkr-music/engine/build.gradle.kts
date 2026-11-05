@@ -45,6 +45,8 @@ dependencies {
     implementation("org.brotli:dec:0.1.2")
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
     implementation("com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.2")
+    // Runtime-only transitive library needs its existing pinned API for explicit JNI QA.
+    testImplementation("io.github.dokar3:quickjs-kt-jvm:1.0.14")
     testImplementation(kotlin("test-junit"))
     testImplementation("io.ktor:ktor-client-mock")
 }

@@ -65,7 +65,11 @@ def main():
     dll=build/'libquickjs.dll';assert dll.is_file()
     result={'schema':1,'reviewedSourceCommit':evidence['sourceArchives'][0]['commit'],
         'rebuiltDll':str(dll),'rebuiltDllSha256':hashlib.sha256(dll.read_bytes()).hexdigest(),
-        'zigVersion':'0.12.0','sourceRecipe':'MinSizeRel/windows_x64/shared/JNI',
+        'zigVersion':subprocess.check_output([str(zig/'zig.exe'),'version'],text=True).strip(),
+        'cmakeVersion':subprocess.check_output(['cmake','--version'],text=True).splitlines()[0],
+        'ninjaVersion':subprocess.check_output(['ninja','--version'],text=True).strip(),
+        'jdkReleaseSha256':hashlib.sha256((Path(env['JAVA_HOME'])/'release').read_bytes()).hexdigest(),
+        'sourceRecipe':'MinSizeRel/windows_x64/shared/JNI',
         'publishedBinaryMatch':None,'runtimeSmokePassed':False,'readyForPublication':False}
     (out/'rebuild-evidence.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
     with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
