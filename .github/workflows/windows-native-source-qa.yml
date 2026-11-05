@@ -1,0 +1,70 @@
+name: Windows native source UI QA
+on:
+  push:
+    branches: ['qa/windows-native-**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-native-source-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  native-ui:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: 1.99.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            windows/target
+          key: windows-native-source-${{ hashFiles('windows/Cargo.lock') }}
+          restore-keys: windows-cargo-
+      - name: Build current frontend and an isolated native debug host
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          npm ci --prefix windows
+          if($LASTEXITCODE){throw 'Frontend dependencies failed'}
+          npm install --no-save --package-lock=false --prefix scripts playwright-core@1.56.1
+          if($LASTEXITCODE){throw 'QA browser client failed'}
+          Push-Location windows
+          try {
+            npm run build
+            if($LASTEXITCODE){throw 'Frontend build failed'}
+            # A source debug host, not an installer or bundled model/provider edition.
+            # Keep normal native code/CSP; replace only build identity/resources.
+            $config=Join-Path $env:RUNNER_TEMP 'anf-native-source-qa.json'
+            @{identifier='fr.louisraille.anf.nativeqa';build=@{beforeBuildCommand=''};bundle=@{active=$false;resources=@()}} |
+              ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $config
+            npm exec -- tauri build --debug --no-bundle --config $config
+            if($LASTEXITCODE){throw 'Current native app build failed'}
+          }finally{Pop-Location}
+      - name: Exercise unmodified native host with fresh test-only profiles
+        shell: pwsh
+        run: ./scripts/app-qa/run-windows-native-smoke.ps1
+      - name: Retain reports and fixture screenshots only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: AnF-Windows-native-source-QA
+          path: |
+            ${{ runner.temp }}/anf-native-source-qa/results/*.json
+            ${{ runner.temp }}/anf-native-source-qa/results/*.txt
+            ${{ runner.temp }}/anf-native-source-qa/results/*.png
+          if-no-files-found: ignore
+          retention-days: 7

@@ -16,22 +16,6 @@ $debugPolicy='HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserA
 New-Item -Path $debugPolicy -Force | Out-Null
 New-ItemProperty -Path $debugPolicy -Name '*' -Value $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS -PropertyType String -Force | Out-Null
 New-Item -ItemType Directory -Force $install,$env:APPDATA,$env:LOCALAPPDATA,$env:ANF_QA_OUTPUT | Out-Null
-Add-Type @'
-using System;
-using System.Text;
-public static class AnfQaBrowserArguments {
-  public static int Replace(byte[] data,string before,string after) {
-    if(after.Length>before.Length)throw new Exception("Test argument exceeds original constant size");
-    string image=Encoding.GetEncoding(28591).GetString(data);
-    byte[] replacement=Encoding.ASCII.GetBytes(after.PadRight(before.Length));
-    int count=0,start=0,index;
-    while((index=image.IndexOf(before,start,StringComparison.Ordinal))>=0) {
-      Array.Copy(replacement,0,data,index,replacement.Length);count++;start=index+before.Length;
-    }
-    return count;
-  }
-}
-'@
 function Install-App([string]$installer, [bool]$upgrading=$false) {
   $arguments=if($upgrading){@('/S')}else{@('/S',"/D=$install")}
   $process=Start-Process -FilePath (Resolve-Path $installer) -ArgumentList $arguments -Wait -PassThru
@@ -62,8 +46,7 @@ function Stop-TestProcesses {
 function Exercise-App([string]$phase) {
   Stop-TestProcesses
   $binary=if(Test-Path "$install/AnF.exe"){Join-Path $install 'AnF.exe'}else{Join-Path $install 'coucou.exe'}
-  $backup=Join-Path $testRoot "original-$phase.exe"
-  Copy-Item $binary $backup
+  $originalHash=(Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
   $log=Join-Path (Join-Path $env:LOCALAPPDATA $dataName) $(if($phase -eq 'seed' -and $Identity -eq 'Legacy'){'coucou.log'}else{'anf.log'})
   $offset=if(Test-Path $log){(Get-Content $log -Raw).Length}else{0}
   # First prove the unmodified shipping executable opens its real workspace.
@@ -76,20 +59,9 @@ function Exercise-App([string]$phase) {
       Start-Sleep -Milliseconds 500
     }
     if(!$ready){throw 'Unmodified application did not complete workspace startup'}
-    taskkill /PID $process.Id /T /F | Out-Null
-    $process.WaitForExit()
-    Stop-TestProcesses
-    # WebView2 ignores external argument overrides here. Change only the fixed
-    # browser option in this test copy, retaining its exact size and all app code.
-    # Autoplay is unused in these writing/document/AI checks. Restore immediately.
-    $bytes=[IO.File]::ReadAllBytes($binary)
-    $before='--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required'
-    $after='--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9223'
-    $count=[AnfQaBrowserArguments]::Replace($bytes,$before,$after)
-    # Native options and the embedded Tauri configuration each contain it.
-    if($count -ne 2){throw "Expected two browser argument constants, found $count"}
-    [IO.File]::WriteAllBytes($binary,$bytes)
-    $process=Start-Process -FilePath $binary -PassThru
+    # Exercise the exact installed executable. CDP uses supported WebView2
+    # environment/policy options in this disposable worker; never patch the
+    # shipping PE image or replace protection flags to make QA connect.
     node scripts/app-qa/windows-ui.mjs $phase
     if($LASTEXITCODE){throw "Installed application $phase test failed"}
   }finally {
@@ -104,7 +76,10 @@ function Exercise-App([string]$phase) {
     # Stop only the application process owned by this isolated test.
     if(!$process.HasExited){taskkill /PID $process.Id /T /F | Out-Null}
     Stop-TestProcesses
-    Copy-Item $backup $binary -Force
+    $finalHash=(Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
+    @{phase=$phase;sha256=$originalHash;afterSha256=$finalHash;executableUnmodified=($originalHash -eq $finalHash)} |
+      ConvertTo-Json | Set-Content (Join-Path $env:ANF_QA_OUTPUT "windows-$phase-executable.json")
+    if($originalHash -ne $finalHash){throw 'Installed executable changed during QA; results are invalid'}
   }
 }
 Install-App $Baseline
