@@ -101,7 +101,7 @@ try{
  await page.evaluate(()=>window.widget.open());
  await page.locator('.mkr-dock').waitFor({state:'visible'});
  for(const theme of ['dark','light']){
-  await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
+  await page.evaluate(theme=>{document.documentElement.setAttribute('data-theme',theme);document.querySelector('#workspace-root').setAttribute('data-theme',theme);},theme);
   const contrast=await page.evaluate(()=>{
    const rgb=value=>value.match(/[\d.]+/g).slice(0,3).map(Number);
    const luminance=color=>rgb(color).map(v=>{const n=v/255;return n<=0.04045?n/12.92:((n+0.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[0.2126,0.7152,0.0722][i],0);
@@ -109,11 +109,18 @@ try{
    return(Math.max(text,background)+0.05)/(Math.min(text,background)+0.05);
   });
   assert(contrast>=4.5,`${theme} control contrast ${contrast}`);
- }
- for(const width of [1280,390,320]){
-  await page.setViewportSize({width,height:850});
-  const bounds=await page.evaluate(()=>({page:document.documentElement.scrollWidth,width:innerWidth}));
-  assert(bounds.page<=width+1,JSON.stringify(bounds));
+  for(const width of [1280,390,320]){
+   await page.setViewportSize({width,height:850});
+   const layout=await page.evaluate(()=>{
+    const dock=document.querySelector('.mkr-dock'),now=dock.querySelector('.mkr-now');
+    return{page:document.documentElement.scrollWidth,width:innerWidth,display:getComputedStyle(dock).display,dockWidth:dock.getBoundingClientRect().width,titleWidth:now.getBoundingClientRect().width};
+   });
+   assert(layout.page<=width+1,JSON.stringify(layout));
+   assert.equal(layout.display,'flex','MKR must retain its own layout instead of inheriting the compact Music Hub grid');
+   if(width<768)assert(layout.titleWidth>=layout.dockWidth*.8,'narrow screens need a full metadata row, not a clipped title beside transport buttons');
+   await page.screenshot({path:path.join(out,`mkr-${theme}-${width}.png`)});
+  }
+
  }
  await page.screenshot({path:path.join(out,'mkr-ui.png')});
  await page.evaluate(()=>window.deferPlay=true);await song.click();
