@@ -28,7 +28,7 @@ try{
  const go=id=>navigateWorkspace(page,id);
  const save=async()=>{await go('settings');await page.getByRole('button',{name:'Save project',exact:true}).click();await page.getByText('Conversation saved.',{exact:true}).waitFor();};
  if(phase==='seed'){
-  await go('chat');
+  await go('settings');
   const picker=page.getByLabel('Local model',{exact:true});
   assert.deepEqual(await picker.locator('option').evaluateAll(options=>options.map(o=>o.value)),['fast','balanced']);
   assert.equal(await picker.inputValue(),'fast','Fresh projects must start with a persistable native slot');
@@ -39,7 +39,7 @@ try{
   await page.getByLabel('Choose up to four documents',{exact:true}).setInputFiles({name:'native-qa.txt',mimeType:'text/plain',buffer:Buffer.from('Local native text import fixture. No provider submission authorized.')});
   await page.getByText('Sources loaded. Ask a question or use a task button.',{exact:true}).waitFor();await save();
  }
- await go('chat');assert.equal(await page.getByLabel('Local model',{exact:true}).inputValue(),'balanced','Selected native slot must survive save/restart');
+ await go('settings');assert.equal(await page.getByLabel('Local model',{exact:true}).inputValue(),'balanced','Selected native slot must survive save/restart');
  await go('writing');assert.equal(await page.getByLabel('Live Markdown writing',{exact:true}).innerText(),draft);
  const views=['home','chat','documents','writing','music','audio','settings'];
  for(const view of views){await go(view);await page.screenshot({path:path.join(out,`${phase}-${view}.png`)});}
