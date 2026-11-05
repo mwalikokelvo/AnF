@@ -8,20 +8,22 @@ assert.equal(process.env.GITHUB_ACTIONS,'true');
 assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 const phase=process.argv[2];assert(['seed','reopen'].includes(phase));
 const out=process.env.ANF_QA_OUTPUT;assert(out);await mkdir(out,{recursive:true});
-const errors=[];let browser,page;
+const errors=[],connections=[];let browser,page;
 try{
  const deadline=Date.now()+90000;
  while(Date.now()<deadline&&!page){
   try{browser=await chromium.connectOverCDP('http://127.0.0.1:9223',{timeout:3000});
    page=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('workspace.html'));
    if(!page)await browser.close();
-  }catch{}
+  }catch(error){connections.push(String(error));}
   if(!page)await new Promise(r=>setTimeout(r,500));
  }
+ await writeFile(path.join(out,`${phase}-connection.json`),JSON.stringify({connections:connections.slice(-3),pages:browser?.contexts().flatMap(c=>c.pages()).map(p=>p.url())||[]},null,2));
  assert(page,'Unmodified native app did not expose its workspace through supported WebView2 CDP options');
  page.setDefaultTimeout(45000);page.on('pageerror',e=>errors.push(e.message));
  await page.waitForFunction(()=>document.querySelector('[aria-label="Your question"]')?.disabled===false);
  assert.equal(await page.evaluate(()=>!!window.__TAURI_INTERNALS__),true,'Real native IPC required');
+ assert.equal(await page.getByText('Workspace initialization failed:',{exact:false}).count(),0,'Native workspace initialization failed');
  const draft='Native AnF QA: saved writing remains local. Café and 中文.';
  const go=id=>navigateWorkspace(page,id);
  const save=async()=>{await go('settings');await page.getByRole('button',{name:'Save project',exact:true}).click();await page.getByText('Conversation saved.',{exact:true}).waitFor();};

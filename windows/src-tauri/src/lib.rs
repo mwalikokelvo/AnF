@@ -402,7 +402,8 @@ fn log_line(message: String) {
 /// for the *same* arguments as the island (see `additionalBrowserArgs` in
 /// tauri.conf.json) — a mismatch makes the second window come up blank, with no
 /// error anywhere.
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI --autoplay-policy=no-user-gesture-required";
+mod browser_options;
+use browser_options::browser_arguments;
 
 /// In a dev build the pages are served by Vite, so the second window needs the
 /// absolute dev URL; a bundled build resolves it inside the app bundle.
@@ -421,7 +422,7 @@ fn settings_page_url(app: &AppHandle) -> WebviewUrl {
 fn create_settings_window(app: &AppHandle) {
     let url = settings_page_url(app);
     match WebviewWindowBuilder::new(app, "settings", url)
-        .additional_browser_args(BROWSER_ARGS)
+        .additional_browser_args(browser_arguments().as_ref())
         .data_directory(settings::local_dir().join("webview-v014"))
         .title("Settings — AnF")
         .inner_size(560.0, 680.0)
@@ -647,7 +648,7 @@ pub fn run() {
                 _ => {}
             }
             let win = WebviewWindowBuilder::new(&handle, "workspace", workspace_url)
-                .additional_browser_args(BROWSER_ARGS)
+                .additional_browser_args(browser_arguments().as_ref())
                 .data_directory(settings::local_dir().join("webview-v014"))
                 .title("Workspace — AnF")
                 .inner_size(820.0, 760.0)
@@ -683,7 +684,7 @@ pub fn run() {
                     |builder| {
                         builder
                             .zoom_hotkeys_enabled(false)
-                            .additional_browser_args(BROWSER_ARGS)
+                            .additional_browser_args(browser_arguments().as_ref())
                             .data_directory(settings::local_dir().join("webview-v014"))
                             .build()
                     },

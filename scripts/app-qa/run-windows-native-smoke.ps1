@@ -7,6 +7,7 @@ $env:ANF_QA_OUTPUT=Join-Path $env:RUNNER_TEMP 'anf-native-source-qa/results'
 $env:APPDATA=Join-Path $env:RUNNER_TEMP 'anf-native-source-qa/roaming'
 $env:LOCALAPPDATA=Join-Path $env:RUNNER_TEMP 'anf-native-source-qa/local'
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
+$env:ANF_NATIVE_QA_CDP='1'
 New-Item -ItemType Directory -Path $env:ANF_QA_OUTPUT,$env:APPDATA,$env:LOCALAPPDATA -Force | Out-Null
 $hash=(Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
 foreach($phase in @('seed','reopen')){

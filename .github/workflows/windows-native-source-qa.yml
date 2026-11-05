@@ -26,7 +26,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
         with:
           toolchain: 1.99.0
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        id: cargo-cache
         with:
           path: |
             ~/.cargo/registry
@@ -54,6 +55,15 @@ jobs:
             npm exec -- tauri build --debug --no-bundle --config $config
             if($LASTEXITCODE){throw 'Current native app build failed'}
           }finally{Pop-Location}
+      - name: Save a successfully compiled cache even if later UI assertions fail
+        if: steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            windows/target
+          key: windows-native-source-${{ hashFiles('windows/Cargo.lock') }}
       - name: Exercise unmodified native host with fresh test-only profiles
         shell: pwsh
         run: ./scripts/app-qa/run-windows-native-smoke.ps1
