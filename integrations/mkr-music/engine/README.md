@@ -18,7 +18,7 @@ No Android SDK, Hilt/Compose, account, key or user data is read. The prototype u
 the InnerTubeX desktop variant, not its Android artifact. Compile/test results
 must be recorded before either native host can rely on this component.
 
-The real JVM compilation and eighteen fixture/policy/transport tests pass. Gradle dependency
+The real JVM compilation and 34 offline fixture/policy/transport tests pass (run41981316928, 2026-11-05; zero skipped). Gradle dependency
 locks and SHA256 verification metadata record the resolved artifacts; a subsequent
 offline build verified them. A single explicit live probe returned20 public search
 records but did not obtain compatible M4A audio. Search success is not streaming
@@ -123,3 +123,8 @@ Metadata success does not verify lease admission, CDN bytes or native playback.
 Earlier live UNAVAILABLE observations remain valid; this change did not retry
 those fixtures or establish provider availability. Production discovery and
 packaging remain disabled pending their existing acceptance/source gates.
+
+Latest verification: [offline contract run41981316928](https://github.com/mwalikokelvo/AnF/actions/runs/41981316928)
+compiled the isolated catalog and passed all34 tests, including the3 metadata
+probe parity regressions. No live provider request, decoder playback, AnF
+capability enablement or distributable runtime was part of that run.
