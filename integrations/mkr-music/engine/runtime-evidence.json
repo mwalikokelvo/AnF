@@ -1,0 +1,431 @@
+{
+    "schema": 1,
+    "jdkHome": "/usr/lib/jvm/temurin-21-jdk-amd64",
+    "engine": {
+        "file": "/home/runner/work/AnF/AnF/integrations/mkr-music/engine/build/libs/anf-mkr-catalog-0.1.0-prototype.jar",
+        "sha256": "909e62b58e1ce87b365a548b9780730055a85df259d528a6d4d375f6266eb2b9",
+        "bytes": 2594872
+    },
+    "dependencies": [
+        {
+            "coordinate": "com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.github.MetrolistGroup.innertubex/innertubex-desktop/v0.7.2/b1c1cc417c4bb3edbb9fd1456b4e77a36daadad7/innertubex-desktop-v0.7.2.jar",
+            "name": "innertubex-desktop-v0.7.2.jar",
+            "bytes": 1943146,
+            "sha256": "8b9eca7f32e26d67197a1fda19225ce9e405b250325ca3ac5e6cc9675aafb309",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "com.github.TeamNewPipe:NewPipeExtractor:v0.26.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.github.TeamNewPipe/NewPipeExtractor/v0.26.1/3fe2a68f7329ed3a31b7b597e9bb7059fc7cc08f/NewPipeExtractor-v0.26.1.jar",
+            "name": "NewPipeExtractor-v0.26.1.jar",
+            "bytes": 788306,
+            "sha256": "fa4d08c1d224cae9a524d9d09e6bcef83e1b4b48397b2e852843036f74ae6525",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "com.github.TeamNewPipe:nanojson:e9d656ddb49a412a5a0a5d5ef20ca7ef09549996",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.github.TeamNewPipe/nanojson/e9d656ddb49a412a5a0a5d5ef20ca7ef09549996/c149dc0ba5a55ba972e1420a2b641505f71d533a/nanojson-e9d656ddb49a412a5a0a5d5ef20ca7ef09549996.jar",
+            "name": "nanojson-e9d656ddb49a412a5a0a5d5ef20ca7ef09549996.jar",
+            "bytes": 31210,
+            "sha256": "d495881a322b3c72e5d43284afd7d7021520028ca8b7c6ba861e3fd8d90614d5",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "com.google.code.findbugs:jsr305:3.0.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.google.code.findbugs/jsr305/3.0.2/25ea2e8b0c338a877313bd4672d3fe056ea78f0d/jsr305-3.0.2.jar",
+            "name": "jsr305-3.0.2.jar",
+            "bytes": 19936,
+            "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "com.google.protobuf:protobuf-javalite:4.34.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protobuf-javalite/4.34.1/43597f6df55a8a5703654a1a5a92ed9a260034bc/protobuf-javalite-4.34.1.jar",
+            "name": "protobuf-javalite-4.34.1.jar",
+            "bytes": 1067654,
+            "sha256": "cfbc20253fd8c365b74bd63f8f90b90ef92005b6619ce629c3eef39b0afef197",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "com.squareup.okhttp3:okhttp-jvm:5.3.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/okhttp-jvm/5.3.2/f31e8de27feebe1e56d6c9d354a0986b65be0e1d/okhttp-jvm-5.3.2.jar",
+            "name": "okhttp-jvm-5.3.2.jar",
+            "bytes": 868403,
+            "sha256": "c771f48075b763f6c322055e21129a94b7de4c1faf3f8f58ace320b0c9517a30",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "com.squareup.okio:okio-jvm:3.17.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.17.0/a12d684ec0df9541b3869ae60a4a5257fd3613df/okio-jvm-3.17.0.jar",
+            "name": "okio-jvm-3.17.0.jar",
+            "bytes": 381985,
+            "sha256": "3b13dcc3e1573047c2d507fc4f7fcb0bb0cbcd9d395da21d20e09406e2cd6a73",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.github.dokar3:quickjs-kt-jvm:1.0.14",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.github.dokar3/quickjs-kt-jvm/1.0.14/6133030becc259261a7739fd4d3717718141e607/quickjs-jvm.jar",
+            "name": "quickjs-jvm.jar",
+            "bytes": 2305376,
+            "sha256": "e4619d2c71b2018c2bf06d8dcb01c989e5ad6798a380e6e65968e6a30bbedeba",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-client-content-negotiation-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-client-content-negotiation-jvm/3.5.2/f30c44701a3d4d392a33a41293c2b1c29cfa5d0/ktor-client-content-negotiation-jvm-3.5.2.jar",
+            "name": "ktor-client-content-negotiation-jvm-3.5.2.jar",
+            "bytes": 28016,
+            "sha256": "373bc8db7ad8e9fdfe8d0b5829d6b2b526d6777bb93a131c7569d2e023e532e0",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-client-core-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-client-core-jvm/3.5.2/d6525cc26aa12e341b14a37dea698fcb4eca54cb/ktor-client-core-jvm-3.5.2.jar",
+            "name": "ktor-client-core-jvm-3.5.2.jar",
+            "bytes": 941648,
+            "sha256": "3e03d71c5c6370d128f483cf63cfe62628d5c0d1b1ac5e45dbe2a6825e696af4",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-client-encoding-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-client-encoding-jvm/3.5.2/9a68b14568ac584556bfbfd8c56c3436da60cecb/ktor-client-encoding-jvm-3.5.2.jar",
+            "name": "ktor-client-encoding-jvm-3.5.2.jar",
+            "bytes": 30248,
+            "sha256": "5a2fcd98bcf47e582e0be32f64e2da178c14bd93a5bf16595b0e00774c8255c5",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-client-okhttp-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-client-okhttp-jvm/3.5.2/f1e6da982f67aa909001c53b61d46ad02ef91ec9/ktor-client-okhttp-jvm-3.5.2.jar",
+            "name": "ktor-client-okhttp-jvm-3.5.2.jar",
+            "bytes": 58981,
+            "sha256": "4bf9175ddebef9dbe425f9e309c6acd6f160af60c370bee1d5a8905772b21f74",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-events-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-events-jvm/3.5.2/5e64959ec6f91dff8ea281cfa102ae73bce000f7/ktor-events-jvm-3.5.2.jar",
+            "name": "ktor-events-jvm-3.5.2.jar",
+            "bytes": 6402,
+            "sha256": "7712ed1d51716180a9666fe88da5c5ef0e49123483ae2cd14ae3e9252ee71148",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-http-cio-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-http-cio-jvm/3.5.2/4d8f22cce83a2c865e0d3e64d4abfd4ea13a8e6c/ktor-http-cio-jvm-3.5.2.jar",
+            "name": "ktor-http-cio-jvm-3.5.2.jar",
+            "bytes": 134338,
+            "sha256": "3c87a3e3b368994a485e2f62f59cbe2201d767094018b726e81ffbe9b4976554",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-http-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-http-jvm/3.5.2/d28bf8120efdc33354d91d99c0842187759e3c70/ktor-http-jvm-3.5.2.jar",
+            "name": "ktor-http-jvm-3.5.2.jar",
+            "bytes": 446542,
+            "sha256": "6afc8074f60732ed60cd904a3e52b46a98425b35a1b9446d2cfa457f2ee63b41",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-io-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-io-jvm/3.5.2/b27620278e10b206310a22b9303c5274f239872d/ktor-io-jvm-3.5.2.jar",
+            "name": "ktor-io-jvm-3.5.2.jar",
+            "bytes": 305409,
+            "sha256": "b990b4319b711218fbcee2f98e1dcf289a25a17194837992efb5b970b3b6c64c",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-network-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-network-jvm/3.5.2/1d4a6deadcc3a30de665ea26f98eea3fc52750bb/ktor-network-jvm-3.5.2.jar",
+            "name": "ktor-network-jvm-3.5.2.jar",
+            "bytes": 200150,
+            "sha256": "f1d966faf5e9adf903a968480f6c1a4223d596583a972ebbaf3fa1fd7f9be75d",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-serialization-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-serialization-jvm/3.5.2/beed828bb6d5388782ee3d7ab9e17f19888a60a9/ktor-serialization-jvm-3.5.2.jar",
+            "name": "ktor-serialization-jvm-3.5.2.jar",
+            "bytes": 22962,
+            "sha256": "b7c85d08714ce39e9c17a235038de6f9c2b121e5fb57ce90c5a349a65f61e9f6",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-serialization-kotlinx-json-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-serialization-kotlinx-json-jvm/3.5.2/4b7181c709337dcbdda1106f0227a599944e6559/ktor-serialization-kotlinx-json-jvm-3.5.2.jar",
+            "name": "ktor-serialization-kotlinx-json-jvm-3.5.2.jar",
+            "bytes": 28653,
+            "sha256": "b43e47d32083b95069d31cacd0d5286aae53927e7b55586d20c6bf554ffb6ab5",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-serialization-kotlinx-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-serialization-kotlinx-jvm/3.5.2/10c0b34ab34b3eef9d81a5632a0f9bbf9eb54bc9/ktor-serialization-kotlinx-jvm-3.5.2.jar",
+            "name": "ktor-serialization-kotlinx-jvm-3.5.2.jar",
+            "bytes": 28889,
+            "sha256": "8e2d12d0cebeadb23b0c5211331a55716836a069510cc0b3184b87727c1be9ca",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-sse-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-sse-jvm/3.5.2/84a9273210b25e32403252149f7bcd16b7ab9fbb/ktor-sse-jvm-3.5.2.jar",
+            "name": "ktor-sse-jvm-3.5.2.jar",
+            "bytes": 8416,
+            "sha256": "c510904fe0e7dd6b9df2fa7c5474696fda64d7366129ce5fa9ace2ebf450d288",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-utils-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-utils-jvm/3.5.2/dc58dadecf1646d013ba0dda5dffab0b71a3fefd/ktor-utils-jvm-3.5.2.jar",
+            "name": "ktor-utils-jvm-3.5.2.jar",
+            "bytes": 372837,
+            "sha256": "5cb9c040d290aa31ce5e4930d825dda5d25625a8603074b29943c519d5b022bb",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-websocket-serialization-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-websocket-serialization-jvm/3.5.2/d391929e7082af2e6f0cddcf7df4b8f934b0a297/ktor-websocket-serialization-jvm-3.5.2.jar",
+            "name": "ktor-websocket-serialization-jvm-3.5.2.jar",
+            "bytes": 7236,
+            "sha256": "7ffcac7ed3d723e0bd33b219b9e3df6d5953e5b810f66c4c8e686f571f5d8e6c",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "io.ktor:ktor-websockets-jvm:3.5.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/io.ktor/ktor-websockets-jvm/3.5.2/9906c60d014018f83dd0f4f6eff306956dc1fe09/ktor-websockets-jvm-3.5.2.jar",
+            "name": "ktor-websockets-jvm-3.5.2.jar",
+            "bytes": 192283,
+            "sha256": "f5aeb4e6ee108e815643e2cf06580d4ca1adc529f6cf4d306a89b69fb4880b4b",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.brotli:dec:0.1.2",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.brotli/dec/0.1.2/c26a897ae0d524809eef1c786cc6183b4ddcc3b/dec-0.1.2.jar",
+            "name": "dec-0.1.2.jar",
+            "bytes": 98115,
+            "sha256": "615c0c3efef990d77831104475fba6a1f7971388691d4bad1471ad84101f6d52",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.4.10",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.4.10/8943c84ddc6d5cc00a10dbc3736c397066eeaab5/kotlin-stdlib-2.4.10.jar",
+            "name": "kotlin-stdlib-2.4.10.jar",
+            "bytes": 1841933,
+            "sha256": "4ec0293bc3751423b203f1d8493251c57c42e73eb6377a6b8560d0974ff0a6df",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.11.0/3d57dc678bd8d72a60e7adf0eca5c54e3f4f4b79/kotlinx-coroutines-core-jvm-1.11.0.jar",
+            "name": "kotlinx-coroutines-core-jvm-1.11.0.jar",
+            "bytes": 1577052,
+            "sha256": "d1d75aa01dffbb4d1c520e67e4c4e7f5f6174718e7cb4632412503f2f0e604fa",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.11.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-slf4j/1.11.0/556153d93573d016dd4e5df37e3d03d07d8d303/kotlinx-coroutines-slf4j-1.11.0.jar",
+            "name": "kotlinx-coroutines-slf4j-1.11.0.jar",
+            "bytes": 4446,
+            "sha256": "1043471e7d5f99680df3a056cf766276e0fe339e48030dea503fc1c94c33743e",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.9.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-io-bytestring-jvm/0.9.1/7a28d93fce9fc8b663a6fe19cb2ae14a6ade7e8a/kotlinx-io-bytestring-jvm-0.9.1.jar",
+            "name": "kotlinx-io-bytestring-jvm-0.9.1.jar",
+            "bytes": 22776,
+            "sha256": "8589de0b7c476bfdd02a24641685f609ade72f5e595cf2909c168acdba7e6ba4",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-io-core-jvm/0.9.1/8c926478f17f8109e01e68adee93795c68dcad3c/kotlinx-io-core-jvm-0.9.1.jar",
+            "name": "kotlinx-io-core-jvm-0.9.1.jar",
+            "bytes": 153576,
+            "sha256": "765d8851d8ca694706931331b92386844800867e041b720f1f193dbda874d370",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-serialization-core-jvm/1.11.0/c1905c9bf7452b045d5af9248835abe64ddad6bf/kotlinx-serialization-core-jvm-1.11.0.jar",
+            "name": "kotlinx-serialization-core-jvm-1.11.0.jar",
+            "bytes": 404509,
+            "sha256": "f4a801c647d4351327cd9e1ac4113e2be9ea37a64ab0abae269c25a52e28f35d",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-json-io-jvm:1.11.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-serialization-json-io-jvm/1.11.0/645ed54ca9128fc217b30b3686a083141ebe635c/kotlinx-serialization-json-io-jvm-1.11.0.jar",
+            "name": "kotlinx-serialization-json-io-jvm-1.11.0.jar",
+            "bytes": 7054,
+            "sha256": "bbf3005522426ac4ba2acd6dc38f47ea5a3274ee82b932b8841835c7eaddab74",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm/1.11.0/e7e045e99e56f07599bb9ccb708c2190e2af0606/kotlinx-serialization-json-jvm-1.11.0.jar",
+            "name": "kotlinx-serialization-json-jvm-1.11.0.jar",
+            "bytes": 294166,
+            "sha256": "563a25b4eb5c9128ae9c2479f3d1a5c44dcd176112b91cf03682e906eba5c935",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jetbrains:annotations:23.0.0",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/23.0.0/8cc20c07506ec18e0834947b84a864bfc094484e/annotations-23.0.0.jar",
+            "name": "annotations-23.0.0.jar",
+            "bytes": 29371,
+            "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.jsoup:jsoup:1.22.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.jsoup/jsoup/1.22.1/9085290f1032d8bdd4ab0a279d176a4bd9e282ca/jsoup-1.22.1.jar",
+            "name": "jsoup-1.22.1.jar",
+            "bytes": 508348,
+            "sha256": "cfd3298d8720cddfb0545109ccc6ea0ef39eff7e9c40a10ad95c93a65f01c916",
+            "noticeEntries": [
+                "META-INF/jsoup/LICENSE"
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.mozilla:rhino-engine:1.8.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.mozilla/rhino-engine/1.8.1/c25f7e0f699892f56e34c6c59c1bd783c8580d37/rhino-engine-1.8.1.jar",
+            "name": "rhino-engine-1.8.1.jar",
+            "bytes": 14256,
+            "sha256": "ff38ad60aa32a23942f60242a433a2583a5407841745510754a43e0e61dd95cf",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.mozilla:rhino:1.8.1",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.mozilla/rhino/1.8.1/40e5d3db3e4b2ed85e9f02e29680ec21fe14d3a8/rhino-1.8.1.jar",
+            "name": "rhino-1.8.1.jar",
+            "bytes": 1271206,
+            "sha256": "98a06d42bdd69da15bf9c2a7812b4cfe648ca9e64fe8baaeb502a32b0ed2c8ac",
+            "noticeEntries": [
+                
+            ],
+            "sourceReviewRequired": true
+        },
+        {
+            "coordinate": "org.slf4j:slf4j-api:2.0.18",
+            "file": "/home/runner/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.18/78a9e7a37cd6360e0b818e86341b24123d28d4df/slf4j-api-2.0.18.jar",
+            "name": "slf4j-api-2.0.18.jar",
+            "bytes": 69982,
+            "sha256": "44508fd1576500688c790b190acdd16fec4f8c79a3e0b900afd70503cf055f55",
+            "noticeEntries": [
+                "META-INF/LICENSE.txt"
+            ],
+            "sourceReviewRequired": true
+        }
+    ],
+    "sourceCompleteDistributionPrepared": false,
+    "readyForPublication": false
+}

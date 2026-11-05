@@ -124,7 +124,24 @@ Earlier live UNAVAILABLE observations remain valid; this change did not retry
 those fixtures or establish provider availability. Production discovery and
 packaging remain disabled pending their existing acceptance/source gates.
 
-Latest verification: [offline contract run41981316928](https://github.com/mwalikokelvo/AnF/actions/runs/41981316928)
+Earlier verification: [offline contract run41981316928](https://github.com/mwalikokelvo/AnF/actions/runs/41981316928)
 compiled the isolated catalog and passed all34 tests, including the3 metadata
 probe parity regressions. No live provider request, decoder playback, AnF
 capability enablement or distributable runtime was part of that run.
+
+
+## Current isolated candidate inventory
+
+The v0.7.2 candidate passed35 JVM contract tests in
+[run41996468050](https://github.com/mwalikokelvo/AnF/actions/runs/41996468050).
+[Inventory run42010862475](https://github.com/mwalikokelvo/AnF/actions/runs/42010862475)
+then audited38 exact runtime dependencies and fetched38 bounded source archives.
+`../inventory-provenance.json` links the exact report hashes and source commit.
+All37 shared dependency binary/source hashes match the previous inventory;
+only the reviewed InnerTubeX patch coordinate changed. The previous source
+inventory remains in `../source-artifact-evidence-v0.7.0.json`.
+
+These are inventory reports, not a source-complete runtime distribution. QuickJS
+native binary correspondence, exact bundled JDK correspondence and complete
+notices/distribution review still require acceptance. No executable, music
+provider query or production app package was uploaded by the inventory workflow.

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "runUrl": "https://github.com/mwalikokelvo/AnF/actions/runs/42010862475",
+  "sourceCommit": "7e5917659475bd62227adff7ea10c4b24e126276",
+  "runtimeInventory": "engine/runtime-evidence.json",
+  "runtimeInventorySha256": "d8b8dd772f9ef3e72e347bad20b63a137b0a0c62052ec81af02e621840bf2bd7",
+  "sourceInventory": "source-artifact-evidence.json",
+  "sourceInventorySha256": "837e3e8b1e47f042118afac57872d2952dfbf5688c758fd77778a333c3e3e798",
+  "historicalSourceInventory": "source-artifact-evidence-v0.7.0.json",
+  "dependencyCount": 38,
+  "sourceCount": 38,
+  "unchangedSharedDependencies": 37,
+  "nativeSourceReview": "native-source-evidence.json",
+  "nativeSourceReviewStillRequired": true,
+  "readyForPublication": false,
+  "providerPlaybackVerified": false
+}
