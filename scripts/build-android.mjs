@@ -12,7 +12,8 @@ const require = createRequire(path.join(root, 'windows/package.json'));
 const { build } = require('esbuild');
 const { version } = JSON.parse(await readFile(path.join(root, 'windows/src-tauri/tauri.conf.json')));
 const legacy = process.argv.includes('--legacy');
-const contract = await androidContract(root, {legacy});
+const review = process.argv.includes('--review');
+const contract = await androidContract(root, {legacy, review});
 // MainActivity serves /index.html from getAssets().open("web/index.html").
 // Keep the APK's physical asset directory aligned with that native route.
 const assetsRoot = path.join(android, 'build/assets');
@@ -45,7 +46,6 @@ if (process.argv.includes('--assets-only')) {
   process.exit(0);
 }
 const gradle = process.env.GRADLE_BIN || (process.platform === 'win32' ? 'gradle.bat' : 'gradle');
-const review = process.argv.includes('--review');
 const reviewAbi = process.env.ANF_REVIEW_ABI || 'arm64-v8a';
 if (review && !['arm64-v8a', 'x86_64'].includes(reviewAbi)) throw Error('Music previews support arm64-v8a or x86_64.');
 const gradleArgs = ['--no-daemon', ...(review ? ['assembleReview'] : ['assembleRelease', 'assembleDebug'])];
@@ -77,13 +77,21 @@ for (const [variant, suffix] of (review ? [['review', `music-preview-${reviewAbi
 ])) {
   const directory = path.join(android, 'gradle-build/outputs/apk', variant);
   const metadata = JSON.parse(await readFile(path.join(directory, 'output-metadata.json')));
-  if (metadata.applicationId !== contract.applicationId + (review ? '.musicdev' : '') || metadata.elements.length !== 1) {
+  if (metadata.applicationId !== contract.applicationId || metadata.elements.length !== 1) {
     throw Error(`Unexpected APK metadata for ${variant}`);
   }
   const input = metadata.elements[0];
-  if (input.versionName !== (review ? version + '-music-preview' : version) || path.basename(input.outputFile) !== input.outputFile) {
+  if (input.versionName !== contract.version || path.basename(input.outputFile) !== input.outputFile) {
     throw Error(`APK version or output path mismatch for ${variant}`);
   }
+  const entryPoints = spawnSync(process.env.ANF_PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3'), [
+    path.join(root, 'scripts/check-android-entrypoints.py'),
+    '--manifest', path.join(android, 'gradle-build/intermediates/merged_manifest', variant, `process${variant[0].toUpperCase()+variant.slice(1)}MainManifest/AndroidManifest.xml`),
+    '--shortcuts', path.join(android, 'gradle-build/generated/anf-identity-res', variant, 'xml/shortcuts.xml'),
+    '--application-id', contract.applicationId,
+  ], {stdio:'inherit'});
+  if (entryPoints.error) throw entryPoints.error;
+  if (entryPoints.status !== 0) process.exit(entryPoints.status || 1);
   const source = path.join(directory, input.outputFile);
   if ((await stat(source)).size === 0) throw Error(`Empty APK: ${source}`);
   const check = spawnSync(process.env.ANF_PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3'),

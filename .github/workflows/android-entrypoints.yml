@@ -1,0 +1,75 @@
+name: Android installed entry-point QA
+on:
+  push:
+    branches: ['qa/android-entrypoints-**']
+    paths: ['android/**', 'scripts/**', '.github/workflows/android-entrypoints.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-entrypoints-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  installed-components:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        lineage: [modern, legacy]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare SDK and current web assets without signing or packaging
+        run: |
+          set -euo pipefail
+          node scripts/prepare-android-sdk.mjs
+          cli="$(node scripts/prepare-android-sdk.mjs --print-cli)"
+          "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
+          npm ci --prefix windows
+          npm ci --prefix android
+          node scripts/build-android.mjs --assets-only ${{ matrix.lineage == 'legacy' && '--legacy' || '' }}
+      - name: Build isolated QA inputs, never production-signed release artifacts
+        run: gradle -p android --no-daemon --max-workers=2 assembleRelease assembleReleaseAndroidTest ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
+      - name: Grant this ephemeral runner user access to its emulator
+        run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          ANF_ENTRYPOINT_LINEAGE: ${{ matrix.lineage }}
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          avd-name: anf-entrypoints-qa
+          force-avd-creation: true
+          ram-size: 1536M
+          cores: 2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim
+          script: python3 scripts/app-qa/run-android-entrypoints.py
+      - name: Retain reports only; exclude APKs, keystores and signing material
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Android-entrypoints-${{ matrix.lineage }}-evidence
+          path: |
+            ${{ runner.temp }}/anf-entrypoints-qa/reports/*.txt
+            ${{ runner.temp }}/anf-entrypoints-qa/reports/*.json
+          if-no-files-found: ignore
+          retention-days: 7

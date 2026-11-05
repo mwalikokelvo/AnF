@@ -37,6 +37,7 @@ for(let i=0;i<checks.length;i++) {
 
 
 run('scripts/check-workflows.mjs');
+run('scripts/check-android-contract.mjs');
 run('scripts/check-skill-pack.mjs');
 
 run('scripts/check-listening.cjs');
@@ -47,9 +48,11 @@ run('scripts/check-mkr-source.mjs');
 {
   const py=['python3','python'].find(c=>spawnSync(c,['--version']).status===0);
   if(!py)throw Error('check-release needs python3 to test scripts/package-release.py');
-  const apkGates=spawnSync(py,['-B',path.join(root,'scripts/test-android-apk-check.py')],{stdio:'inherit'});
-  if(apkGates.error)throw apkGates.error;
-  if(apkGates.status!==0)process.exit(apkGates.status||1);
+  for(const script of ['test-android-apk-check.py','test-android-entrypoints.py','check-android-release.py']){
+    const apkGates=spawnSync(py,['-B',path.join(root,'scripts',script)],{stdio:'inherit'});
+    if(apkGates.error)throw apkGates.error;
+    if(apkGates.status!==0)process.exit(apkGates.status||1);
+  }
   const tmp=await mkdtemp(path.join(tmpdir(),'anf-pkg-'));
   await mkdir(path.join(tmp,'windows/src-tauri'),{recursive:true});
   await mkdir(path.join(tmp,'windows/release'),{recursive:true});
@@ -72,4 +75,4 @@ run('scripts/check-mkr-source.mjs');
   assert(r.status===0&&r.stdout.includes('NOT fully verified')&&!r.stdout.includes('Successfully packaged'),'partial run must be labelled unverified');
   assert((await readFile(sums,'utf8')).includes('AnF-Windows-9.9.9-setup.exe'),'SHA256SUMS must list the packaged file');
 }
-console.log(`Passed ${checks.length+3} base release regression checks, plus the workflow, skill, listening and MKR checks above.`);
+console.log(`Passed ${checks.length+5} base release regression checks, plus the workflow, skill, listening and MKR checks above.`);

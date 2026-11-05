@@ -1,0 +1,46 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.*
+import javax.inject.Inject
+
+/** Literal shortcut targets must follow the installed variant, not the source namespace. */
+@CacheableTask
+abstract class PrepareAnFIdentityResources extends DefaultTask {
+    @InputDirectory @PathSensitive(PathSensitivity.RELATIVE)
+    abstract DirectoryProperty getSourceDirectory()
+    @OutputDirectory abstract DirectoryProperty getOutputDirectory()
+    @Internal abstract DirectoryProperty getAllowedBuildDirectory()
+    @Input abstract Property<String> getApplicationId()
+    @Input abstract Property<String> getLauncherClass()
+    @Inject abstract FileSystemOperations getFileSystemOperations()
+
+    @TaskAction void generate() {
+        def target=outputDirectory.get().asFile
+        def allowed=allowedBuildDirectory.get().asFile.canonicalFile.toPath()
+        if (!target.canonicalFile.toPath().startsWith(allowed) || target.canonicalFile.toPath()==allowed) {
+            throw new GradleException('Identity resources must stay inside the generated build directory.')
+        }
+        fileSystemOperations.sync { from sourceDirectory; into target }
+        def shortcuts=new File(target,'xml/shortcuts.xml')
+        def text=shortcuts.getText('UTF-8')
+        if (!text.contains('android:targetPackage="com.anf.workspace"') || !text.contains('android:targetClass="com.anf.workspace.MainActivity"')) {
+            throw new GradleException('Review changed shortcut template before preparing identity resources.')
+        }
+        text=text.replace('android:targetPackage="com.anf.workspace"', 'android:targetPackage="'+applicationId.get()+'"')
+                 .replace('android:targetClass="com.anf.workspace.MainActivity"', 'android:targetClass="'+launcherClass.get()+'"')
+        shortcuts.setText(text,'UTF-8')
+    }
+}
+
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    def prepared=tasks.register('prepare'+variant.name.capitalize()+'AnFIdentityResources', PrepareAnFIdentityResources) {
+        sourceDirectory.set(layout.projectDirectory.dir('res'))
+        outputDirectory.set(layout.buildDirectory.dir('generated/anf-identity-res/'+variant.name))
+        allowedBuildDirectory.set(layout.buildDirectory)
+        applicationId.set(variant.applicationId)
+        launcherClass.set(project.hasProperty('legacyApplicationId') ? 'com.coucou.workspace.MainActivity' : 'com.anf.workspace.MainActivity')
+    }
+    variant.sources.res.addGeneratedSourceDirectory(prepared, { task -> task.outputDirectory })
+}

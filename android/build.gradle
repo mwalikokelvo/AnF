@@ -34,7 +34,9 @@ android {
         main {
             manifest.srcFile 'gradle-input/AndroidManifest.xml'
             java.srcDirs = ['java']
-            res.srcDirs = ['res']
+            // Per-variant generated resources contain the exact installed ID,
+            // including the isolated review suffix; see identity-resources.gradle.
+            res.srcDirs = []
             assets.srcDirs = ['build/assets']
             if (project.hasProperty('spotubeRepository')) java.srcDirs += ['spotube-host']
         }
@@ -82,6 +84,7 @@ android {
         if (project.hasProperty('spotubeRepository')) jniLibs.useLegacyPackaging = true
     }
 }
+apply from: 'identity-resources.gradle'
 dependencies {
     if (project.hasProperty('spotubeRepository')) {
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
@@ -102,6 +105,20 @@ tasks.register('prepareAnFManifest') {
     doLast {
         def destination=file('gradle-input/AndroidManifest.xml');destination.parentFile.mkdirs()
         def manifest = file('AndroidManifest.xml').getText('UTF-8').replaceFirst(/\s+package="[^"]+"/,'')
+        if (project.hasProperty('legacyApplicationId')) {
+            // Keep the original launcher component and pinned Quick Settings tile.
+            // The implementation stays in the modern Java namespace.
+            manifest=manifest.replace('<intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>', '')
+            manifest=manifest.replace('<meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>', '')
+            manifest=manifest.replace('android:name=".QuickNoteTile"', 'android:name="com.coucou.workspace.QuickNoteTile"')
+            manifest=manifest.replace('android:name=".PlaybackService"', 'android:name="com.coucou.workspace.PlaybackService"')
+            manifest=manifest.replace('</application>', '''
+    <activity-alias android:name="com.coucou.workspace.MainActivity" android:targetActivity="com.anf.workspace.MainActivity" android:exported="true">
+      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+      <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>
+    </activity-alias>
+  </application>''')
+        }
         if (project.hasProperty('spotubeRepository')) {
             manifest=manifest.replace('<application', '''<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />

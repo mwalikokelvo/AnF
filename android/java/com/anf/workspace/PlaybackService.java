@@ -15,7 +15,7 @@ import java.io.File;
 import java.util.List;
 
 /** Local-only native playback owned by the foreground media service. */
-public final class PlaybackService extends MediaSessionService {
+public class PlaybackService extends MediaSessionService {
   private ExoPlayer player;
   private MediaSession session;
   @Override public void onCreate(){

@@ -28,7 +28,7 @@ final class MediaBridge {
   private volatile boolean closed;
   private File partial;private String importId,extension,expectedHash;private long expectedSize,written;
   private OutputStream output;private MessageDigest digest;
-  MediaBridge(Activity activity,Reply reply){this.activity=activity;this.reply=reply;folder=new File(activity.getFilesDir(),"vault/audio/files");controller=new MediaController.Builder(activity,new SessionToken(activity,new ComponentName(activity,PlaybackService.class))).buildAsync();}
+  MediaBridge(Activity activity,Reply reply){this.activity=activity;this.reply=reply;folder=new File(activity.getFilesDir(),"vault/audio/files");controller=new MediaController.Builder(activity,new SessionToken(activity,new ComponentName(activity,EntryPointIdentity.playbackService(activity.getPackageName())))).buildAsync();}
   private static String id(JSONObject data)throws Exception{String id=data.getString("track");if(!id.matches("[a-zA-Z0-9-]{1,64}"))throw new IOException("Invalid track");return id;}
   private static String ext(JSONObject data)throws Exception{String ext=data.getString("ext").toLowerCase(Locale.ROOT);if(!Arrays.asList("mp3","m4a","aac","wav","flac","ogg","opus","wma","aif","aiff","amr","alac").contains(ext))throw new IOException("Unsupported audio extension");return ext;}
   private static String hex(byte[] bytes){StringBuilder s=new StringBuilder();for(byte b:bytes)s.append(String.format(Locale.ROOT,"%02x",b&255));return s.toString();}

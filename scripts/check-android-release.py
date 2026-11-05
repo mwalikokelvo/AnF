@@ -21,7 +21,9 @@ with tempfile.TemporaryDirectory(prefix='anf-apk-check-') as folder:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(data)
     apk = base / 'fixture.apk'
-    with zipfile.ZipFile(apk, 'w') as archive:
+    # Compressed ZIP fixture: native/alignment acceptance is tested separately by
+    # test-android-apk-check.py with aligned and misaligned stored libraries.
+    with zipfile.ZipFile(apk, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for name, data in files.items():
             archive.writestr('assets/web/' + name, data)
         archive.writestr('lib/arm64-v8a/libsqlcipher.so', b'fixture')

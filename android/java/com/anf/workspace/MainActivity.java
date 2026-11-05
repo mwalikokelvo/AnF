@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
   private void deliverCapture(){
     if(!quickReady||pendingCapture==null||closing)return;
     Intent intent=pendingCapture;pendingCapture=null;String action=intent.getAction();
-    if("com.anf.QUICK_NOTE".equals(action))web.evaluateJavascript("window.AnFQuickCapture && window.AnFQuickCapture()",null);
+    if(QuickCaptureAction.matches(action))web.evaluateJavascript("window.AnFQuickCapture && window.AnFQuickCapture()",null);
     else if(Intent.ACTION_SEND.equals(action)&&"text/plain".equals(intent.getType())){String shared=intent.getStringExtra(Intent.EXTRA_TEXT);if(shared!=null)web.evaluateJavascript("window.AnFQuickCapture && window.AnFQuickCapture("+JSONObject.quote(shared.substring(0,Math.min(shared.length(),10000)))+")",null);}
   }
   private WebResourceResponse blocked(){return new WebResourceResponse("text/plain","UTF-8",403,"Blocked",Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));}

@@ -4,13 +4,14 @@ import path from 'node:path';
 
 // Only product inputs, never generated build directories, keys or user data.
 const directories = ['android/web', 'android/java', 'android/res', 'android/spotube-host', 'windows/src'];
-const files = ['android/AndroidManifest.xml', 'android/build.gradle', 'android/settings.gradle',
+const files = ['android/AndroidManifest.xml', 'android/build.gradle', 'android/identity-resources.gradle', 'android/settings.gradle',
   'android/gradle.properties', 'android/package-lock.json', 'windows/package-lock.json',
   'windows/src-tauri/tauri.conf.json', 'scripts/build-android.mjs',
   'scripts/prepare-android-sdk.mjs', 'scripts/verify-android-release.mjs',
-  'scripts/android-release-contract.mjs', 'scripts/android-signing-policy.mjs', 'scripts/check-android-apk.py'];
+  'scripts/android-release-contract.mjs', 'scripts/android-signing-policy.mjs', 'scripts/check-android-apk.py',
+  'scripts/check-android-entrypoints.py'];
 
-export async function androidContract(root, {legacy = false} = {}) {
+export async function androidContract(root, {legacy = false, review = false} = {}) {
   const inputs = [...files];
   async function walk(relative) {
     for (const entry of await readdir(path.join(root, relative), { withFileTypes: true })) {
@@ -34,6 +35,7 @@ export async function androidContract(root, {legacy = false} = {}) {
     if (!legacyId) throw Error('Missing explicit legacy Android application ID.');
     applicationId = legacyId;
   }
+  if (review) applicationId += '.musicdev';
   hash.update('applicationId\0' + applicationId + '\0');
-  return { schema: 1, version: config.version, versionCode: components[0] * 1000000 + components[1] * 1000 + components[2], applicationId, sourceSha256: hash.digest('hex') };
+  return { schema: 1, version: config.version + (review ? '-music-preview' : ''), versionCode: components[0] * 1000000 + components[1] * 1000 + components[2], applicationId, sourceSha256: hash.digest('hex') };
 }
