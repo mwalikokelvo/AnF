@@ -30,6 +30,19 @@ class PrimaryRequestContractTest {
             assertNotNull(client)
             assertTrue(client["clientName"]?.jsonPrimitive?.content?.isNotBlank()==true)
             assertTrue(client["clientVersion"]?.jsonPrimitive?.content?.isNotBlank()==true)
+            // Public library client metadata from a synthetic request only.
+            // Never dump the body, query values, cookies, tokens or provider URLs.
+            val name=client["clientName"]!!.jsonPrimitive.content
+            val version=client["clientVersion"]!!.jsonPrimitive.content
+            assertTrue(name.matches(Regex("[A-Za-z0-9_.-]{1,80}")))
+            assertTrue(version.matches(Regex("[A-Za-z0-9_.-]{1,80}")))
+            println("ANF_OFFLINE_REQUEST_CONTRACT: "+buildJsonObject {
+                put("clientName",name);put("clientVersion",version)
+                put("selectedIdMatches",json["videoId"]?.jsonPrimitive?.content=="abcdefghijk")
+                put("fieldMaskPresent",request.url.parameters["fields"]!=null || request.headers["X-Goog-FieldMask"]!=null)
+                put("authorizationPresent",request.headers[HttpHeaders.Authorization]!=null)
+                put("mockTransportOnly",true)
+            })
             val integrity=json["serviceIntegrityDimensions"]?.jsonObject
             assertTrue(integrity?.get("poToken")?.jsonPrimitive?.contentOrNull.isNullOrEmpty())
             respond("""{"playabilityStatus":{"status":"UNPLAYABLE","reason":"private fixture reason"}}""",
