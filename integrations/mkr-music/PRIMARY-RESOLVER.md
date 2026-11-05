@@ -85,7 +85,7 @@ This audit is not a claim that the current environment can play a provider strea
 It prevents treating the initial legacy helper or separate AAC fixture as the
 requested completed MKR integration.
 
-## Isolated JVM patch compatibility candidate
+## Isolated JVM and Android patch compatibility candidate
 
 The offline real-request fixture confirmed that the old v0.7.0 dependency
 initially selected `VISIONOS` version `0.1`. Upstream v0.7.2 marks this legacy
@@ -93,9 +93,12 @@ client probe-only after rejecting responses. The isolated JVM catalog now
 validates that narrow patch at commit `195bac930073233fd2450edc5589033528cccd43`,
 with exact artifact hashes and all84 source-JAR Kotlin files matching Git blobs.
 The earlier pin remains in engine/PRIMARY-SOURCE-v0.7.0.json. No unrelated
-transitive version or existing checksum was changed. Android remains on its
-previous reviewed dependency until separate validation; no matching distribution
-or automatic new provider retry is implied.
+transitive version or existing checksum was changed. The isolated Android catalog now uses the matching Android v0.7.2 variant.
+Its exact AAR/source hashes and reviewed commit are in
+android-catalog/PRIMARY-SOURCE.json. Run42002445872 passed43 host tests and
+3 generated-media Android15 instrumentation tests. The request fixture selects
+visionOS1.02 through mock transport on both platforms. No matching production
+distribution or automatic new provider retry is implied.
 
 The cause of the earlier HTTP200 unavailable response is still not proven:
 upstream describes HTTP400 for the deprecated client. This candidate is a

@@ -77,8 +77,12 @@ request contract also runs in the Android host test build, with mock transport
 and no live provider query. Exact Android publication checksums are added
 alongside retained historical pins; unrelated dependency locks are unchanged.
 
-Android compilation, runtime ABI inventory and generated-media instrumentation
-must pass at this candidate before it is accepted. Historical runtime evidence
-still refers to v0.7.0. Corresponding Android source/distribution review and
+Run42002445872 at b8dd009 passed strict compilation, all43 host tests,
+the62-artifact Android runtime audit and3 generated-media Android15
+instrumentation tests. The mock request selected visionOS1.02. The AAR hash
+matched the independently downloaded artifact; all84 Kotlin files in its
+source JAR matched the reviewed Git blobs. PRIMARY-SOURCE.json records the
+exact candidate pin; historical runtime-evidence.json still refers to v0.7.0.
+These checks do not prove live provider playback. Full Android source/distribution review and
 production service/provider playback remain incomplete; no release app is linked
 or made available by this dependency update.

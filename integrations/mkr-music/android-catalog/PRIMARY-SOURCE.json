@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/MetrolistGroup/innertubex",
+  "reviewedCommit": "195bac930073233fd2450edc5589033528cccd43",
+  "upstreamTag": "v0.7.2",
+  "coordinate": "com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.2",
+  "aarSha256": "c4c3b4de9c7f943a08ea4fc5c655de05eec289d959906ee971fd52b0dbf07bcc",
+  "sourceJarSha256": "ef53a381894539366a7adbce4cc119bedbe85d2fe4620e0df2cd32a233239244",
+  "sourceJarGitBlobMatches": 84,
+  "license": "GPL-3.0; original text retained in ../engine/PRIMARY-LICENSE.txt",
+  "sourceCompleteDistributionPrepared": false,
+  "repositoryWideLicenseChanged": false,
+  "productionProviderPlaybackVerified": false
+}
