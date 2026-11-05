@@ -16,9 +16,10 @@ body.has-mkr-player .panel-host{scroll-padding-bottom:calc(var(--mkr-player-heig
 
 /* Each audio surface owns its shell; navigation clearance follows the workspace. */
 @media(min-width:768px){
- body.has-glass-rail .mkr-dock{left:110px}
- body:has(.workspace-layout[data-rail-pinned=true]) .mkr-dock{left:290px}
+ body.has-glass-rail .mkr-dock{left:calc(var(--rail-closed,68px) + 42px)}
+ body:has(.workspace-layout[data-rail-pinned=true]) .mkr-dock{left:calc(var(--rail-open,248px) + 42px)}
 }
 @media(max-width:767px){
- body.has-glass-rail .mkr-dock,body:has(#app) .mkr-dock{bottom:var(--mobile-player-bottom,92px)}
+ body.has-glass-rail .mkr-dock{bottom:var(--mobile-player-bottom,92px)}
 }
+body:has(#app) .mkr-dock{bottom:var(--mobile-player-bottom,112px)}

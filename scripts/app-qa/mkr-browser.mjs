@@ -102,13 +102,19 @@ try{
  await page.locator('.mkr-dock').waitFor({state:'visible'});
  for(const theme of ['dark','light']){
   await page.evaluate(theme=>{document.documentElement.setAttribute('data-theme',theme);document.querySelector('#workspace-root').setAttribute('data-theme',theme);},theme);
+  // Let finite theme transitions finish; measure the settled palette, not mixed frames.
+  await page.evaluate(async()=>{
+   void getComputedStyle(document.querySelector('.mkr-controls button')).color;
+   await Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&Number.isFinite(a.effect?.getTiming().iterations??1)).map(a=>a.finished.catch(()=>{})));
+  });
   const contrast=await page.evaluate(()=>{
    const rgb=value=>value.match(/[\d.]+/g).slice(0,3).map(Number);
    const luminance=color=>rgb(color).map(v=>{const n=v/255;return n<=0.04045?n/12.92:((n+0.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[0.2126,0.7152,0.0722][i],0);
    const text=luminance(getComputedStyle(document.querySelector('.mkr-controls button')).color),background=luminance(getComputedStyle(document.querySelector('.mkr-dock')).backgroundColor);
    return(Math.max(text,background)+0.05)/(Math.min(text,background)+0.05);
   });
-  assert(contrast>=4.5,`${theme} control contrast ${contrast}`);
+  const palette=await page.evaluate(()=>{const dock=document.querySelector('.mkr-dock'),button=dock.querySelector('button');return{color:getComputedStyle(button).color,background:getComputedStyle(dock).backgroundColor,transition:getComputedStyle(button).transition};});
+  assert(contrast>=4.5,`${theme} control contrast ${contrast}: ${JSON.stringify(palette)}`);
   for(const width of [1280,390,320]){
    await page.setViewportSize({width,height:850});
    const layout=await page.evaluate(()=>{
@@ -122,6 +128,15 @@ try{
   }
 
  }
+ // The shared renderer must also clear Android's bottom navigation on wide tablets.
+ await page.evaluate(()=>{const app=document.createElement('div');app.id='app';document.body.append(app);document.body.style.setProperty('--mobile-player-bottom','148px');});
+ for(const width of [1280,390]){
+  await page.setViewportSize({width,height:850});
+  const bottom=await page.locator('.mkr-dock').evaluate(node=>node.getBoundingClientRect().bottom);
+  assert(bottom<=850-148+1,'Android bottom navigation clearance must apply at phone and tablet widths');
+ }
+ await page.evaluate(()=>{document.querySelector('#app').remove();document.body.style.removeProperty('--mobile-player-bottom');});
+ await page.setViewportSize({width:320,height:850});
  await page.screenshot({path:path.join(out,'mkr-ui.png')});
  await page.evaluate(()=>window.deferPlay=true);await song.click();
  await page.waitForFunction(()=>typeof window.finishPlay==='function');
