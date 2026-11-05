@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 package com.anf.mkr
 
+import io.ktor.client.engine.HttpClientEngine
 import com.metrolist.innertubex.InnerTube
 import com.metrolist.innertubex.cipher.PlayerConfigRepository
 import com.metrolist.innertubex.cipher.RemotePlayerConfigStore
@@ -30,10 +31,10 @@ internal class SinglePlaybackClient(private val delegate: ClientFallbackStrategy
 }
 
 /** The real upstream playback dependency, with no app-level rotation/credentials. */
-internal class PrimaryStreamResolver : AutoCloseable {
+internal class PrimaryStreamResolver(engine: HttpClientEngine? = null) : AutoCloseable {
     private val mutex = Mutex()
     private val policy = PrimaryRequestPolicy()
-    private val http = primaryHttpClient(policy)
+    private val http = primaryHttpClient(policy, engine)
     private val inner = InnerTube(http)
     private val strategy = SinglePlaybackClient()
     private val configs = RemotePlayerConfigStore(http, PlayerConfigRepository.disabled())
