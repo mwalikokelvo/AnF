@@ -195,3 +195,51 @@ only; no provider requests or production application availability are inferred.
 
 References: [Android bound service lifecycle](https://developer.android.com/develop/background-work/services/bound-services)
 and [cancellable result delivery](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-cancellable-continuation/resume.html).
+
+## Trusted WebView transport
+
+`AndroidMkrWebPort.attach` transfers a framework MessagePort to the trusted
+main document at exactly `https://anf.local` or `https://coucou.local` after
+loading. The host must revoke it on every main navigation and Activity destroy.
+It does not install a JavascriptInterface, launch a browser or accept a stream
+URL. Closing cancels page requests and detaches its native connection; the
+foreground service retains its accepted playback ownership. The transferred
+JavaScript endpoint is owned by JavaScript and is never closed from Java.
+
+Messages are `{id,command,payload}` and responses are `{id,value,error}`.
+Commands match the existing renderer contract: capabilities, open, hide, status,
+search, play, pause, previous, next and seek. Only a live approved session can
+report embedded capabilities. The transport bounds input size/nesting, concurrent
+requests and IDs; it rejects extra payload fields, arbitrary URLs, unsupported
+commands and coerced numeric strings. Errors are fixed messages; only track
+identity/title/artist and playback state are serialized. No signed URL/headers
+or raw native errors enter the page.
+
+Native app and OS controls share the session's revision/error publishing and
+controller acknowledgement/selected-queue policy. The app host still supplies
+its real pause-other-audio acknowledgement callback; this transport does not
+automatically approve it. Actual AnF Activity bootstrap/renderer port adapter and
+reviewed source/dependency packaging remain release gates. This engineering
+library is not registered in the installed applications.
+
+A new instrumentation test uses a real Android WebView, channel, Binder,
+foreground service/session and muted Media3 with a fake catalog and generated
+AAC. It also tests invalid numeric types/unknown tracks/URL payloads/unsupported
+launch requests, native audio acknowledgement, strict foreign/wildcard origin
+rejection and deeply nested input revocation. [Run42110704864](https://github.com/mwalikokelvo/AnF/actions/runs/42110704864)
+at `71de9bc` passed strict compilation,43 host tests and all10 Android15
+instrumentation tests, with the unchanged62-artifact runtime graph. It exercised
+the real JavaScript-to-Media3 path and all existing native tests. The fixture uses
+matching HTTPS base/history URLs; no about:blank/wildcard origin exception was
+introduced. The service now awaits final unbound teardown before starting a
+successor, retaining rejection while a stopped owner remains bound.
+
+Initial run42109204759 failed on the asynchronous service teardown race and the
+fixture's current-URL guard. Those failures are retained separately. Final
+validation did not remove guards, skip tests or increase test deadlines.
+This proves isolated WebView/native transport with generated media, not an
+installed AnF renderer integration, provider playback, visual screenshot review,
+physical-device behavior or signed upgrade compatibility.
+
+Platform references: [WebView main-frame message transfer](https://developer.android.com/reference/android/webkit/WebView#postWebMessage(android.webkit.WebMessage,%20android.net.Uri))
+and [MessagePort ownership](https://developer.android.com/reference/android/webkit/WebMessagePort).
