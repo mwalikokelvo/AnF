@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import com.anf.mkr.MkrTrack
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
@@ -96,6 +97,17 @@ internal class AndroidMediaSession private constructor(context: Context,
     }
     suspend fun activate() = withContext(Dispatchers.Main.immediate) {
         check(!closed.get()); publish(revision,recover=true); session.isActive=true
+    }
+    /** Native app browsing; platform URI/search playback callbacks remain disabled. */
+    suspend fun search(query: String): List<MkrTrack> = withContext(Dispatchers.Main.immediate) {
+        check(!closed.get() && session.isActive){"Music session unavailable."}
+        val tracks=controller.search(query)
+        check(!closed.get() && session.isActive){"Music session unavailable."}
+        tracks
+    }
+    suspend fun status(): AndroidPlaybackState = withContext(Dispatchers.Main.immediate) {
+        check(!closed.get() && session.isActive){"Music session unavailable."}
+        controller.status()
     }
     /** UI callers may refresh after a command; native decoder events refresh automatically. */
     suspend fun refresh() = withContext(Dispatchers.Main.immediate) {

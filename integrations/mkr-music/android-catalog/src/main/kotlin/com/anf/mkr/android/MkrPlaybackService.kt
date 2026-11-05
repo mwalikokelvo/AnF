@@ -24,12 +24,33 @@ class MkrPlaybackService : Service() {
     private var owner: AndroidMediaSession?=null
     private var remote: MediaController?=null
     private var closing=false
+    private var destroyed=false
+    private var cleaned=false
     private var initialization: Job?=null
     private val observer=object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?)=updateNotification()
         override fun onPlaybackStateChanged(state: PlaybackState?)=updateNotification()
     }
-    override fun onBind(intent: Intent?) = null
+    @Suppress("DEPRECATION")
+    override fun onBind(intent: Intent?): IBinder? {
+        if(closing || intent?.action!=BIND || owner==null ||
+            intent.getParcelableExtra<MediaSession.Token>(TOKEN)!=owner!!.token)return null
+        return NativeBinder(request!!.nonce)
+    }
+    /** Same-process native API; no raw controller, source URL, player or credentials. */
+    internal inner class NativeBinder(private val nonce: String) : Binder() {
+        // Android may reuse a cached Binder without calling onBind again.
+        fun matches(token: MediaSession.Token)=!closing && request?.nonce==nonce && owner?.token==token
+        private fun current(): AndroidMediaSession {
+            check(!closing && request?.nonce==nonce && owner!=null){"Music service unavailable."}
+            return owner!!
+        }
+        suspend fun search(query: String)=withContext(Dispatchers.Main.immediate) {
+            val session=current();val result=session.search(query)
+            check(current()===session){"Music service unavailable."};result
+        }
+        suspend fun status()=withContext(Dispatchers.Main.immediate) {current().status()}
+    }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if(intent?.action==START) {
             val next=pending
@@ -118,17 +139,22 @@ class MkrPlaybackService : Service() {
             } finally {
                 request?.ready?.completeExceptionally(IllegalStateException("Music service stopped."))
                 owner=null;request=null
-                if(running===this@MkrPlaybackService)running=null
+                cleaned=true;clearDestroyedOwner()
                 stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();scope.cancel()
             }
         }
     }
-    override fun onDestroy() {finish();super.onDestroy()}
+    private fun clearDestroyedOwner() {
+        if(destroyed && cleaned && running===this)running=null
+    }
+    override fun onDestroy() {destroyed=true;finish();clearDestroyedOwner();super.onDestroy()}
     companion object {
         private const val CHANNEL="anf-mkr-playback"
         internal const val NOTIFICATION=37041
         private const val NONCE="owner"
         private const val START="com.anf.mkr.START"
+        internal const val BIND="com.anf.mkr.BIND"
+        internal const val TOKEN="session"
         private const val STOP="com.anf.mkr.STOP"
         private const val PLAY="com.anf.mkr.PLAY"
         private const val PAUSE="com.anf.mkr.PAUSE"
