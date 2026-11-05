@@ -11,8 +11,14 @@ def fixture():
 class Checks(unittest.TestCase):
     def test_identical_code_and_export_evidence_does_not_clear_publication(self):
         a=fixture();b=bytearray(a);struct.pack_into('<I',b,136,42)
-        r=m.compare(a,b);self.assertFalse(r['identicalBytes']);self.assertTrue(r['identicalCodeSections']);self.assertTrue(r['identicalExportNames']);self.assertFalse(r['readyForPublication'])
+        r=m.compare(a,b);self.assertFalse(r['identicalBytes']);self.assertTrue(r['identicalCodeSections']);self.assertTrue(r['identicalExportNames']);self.assertFalse(r['readyForPublication']);self.assertEqual(r['changedByteCount'],1);self.assertEqual(r['changedRanges'][0]['offset'],136)
         b[512]=1;self.assertFalse(m.compare(a,b)['identicalCodeSections'])
+    def test_delta_reporting_is_bounded(self):
+        a=fixture();b=bytearray(a)
+        for i in range(512,1024,2):b[i]=1
+        r=m.compare(a,b);self.assertEqual(r['changedByteCount'],256);self.assertEqual(len(r['changedRanges']),32);self.assertEqual(r['changedBytesIncluded'],32)
+        b=bytearray(a);b[512:768]=b'x'*256
+        r=m.compare(a,b);self.assertEqual(r['changedByteCount'],256);self.assertEqual(len(r['changedRanges'][0]['rebuiltHex']),64);self.assertTrue(r['changedRanges'][0]['bytesTruncated'])
     def test_malformed_or_oversized_headers_fail_closed(self):
         for offset,value in [(60,999999),(132,0),(134,999),(148,0),(408,999999)]:
             data=fixture();struct.pack_into('<I' if offset in (60,408) else '<H',data,offset,value)

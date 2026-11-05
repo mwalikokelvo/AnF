@@ -50,7 +50,24 @@ def inspect(data):
 def compare(published,rebuilt):
     old=inspect(published);new=inspect(rebuilt)
     def codes(report):return [(s['name'],s['rawSize'],s['sha256']) for s in report['sections'] if s['characteristics'] & 0x20]
+    # Report a bounded exact byte delta; never normalize timestamps or data.
+    changed=[];different=0;start=None
+    size=max(len(published),len(rebuilt))
+    for index in range(size+1):
+        differs=index<size and (index>=len(published) or index>=len(rebuilt) or published[index]!=rebuilt[index])
+        if differs:
+            different+=1
+            if start is None:start=index
+        elif start is not None:
+            if len(changed)<32:
+                changed.append(dict(offset=start,length=index-start,
+                    publishedHex=published[start:min(index,start+32)].hex(),
+                    rebuiltHex=rebuilt[start:min(index,start+32)].hex(),
+                    bytesTruncated=index-start>32))
+            start=None
     return dict(schema=1,published=old,rebuilt=new,
+        changedByteCount=different,changedRanges=changed,
+        changedBytesIncluded=sum(min(d['length'],32) for d in changed),
         identicalBytes=published==rebuilt,identicalExportNames=old['exports']==new['exports'],
         identicalCodeSections=codes(old)==codes(new),
         readyForPublication=False,binarySourceCorrespondenceApproved=False,
