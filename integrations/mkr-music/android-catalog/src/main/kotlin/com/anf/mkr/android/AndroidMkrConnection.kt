@@ -25,8 +25,9 @@ internal class AndroidMkrConnection private constructor(
     suspend fun status(): AndroidPlaybackState {checkOpen();return binder.status().also{checkOpen()}}
     override fun close() {if(closed.compareAndSet(false,true))detach()}
     companion object {
-        suspend fun connect(context: Context, token: MediaSession.Token): AndroidMkrConnection =
-            withContext(Dispatchers.Main.immediate) {
+        suspend fun connect(context: Context, token: MediaSession.Token): AndroidMkrConnection {
+            var prepared: AndroidMkrConnection?=null
+            try {return withContext(Dispatchers.Main.immediate) {
                 withTimeout(5000) {
                     suspendCancellableCoroutine { continuation ->
                         val app=context.applicationContext
@@ -50,7 +51,7 @@ internal class AndroidMkrConnection private constructor(
                             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                                 val local=service as? MkrPlaybackService.NativeBinder
                                 if(local==null || !local.matches(token) || !continuation.isActive){unavailable();return}
-                                val client=AndroidMkrConnection(token,local,::detach);handle=client
+                                val client=AndroidMkrConnection(token,local,::detach);handle=client;prepared=client
                                 continuation.resume(client,onCancellation={_,value,_->value.close()})
                             }
                             override fun onServiceDisconnected(name: ComponentName?)=unavailable()
@@ -67,6 +68,11 @@ internal class AndroidMkrConnection private constructor(
                         } catch(error: Exception) {unavailable()}
                     }
                 }
+            }} catch(error: Exception) {
+                // withContext can discard a successfully bound result when the
+                // caller's dispatcher is cancelled before return delivery.
+                prepared?.close();throw error
             }
+        }
     }
 }

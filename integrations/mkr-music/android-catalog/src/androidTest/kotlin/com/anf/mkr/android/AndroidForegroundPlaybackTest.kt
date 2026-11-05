@@ -16,6 +16,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.anf.mkr.*
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -67,6 +69,20 @@ class AndroidForegroundPlaybackTest {
             first.close();until("bound service destruction"){stopped()}
             val nextToken=MkrPlaybackService.start(activity,next)
             assertNotEquals(token,nextToken)
+            // Hold the caller dispatcher after Main has returned its bound handle.
+            // Cancellation at this boundary must detach the otherwise lost result.
+            val delivery=ConcurrentLinkedQueue<Runnable>()
+            val dispatcher=object : CoroutineDispatcher() {
+                override fun dispatch(context: CoroutineContext, block: Runnable){delivery.add(block)}
+            }
+            val callers=CoroutineScope(SupervisorJob()+dispatcher)
+            try {
+                val cancelled=callers.async {AndroidMkrConnection.connect(activity,nextToken)}
+                delivery.remove().run()
+                until("bound result queued for caller"){delivery.isNotEmpty()}
+                cancelled.cancel();delivery.remove().run()
+                withTimeout(8000){cancelled.join()};assertTrue(cancelled.isCancelled)
+            } finally {callers.cancel()}
             val second=AndroidMkrConnection.connect(activity,nextToken);client=second
             assertNull(second.status().track)
             stopFromNotification();until("successor release"){successor.released.get()==1}
