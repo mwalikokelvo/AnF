@@ -85,20 +85,11 @@ const saveAlert=createSaveAlert({retry:()=>saveProject(),keepCopy:{label:'Save d
 const replyDraft=createReplyToDraft({draft:()=>draft.value,setDraft:text=>{draft.value=text;writing?.refresh(projectId);autosave();},show:()=>showView('writing'),notify:text=>{status.textContent=text;}});
 const name=h('input',{value:'My project','aria-label':'Project name',maxlength:160}) as HTMLInputElement;
 const selector=h('select',{'aria-label':'Saved project'}) as HTMLSelectElement;
+// These are the two native inference/storage slots. The verified model
+// download catalog remains in Settings; catalogue names are not runnable slots.
 const model=h('select',{'aria-label':'Local model'},
-  h('optgroup',{label:'DeepSeek AI (Hugging Face)'},
-    h('option',{value:'deepseek-v4.1-flash',text:'DeepSeek V4.1 Flash (1017 · Engram)'}),
-    h('option',{value:'deepseek-v3.2-reasoning',text:'DeepSeek V3.2 Reasoning (DSA · MoE)'}),
-    h('option',{value:'deepseek-r1-distill-qwen-1.5b',text:'DeepSeek R1 Distill 1.5B (Edge)'}),
-  ),
-  h('optgroup',{label:'Moonshot Kimi (Hugging Face)'},
-    h('option',{value:'kimi-k3-thinking',text:'Kimi K3 Thinking (KDA · MoE)'}),
-    h('option',{value:'kimi-linear-a3b',text:'Kimi Linear 48B-A3B (Edge Fast)'}),
-  ),
-  h('optgroup',{label:'Lightweight Fallbacks'},
-    h('option',{value:'fast',text:'Fast · Qwen3 0.6B'}),
-    h('option',{value:'balanced',text:'Balanced · Qwen3 1.7B'}),
-  )
+  h('option',{value:'fast',text:'Fast · configured local model'}),
+  h('option',{value:'balanced',text:'Balanced · configured local model'})
 ) as HTMLSelectElement;
 const contextScope=h('select',{'aria-label':'AI context'},...[["loaded","Loaded documents"],["document","First document"],["draft","Active draft"],["none","General - no saved context"]].map(([value,text])=>h('option',{value,text})));
 const replyLength=h('select',{'aria-label':'Response length'},h('option',{value:'standard',text:'Standard response'}),h('option',{value:'long',text:'Long response · aim for 1,700 words'})) as HTMLSelectElement;

@@ -10,6 +10,7 @@ mod ai;
 mod audio_native;
 mod model_download;
 mod hashing;
+mod local_profiles;
 mod book;
 mod claude;
 mod connections;
