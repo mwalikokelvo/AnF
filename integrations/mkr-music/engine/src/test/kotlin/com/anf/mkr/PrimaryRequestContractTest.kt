@@ -36,6 +36,7 @@ class PrimaryRequestContractTest {
             val version=client["clientVersion"]!!.jsonPrimitive.content
             assertTrue(name.matches(Regex("[A-Za-z0-9_.-]{1,80}")))
             assertTrue(version.matches(Regex("[A-Za-z0-9_.-]{1,80}")))
+            assertFalse(name=="VISIONOS" && version=="0.1","Deprecated visionOS0.1 must not be selected automatically")
             println("ANF_OFFLINE_REQUEST_CONTRACT: "+buildJsonObject {
                 put("clientName",name);put("clientVersion",version)
                 put("selectedIdMatches",json["videoId"]?.jsonPrimitive?.content=="abcdefghijk")

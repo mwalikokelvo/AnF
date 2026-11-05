@@ -44,7 +44,7 @@ dependencies {
     implementation("io.ktor:ktor-client-encoding")
     implementation("org.brotli:dec:0.1.2")
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
-    implementation("com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.0")
+    implementation("com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.2")
     testImplementation(kotlin("test-junit"))
     testImplementation("io.ktor:ktor-client-mock")
 }

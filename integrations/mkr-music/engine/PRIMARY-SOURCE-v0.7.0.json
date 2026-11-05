@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/MetrolistGroup/innertubex",
+  "reviewedCommit": "cc74e737b6ae2875343fb2e31c7283e39e1cf72e",
+  "upstreamTag": "v0.7.0",
+  "tagObject": "4a2d2926145ebadc9ac0a317f54e3f5efc370378",
+  "tagSignatureVerified": false,
+  "coordinate": "com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.0",
+  "license": "GPL-3.0; original text retained in PRIMARY-LICENSE.txt",
+  "sourceCompleteDistributionPrepared": false,
+  "repositoryWideLicenseChanged": false
+}

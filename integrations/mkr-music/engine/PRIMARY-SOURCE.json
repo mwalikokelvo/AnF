@@ -1,11 +1,15 @@
 {
   "repository": "https://github.com/MetrolistGroup/innertubex",
-  "reviewedCommit": "cc74e737b6ae2875343fb2e31c7283e39e1cf72e",
-  "upstreamTag": "v0.7.0",
-  "tagObject": "4a2d2926145ebadc9ac0a317f54e3f5efc370378",
+  "reviewedCommit": "195bac930073233fd2450edc5589033528cccd43",
+  "upstreamTag": "v0.7.2",
+  "tagObject": "1b82f5fc44c3ac7d9bf2ae304cbf1d3a55ed14e0",
   "tagSignatureVerified": false,
-  "coordinate": "com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.0",
+  "coordinate": "com.github.MetrolistGroup.innertubex:innertubex-desktop:v0.7.2",
   "license": "GPL-3.0; original text retained in PRIMARY-LICENSE.txt",
   "sourceCompleteDistributionPrepared": false,
-  "repositoryWideLicenseChanged": false
+  "repositoryWideLicenseChanged": false,
+  "compatibilityStatus": "isolated JVM patch candidate; offline/native/provider acceptance pending",
+  "sourceJarGitBlobMatches": 84,
+  "sourceJarSha256": "c8d456442c7ba6b6559d1d23d9adef41d72ce9828b538e1a094b002661af3e1e",
+  "previousReviewedPin": "PRIMARY-SOURCE-v0.7.0.json"
 }
