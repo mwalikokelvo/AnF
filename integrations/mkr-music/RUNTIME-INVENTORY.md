@@ -101,3 +101,12 @@ buildability and basic JNI compatibility, not reproducibility or clearance of
 the published binary. Neither binary was substituted in AnF or the locked JAR.
 JDK correspondence, complete notices/distribution obligations and actual
 production integration remain required. No runtime or executable was uploaded.
+
+
+A subsequent read-only [PE comparison run42027690429](https://github.com/mwalikokelvo/AnF/actions/runs/42027690429)
+found matching executable code-section hashes, all124 exported names, file size
+and section layout. Five of six section hashes match; writable `.data` and the
+PE timestamp differ. Exact profiles are in `native-pe-evidence.json`.
+This narrows the mismatch but does not establish its cause: writable data can
+affect behavior. No timestamps or sections were normalized, patched or excluded
+from the full-file integrity check. Publication/source clearance remains false.

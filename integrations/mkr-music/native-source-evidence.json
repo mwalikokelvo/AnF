@@ -198,5 +198,19 @@
     "productionBinaryReplaced": false,
     "productionPlaybackVerified": false,
     "binarySourceCorrespondenceApproved": false
+  },
+  "windowsNativePeComparison": {
+    "runUrl": "https://github.com/mwalikokelvo/AnF/actions/runs/42027690429",
+    "sourceCommit": "f2ee4a8191887519e9aeb14acdf4405c90733e1a",
+    "identicalBytes": false,
+    "identicalExportNames": true,
+    "identicalCodeSections": true,
+    "changedSections": [
+      ".data"
+    ],
+    "runtimeSmokePassed": true,
+    "interpretation": "Identical code sections and 124 export names; writable data and timestamps differ. Difference cause remains unproven. No binary modification or publication approval.",
+    "report": "native-pe-evidence.json",
+    "binarySourceCorrespondenceApproved": false
   }
 }
