@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 package com.anf.mkr.android
 
+import android.content.Intent
+import java.security.MessageDigest
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.PlaybackState
@@ -105,6 +107,35 @@ class AndroidMediaSessionTest {
             remote.transportControls.play();delay(200)
             assertEquals(0,backend.requests.get());assertEquals(1,audio.releases.get())
         } finally {owner.close();remote.unregisterCallback(callback)}
+    }
+    @Test fun actualMedia3EventsReachSystemControlsUsingOnlyGeneratedAac() = runBlocking {
+        guardSandbox()
+        val data=context.assets.open("generated-aac.m4a").use{it.readBytes()}
+        val hash=MessageDigest.getInstance("SHA-256").digest(data).joinToString(""){"%02x".format(it)}
+        assertEquals("801e0e26a6f69c415fd06370b0fed08688802f031ba2da13046e1646aaaafd0a",hash)
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val activity=instrumentation.startActivitySync(Intent(context,MkrNativeQaActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val cdn=MkrNativePlaybackTest.GeneratedCdn(data)
+        val audio=Media3Playback.create(activity,muted=true)
+        val controller=AndroidPlaybackController(MkrCatalog(Backend()),audio,{true},{},leaseFactory={stream ->
+            AndroidMediaLease(MkrStream(stream.url,stream.mimeType,stream.headers,true,true,65536,
+                data.size.toLong(),System.currentTimeMillis()+120000),connect=cdn::connect)
+        })
+        controller.search("fixture")
+        val owner=AndroidMediaSession.create(activity,controller)
+        try {
+            owner.activate();val remote=MediaController(activity,owner.token)
+            remote.transportControls.play()
+            until {remote.playbackState?.state==PlaybackState.STATE_PLAYING && (remote.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)?:0)>=3500}
+            assertEquals(first.id,remote.metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))
+            remote.transportControls.seekTo(1000)
+            until {(remote.playbackState?.position?:0)>=1000}
+            remote.transportControls.pause()
+            until {remote.playbackState?.state==PlaybackState.STATE_PAUSED}
+            val position=remote.playbackState!!.position
+            delay(150);assertEquals(position,remote.playbackState!!.position)
+            assertTrue(cdn.requests.isNotEmpty())
+        } finally {owner.close();instrumentation.runOnMainSync{activity.finish()}}
     }
     @Test fun decoderEventsPublishBufferingAndFailuresWithoutPolling() = runBlocking {
         guardSandbox()

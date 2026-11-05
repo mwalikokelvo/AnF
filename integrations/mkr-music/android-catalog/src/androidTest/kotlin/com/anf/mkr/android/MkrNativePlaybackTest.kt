@@ -34,7 +34,7 @@ class MkrNativePlaybackTest {
         assertEquals("801e0e26a6f69c415fd06370b0fed08688802f031ba2da13046e1646aaaafd0a",digest)
         return data
     }
-    private class GeneratedCdn(private val data:ByteArray,private val statusCode:Int=206) {
+    internal class GeneratedCdn(private val data:ByteArray,private val statusCode:Int=206) {
         val requests=CopyOnWriteArrayList<String>()
         fun connect(ignored:String): HttpURLConnection = object : HttpURLConnection(URL("https://r1.googlevideo.com/generated-test")) {
             private fun span(): IntRange {
@@ -117,7 +117,10 @@ class MkrNativePlaybackTest {
         val engine=Media3Playback.create(activity,muted=true);val lease=lease(data,cdn)
         try {
             engine.prepare(MkrTrack("abcdefghijk","Denied generated input","AnF QA"),lease,0)
-            engine.playIfCurrent{true}
+            // The generated denial may latch before the main-thread play command.
+            // Both orderings must still fail closed with one request and a decoder error.
+            try {engine.playIfCurrent{true}}
+            catch(expected:NativeInputFailure){assertEquals("DENIED",expected.reason)}
             withTimeout(12000){while(!engine.snapshot().failed)delay(40)}
             delay(400);assertEquals(1,cdn.requests.size)
             try{lease.checkActive();fail("denial not latched")}catch(expected:NativeInputFailure){assertEquals("DENIED",expected.reason)}

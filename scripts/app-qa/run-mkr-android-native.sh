@@ -17,6 +17,6 @@ adb -s "$serial" install -t "$apk"
 adb -s "$serial" shell am instrument -w -r \
   -e class com.anf.mkr.android.MkrNativePlaybackTest,com.anf.mkr.android.AndroidMediaSessionTest \
   "$package/androidx.test.runner.AndroidJUnitRunner" | tee "$qa_dir/instrumentation.txt"
-grep -Fq 'OK (6 tests)' "$qa_dir/instrumentation.txt"
+grep -Fq 'OK (7 tests)' "$qa_dir/instrumentation.txt"
 ! grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|Process crashed' "$qa_dir/instrumentation.txt"
-printf '%s\n' 'Generated transport/AAC and fake catalog/audio for session routing only. Actual Media3 decoder and Android framework media-session tests; no provider, foreground-service or production app/upgrade verification.' > "$qa_dir/scope.txt"
+printf '%s\n' 'Generated transport/AAC only; fake catalog plus both fake and actual Media3 audio for session routing. Actual Media3 decoder and Android framework media-session tests; no provider, foreground-service or production app/upgrade verification.' > "$qa_dir/scope.txt"

@@ -30,6 +30,7 @@ internal class AndroidPlaybackController(
     private val audio: NativePlayback,
     private val pauseOtherAudio: suspend () -> Boolean,
     private val closeCatalog: () -> Unit,
+    private val leaseFactory: (MkrStream) -> AndroidMediaLease = { AndroidMediaLease(it) },
 ) {
     private val gate = Mutex()
     private val generation = AtomicLong()
@@ -85,7 +86,7 @@ internal class AndroidPlaybackController(
         var owned: AndroidMediaLease?=null
         try {
             check(ticket); request.start()
-            val resolved=AndroidMediaLease(request.await())
+            val resolved=leaseFactory(request.await())
             owned=resolved
             gate.withLock {
                 check(ticket)
