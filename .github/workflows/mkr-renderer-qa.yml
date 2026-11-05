@@ -1,0 +1,44 @@
+name: MKR renderer recovery QA
+on:
+  push:
+    branches: ['qa/mkr-renderer-**']
+    paths: ['windows/src/workspace/mkr-*', 'scripts/app-qa/mkr-browser.mjs', '.github/workflows/mkr-renderer-qa.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-renderer-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  renderer:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Install fixture build and browser client dependencies
+        shell: pwsh
+        run: |
+          npm ci --prefix windows
+          if($LASTEXITCODE){throw 'Frontend dependency install failed'}
+          npm install --no-save --package-lock=false --prefix scripts playwright-core@1.56.1
+          if($LASTEXITCODE){throw 'Fixture browser client failed'}
+      - name: Check mocked-native UI recovery and responsive layouts
+        shell: pwsh
+        run: |
+          node scripts/app-qa/mkr-browser.mjs 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/mkr-renderer.txt"
+          if($LASTEXITCODE){throw 'Renderer assertions failed'}
+      - name: Retain fixture evidence only, no native/provider capability claim
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: MKR-renderer-recovery-evidence
+          path: |
+            ${{ runner.temp }}/mkr-renderer.txt
+            windows/target/mkr-browser-check/*.png
+          if-no-files-found: ignore
+          retention-days: 14

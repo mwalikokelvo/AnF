@@ -14,7 +14,7 @@ import {createMkrBrowser} from './src/workspace/mkr-browser';
 import './src/workspace/workspace.css';import './src/workspace/anf-design.css';import './src/workspace/atelier.css';
 import './src/workspace/music-hub.css';import './src/workspace/nav-rail.css';
 const tracks=[{id:'abcdefghijk',title:'Generated song',artist:'Fixture'},{id:'lmnopqrstuv',title:'<img src=x onerror=alert(1)>',artist:'Literal metadata'}];
-window.calls=[];window.notices=[];window.failHandoff=false;window.failPause=false;
+window.calls=[];window.notices=[];window.failHandoff=false;window.failPause=false;window.failStatus=false;
 let state={playing:false,positionMs:0,durationMs:10000,track:null};
 const copy=()=>structuredClone(state);
 const beforePlay=async()=>{window.calls.push({command:'pause-others'});if(window.failHandoff)throw Error('handoff failed');};
@@ -24,7 +24,7 @@ window.mount=async(enabled)=>{
   if(command==='capabilities')return{protocol:1,embedded:true,platform:'windows-native'};
   if(command==='open'||command==='hide')return;
   if(command==='search'){if(window.deferSearch)return new Promise(resolve=>window.finishSearch=()=>resolve(tracks));return tracks;}
-  if(command==='status'){const captured=copy();if(window.deferStatus)return new Promise(resolve=>window.finishStatus=()=>resolve(captured));return captured;}
+  if(command==='status'){if(window.failStatus)throw Error('https://private.invalid/status-token');const captured=copy();if(window.deferStatus)return new Promise(resolve=>window.finishStatus=()=>resolve(captured));return captured;}
   if(command==='play'){
    const play=()=>{state.track=tracks.find(t=>t.id===payload?.id)||state.track;state.playing=true;return copy();};
    if(window.deferPlay)return new Promise(resolve=>window.finishPlay=()=>resolve(play()));return play();
@@ -77,6 +77,14 @@ try{
  await seek.fill('3000');await seek.dispatchEvent('change');await page.waitForFunction(()=>window.model().positionMs===3000);
  await page.evaluate(()=>{window.finishStatus();window.deferStatus=false;});await page.waitForTimeout(60);
  assert.equal(await seek.inputValue(),'3000','old status response must not undo a newer seek');
+ await page.evaluate(()=>{window.failStatus=true;document.dispatchEvent(new Event('visibilitychange'));});
+ await page.getByText('MKR player status is unavailable. Check the player before continuing.',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Pause MKR Music',exact:true}).isDisabled(),true,'unknown status must disable stale transport controls immediately');
+ assert.equal(await seek.isDisabled(),true,'unknown status must disable seeking immediately');
+ assert.equal(await page.getByRole('button',{name:'Check player',exact:true}).isEnabled(),true,'recovery remains usable');
+ await page.evaluate(()=>window.failStatus=false);
+ await page.getByRole('button',{name:'Check player',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.mkr-controls button')?.disabled===false);
  const before=await page.evaluate(()=>window.calls.filter(x=>x.command==='play').length);
  await page.evaluate(()=>window.failHandoff=true);await song.click();
  await page.getByText('MKR playback could not start. No external player was opened.',{exact:true}).waitFor();
