@@ -37,6 +37,8 @@ jobs:
           git -C "$env:RUNNER_TEMP/mkr-upstream" remote add origin https://github.com/mkr-infinity/mkr-music.git
           git -C "$env:RUNNER_TEMP/mkr-upstream" fetch --depth=1 origin 78ac80c5101c293a5591a4cd5a1ebc90ccbc3138
           node integrations/mkr-music/prepare-catalog.mjs --source "$env:RUNNER_TEMP/mkr-upstream"
+      - name: Check read-only PE comparison guards
+        run: python -B scripts/check-mkr-native-pe.py
       - name: Rebuild exact pinned native sources with upstream Zig version
         run: python -B integrations/mkr-music/rebuild-quickjs-windows.py --output "$env:RUNNER_TEMP/anf-quickjs-rebuild"
       - name: Execute rebuilt JNI with the locked wrapper, without a provider request
@@ -46,7 +48,7 @@ jobs:
         run: |
           @'
           from pathlib import Path
-          import hashlib,json,os,zipfile
+          import hashlib,json,os,zipfile,importlib.util
           out=Path(os.environ['RUNNER_TEMP'])/'anf-quickjs-rebuild'
           p=out/'rebuild-evidence.json'
           result=json.loads(p.read_text(encoding='utf-8'))
@@ -54,6 +56,10 @@ jobs:
           dep=next(d for d in audit['dependencies'] if d['coordinate']=='io.github.dokar3:quickjs-kt-jvm:1.0.14')
           with zipfile.ZipFile(dep['file']) as archive:
               published=archive.read('jni/windows_x64/libquickjs.dll')
+          spec=importlib.util.spec_from_file_location('native_pe',Path('integrations/mkr-music/inspect-native-pe.py'))
+          pe=importlib.util.module_from_spec(spec);spec.loader.exec_module(pe)
+          comparison=pe.compare(published,Path(result['rebuiltDll']).read_bytes())
+          (out/'pe-comparison.json').write_text(json.dumps(comparison,indent=2)+'\n',encoding='utf-8')
           result['publishedDllSha256']=hashlib.sha256(published).hexdigest()
           result['publishedBinaryMatch']=result['publishedDllSha256']==result['rebuiltDllSha256']
           result['runtimeSmokePassed']=True
@@ -69,6 +75,7 @@ jobs:
           name: MKR-QuickJS-source-rebuild-evidence
           path: |
             ${{ runner.temp }}/anf-quickjs-rebuild/rebuild-evidence.json
+            ${{ runner.temp }}/anf-quickjs-rebuild/pe-comparison.json
             integrations/mkr-music/engine/build/reports/runtime-dependencies.json
             integrations/mkr-music/engine/build/reports/dependency-verification/**/*.html
           if-no-files-found: ignore
