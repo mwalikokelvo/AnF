@@ -115,7 +115,7 @@ internal class WindowsCatalogSession(
         require(request.query==null)
         // Never revoke a source still owned by a decoder without parent release.
         if(lease!=null)return denied(request.id,"SOURCE_ACTIVE")
-        val stream=catalog.resolve(track,NativeStreamCapabilities(setOf(AudioContainer.M4A),true,true))
+        val stream=catalog.resolve(track,NativeStreamCapabilities.m4aRangeLease())
         val next=WindowsMediaBridge(stream,chunkSource,nowMillis)
         lease=next
         return leaseReply(request.id,track,stream,next)

@@ -36,7 +36,13 @@ class StreamCandidate(
 ) {
     override fun toString() = "StreamCandidate(url=present, headerCount=${headers.size}, transport=$transport)"
 }
-data class NativeStreamCapabilities(val containers: Set<AudioContainer>, val requestHeaders: Boolean = false, val boundedRange: Boolean = false)
+data class NativeStreamCapabilities(val containers: Set<AudioContainer>, val requestHeaders: Boolean = false, val boundedRange: Boolean = false) {
+    companion object {
+        // The owned Windows lease forwards reviewed headers and bounded ranges;
+        // a bare URI decoder does neither. Other hosts must opt in deliberately.
+        fun m4aRangeLease() = NativeStreamCapabilities(setOf(AudioContainer.M4A), requestHeaders = true, boundedRange = true)
+    }
+}
 
 internal fun legacyCandidate(itag: Int, url: String) = StreamCandidate(url,
     AudioContainer.entries.firstOrNull { itag in it.itags }?.mime ?: "application/octet-stream")

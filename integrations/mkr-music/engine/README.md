@@ -110,3 +110,16 @@ the final native linking/distribution boundary still requires explicit review.
 
 No fallback service credentials, browser player, Spotify launch or emulator is used.
 Anonymous service requests can fail or be limited. Do not promise unlimited access.
+
+## Probe capability parity
+
+The primary metadata diagnostic now declares the same M4A/header/bounded-range
+capabilities as the owned Windows lease host. Previously it used the bare-URI
+convenience overload, which could reject otherwise host-supported metadata.
+The explicit legacy diagnostic still declares no header/range support. Both
+paths retain the same endpoint, credential, MIME, request-budget and denial
+checks. Fixture tests cover this distinction and prohibited credentials.
+Metadata success does not verify lease admission, CDN bytes or native playback.
+Earlier live UNAVAILABLE observations remain valid; this change did not retry
+those fixtures or establish provider availability. Production discovery and
+packaging remain disabled pending their existing acceptance/source gates.
