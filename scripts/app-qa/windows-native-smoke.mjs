@@ -51,6 +51,12 @@ try{
    await page.setViewportSize({width,height});
    for(const theme of ['light','dark']){
     await go('settings');await page.getByLabel('Appearance',{exact:true}).selectOption(theme);
+    if(width===600){
+     const name=page.getByLabel('Project name',{exact:true});assert(await name.isVisible(),'Project name must remain editable in a short window');
+     await name.click();await name.fill('Compact layout QA');await save();
+     await name.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,`compact-name-${theme}.png`)});
+     assert.equal(await page.locator('.history-item strong').first().textContent(),'Compact layout QA','Compact rename must reach native saved history');
+    }
     for(const view of ['home','music']){
      await go(view);await page.mouse.move(Math.min(width-30,500),Math.min(height-30,450));
      if(width>=768){
@@ -64,7 +70,9 @@ try{
     }
    }
   }
-  await writeFile(path.join(out,'settled-layout.json'),JSON.stringify({sourceCommit:process.env.GITHUB_SHA,nativeWebView:true,viewportEmulation:true,physicalWindowResizeVerified:false,measurements:layout},null,2)+'\n');
+  await page.setViewportSize({width:820,height:760});await go('writing');
+  const restoredName=page.getByLabel('Project name',{exact:true});assert(await restoredName.isVisible(),'Name input must return to the wide header');assert.equal(await restoredName.inputValue(),'Compact layout QA');
+  await writeFile(path.join(out,'settled-layout.json'),JSON.stringify({sourceCommit:process.env.GITHUB_SHA,nativeWebView:true,viewportEmulation:true,physicalWindowResizeVerified:false,compactProjectRenameVerified:true,wideHeaderRestoreVerified:true,measurements:layout},null,2)+'\n');
  }
  assert.deepEqual(errors,[],'Native WebView page errors');
  await writeFile(path.join(out,`${phase}.json`),JSON.stringify({sourceCommit:process.env.GITHUB_SHA,phase,nativeTauri:true,

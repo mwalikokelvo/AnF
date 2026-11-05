@@ -79,3 +79,6 @@
 @media(prefers-reduced-motion:reduce){
   .glass-rail,.glass-rail *{transition:none!important;scroll-behavior:auto!important}
 }
+
+/* The compact header relocates its existing name input into Settings. */
+.compact-project-name:not([hidden]){display:block;margin-block:16px}
