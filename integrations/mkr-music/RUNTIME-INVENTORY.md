@@ -84,3 +84,20 @@ Spotube handoff acceptance, Android hosting/signers and installed upgrades. The
 disposable app-owned Tauri runner now verifies actual generated-AAC native
 playback and local WAV handoff; it does not approve a production runtime graph
 or enable the shipped source selector.
+
+
+## Native source rebuild evidence
+
+[Run42020326969](https://github.com/mwalikokelvo/AnF/actions/runs/42020326969)
+rebuilt the pinned QuickJS C/JNI sources and both pinned submodules with the
+upstream Zig0.12.0 Windows recipe. The actual rebuilt DLL passed arithmetic,
+JavaScript compilation/bytecode evaluation and close through the locked Kotlin
+wrapper, with an empty native search directory and explicit rebuilt-DLL path.
+No provider or network binding was involved. Exact tool versions and both DLL
+hashes are retained in `native-source-evidence.json`.
+
+The rebuilt DLL differs from the published DLL. This is evidence of source
+buildability and basic JNI compatibility, not reproducibility or clearance of
+the published binary. Neither binary was substituted in AnF or the locked JAR.
+JDK correspondence, complete notices/distribution obligations and actual
+production integration remain required. No runtime or executable was uploaded.

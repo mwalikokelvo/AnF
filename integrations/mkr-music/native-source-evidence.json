@@ -115,7 +115,7 @@
     "windowsTarget": "x86_64-windows-gnu",
     "generator": "Ninja",
     "jniRequired": true,
-    "rebuildAndBinaryComparisonComplete": false,
+    "rebuildAndBinaryComparisonComplete": true,
     "gitTagSignatureVerified": false
   },
   "jdkSource": {
@@ -173,9 +173,30 @@
     }
   },
   "remaining": [
-    "Rebuild native QuickJS and compare artifacts or document binary/source correspondence evidence.",
+    "Source rebuild and isolated Windows JNI smoke passed; published DLL hash differs. Resolve binary/source correspondence before distribution; do not silently replace the locked published binary.",
     "Complete exact JDK build/binary correspondence review and preserve bundled module notices.",
     "Complete all runtime dependency notices/source obligations and distribution-boundary review.",
     "No production player, provider availability or signed release approval follows from this evidence."
-  ]
+  ],
+  "windowsNativeRebuildEvidence": {
+    "schema": 1,
+    "reviewedSourceCommit": "6e51ae878be54f22272381e62118535790ba9940",
+    "rebuiltDllSha256": "7f2ef42ca8f2411e3995f144b3c8432f726ae2002be7d6b8f6b672064eb7fb9f",
+    "zigVersion": "0.12.0",
+    "cmakeVersion": "cmake version 4.4.5",
+    "ninjaVersion": "1.13.2",
+    "jdkReleaseSha256": "e001368aac41541de9f6272ae882b770e8083f02024dc7b90fccd2796ab5c3c0",
+    "sourceRecipe": "MinSizeRel/windows_x64/shared/JNI",
+    "publishedBinaryMatch": false,
+    "runtimeSmokePassed": true,
+    "readyForPublication": false,
+    "publishedDllSha256": "894a20381341c08fc31e186070d543a91f94db7f97013206dd174803430cdd82",
+    "note": "Source compile and JNI smoke do not prove reproducibility or full distribution clearance.",
+    "runUrl": "https://github.com/mwalikokelvo/AnF/actions/runs/42020326969",
+    "sourceCommit": "509823f2621649561c0518ad165228ed46aae02a",
+    "publishedJarCoordinate": "io.github.dokar3:quickjs-kt-jvm:1.0.14",
+    "productionBinaryReplaced": false,
+    "productionPlaybackVerified": false,
+    "binarySourceCorrespondenceApproved": false
+  }
 }
