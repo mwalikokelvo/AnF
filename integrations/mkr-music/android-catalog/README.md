@@ -125,3 +125,43 @@ availability flags changed. This library is not linked into either release app.
 Platform references: [session lifecycle and callbacks](https://developer.android.com/reference/android/media/session/MediaSession),
 [playback state timing](https://developer.android.com/reference/android/media/session/PlaybackState.Builder),
 and [Android15 system position calculation](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-15.0.0_r1/services/core/java/com/android/server/media/MediaSessionRecord.java).
+
+## Foreground service and system notification
+
+`MkrPlaybackService` is an isolated host for the same controller and native
+media session. Its internal `start` API transfers a prepared controller from a
+foreground user action; the service never constructs a provider or accepts a
+stream URL. Only one prepared owner can be pending/running. An unaccepted,
+cancelled or rejected handoff closes that controller; after acceptance the
+service owns it independently of the Activity. Startup is bounded and failed
+initialization releases the controller/session. Process restoration is disabled.
+
+The host promotes itself promptly using the mediaPlayback foreground-service
+type and a low-importance, silent channel. A framework MediaStyle notification
+contains previous, play/pause, next and explicit Stop controls. Intent actions
+are immutable, explicit and scoped to the current random owner; stale actions
+cannot stop a successor. Stop removes the notification and closes the session,
+native leases, decoder and catalog. Session callbacks update the notification
+without a polling timer. The only content navigation intent is this app's own
+launcher, when present.
+
+The service and its two ordinary foreground-service permissions are declared
+**only in the disposable instrumentation manifest**. Neither production app
+manifest registers it, and there is no renderer capability/readiness change.
+AnF app bootstrap/bridge, physical-device acceptance, distribution/source review,
+provider access and signed upgrade compatibility remain separate release gates.
+Do not invoke this host automatically from a background receiver or boot event.
+
+The new instrumentation scenario uses a fake catalog and hash-checked generated
+AAC through real muted Media3, framework media controls and the actual service.
+It checks acknowledged audio handoff, MediaStyle/foreground notification identity,
+Activity-independent resume/progress, stale-owner rejection and explicit Stop
+cleanup. [Run42088458462](https://github.com/mwalikokelvo/AnF/actions/runs/42088458462)
+at `da6a061` passed strict compilation,43 host tests and all8 Android15 API35
+instrumentation cases, with the unchanged62-artifact runtime graph. The service
+scenario passed using real OS notification actions after Activity finish.
+This is isolated component evidence, not a production APK, physical-device test,
+provider access, signer compatibility or installed upgrade verification.
+
+Platform references: [foreground service launch rules](https://developer.android.com/develop/background-work/services/fgs/launch)
+and [mediaPlayback service requirements](https://developer.android.com/develop/background-work/services/fgs/service-types#media).
