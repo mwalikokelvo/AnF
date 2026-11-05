@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "allReportedDifferencesAccountedFor": true,
+  "changedByteCount": 7,
+  "timestampOffset": 128,
+  "guardOffset": 835136,
+  "publishedGuardHex": "0a2800000a280000",
+  "rebuiltGuardHex": "452b0000452b0000",
+  "sourceFile": "quickjs/native/common/stack_chk.c",
+  "sourceSha256": "c7277b1843c465efc552dbfcfd6d95cedc5206a1b5d1836e3aa051e163f0f2bd",
+  "explanation": "COFF build timestamp plus the reviewed source-defined date/hour stack canary account for every changed byte.",
+  "binaryPatched": false,
+  "exactFileReproducibility": false,
+  "readyForPublication": false,
+  "note": "No security, license, JDK or complete-distribution approval is inferred.",
+  "runUrl": "https://github.com/mwalikokelvo/AnF/actions/runs/42036317583",
+  "sourceCommit": "b61c8b5740ba88f32fddfa179127d3ae25b9635d",
+  "comparisonSha256": "c58be321d4285ab1ff6c92a26529967e5ea13fe0a433874fe2b7064a06ef26dd",
+  "negativeChecksPassed": 4,
+  "comparisonReport": "native-pe-byte-comparison.json"
+}

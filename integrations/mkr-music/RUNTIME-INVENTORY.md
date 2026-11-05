@@ -110,3 +110,18 @@ PE timestamp differ. Exact profiles are in `native-pe-evidence.json`.
 This narrows the mismatch but does not establish its cause: writable data can
 affect behavior. No timestamps or sections were normalized, patched or excluded
 from the full-file integrity check. Publication/source clearance remains false.
+
+
+[Exact byte-delta run42036317583](https://github.com/mwalikokelvo/AnF/actions/runs/42036317583)
+and a separate local verifier now account for all seven changed bytes. Three
+bytes belong to the COFF build timestamp; four belong to the stack guard defined
+by reviewed `common/stack_chk.c`. That source deliberately derives its guard from
+compile date/hour. Its exact source hash and the predicted old/new values match
+the reported bytes; no unexplained byte remains. Four negative checks reject
+incomplete reports, changed source, unexpected code and unexplained bytes.
+
+`native-pe-byte-comparison.json` preserves the raw report and
+`native-byte-delta-evidence.json` records this explanation. No binary bytes,
+stack guard, security setting or integrity policy were changed. Full-file hashes
+remain unequal. This explains the native build variation; final license/JDK
+correspondence, production integration and release gates remain separate.
