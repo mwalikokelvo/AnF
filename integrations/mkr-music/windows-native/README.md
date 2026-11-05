@@ -1,8 +1,9 @@
 # Windows native audio prototype
 
 This AnF-owned MIT crate uses Windows MediaPlayer/Media Foundation, not a browser,
-Spotify, emulator or external player. It is **not registered with AnF or packaged
-as an available MKR host**. The separately prepared MKR catalog core is not linked
+Spotify, emulator or external player. AnF has a feature-gated IPC adapter, but
+no reviewed production runtime inventory is bundled: this is **not an available
+MKR source**. The separately prepared MKR catalog core is not linked
 into this crate; its final native transport/distribution boundary still needs
 license/source review and actual provider playback acceptance.
 
@@ -19,8 +20,8 @@ a random Windows CNG session nonce, strict reply schemas/IDs/byte limits, bounde
 worker queues and request deadlines. A kill-on-job-close Windows job owns the
 child. Malformed output, EOF and timeouts invalidate receipts and stop/reap the
 session; raw provider text and stderr are not forwarded. Production launch
-requires [verified resources](../RUNTIME-INVENTORY.md); a bundled inventory and
-registered AnF commands are still missing.
+requires [verified resources](../RUNTIME-INVENTORY.md); a reviewed bundled inventory and
+production provider/source acceptance are still missing.
 
 `load_owned` accepts only an opaque receipt created by that supervisor. It does
 not weaken the public URL loader. Revocation/expiry/child loss pause buffered
@@ -100,3 +101,14 @@ working directory use equivalent local DOS paths after rejecting UNC/device,
 traversal, alternate-stream, separator, reserved-device and trailing-dot/space
 aliases. Original inventory hashes and read locks stay intact. The canonical
 runtime handshake test exercises this actual Tauri path form.
+
+
+The real AnF adapter now retains startup ownership through blocking-worker
+completion and host publication. Cancelled startup receivers discard the prepared
+host through its existing shutdown path; another startup cannot overlap cleanup.
+Pause acknowledgements also release their exact reservation on cancellation.
+[Run42066326402](https://github.com/mwalikokelvo/AnF/actions/runs/42066326402)
+compiled the actual Windows Tauri library with `embedded-mkr` and passed8 focused
+startup/handoff/argument tests;207 unrelated tests were filtered out.
+This verifies adapter lifetime behavior, not an installed runtime or provider
+playback. Production discovery remains unavailable without the reviewed manifest.
