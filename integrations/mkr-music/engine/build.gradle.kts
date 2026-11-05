@@ -233,3 +233,22 @@ tasks.register<Exec>("probeWindowsPlaybackHost") {
         logger.lifecycle("PASS: real native controller queue/search/resume and pause during slow catalog work; superseded play blocked. No provider request or AnF app availability implied.")
     }
 }
+
+
+// Source-rebuild acceptance only. Never used by production resource discovery.
+tasks.register<JavaExec>("probeRebuiltQuickJs") {
+    dependsOn("testClasses")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("com.anf.mkr.QuickJsNativeSmoke")
+    doFirst {
+        check(System.getenv("GITHUB_ACTIONS")=="true" && System.getProperty("os.name").startsWith("Windows"))
+        val dll=File(System.getenv("ANF_MKR_REBUILT_QUICKJS") ?: error("Select explicit rebuilt fixture"))
+        check(dll.isFile && dll.name=="libquickjs.dll" && dll.length() in 1..16_777_216)
+        // Upstream tries java.library.path first; forbid an ambient native fallback.
+        val empty=layout.buildDirectory.dir("empty-native-search").get().asFile
+        empty.mkdirs();check(empty.listFiles()!!.isEmpty())
+        systemProperty("java.library.path",empty.absolutePath)
+        systemProperty("com.dokar.quickjs.library.path",dll.parentFile.absolutePath)
+        systemProperty("com.dokar.quickjs.library.name",dll.name)
+    }
+}

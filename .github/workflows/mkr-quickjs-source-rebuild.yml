@@ -1,0 +1,75 @@
+name: MKR QuickJS Windows source rebuild
+on:
+  push:
+    branches: ['qa/mkr-rebuild-**']
+    paths: ['integrations/mkr-music/**', '.github/workflows/mkr-quickjs-source-rebuild.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-rebuild-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  rebuild:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare only the exact reviewed upstream source allowlist
+        run: |
+          $ErrorActionPreference = "Stop"
+          git init "$env:RUNNER_TEMP/mkr-upstream"
+          git -C "$env:RUNNER_TEMP/mkr-upstream" remote add origin https://github.com/mkr-infinity/mkr-music.git
+          git -C "$env:RUNNER_TEMP/mkr-upstream" fetch --depth=1 origin 78ac80c5101c293a5591a4cd5a1ebc90ccbc3138
+          node integrations/mkr-music/prepare-catalog.mjs --source "$env:RUNNER_TEMP/mkr-upstream"
+      - name: Rebuild exact pinned native sources with upstream Zig version
+        run: python -B integrations/mkr-music/rebuild-quickjs-windows.py --output "$env:RUNNER_TEMP/anf-quickjs-rebuild"
+      - name: Execute rebuilt JNI with the locked wrapper, without a provider request
+        working-directory: integrations/mkr-music/engine
+        run: gradle --no-daemon --max-workers=2 probeRebuiltQuickJs auditWindowsRuntime
+      - name: Compare rebuilt and published DLL hashes without replacing either
+        run: |
+          @'
+          from pathlib import Path
+          import hashlib,json,os,zipfile
+          out=Path(os.environ['RUNNER_TEMP'])/'anf-quickjs-rebuild'
+          p=out/'rebuild-evidence.json'
+          result=json.loads(p.read_text(encoding='utf-8'))
+          audit=json.loads(Path('integrations/mkr-music/engine/build/reports/runtime-dependencies.json').read_text(encoding='utf-8'))
+          dep=next(d for d in audit['dependencies'] if d['coordinate']=='io.github.dokar3:quickjs-kt-jvm:1.0.14')
+          with zipfile.ZipFile(dep['file']) as archive:
+              published=archive.read('jni/windows_x64/libquickjs.dll')
+          result['publishedDllSha256']=hashlib.sha256(published).hexdigest()
+          result['publishedBinaryMatch']=result['publishedDllSha256']==result['rebuiltDllSha256']
+          result['runtimeSmokePassed']=True
+          result['readyForPublication']=False
+          result['note']='Source compile and JNI smoke do not prove reproducibility or full distribution clearance.'
+          p.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(result))
+          '@ | python -B -
+      - name: Retain report only; never distribute rebuilt DLL, archives or APKs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: MKR-QuickJS-source-rebuild-evidence
+          path: |
+            ${{ runner.temp }}/anf-quickjs-rebuild/rebuild-evidence.json
+            integrations/mkr-music/engine/build/reports/runtime-dependencies.json
+            integrations/mkr-music/engine/build/reports/dependency-verification/**/*.html
+          if-no-files-found: ignore
+          retention-days: 14
