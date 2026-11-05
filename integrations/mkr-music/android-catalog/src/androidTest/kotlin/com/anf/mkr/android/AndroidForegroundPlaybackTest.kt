@@ -57,7 +57,8 @@ class AndroidForegroundPlaybackTest {
         fun stopped()=activities.getRunningServices(Int.MAX_VALUE).none{it.service.className==MkrPlaybackService::class.java.name}
         fun stopFromNotification()=notifications.activeNotifications.first{it.id==MkrPlaybackService.NOTIFICATION}.notification.actions[3].actionIntent.send()
         try {
-            val token=MkrPlaybackService.start(activity,controller)
+            val token=try {MkrPlaybackService.start(activity,controller)}
+                catch(error: Exception){throw AssertionError("Initial bound owner startup",error)}
             val first=AndroidMkrConnection.connect(activity,token);client=first
             assertNull(first.status().track)
             stopFromNotification();until("bound owner released"){audio.released.get()==1}
@@ -67,7 +68,8 @@ class AndroidForegroundPlaybackTest {
             catch(expected: IllegalStateException){assertEquals("Music service already owned.",expected.message)}
             assertEquals(1,rejected.released.get())
             first.close();until("bound service destruction"){stopped()}
-            val nextToken=MkrPlaybackService.start(activity,next)
+            val nextToken=try {MkrPlaybackService.start(activity,next)}
+                catch(error: Exception){throw AssertionError("Successor after observed AMS destruction",error)}
             assertNotEquals(token,nextToken)
             // Hold the caller dispatcher after Main has returned its bound handle.
             // Cancellation at this boundary must detach the otherwise lost result.

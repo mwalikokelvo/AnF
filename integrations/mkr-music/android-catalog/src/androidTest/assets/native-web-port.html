@@ -5,6 +5,7 @@ window.report={phase:'waiting'};
 window.addEventListener('message',event=>{
   if(event.data!=='anf-mkr-port-v1'||!event.ports[0]||window.started)return;
   window.started=true;const port=event.ports[0],pending=new Map();let sequence=0;
+  window.sendDeeplyNested=()=>port.postMessage('{"id":"999","command":"status","payload":{"nested":'+'['.repeat(20)+'0'+']'.repeat(20)+'}}');
   port.onmessage=event=>{const reply=JSON.parse(event.data);const done=pending.get(reply.id);if(done){pending.delete(reply.id);done(reply);}};
   function raw(command,payload={}){return new Promise(resolve=>{const id=String(++sequence);pending.set(id,resolve);port.postMessage(JSON.stringify({id,command,payload}));});}
   async function call(command,payload){const reply=await raw(command,payload);if(reply.error)throw Error(reply.error);return reply.value;}

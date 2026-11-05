@@ -60,12 +60,15 @@ class AndroidMkrWebPortTest {
                     override fun onPageFinished(view: WebView?, url: String?) {loaded.complete(Unit)}
                 }
                 activity.setContentView(web)
-                web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()},"text/html","UTF-8",null)
+                web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()},"text/html","UTF-8","https://anf.local/")
             }
             withTimeout(8000){loaded.await()}
             val token=MkrPlaybackService.start(activity,controller)
             val client=AndroidMkrConnection.connect(activity,token);connection=client
-            withContext(Dispatchers.Main.immediate){host=AndroidMkrWebPort.attach(web,"https://anf.local",client)}
+            withContext(Dispatchers.Main.immediate){
+                assertEquals("https://anf.local/",web.url)
+                host=AndroidMkrWebPort.attach(web,"https://anf.local",client)
+            }
             withTimeout(8000){requested.await()}
             assertEquals(0,requests.get());assertTrue(cdn.requests.isEmpty());allow.complete(true)
             val result=withTimeout(8000){var value=report();while(!value.optBoolean("done")){delay(25);value=report()};value}
@@ -75,10 +78,21 @@ class AndroidMkrWebPortTest {
             assertFalse(result.getJSONObject("paused").getBoolean("playing"))
             assertEquals(500L,result.getJSONObject("sought").getLong("positionMs"))
             assertFalse(result.toString().contains("googlevideo"));assertTrue(cdn.requests.isNotEmpty())
+            withContext(Dispatchers.Main.immediate){web.evaluateJavascript("window.sendDeeplyNested()",null)}
+            withTimeout(8000) {
+                var detached=false
+                while(!detached) {
+                    try {client.status()}
+                    catch(expected: IllegalStateException) {
+                        assertEquals("Music connection closed.",expected.message);detached=true
+                    }
+                    if(!detached)delay(20)
+                }
+            }
             // Revoke before navigation. Neither app origin can be attached on a foreign page.
             withContext(Dispatchers.Main.immediate) {
                 host!!.close();loaded=CompletableDeferred()
-                web.loadDataWithBaseURL("https://untrusted.invalid/","<p>Untrusted fixture</p>","text/html","UTF-8",null)
+                web.loadDataWithBaseURL("https://untrusted.invalid/","<p>Untrusted fixture</p>","text/html","UTF-8","https://untrusted.invalid/")
             }
             withTimeout(8000){loaded.await()}
             val fresh=AndroidMkrConnection.connect(activity,token)
@@ -96,6 +110,7 @@ class AndroidMkrWebPortTest {
             context.stopService(Intent(context,MkrPlaybackService::class.java));controller.close()
             instrumentation.runOnMainSync{activity.finish()}
         }
+        withTimeout(8000){while(closed.get()!=1)delay(20)}
         assertEquals(1,closed.get())
     }
 }

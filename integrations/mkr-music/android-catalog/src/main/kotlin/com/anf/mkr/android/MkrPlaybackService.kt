@@ -26,6 +26,8 @@ class MkrPlaybackService : Service() {
     private var closing=false
     private var destroyed=false
     private var cleaned=false
+    private var bound=false
+    private val terminated=CompletableDeferred<Unit>()
     private var initialization: Job?=null
     private val observer=object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?)=updateNotification()
@@ -35,8 +37,10 @@ class MkrPlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         if(closing || intent?.action!=BIND || owner==null ||
             intent.getParcelableExtra<MediaSession.Token>(TOKEN)!=owner!!.token)return null
-        return NativeBinder(request!!.nonce)
+        bound=true;return NativeBinder(request!!.nonce)
     }
+    override fun onUnbind(intent: Intent?): Boolean {bound=false;return true}
+    override fun onRebind(intent: Intent?) {bound=true;super.onRebind(intent)}
     /** Same-process native API; no raw controller, source URL, player or credentials. */
     internal inner class NativeBinder(private val nonce: String) : Binder() {
         // Android may reuse a cached Binder without calling onBind again.
@@ -149,7 +153,10 @@ class MkrPlaybackService : Service() {
         }
     }
     private fun clearDestroyedOwner() {
-        if(destroyed && cleaned && running===this)running=null
+        if(destroyed && cleaned) {
+            if(running===this)running=null
+            terminated.complete(Unit)
+        }
     }
     override fun onDestroy() {destroyed=true;finish();clearDestroyedOwner();super.onDestroy()}
     companion object {
@@ -176,6 +183,12 @@ class MkrPlaybackService : Service() {
                 val next=Request(controller)
                 var submitted=false
                 try {
+                    // AMS can remove its running-service entry before this
+                    // process receives onDestroy. Await that existing teardown
+                    // after the final unbind; never start a competing owner.
+                    running?.takeIf{it.closing && !it.bound}?.let {prior ->
+                        withTimeout(8000){prior.terminated.await()}
+                    }
                     check(pending==null && running==null){"Music service already owned."}
                     pending=next;submitted=true
                     context.applicationContext.startForegroundService(Intent(context,MkrPlaybackService::class.java)

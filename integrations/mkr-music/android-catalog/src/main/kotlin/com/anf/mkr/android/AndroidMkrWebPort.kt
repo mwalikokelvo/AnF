@@ -34,7 +34,7 @@ internal class AndroidMkrWebPort private constructor(
     }
     private fun receive(data: String?) {
         if(closed.get())return
-        if(!trusted() || data==null || data.length>8192){close();return}
+        if(!trusted() || data==null || data.length>8192 || !boundedNesting(data)){close();return}
         val request=try {JSONObject(data)}catch(error: Exception){close();return}
         val id=request.opt("id") as? String
         if(id==null || !id.matches(Regex("[0-9]{1,12}")) || id in requests){close();return}
@@ -90,6 +90,20 @@ internal class AndroidMkrWebPort private constructor(
         if(Looper.myLooper()==Looper.getMainLooper())task.run() else Handler(Looper.getMainLooper()).post(task)
     }
     companion object {
+        // Bound recursive JSON parsing before handing input to the platform parser.
+        private fun boundedNesting(value: String): Boolean {
+            var depth=0;var quoted=false;var escaped=false
+            for(character in value) {
+                if(quoted) {
+                    if(escaped)escaped=false else if(character=='\\')escaped=true else if(character=='"')quoted=false
+                } else when(character) {
+                    '"' -> quoted=true
+                    '{','[' -> {depth++;if(depth>8)return false}
+                    '}',']' -> {depth--;if(depth<0)return false}
+                }
+            }
+            return depth==0 && !quoted
+        }
         private fun sameOrigin(url: String?, origin: String): Boolean {
             if(url==null)return false
             val uri=Uri.parse(url);val expected=Uri.parse(origin)
