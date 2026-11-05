@@ -24,7 +24,7 @@ pub fn key_for(direction:&str)->Option<u16>{match direction{"down"=>Some(0xAE),"
     if let Some(win)=app.get_webview_window(LABEL){win.show().map_err(|e|e.to_string())?;return win.set_focus().map_err(|e|e.to_string());}
     let mut url=crate::settings_page_url(&app);
     match &mut url{WebviewUrl::App(path)=>*path="companion.html".into(),WebviewUrl::External(u)=>u.set_path("/companion.html"),_=>{}}
-    WebviewWindowBuilder::new(&app,LABEL,url).additional_browser_args(crate::BROWSER_ARGS).data_directory(crate::settings::local_dir().join("webview-v014"))
+    WebviewWindowBuilder::new(&app,LABEL,url).additional_browser_args(crate::browser_arguments().as_ref()).data_directory(crate::settings::local_dir().join("webview-v014"))
         .title("Companion — AnF").inner_size(SIZES[0].0,SIZES[0].1).resizable(false).decorations(false).transparent(true).shadow(false).always_on_top(true).skip_taskbar(true).build().map(|_|()).map_err(|e|e.to_string())
 }
 #[tauri::command]pub fn companion_close(app:AppHandle)->Result<(),String>{match app.get_webview_window(LABEL){Some(win)=>win.close().map_err(|e|e.to_string()),None=>Ok(())}}

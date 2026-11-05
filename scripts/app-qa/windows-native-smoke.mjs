@@ -42,4 +42,11 @@ try{
   savedWritingVerified:true,localImportExercised:phase==='seed',navigationViews:views,
   originalSignerVerified:false,installedUpgradeVerified:false,providerPlaybackVerified:false,offlineModelVerified:false,readyForPublication:false},null,2)+'\n');
  console.log('PASS real native source QA: local writing/import/navigation'+(phase==='reopen'?' and persisted restart':'')+'. No installer, signer, model or provider claim.');
+ }catch(error){
+ if(page){
+  await page.screenshot({path:path.join(out,`${phase}-failure.png`)}).catch(()=>{});
+  const state=await page.evaluate(()=>({url:location.href,title:document.title,body:document.body.innerText.slice(-12000)})).catch(()=>null);
+  await writeFile(path.join(out,`${phase}-failure.json`),JSON.stringify({error:String(error),state,pageErrors:errors},null,2));
+ }
+ throw error;
 }finally{if(browser)await browser.close();}
