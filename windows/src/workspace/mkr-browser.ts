@@ -40,7 +40,7 @@ export function createMkrBrowser(options:{transport:MkrTransport|undefined;befor
     elapsed.textContent=durationText(state.positionMs/1000);total.textContent=durationText(state.durationMs/1000);
     seek.setAttribute('aria-valuetext',elapsed.textContent+' of '+total.textContent);
   }
-  function failed(message:string){stopTimer();check.hidden=false;feedback.textContent=message;options.notify(message);}
+  function failed(message:string){stopTimer();check.hidden=false;feedback.textContent=message;paint();options.notify(message);}
   function schedule(){
     stopTimer();if(disposed||closing||!ready||!state.track||doc.hidden||check.hidden===false)return;
     timer=setTimeout(()=>void refresh(),state.playing?1000:5000);
