@@ -50,6 +50,10 @@ class MkrPlaybackService : Service() {
             check(current()===session){"Music service unavailable."};result
         }
         suspend fun status()=withContext(Dispatchers.Main.immediate) {current().status()}
+        suspend fun control(command: String, id: String?, positionMs: Long?)=withContext(Dispatchers.Main.immediate) {
+            val session=current();val state=session.control(command,id,positionMs)
+            check(current()===session){"Music service unavailable."};state
+        }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if(intent?.action==START) {

@@ -48,11 +48,28 @@ internal class AndroidMediaSession private constructor(context: Context,
     }
     private fun command(action: suspend () -> Unit) {
         if(closed.get() || !session.isActive) return
-        val ticket=++revision
         scope.launch {
-            try { action(); publish(ticket,recover=true) }
+            try { execute(action) }
             catch(error: CancellationException) { throw error }
-            catch(error: Exception) { failure(ticket) }
+            catch(error: Exception) { /* execute publishes a safe system error. */ }
+        }
+    }
+    private suspend fun execute(action: suspend () -> Unit): AndroidPlaybackState = withContext(Dispatchers.Main.immediate) {
+        check(!closed.get() && session.isActive){"Music session unavailable."}
+        val ticket=++revision
+        try {action();publish(ticket,recover=true);controller.status()}
+        catch(error: CancellationException){throw error}
+        catch(error: Exception){failure(ticket);throw PlaybackCommandFailure("COMMAND_UNAVAILABLE")}
+    }
+    /** Shared by native UI and OS callbacks; never bypasses controller policy. */
+    suspend fun control(command: String, id: String?=null, positionMs: Long?=null): AndroidPlaybackState = execute {
+        when(command) {
+            "play" -> {require(id==null || id.isNotEmpty() && id.length<=256);controller.play(id)}
+            "pause" -> {controller.pause();Unit}
+            "previous" -> controller.step(-1)
+            "next" -> controller.step(1)
+            "seek" -> {require(positionMs!=null && positionMs>=0);controller.seek(positionMs)}
+            else -> throw IllegalArgumentException("Unsupported music command.")
         }
     }
     private fun changed() {

@@ -23,6 +23,9 @@ internal class AndroidMkrConnection private constructor(
         checkOpen();val result=binder.search(query);checkOpen();return result
     }
     suspend fun status(): AndroidPlaybackState {checkOpen();return binder.status().also{checkOpen()}}
+    suspend fun control(command: String, id: String?=null, positionMs: Long?=null): AndroidPlaybackState {
+        checkOpen();return binder.control(command,id,positionMs).also{checkOpen()}
+    }
     override fun close() {if(closed.compareAndSet(false,true))detach()}
     companion object {
         suspend fun connect(context: Context, token: MediaSession.Token): AndroidMkrConnection {

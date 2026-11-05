@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: MIT
+package com.anf.mkr.android
+
+import android.content.Intent
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.anf.mkr.*
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.*
+import kotlin.coroutines.resume
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/** Real WebView JS -> origin-bound MessagePort -> Binder -> service -> Media3. */
+@RunWith(AndroidJUnit4::class)
+class AndroidMkrWebPortTest {
+    @Test fun trustedPageUsesNativePlayerWithoutUrlOrExternalFallback() = runBlocking {
+        val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.context
+        assertEquals("com.anf.mkr.catalog.test",context.packageName)
+        val activity=instrumentation.startActivitySync(Intent(context,MkrNativeQaActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val data=context.assets.open("generated-aac.m4a").use{it.readBytes()}
+        assertEquals("801e0e26a6f69c415fd06370b0fed08688802f031ba2da13046e1646aaaafd0a",
+            MessageDigest.getInstance("SHA-256").digest(data).joinToString(""){"%02x".format(it)})
+        val requests=AtomicInteger();val closed=AtomicInteger();val requested=CompletableDeferred<Unit>();val allow=CompletableDeferred<Boolean>()
+        val backend=object : CatalogBackend {
+            override suspend fun search(query: String)=listOf(MkrTrack("abcdefghijk","Generated WebView fixture","AnF QA"))
+            override suspend fun streams(videoId: String): List<Pair<Int,String>> {
+                requests.incrementAndGet();return listOf(140 to "https://r1.googlevideo.com/generated-fixture")
+            }
+        }
+        val cdn=MkrNativePlaybackTest.GeneratedCdn(data)
+        val audio=Media3Playback.create(context,muted=true)
+        val controller=AndroidPlaybackController(MkrCatalog(backend),audio,{requested.complete(Unit);allow.await()},
+            {closed.incrementAndGet()},leaseFactory={stream -> AndroidMediaLease(MkrStream(stream.url,stream.mimeType,stream.headers,
+                true,true,65536,data.size.toLong(),System.currentTimeMillis()+120000),connect=cdn::connect)})
+        val web=withContext(Dispatchers.Main.immediate){WebView(activity)}
+        var host: AndroidMkrWebPort?=null
+        var connection: AndroidMkrConnection?=null
+        var loaded=CompletableDeferred<Unit>()
+        suspend fun report(): JSONObject=withContext(Dispatchers.Main.immediate) {
+            suspendCancellableCoroutine { continuation ->
+                web.evaluateJavascript("JSON.stringify(window.report||{})") {value ->
+                    if(continuation.isActive) {
+                        val encoded=org.json.JSONTokener(value).nextValue() as String
+                        continuation.resume(JSONObject(encoded))
+                    }
+                }
+            }
+        }
+        try {
+            withContext(Dispatchers.Main.immediate) {
+                web.settings.javaScriptEnabled=true;web.settings.blockNetworkLoads=true
+                web.webViewClient=object : WebViewClient() {
+                    override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {host?.close()}
+                    override fun onPageFinished(view: WebView?, url: String?) {loaded.complete(Unit)}
+                }
+                activity.setContentView(web)
+                web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()},"text/html","UTF-8",null)
+            }
+            withTimeout(8000){loaded.await()}
+            val token=MkrPlaybackService.start(activity,controller)
+            val client=AndroidMkrConnection.connect(activity,token);connection=client
+            withContext(Dispatchers.Main.immediate){host=AndroidMkrWebPort.attach(web,"https://anf.local",client)}
+            withTimeout(8000){requested.await()}
+            assertEquals(0,requests.get());assertTrue(cdn.requests.isEmpty());allow.complete(true)
+            val result=withTimeout(8000){var value=report();while(!value.optBoolean("done")){delay(25);value=report()};value}
+            assertFalse(result.toString(),result.has("error"))
+            assertEquals("Generated WebView fixture",result.getJSONArray("tracks").getJSONObject(0).getString("title"))
+            assertTrue(result.getJSONObject("state").getBoolean("playing"))
+            assertFalse(result.getJSONObject("paused").getBoolean("playing"))
+            assertEquals(500L,result.getJSONObject("sought").getLong("positionMs"))
+            assertFalse(result.toString().contains("googlevideo"));assertTrue(cdn.requests.isNotEmpty())
+            // Revoke before navigation. Neither app origin can be attached on a foreign page.
+            withContext(Dispatchers.Main.immediate) {
+                host!!.close();loaded=CompletableDeferred()
+                web.loadDataWithBaseURL("https://untrusted.invalid/","<p>Untrusted fixture</p>","text/html","UTF-8",null)
+            }
+            withTimeout(8000){loaded.await()}
+            val fresh=AndroidMkrConnection.connect(activity,token)
+            try {
+                withContext(Dispatchers.Main.immediate) {
+                    for(origin in listOf("https://anf.local","https://coucou.local","https://untrusted.invalid","*")) {
+                        try {AndroidMkrWebPort.attach(web,origin,fresh);fail("Accepted foreign/wildcard origin")}
+                        catch(expected: IllegalArgumentException){ /* Native origin boundary. */ }
+                    }
+                }
+                assertNotNull(fresh.status().track)
+            } finally {fresh.close()}
+        } finally {
+            withContext(Dispatchers.Main.immediate){host?.close();connection?.close();web.stopLoading();web.destroy()}
+            context.stopService(Intent(context,MkrPlaybackService::class.java));controller.close()
+            instrumentation.runOnMainSync{activity.finish()}
+        }
+        assertEquals(1,closed.get())
+    }
+}

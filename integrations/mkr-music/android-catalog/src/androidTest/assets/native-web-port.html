@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>AnF native music transport QA</title>
+<h1>Native music transport</h1><p id="status" role="status">Connecting</p>
+<script>
+window.report={phase:'waiting'};
+window.addEventListener('message',event=>{
+  if(event.data!=='anf-mkr-port-v1'||!event.ports[0]||window.started)return;
+  window.started=true;const port=event.ports[0],pending=new Map();let sequence=0;
+  port.onmessage=event=>{const reply=JSON.parse(event.data);const done=pending.get(reply.id);if(done){pending.delete(reply.id);done(reply);}};
+  function raw(command,payload={}){return new Promise(resolve=>{const id=String(++sequence);pending.set(id,resolve);port.postMessage(JSON.stringify({id,command,payload}));});}
+  async function call(command,payload){const reply=await raw(command,payload);if(reply.error)throw Error(reply.error);return reply.value;}
+  function check(value,label){if(!value)throw Error(label);}
+  (async()=>{
+    const capabilities=await call('capabilities');check(capabilities.protocol===1&&capabilities.embedded&&capabilities.platform==='android-native','capabilities');
+    await call('open');const tracks=await call('search',{query:'generated'});check(tracks.length===1&&tracks[0].id==='abcdefghijk','search');
+    check((await raw('seek',{positionMs:'1000'})).error==='Music request unavailable.','numeric type guard');
+    check((await raw('play',{id:'not-selected'})).error==='Music request unavailable.','selected queue guard');
+    check((await raw('play',{url:'https://untrusted.invalid/audio'})).error==='Music request unavailable.','URL payload guard');
+    check((await raw('launch-browser')).error==='Music request unavailable.','no external player command');
+    window.report={phase:'handoff'};
+    await call('play',{id:tracks[0].id});let state;
+    for(let i=0;i<100;i++){state=await call('status');if(state.playing&&state.durationMs>=3500)break;await new Promise(resolve=>setTimeout(resolve,25));}
+    check(state.playing&&state.track.id===tracks[0].id&&state.durationMs>=3500,'real decoded play');
+    const paused=await call('pause');check(!paused.playing,'pause response');
+    const sought=await call('seek',{positionMs:500});check(sought.positionMs===500,'paused seek');
+    await call('play');await call('hide');await call('pause');
+    window.report={done:true,capabilities,tracks,state,paused,sought};
+    document.getElementById('status').textContent='Native playback and controls passed';
+  })().catch(error=>{window.report={done:true,error:String(error)};});
+});
+</script></html>
