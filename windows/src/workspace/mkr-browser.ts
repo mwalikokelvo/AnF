@@ -8,7 +8,7 @@ import './mkr-browser.css';
 export function createMkrBrowser(options:{transport:MkrTransport|undefined;beforePlay:()=>Promise<void>;notify:(message:string)=>void}){
   const api=createMkrPlayer(options.transport,options.beforePlay);
   const root=h('section',{class:'mkr-browser',hidden:true,'aria-label':'Embedded MKR Music'});
-  const dock=h('aside',{class:'music-player mkr-dock',hidden:true,'aria-label':'MKR Music player'});
+  const dock=h('aside',{class:'mkr-dock',hidden:true,'aria-label':'MKR Music player'});
   const input=h('input',{type:'search',maxlength:500,placeholder:'Find a song or artist','aria-label':'Search MKR Music'});
   const search=h('button',{type:'submit',text:'Search'});
   const form=h('form',{class:'mkr-search'},input,search);
