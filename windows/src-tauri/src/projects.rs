@@ -6,6 +6,9 @@ use std::{io::Write, path::PathBuf, sync::Mutex};
 pub struct Turn {
     pub role: String,
     pub content: Vec<Part>,
+    /// Phone-only speaker. Absent on desktop turns. `pc` is the offline model; `browser` is a pasted reply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Part {
@@ -83,6 +86,7 @@ pub fn validate(p: &Project) -> Result<(), String> {
         !matches!(t.role.as_str(), "user" | "assistant")
             || t.content.len() != 1
             || t.content[0].text.len() > 200_000
+            || !matches!(t.label.as_deref(), None | Some("pc") | Some("browser"))
     }) || p.sources.iter().any(|s| {
         !crate::workspace::valid_reading(s) || s.text.len() > 2_000_000
             || s.name.len() > 2000
@@ -323,11 +327,16 @@ mod tests {
     fn searches_old_conversation_text_and_drafts_with_unicode() {
         let p = Project { id: "a".repeat(64), name: "Untitled".into(), title: "Notes".into(),
             question: String::new(), draft: "Our next appointment is Thursday".into(),
-            history: vec![Turn { role: "user".into(), content: vec![Part {text: "We discussed CAFÉ supplies and a budget".into()}]}],
+            history: vec![Turn { role: "user".into(), content: vec![Part {text: "We discussed CAFÉ supplies and a budget".into()}], label: None }],
             sources: vec![], memory: String::new(), model: "fast".into() };
         assert!(matching_snippet(&p,"café").unwrap().contains("CAFÉ"));
         assert!(matching_snippet(&p,"Thursday").unwrap().contains("Thursday"));
         assert!(matching_snippet(&p,"not in the conversation").is_none());
         assert!(matching_snippet(&p,"").is_some());
+        let mut labeled=p.clone();
+        labeled.history[0].label=Some("browser".into());
+        assert!(validate(&labeled).is_ok());
+        labeled.history[0].label=Some("other".into());
+        assert!(validate(&labeled).is_err());
     }
 }

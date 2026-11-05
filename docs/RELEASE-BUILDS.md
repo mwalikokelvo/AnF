@@ -1,13 +1,20 @@
 # Release builds
 
 The build workflows create review artifacts; they do not publish a GitHub release.
-The current desktop/Android integration source targets **0.1.42**, combining main/PR47 with the divergent public 0.1.41 lineage. It is not yet a verified release. The separate macOS source retains its own version. Both Android application identities and their original signers must be preserved; Windows upgrades retain the selected existing installation and data records.
+The integration source retains both the modern 0.1.41 lineage and main 0.1.48 features. Its current package metadata is 0.1.48 for reconciliation only; it is NOT a new verified release or a safe upgrade for every installation. Choose a successor above the highest published release only after verification. Native macOS has a separate version.
 
-The verified 0.1.21-to-0.1.22 Windows/Android upgrade runs are review references, not the newest feature-complete release. Do not rebuild those packages, downgrade 0.1.41 users, overwrite assets/tags or promote this unfinished merge.
+The modern Windows/Android identities differ from the legacy main lineage. Preserve each actual installed identity, data origin and original signer; do not replace one with the other. Modern Android key custody remains unresolved. The Windows certificate is self-signed, and public Windows publication remains on hold for the unresolved Defender finding. Do not install trust roots or weaken protections.
+
+The verified 0.1.21→0.1.22 upgrade runs are historical review references, not the newest feature-complete release. Do not duplicate them, downgrade users or overwrite existing assets/tags.
 
 See [RECOVERY.md](RECOVERY.md) for the recovered build state, verified download
 identities, and the pending native Spotube integration. A source version is not
 evidence that a matching native installer has been built.
+
+As of `main` 20e8557, 0.1.47 is compiled and tested in CI (Linux, Windows, Android
+APKs; the debug APK also passed a CI emulator smoke). The Windows portable build was
+smoke-launched on one PC at UI level only; no installer or APK has been installed.
+See [HANDOFF.md](../HANDOFF.md) for the verified and unverified list.
 
 ## Windows
 
@@ -82,6 +89,8 @@ node scripts/build-android.mjs --legacy
 node scripts/verify-android-release.mjs
 node scripts/verify-android-release.mjs --legacy
 ```
+
+Unsigned release APKs require the original production signer before compatible distribution. A debug-signed APK cannot update an installation signed with a different key; the modern 0.1.41 debug signer is a distinct baseline, not a substitute for the legacy production signer.
 
 Outputs under releases/ use the actual source version. Modern builds use AnF-Android-<version>-unsigned.apk and -debug.apk, application ID com.anf.workspace and origin https://anf.local/. Legacy builds use AnF-Android-Legacy-<version>-unsigned.apk and -debug.apk, application ID com.coucou.workspace and origin https://coucou.local/. Unsigned APKs require the corresponding original key before distribution. New debug keys do not establish compatible updates.
 

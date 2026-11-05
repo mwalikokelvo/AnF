@@ -133,6 +133,11 @@ jobs:
         shell: pwsh
         run: ./scripts/prepare-media.ps1
 
+      # v0.1.47 has no devUrl, so tauri::generate_context! needs a built ../dist
+      # even for `cargo test`.
+      - name: Build the web frontend for native tests
+        run: npm run build
+
       - name: Test native behavior
         shell: pwsh
         run: |
@@ -239,6 +244,12 @@ jobs:
           if ($LASTEXITCODE) { throw 'Navigation rail interaction regression failed' }
           node scripts/app-qa/music-layout.mjs
           if ($LASTEXITCODE) { throw 'Music layout regression failed' }
+          node scripts/app-qa/music-bar-overlap.mjs
+          if ($LASTEXITCODE) { throw 'Music bar overlap regression failed' }
+          foreach ($check in 'music-dock-hidden','music-dock-width','narrow-window','audio-no-track','music-dock-title','appearance','music-hub','music-tabs-fit','contrast','reduced-motion','controls-a11y','focus-visible','dialogs-focus','writing-toolbar','music-card-titles','music-preview') {
+            node "scripts/app-qa/$check.mjs"
+            if ($LASTEXITCODE) { throw "Workspace layout regression failed: $check" }
+          }
           $baselines = @(Get-ChildItem previous-installer -File -Filter '*setup.exe')
           if ($baselines.Count -ne 1) { throw 'Expected exactly one previous installer.' }
           $baseline = $baselines[0].FullName

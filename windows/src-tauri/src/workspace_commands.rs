@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::{
     atomic::{AtomicU64, Ordering},
-    Arc,
+    Arc, Mutex,
 };
 use tauri::State;
 pub struct Jobs {
@@ -271,10 +271,14 @@ async fn ask_with_provider(
     } else {
         format!(
             "Answered locally with {}. Check facts and any source citations.",
-            if model == "fast" {
-                "Fast · Qwen3 0.6B"
-            } else {
-                "Balanced · Qwen3 1.7B"
+            match model.as_str() {
+            "deepseek-v4.1-flash" => "DeepSeek V4.1 Flash (1017 · Engram)",
+            "deepseek-v3.2-reasoning" | "deepseek-v3.2" => "DeepSeek V3.2 Reasoning (DSA)",
+            "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" => "DeepSeek R1 Distill 1.5B (Edge)",
+            "kimi-k3-thinking" | "kimi-k3" => "Kimi K3 Thinking (KDA · MoE)",
+            "kimi-linear-a3b" | "kimi-linear" => "Kimi Linear 48B-A3B (Edge Fast)",
+            "fast" => "Fast · Qwen3 0.6B",
+            _ => "Balanced · Qwen3 1.7B",
             }
         )
     };
@@ -437,7 +441,7 @@ pub fn workspace_diagnostics(chat: State<Chat>) -> Value {
     };
     let documents = settings::local_dir().join("documents");
     let _ = crate::platform::ensure_private_dir(&documents);
-    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("anf.log").to_string_lossy()})
+    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":target_port().map(|(p,_)|is_port_open(p)).unwrap_or(false),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("anf.log").to_string_lossy()})
 }
 
 #[cfg(test)]
@@ -452,6 +456,37 @@ mod tests {
         let second = jobs.next();
         assert!(c.check().is_err());
         assert!(jobs.token(second).is_ok());
+    }
+    #[test]
+    fn ocr_port_check_reports_offline_on_unused_port() {
+        assert!(!is_port_open(59997));
+    }
+    #[test]
+    fn ocr_backend_only_accepts_the_fixed_exe() {
+        let dir = std::env::temp_dir().join(format!("anf-ocr-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // Scripts and look-alike executables are ignored.
+        for name in ["start-ocr.bat", "serve.py", "ocr-server.exe", "unlimited-ocr.bat"] {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        assert!(ocr_backend_in(&dir).is_none());
+        std::fs::write(dir.join(OCR_EXE), b"x").unwrap();
+        let (exe, cwd) = ocr_backend_in(&dir).unwrap();
+        assert_eq!(exe, dir.join(OCR_EXE));
+        assert_eq!(cwd, dir);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+    #[test]
+    fn owned_ocr_args_use_the_ephemeral_loopback_port() {
+        let port = ep::pick_free_port().unwrap();
+        let args = ep::owned_args(port);
+        assert_eq!(args, ["--host", "127.0.0.1", "--port", &port.to_string()]);
+    }
+    #[test]
+    fn ocr_not_found_message_has_no_developer_path() {
+        let m = ocr_not_found_message();
+        assert!(!m.contains("antigravity") && !m.contains("on PATH"), "{m}");
     }
 }
 
@@ -503,61 +538,228 @@ pub async fn workspace_restore_pack(
     .map_err(|_| "Backup restore stopped.".to_string())?
 }
 
-fn validated_restore(text: &str) -> Result<Vec<projects::Project>, String> {
-    if text.len() > 10_000_000 {
-        return Err("Decrypted backup exceeds 10 MB.".into());
-    }
-    #[derive(serde::Deserialize)]
-    struct Backup {
-        kind: String,
-        version: u32,
-        projects: Vec<projects::Project>,
-    }
-    let mut backup: Backup =
-        serde_json::from_str(&text).map_err(|_| "Choose a AnF Windows backup.")?;
-    if backup.kind != "\x63\x6f\x75\x63\x6f\x75-windows-backup"
-        || backup.version != 1
-        || backup.projects.len() > 200
-    {
-        return Err("Unsupported Windows backup.".into());
-    }
-    for p in &mut backup.projects {
-        p.id = crate::local_ai::random_key()?;
-        for source in &mut p.sources {
-            source.path = None;
-        }
-        projects::validate(p)?;
-    }
-    Ok(backup.projects)
+fn validated_restore(text:&str)->Result<Vec<projects::Project>,String>{
+ if text.len()>10_000_000{return Err("Decrypted backup exceeds 10 MB.".into());}
+ if let Ok(value)=serde_json::from_str::<Value>(text){
+  if value.get("kind").and_then(|kind|kind.as_str())==Some("coucou-mobile-backup"){return mobile_projects(&value);}
+ }
+  #[derive(serde::Deserialize)]struct Backup{kind:String,version:u32,projects:Vec<projects::Project>}
+  let mut backup:Backup=serde_json::from_str(&text).map_err(|_|"Choose a AnF Windows backup.")?;
+  if backup.kind!="coucou-windows-backup"||backup.version!=1||backup.projects.len()>200{return Err("Unsupported Windows backup.".into());}
+  for p in &mut backup.projects{p.id=crate::local_ai::random_key()?;for source in &mut p.sources{source.path=None;}projects::validate(p)?;}
+ Ok(backup.projects)
+}
+fn mobile_projects(value:&Value)->Result<Vec<projects::Project>,String>{
+ let version=value.get("version").and_then(|v|v.as_u64());
+ let raw=value.get("projects").and_then(|v|v.as_array()).ok_or("Choose a AnF Windows backup.")?;
+ if version!=Some(1)||raw.len()>200{return Err("Unsupported Windows backup.".into());}
+ let mut projects=Vec::with_capacity(raw.len());
+ for item in raw{
+  let sync=item.get("sync");
+  let model=sync.and_then(|s|s.get("model")).and_then(|v|v.as_str()).unwrap_or("fast");
+  let project=projects::Project{
+   id:crate::local_ai::random_key()?,
+   name:item.get("name").and_then(|v|v.as_str()).unwrap_or("").into(),
+   title:sync.and_then(|s|s.get("title")).and_then(|v|v.as_str()).unwrap_or("My document").into(),
+   question:item.get("prompt").and_then(|v|v.as_str()).unwrap_or("").into(),
+   draft:item.get("draft").and_then(|v|v.as_str()).unwrap_or("").into(),
+   history:mobile_notes(item.get("notes"))?,
+   sources:mobile_sources(item.get("sources"))?,
+   memory:sync.and_then(|s|s.get("memory")).and_then(|v|v.as_str()).unwrap_or("").into(),
+   model:if matches!(model,"fast"|"balanced"){model}else{"fast"}.into(),
+  };
+  projects::validate(&project)?;
+  projects.push(project);
+ }
+ Ok(projects)
+}
+fn mobile_notes(notes:Option<&Value>)->Result<Vec<projects::Turn>,String>{
+ let notes=notes.and_then(|v|v.as_array()).ok_or("Backup contains invalid conversations.")?;
+ notes.iter().map(mobile_note).collect()
+}
+fn mobile_note(note:&Value)->Result<projects::Turn,String>{
+ let text=note.get("text").and_then(|v|v.as_str()).ok_or("Backup contains invalid conversations.")?;
+ let (role,label)=match note.get("role").and_then(|v|v.as_str()){
+  Some("You")=>("user",None),
+  Some("PC offline AI")=>("assistant",Some("pc".into())),
+  Some("Browser reply")=>("assistant",Some("browser".into())),
+  Some("Assistant")=>("assistant",None),
+  _=>return Err("Backup contains invalid conversations.".into()),
+ };
+ Ok(projects::Turn{role:role.into(),content:vec![projects::Part{text:text.into()}],label})
+}
+fn mobile_sources(sources:Option<&Value>)->Result<Vec<Source>,String>{
+ let sources=sources.and_then(|v|v.as_array()).ok_or("Backup contains invalid conversations.")?;
+ sources.iter().map(mobile_source).collect()
+}
+fn mobile_source(source:&Value)->Result<Source,String>{
+ let name=source.get("name").and_then(|v|v.as_str()).ok_or("Backup contains invalid conversations.")?;
+ let text=source.get("text").and_then(|v|v.as_str()).ok_or("Backup contains invalid conversations.")?;
+ let pages=match source.get("pages").filter(|v|!v.is_null()){
+  Some(pages)=>serde_json::from_value(pages.clone()).map_err(|_| "Backup contains invalid conversations.".to_string())?,
+  None=>Vec::new(),
+ };
+ let reading=match source.get("reading").filter(|v|!v.is_null()){
+  Some(reading)=>Some(serde_json::from_value(reading.clone()).map_err(|_| "Backup contains invalid conversations.".to_string())?),
+  None=>None,
+ };
+ Ok(Source{reading,name:name.into(),text:text.into(),pages,path:None})
 }
 
-#[cfg(test)]
-mod backup_tests {
-    use super::*;
-    fn sample() -> serde_json::Value {
-        serde_json::json!({"kind":"\x63\x6f\x75\x63\x6f\x75-windows-backup","version":1,"projects":[{"id":"old-id","name":"Saved","title":"Draft","question":"","draft":"Private writing","history":[],"sources":[{"name":"text.txt","text":"Source","pages":[],"path":"C:\\untrusted\\file.txt"}],"memory":"","model":"fast"}]})
-    }
-    #[test]
-    fn restore_assigns_new_ids_and_drops_paths() {
-        let value = sample().to_string();
-        let first = validated_restore(&value).unwrap();
-        let second = validated_restore(&value).unwrap();
-        assert_ne!(first[0].id, second[0].id);
-        assert_eq!(first[0].id.len(), 64);
-        assert!(first[0].sources[0].path.is_none());
-        assert_eq!(first[0].draft, "Private writing");
-    }
-    #[test]
-    fn restore_validates_entire_batch() {
-        let mut value = sample();
-        let mut bad = value["projects"][0].clone();
-        bad["model"] = serde_json::json!("not-a-model");
-        value["projects"].as_array_mut().unwrap().push(bad);
-        assert!(validated_restore(&value.to_string()).is_err());
-        value["kind"] = serde_json::json!("other-app");
-        assert!(validated_restore(&value.to_string()).is_err());
-        assert!(validated_restore(&"x".repeat(10_000_001)).is_err());
-    }
+#[cfg(test)] mod backup_tests {
+ use super::*;
+ fn sample()->serde_json::Value{serde_json::json!({"kind":"coucou-windows-backup","version":1,"projects":[{"id":"old-id","name":"Saved","title":"Draft","question":"","draft":"Private writing","history":[],"sources":[{"name":"text.txt","text":"Source","pages":[],"path":"C:\\untrusted\\file.txt"}],"memory":"","model":"fast"}]})}
+ #[test]fn restore_assigns_new_ids_and_drops_paths(){let value=sample().to_string();let first=validated_restore(&value).unwrap();let second=validated_restore(&value).unwrap();assert_ne!(first[0].id,second[0].id);assert_eq!(first[0].id.len(),64);assert!(first[0].sources[0].path.is_none());assert_eq!(first[0].draft,"Private writing");}
+ #[test]fn restore_validates_entire_batch(){let mut value=sample();let mut bad=value["projects"][0].clone();bad["model"]=serde_json::json!("not-a-model");value["projects"].as_array_mut().unwrap().push(bad);assert!(validated_restore(&value.to_string()).is_err());value["kind"]=serde_json::json!("other-app");assert!(validated_restore(&value.to_string()).is_err());assert!(validated_restore(&"x".repeat(10_000_001)).is_err());}
+ #[test]
+ fn restore_mobile_backup_becomes_a_new_windows_copy() {
+  let phone = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  let sync = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  let pack = serde_json::json!({
+   "kind": "coucou-mobile-backup",
+   "version": 1,
+   "projects": [{
+    "id": phone,
+    "name": "Trip",
+    "draft": "Pack light",
+    "prompt": "What should I bring?",
+    "notes": [
+     {"role": "You", "text": "Help me pack"},
+     {"role": "PC offline AI", "text": "Bring a coat"},
+     {"role": "Browser reply", "text": "And socks"},
+     {"role": "Assistant", "text": "Done"}
+    ],
+    "sources": [{"name": "list.txt", "text": "coat", "path": "C:\\secret\\list.txt"}],
+    "updated": 1,
+    "sync": {"id": sync, "title": "Packing list", "memory": "Likes trains", "model": "balanced"}
+   }]
+  });
+  let text = pack.to_string();
+  let first = validated_restore(&text).unwrap();
+  let second = validated_restore(&text).unwrap();
+  assert_ne!(first[0].id, second[0].id);
+  assert_eq!(first[0].id.len(), 64);
+  assert!(first[0].id.bytes().all(|b| b.is_ascii_hexdigit()));
+  assert_ne!(first[0].id, phone);
+  assert_ne!(first[0].id, sync);
+  assert_eq!(first[0].name, "Trip");
+  assert_eq!(first[0].draft, "Pack light");
+  assert_eq!(first[0].question, "What should I bring?");
+  assert_eq!(first[0].title, "Packing list");
+  assert_eq!(first[0].memory, "Likes trains");
+  assert_eq!(first[0].model, "balanced");
+  assert_eq!(first[0].history[0].role, "user");
+  assert!(first[0].history[0].label.is_none());
+  assert_eq!(first[0].history[0].content[0].text, "Help me pack");
+  assert_eq!(first[0].history[1].role, "assistant");
+  assert_eq!(first[0].history[1].label.as_deref(), Some("pc"));
+  assert_eq!(first[0].history[1].content[0].text, "Bring a coat");
+  assert_eq!(first[0].history[2].role, "assistant");
+  assert_eq!(first[0].history[2].label.as_deref(), Some("browser"));
+  assert_eq!(first[0].history[2].content[0].text, "And socks");
+  assert_eq!(first[0].history[3].role, "assistant");
+  assert!(first[0].history[3].label.is_none());
+  assert_eq!(first[0].history[3].content[0].text, "Done");
+  assert_eq!(first[0].sources.len(), 1);
+  assert_eq!(first[0].sources[0].name, "list.txt");
+  assert_eq!(first[0].sources[0].text, "coat");
+  assert!(first[0].sources[0].path.is_none());
+  assert!(first[0].sources[0].pages.is_empty());
+  assert!(first[0].sources[0].reading.is_none());
+ }
+ #[test]
+ fn restore_mobile_backup_defaults_missing_sync_strings() {
+  let pack = serde_json::json!({
+   "kind": "coucou-mobile-backup",
+   "version": 1,
+   "projects": [
+    {"id": "phone", "name": "Bare", "draft": "Text", "prompt": "Ask", "notes": [], "sources": []},
+    {"id": "phone", "name": "Odd", "draft": "", "prompt": "", "notes": [], "sources": [], "sync": {"id": "sync", "title": 4, "memory": null, "model": "smart"}},
+    {"id": "phone", "name": "Fast", "draft": "", "prompt": "", "notes": [], "sources": [], "sync": {"title": "", "memory": "Kept", "model": "fast"}}
+   ]
+  });
+  let restored = validated_restore(&pack.to_string()).unwrap();
+  assert_eq!(restored[0].title, "My document");
+  assert_eq!(restored[0].memory, "");
+  assert_eq!(restored[0].model, "fast");
+  assert_eq!(restored[0].question, "Ask");
+  assert_eq!(restored[1].title, "My document");
+  assert_eq!(restored[1].memory, "");
+  assert_eq!(restored[1].model, "fast");
+  assert_eq!(restored[2].title, "");
+  assert_eq!(restored[2].memory, "Kept");
+  assert_eq!(restored[2].model, "fast");
+ }
+ #[test]
+ fn restore_mobile_backup_rejects_bad_notes_for_the_whole_batch() {
+  let good = serde_json::json!({"id":"p","name":"Ok","draft":"","prompt":"","notes":[{"role":"You","text":"Hi"}],"sources":[]});
+  let unknown = serde_json::json!({"id":"p","name":"Bad","draft":"","prompt":"","notes":[{"role":"System","text":"no"}],"sources":[]});
+  let missing = serde_json::json!({"id":"p","name":"Bad","draft":"","prompt":"","sources":[]});
+  let number = serde_json::json!({"id":"p","name":"Bad","draft":"","prompt":"","notes":[{"role":"You","text":1}],"sources":[]});
+  for projects in [vec![unknown.clone()], vec![missing], vec![number], vec![good, unknown]] {
+   let pack = serde_json::json!({"kind":"coucou-mobile-backup","version":1,"projects":projects});
+   assert!(validated_restore(&pack.to_string()).is_err(), "{pack}");
+  }
+ }
+ #[test]
+ fn restore_mobile_backup_keeps_pages_and_reading_that_validate() {
+  let pack = serde_json::json!({
+   "kind":"coucou-mobile-backup","version":1,
+   "projects":[{
+    "id":"phone","name":"Doc","draft":"","prompt":"","notes":[],
+    "sources":[
+     {"name":"a.txt","text":"Source","path":"C:\\secret\\a.txt","pages":[{"number":2,"text":"Hello","ocr":false}],
+      "reading":{"offset":0,"bookmarks":[0],"annotations":[{"id":"h1","start":0,"end":6,"quote":"Source","color":"gold","note":"mark"}]}},
+     {"name":"b.txt","text":"Plain"}
+    ]
+   }]
+  });
+  let restored = validated_restore(&pack.to_string()).unwrap();
+  let page = &restored[0].sources[0].pages[0];
+  assert_eq!((page.number, page.text.as_str(), page.ocr), (2, "Hello", false));
+  let reading = restored[0].sources[0].reading.as_ref().unwrap();
+  assert_eq!(reading.offset, 0);
+  assert_eq!(reading.bookmarks, vec![0]);
+  assert_eq!(reading.annotations[0].id, "h1");
+  assert_eq!(reading.annotations[0].quote, "Source");
+  assert_eq!(reading.annotations[0].color, "gold");
+  assert_eq!(reading.annotations[0].note, "mark");
+  assert!(restored[0].sources[0].path.is_none());
+  assert!(restored[0].sources[1].pages.is_empty());
+  assert!(restored[0].sources[1].reading.is_none());
+ }
+ #[test]
+ fn restore_mobile_backup_returns_project_validate_errors() {
+  let bad_reading = serde_json::json!({
+   "kind":"coucou-mobile-backup","version":1,
+   "projects":[{
+    "id":"phone","name":"Doc","draft":"","prompt":"","notes":[],
+    "sources":[{"name":"a.txt","text":"Source","reading":{"offset":0,"bookmarks":[],"annotations":[{"id":"h1","start":0,"end":6,"quote":"Source","color":"blue","note":""}]}}]
+   }]
+  });
+  match validated_restore(&bad_reading.to_string()) {
+   Err(message) => assert_eq!(message, "Project contains invalid conversation or sources."),
+   Ok(_) => panic!("invalid reading was restored"),
+  }
+  let mut long = bad_reading;
+  long["projects"][0]["sources"] = serde_json::json!([{"name":"a.txt","text":"Source"}]);
+  long["projects"][0]["prompt"] = serde_json::json!("q".repeat(10001));
+  match validated_restore(&long.to_string()) {
+   Err(message) => assert_eq!(message, "Project is too large or invalid. Start a new project and keep the old one saved."),
+   Ok(_) => panic!("oversized prompt was restored"),
+  }
+ }
+ #[test]
+ fn restore_mobile_backup_rejects_wrong_version_and_over_200_projects() {
+  let one = serde_json::json!({"id":"p","name":"N","draft":"","prompt":"","notes":[],"sources":[]});
+  let mut pack = serde_json::json!({"kind":"coucou-mobile-backup","version":2,"projects":[one.clone()]});
+  assert!(validated_restore(&pack.to_string()).is_err());
+  pack["version"] = serde_json::json!(1);
+  pack["projects"] = serde_json::Value::Array(vec![one.clone(); 200]);
+  assert_eq!(validated_restore(&pack.to_string()).map(|items| items.len()).ok(), Some(200));
+  pack["projects"] = serde_json::Value::Array(vec![one; 201]);
+  assert!(validated_restore(&pack.to_string()).is_err());
+ }
 }
 
 #[tauri::command]
@@ -612,4 +814,230 @@ pub async fn workspace_vault_restore(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+use crate::ocr_endpoint as ep;
+
+/// The OCR process AnF started itself, with the ephemeral loopback port it was told to bind.
+static OCR_OWNED: Mutex<Option<(std::process::Child, u16)>> = Mutex::new(None);
+
+pub fn is_port_open(port: u16) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+/// The only OCR backend AnF will launch: a fixed executable name inside `<local_dir>/ocr`.
+/// No PATH search, no batch/Python scripts, no developer-machine directories.
+#[cfg(windows)]
+const OCR_EXE: &str = "unlimited-ocr.exe";
+#[cfg(not(windows))]
+const OCR_EXE: &str = "unlimited-ocr";
+
+fn ocr_backend_in(dir: &std::path::Path) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    let candidate = dir.join(OCR_EXE);
+    // symlink_metadata: refuse a link that could point outside the OCR folder.
+    let meta = std::fs::symlink_metadata(&candidate).ok()?;
+    if !meta.is_file() {
+        return None;
+    }
+    Some((candidate, dir.to_path_buf()))
+}
+
+fn find_ocr_backend() -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    ocr_backend_in(&settings::local_dir().join("ocr"))
+}
+
+fn ocr_not_found_message() -> String {
+    format!(
+        "Unlimited-OCR backend not found. Install it as {} to enable OCR.",
+        settings::local_dir().join("ocr").join(OCR_EXE).display()
+    )
+}
+
+/// Port of the OCR child AnF spawned, but only while that child is still running.
+/// A child that lost the bind race to another process has exited, so it is never reported.
+fn owned_port() -> Option<u16> {
+    let mut guard = OCR_OWNED.lock().unwrap();
+    let alive = match guard.as_mut() {
+        Some((child, _)) => matches!(child.try_wait(), Ok(None)),
+        None => return None,
+    };
+    if alive {
+        guard.as_ref().map(|(_, p)| *p)
+    } else {
+        guard.take();
+        None
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
+struct ExternalOcr {
+    #[serde(default)]
+    endpoint: String,
+    /// Exact endpoint the user confirmed. The server is used only while it equals `endpoint`.
+    #[serde(default)]
+    confirmed: String,
+}
+
+fn external_path() -> std::path::PathBuf {
+    settings::local_dir().join("ocr-external.json")
+}
+
+fn load_external() -> ExternalOcr {
+    std::fs::read_to_string(external_path())
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+/// The single place that decides which loopback port the webview's OCR requests may reach.
+fn target_port() -> Option<(u16, &'static str)> {
+    if let Some(p) = owned_port() {
+        return Some((p, "owned"));
+    }
+    let ext = load_external();
+    ep::external_port(&ext.endpoint, &ext.confirmed).map(|p| (p, "external"))
+}
+
+fn ocr_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        // Loopback only: never via a system proxy, never follow a redirect elsewhere.
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(180))
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+async fn probe(port: u16) -> bool {
+    let Ok(client) = ocr_client() else { return false };
+    match client
+        .get(ep::request_url(port, "models"))
+        .timeout(std::time::Duration::from_millis(1500))
+        .send()
+        .await
+    {
+        Ok(r) => r.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+async fn ocr_status_value(message: &str) -> Value {
+    if let Some((port, mode)) = target_port() {
+        let ready = probe(port).await;
+        // Re-check ownership after the probe: an owned child that died meanwhile is not ready.
+        let still = target_port().map(|(p, _)| p) == Some(port);
+        let ready = ready && still;
+        return json!({
+            "mode": mode,
+            "state": if ready { "ready" } else if mode == "owned" { "starting" } else { "unavailable" },
+            "endpoint": ep::endpoint_for(port),
+            "message": message,
+        });
+    }
+    let ext = load_external();
+    if !ext.endpoint.is_empty() && ep::parse_external(&ext.endpoint).is_ok() {
+        return json!({
+            "mode": "external-unconfirmed",
+            "state": "needs-confirmation",
+            "endpoint": ext.endpoint,
+            "message": "A custom OCR server is configured but not confirmed. Documents are not sent to it until you confirm this exact endpoint.",
+        });
+    }
+    json!({"mode": "off", "state": "off", "message": message})
+}
+
+/// Current OCR state. The endpoint is informational (shown to the user); the webview never connects to it.
+#[tauri::command]
+pub async fn ocr_status() -> Result<Value, String> {
+    Ok(ocr_status_value("").await)
+}
+
+/// Forward one OpenAI-compatible request to the owned (or confirmed external) loopback OCR server.
+/// The webview CSP therefore needs no loopback source, and a process squatting a well-known port
+/// is never contacted.
+#[tauri::command]
+pub async fn ocr_request(method: String, path: String, body: Option<String>) -> Result<Value, String> {
+    if !ep::is_allowed_request(&method, &path) {
+        return Err("OCR request not allowed".into());
+    }
+    let (port, _) = target_port().ok_or_else(|| "OCR service is not running".to_string())?;
+    let client = ocr_client()?;
+    let url = ep::request_url(port, &path);
+    let req = if method == "POST" {
+        client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body.unwrap_or_default())
+    } else {
+        client.get(url)
+    };
+    let resp = req.send().await.map_err(|e| format!("OCR request failed: {e}"))?;
+    if target_port().map(|(p, _)| p) != Some(port) {
+        return Err("OCR service changed during the request".into());
+    }
+    let status = resp.status().as_u16();
+    let text = resp.text().await.map_err(|e| format!("OCR response failed: {e}"))?;
+    Ok(json!({"status": status, "body": text}))
+}
+
+/// Configure (or clear with `endpoint = None`) a user-run external OCR server.
+/// Passing `confirm = true` is the explicit user confirmation of exactly this endpoint.
+#[tauri::command]
+pub async fn ocr_configure_external(endpoint: Option<String>, confirm: bool) -> Result<Value, String> {
+    let cfg = match endpoint {
+        None => ExternalOcr::default(),
+        Some(raw) => {
+            let canonical = ep::canonical_external(&raw)?;
+            let confirmed = if confirm { canonical.clone() } else { String::new() };
+            ExternalOcr { endpoint: canonical, confirmed }
+        }
+    };
+    let path = external_path();
+    if let Some(parent) = path.parent() {
+        let _ = crate::platform::ensure_private_dir(parent);
+    }
+    std::fs::write(&path, serde_json::to_vec(&cfg).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("Could not save OCR setting: {e}"))?;
+    Ok(ocr_status_value("").await)
+}
+
+#[tauri::command]
+pub async fn start_ocr_service() -> Result<Value, String> {
+    // 1. Already running (owned child, or a confirmed external server)?
+    if target_port().is_some() {
+        return Ok(ocr_status_value("OCR service is already running.").await);
+    }
+    // An unconfirmed external server is never used and never replaced silently.
+    // Without one, start our own below.
+
+    // 2. Locate the fixed backend binary
+    let (exe, working_dir) = find_ocr_backend().ok_or_else(ocr_not_found_message)?;
+
+    // 3. Let the OS pick a free loopback port and spawn the backend on exactly that port
+    let port = ep::pick_free_port().map_err(|e| format!("No free loopback port: {e}"))?;
+    let mut cmd = std::process::Command::new(&exe);
+    cmd.args(ep::owned_args(port))
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    cmd.current_dir(working_dir);
+    let child = crate::platform::no_console(&mut cmd)
+        .spawn()
+        .map_err(|e| format!("Failed to spawn OCR service ({}): {e}", exe.display()))?;
+    *OCR_OWNED.lock().unwrap() = Some((child, port));
+
+    // 4. Poll up to 3 seconds. Readiness requires the child to be alive AND answer /models.
+    for _ in 0..6 {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        if owned_port().is_none() {
+            return Err("OCR service exited during startup (its port may have been taken).".into());
+        }
+        if probe(port).await && owned_port() == Some(port) {
+            return Ok(ocr_status_value("Unlimited-OCR service started successfully.").await);
+        }
+    }
+    Ok(ocr_status_value("Unlimited-OCR service spawned. Initializing models...").await)
 }

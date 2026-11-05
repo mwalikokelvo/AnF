@@ -33,6 +33,9 @@ pub struct Part {
 pub struct Turn {
     pub role: String,
     pub content: Vec<Part>,
+    /// Phone-only speaker. Absent on desktop turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -91,6 +94,7 @@ pub fn validate(p: &Project) -> Result<(), String> {
         !matches!(t.role.as_str(), "user" | "assistant")
             || t.content.len() != 1
             || t.content[0].text.len() > 200_000
+            || !matches!(t.label.as_deref(), None | Some("pc") | Some("browser"))
     }) || p.sources.iter().any(|s| s.text.len() > 2_000_000 || s.name.len() > 2000)
     {
         return Err("Project contains invalid conversation or sources.".into());
@@ -110,10 +114,21 @@ pub fn clean(mut p: Project, documents: bool) -> Project {
     p
 }
 
+/// Lowercase hex SHA-256. Explicit encoding (not `{:x}`) so ids stay
+/// byte-identical across sha2 releases; pinned by tests below.
+pub fn sha256_hex(data: impl AsRef<[u8]>) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(64);
+    for b in Sha256::digest(data.as_ref()) {
+        write!(out, "{b:02x}").expect("write to String");
+    }
+    out
+}
+
 pub fn revision(p: &Project, documents: bool) -> String {
     let cleaned = clean(p.clone(), documents);
     let bytes = serde_json::to_vec(&cleaned).expect("project serializes");
-    format!("{:x}", Sha256::digest(bytes))
+    sha256_hex(bytes)
 }
 
 pub fn snapshot(p: Project, documents: bool) -> Snapshot {
@@ -125,10 +140,7 @@ pub fn snapshot(p: Project, documents: bool) -> Snapshot {
 }
 
 pub fn conflict_id(id: &str, revision: &str) -> String {
-    format!(
-        "{:x}",
-        Sha256::digest(format!("coucou-conflict-v1|{id}|{revision}"))
-    )
+    sha256_hex(format!("coucou-conflict-v1|{id}|{revision}"))
 }
 
 pub fn conflict_name(name: &str) -> String {
@@ -175,12 +187,14 @@ mod tests {
                     content: vec![Part {
                         text: "Hello from the fixture.".into(),
                     }],
+                    label: None,
                 },
                 Turn {
                     role: "assistant".into(),
                     content: vec![Part {
                         text: "Schema is 1.".into(),
                     }],
+                    label: None,
                 },
             ],
             sources: vec![Source {
@@ -221,6 +235,42 @@ mod tests {
         assert!(conflict_name(&"🙂".repeat(100)).len() <= 160);
         assert_eq!(conflict_id("a", "b"), conflict_id("a", "b"));
         assert_ne!(conflict_id("a", "b"), conflict_id("a", "c"));
+    }
+
+    #[test]
+    fn sha256_hex_matches_known_vectors() {
+        // FIPS 180-4 / NIST test vectors.
+        assert_eq!(
+            sha256_hex(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_hex("abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            sha256_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        );
+    }
+
+    #[test]
+    fn revision_and_conflict_ids_are_pinned() {
+        // Golden values produced by the sha2 0.10 `{:x}` implementation.
+        // They must never change: they are stored sync ids.
+        let p = sample();
+        assert_eq!(
+            revision(&p, true),
+            "596ce080d51ae378b57a306f138b3423590e7d89a5b42ab11eaa8107d94bad0a"
+        );
+        assert_eq!(
+            revision(&p, false),
+            "1cd980226c9de1233be094554b3dcb77cdc7285b937508ce2030d72f484c8e50"
+        );
+        assert_eq!(
+            conflict_id("a", "b"),
+            "473df6afd55337db6dc4dfd37a828eda57e11b37040e63df3a4d2f2c47275ff4"
+        );
     }
 
     #[test]

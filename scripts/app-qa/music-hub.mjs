@@ -5,14 +5,18 @@ import {readFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const output=path.join(root,'releases/music-hub-previews');await mkdir(output,{recursive:true});
-const server=createServer(async(req,res)=>{try{const url=new URL(req.url,'http://localhost');const mobile=url.pathname.startsWith('/android/');const base=path.join(root,mobile?'android/build/assets/web':'windows/dist');const file=path.resolve(base,decodeURIComponent(mobile?url.pathname.slice(9):url.pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.css':'text/css','.wasm':'application/wasm'})[path.extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
+const server=createServer(async(req,res)=>{try{const url=new URL(req.url,'http://localhost');const mobile=url.pathname.startsWith('/android/');const base=mobile?path.join(root,'android/build/assets/web'):path.resolve(process.env.DIST_DIR||path.join(root,'windows/dist'));const file=path.resolve(base,decodeURIComponent(mobile?url.pathname.slice(9):url.pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.css':'text/css','.wasm':'application/wasm'})[path.extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
 await new Promise(resolve=>server.listen(4181,'127.0.0.1',resolve));
-const browser=await chromium.launch({executablePath:process.env.CHROMIUM_BIN||'/usr/bin/chromium',args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
+// Same browser choice as fixture.mjs: CHROMIUM_BIN=<path>, else the msedge channel.
+const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{channel:'msedge'}),args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
 const errors=[];
 try{
  for(const platform of ['windows','android']){
+  // The Android pass needs the packaged web assets (scripts/build-android.mjs); without them only the Windows pass runs.
+  if(platform==='android'&&!existsSync(path.join(root,'android/build/assets/web/index.html'))){console.log('SKIP android: android/build/assets/web is not built');continue;}
   console.log('Testing '+platform);
   const context=await browser.newContext({viewport:{width:platform==='windows'?1440:390,height:platform==='windows'?1000:844},colorScheme:'dark'});
   await context.addInitScript(()=>{window.qaAudios=[];const NativeAudio=window.Audio;window.Audio=new Proxy(NativeAudio,{construct(target,args){const audio=new target(...args);window.qaAudios.push(audio);return audio;}});});
@@ -38,12 +42,12 @@ try{
   const details=async title=>{await card(title).locator('summary').click();await page.getByRole('button',{name:'Details for '+title,exact:true}).click();};
   const listeningOptions=async()=>{const details=page.locator('.music-listening-options');if(!await details.evaluate(el=>el.open))await details.locator('summary').click();};
   const idle=()=>page.waitForFunction(()=>!document.querySelector('.music-hub').hasAttribute('aria-busy'));
-  const pause=()=>page.locator('.music-player button[aria-label="Pause"]');
+  const pause=()=>page.locator('.music-player:not(.mkr-dock) button[aria-label="Pause"]');
   const play=title=>page.getByRole('button',{name:'Play '+title,exact:true}).click();
   await cards.first().waitFor();assert.equal(await cards.count(),6);
   await page.getByLabel('Search music',{exact:true}).fill('elise');assert.equal(await cards.count(),1);
   await page.getByLabel('Search music',{exact:true}).fill('missing');assert.equal(await cards.count(),0);
-  await page.getByText('No tracks here. Import local files or add a podcast.',{exact:true}).waitFor();
+  await page.getByText('No tracks here. Import local files, add a podcast, or stream.',{exact:true}).waitFor();
   await page.getByLabel('Search music',{exact:true}).fill('');
   await play('Morning Light');await pause().waitFor();await idle();
   await page.getByRole('button',{name:'Open full player',exact:true}).click();
@@ -63,8 +67,8 @@ try{
   await tab('Playlists');await page.getByRole('button',{name:'View playlist',exact:true}).click();
   await page.getByRole('dialog',{name:'Playlist Evening'}).getByRole('button',{name:'Remove Morning Light from playlist',exact:true}).waitFor();
   await page.getByRole('button',{name:'Close playlist',exact:true}).click();await tab('Music');await pause().click();
-  await page.reload();await go('music');await page.locator('.music-player button[aria-label="Play"]').waitFor();
-  assert.equal(await page.locator('.music-player strong').innerText(),'Morning Light');
+  await page.reload();await go('music');await page.locator('.music-player:not(.mkr-dock) button[aria-label="Play"]').waitFor();
+  assert.equal(await page.locator('.music-player:not(.mkr-dock) strong').innerText(),'Morning Light');
   await page.getByRole('button',{name:'Open full player',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'Shuffle queue',exact:true}).getAttribute('aria-pressed'),'true');
   assert.equal(await page.getByRole('button',{name:'Repeat all',exact:true}).getAttribute('aria-pressed'),'true');
@@ -101,9 +105,9 @@ try{
   // Controlled browser time exercises the real registered timeout without a
   // fifteen-minute wall-clock wait or production test-only hooks.
   await page.clock.install();await page.getByLabel('Sleep timer',{exact:true}).selectOption('15');
-  await page.locator('.music-player button[aria-label="Play"]').click();await pause().waitFor();
+  await page.locator('.music-player:not(.mkr-dock) button[aria-label="Play"]').click();await pause().waitFor();
   await page.clock.fastForward(15*60*1000);await page.locator('.music-notice').getByText('Sleep timer ended playback.',{exact:true}).waitFor();
-  await page.locator('.music-player button[aria-label="Play"]').waitFor();await page.clock.resume();
+  await page.locator('.music-player:not(.mkr-dock) button[aria-label="Play"]').waitFor();await page.clock.resume();
   await page.getByRole('button',{name:'Close player',exact:true}).click();
   await listeningOptions();await page.getByLabel('Listening mix',{exact:true}).selectOption('fresh');
   assert.equal(await cards.count(),4);await page.getByLabel('Listening mix',{exact:true}).selectOption('all');
@@ -115,11 +119,12 @@ try{
   await page.getByText('Imported evening',{exact:true}).waitFor();await page.reload();await go('music');
   assert.equal(await page.getByLabel('Playback speed',{exact:true}).inputValue(),'1.5');
   await tab('Audiobooks');assert.equal(await cards.count(),1);await tab('Music');assert.equal(await cards.count(),5);
-  for(const width of platform==='windows'?[1440,1000,760]:[390,320,768]){await page.setViewportSize({width,height:platform==='windows'?1000:844});const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.body.scrollWidth,hub:document.querySelector('.music-hub').clientWidth,content:document.querySelector('.music-hub').scrollWidth}));assert(bounds.scroll<=bounds.width+1,JSON.stringify(bounds));assert(bounds.content<=bounds.hub+1,JSON.stringify(bounds));if(width===(platform==='windows'?1440:390)){for(const image of await page.locator('.music-cover img').all()){await image.scrollIntoViewIfNeeded();await image.evaluate(async img=>{await img.decode();if(!img.naturalWidth)throw Error('Cover did not decode');});}await page.locator('.music-heading').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,platform+'-music-hub.png')});}}
+  // Match main's layout gate: the clipped ambient blur deliberately overdraws; every actual control still must fit.
+  for(const width of platform==='windows'?[1440,1000,760]:[390,320,768]){await page.setViewportSize({width,height:platform==='windows'?1000:844});const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.body.scrollWidth,hub:document.querySelector('.music-hub').clientWidth,content:(()=>{const hub=document.querySelector('.music-hub');return Math.round(Math.max(...Array.from(hub.querySelectorAll('*')).filter(e=>!e.closest('.music-hub-ambient')&&e.getClientRects().length).map(e=>e.getBoundingClientRect().right))-hub.getBoundingClientRect().left);})()}));assert(bounds.scroll<=bounds.width+1,JSON.stringify(bounds));if(bounds.content>bounds.hub+1)console.log('Overflow diagnostics',await page.locator('.music-hub').evaluate(hub=>Array.from(hub.querySelectorAll('*')).filter(e=>e.getClientRects().length&&e.getBoundingClientRect().right>hub.getBoundingClientRect().right+1).map(e=>({tag:e.tagName,classes:e.className,visibility:getComputedStyle(e).visibility,rect:e.getBoundingClientRect().toJSON(),parent:e.parentElement?.className,parentOverflow:getComputedStyle(e.parentElement).overflow})).slice(0,12)));assert(bounds.content<=bounds.hub+1,JSON.stringify(bounds));if(platform==='android'){const placement=await page.evaluate(()=>({player:document.querySelector('aside.music-player:not(.mkr-dock)').getBoundingClientRect().bottom,nav:Math.min(document.querySelector('.mode-rail').getBoundingClientRect().top,document.querySelector('.bottom-nav').getBoundingClientRect().top)}));assert(placement.player<=placement.nav-7,JSON.stringify(placement));}if(width===(platform==='windows'?1440:390)){for(const image of await page.locator('.music-cover img').all()){await image.scrollIntoViewIfNeeded();await image.evaluate(async img=>{await img.decode();if(!img.naturalWidth)throw Error('Cover did not decode');});}await page.locator('.music-heading').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,platform+'-music-hub.png')});}}
   await page.setViewportSize({width:platform==='windows'?1440:390,height:1000});await play('Morning Light');await pause().waitFor();await go('audio');
   await page.locator('.audio-playlist button').filter({hasText:'Morning Light'}).first().click();await page.waitForFunction(()=>!document.querySelector('.audio-studio').hasAttribute('aria-busy'));
   await page.locator('.audio-studio').getByRole('button',{name:'Play',exact:true}).click();await page.locator('.audio-studio').getByRole('button',{name:'Pause',exact:true}).waitFor();
-  assert.equal(await page.locator('aside.music-player').isVisible(),false,'Studio must suspend music and its dock');
+  assert.equal(await page.locator('aside.music-player:not(.mkr-dock)').isVisible(),false,'Studio must suspend music and its dock');
   await go('music');await play('City Signals');await pause().waitFor();
   assert.equal(await page.locator('.audio-studio').getByRole('button',{name:'Play',exact:true,includeHidden:true}).count(),1,'Music must pause studio');
   await context.close();

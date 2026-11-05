@@ -8,10 +8,13 @@
 
 Read, write, work with local AI on Windows, and connect your devices over your own Wi-Fi. Updates must preserve the existing Coucou or AnF installation and saved-data identity. Android has separate legacy and modern package identities; each needs its own original signer. The macOS notch companion and historical feature documentation below come from upstream Coucou.
 
-The integration source targets **0.1.42**, combining the two release lineages; it is not a delivered release. Music Hub and Audio Studio stay separate, with local music, audiobooks, podcasts, playlists, listening history and offline synced lyrics. Shared writing, document reading, saved conversations, local-device sync, app catalog and navigation remain part of the workspace.
+The integration source reconciles the modern **0.1.41** lineage with main **0.1.48**. Its current 0.1.48 metadata is for reconciliation; it is not a delivered successor release. Music Hub and Audio Studio stay separate, with local music, audiobooks, podcasts, playlists, listening history and offline synced lyrics. Shared writing, document reading, saved conversations, local-device sync, app catalog and navigation remain part of the workspace.
 
-Native Spotube is an opt-in build pending current installed verification. Embedded MKR Music is requested but **not implemented or packaged yet**; its shared IPC contract is not a player. See [Music Hub build and test notes](docs/MUSIC-HUB.md), [release gates](docs/RELEASE-BUILDS.md) and [identity compatibility](docs/IDENTITY-MIGRATION.md). Existing 0.1.22 upgrade-test packages are review references, not a replacement for the feature-rich 0.1.41 lineage. Windows public publication remains held for an unresolved Defender detection; the existing certificate is self-signed and not publicly trusted.
+Native Spotube is an opt-in build pending current installed verification. Embedded MKR Music is requested but **not available in a production AnF package**. Isolated native audio adapters have generated-media tests; the full provider, app bridge and service are unfinished. See [Music Hub build and test notes](docs/MUSIC-HUB.md), [release gates](docs/RELEASE-BUILDS.md) and [identity compatibility](docs/IDENTITY-MIGRATION.md). Existing 0.1.22 upgrade-test packages are review references, not a successor for either the modern 0.1.41 or newer main 0.1.48 lineage. Windows public publication remains held for an unresolved Defender detection; the existing certificate is self-signed and not publicly trusted.
 
+The integration source retains the 0.1.48 main-branch additions: a dark Music Hub with local music, playlists and a persistent
+player, separate from Audio Studio. Native Spotube adapters are opt-in review
+builds pending installed verification; see [Music Hub build and test notes](docs/MUSIC-HUB.md).
 This product includes software developed by Kingkor Roy Tirtho.
 
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
@@ -73,9 +76,9 @@ Meet **Mochi**: a soft little squircle with big eyes that pops out of your notch
 
 ### Download for macOS
 
-1. Grab the latest `AnF.zip` from [Releases](https://github.com/Louis-CFM/%63%6f%75%63%6f%75/releases).
-2. Unzip and move **AnF.app** to `/Applications`.
-3. Launch it, and click **Open** when macOS asks you to confirm. Updating from 0.1.0? macOS may ask you, once for each key you saved, to let AnF use it: enter your Mac password and click **Always Allow**.
+1. Grab the latest `Coucou.zip` from [Releases](https://github.com/mwalikokelvo/AnF/releases).
+2. Unzip and move **Coucou.app** to `/Applications`.
+3. Launch it, and click **Open** when macOS asks you to confirm. Updating from 0.1.0? macOS may ask you, once for each key you saved, to let Coucou use it: enter your Mac password and click **Always Allow**.
 
 ### Windows
 
@@ -90,7 +93,7 @@ rest of the differences.
 
 ### Linux
 
-The first Linux build is out as a beta: download it from [AnF for Linux 0.1.1 (beta)](https://github.com/Louis-CFM/%63%6f%75%63%6f%75/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/Louis-CFM/%63%6f%75%63%6f%75/releases) under `linux-v*` tags.
+The first Linux build is out as a beta: download it from [Coucou for Linux 0.1.1 (beta)](https://github.com/mwalikokelvo/AnF/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/mwalikokelvo/AnF/releases) under `linux-v*` tags.
 
 - **AppImage** (any distribution): `chmod +x AnF-Linux-*.AppImage`, then run it.
 - **Debian / Ubuntu**: `sudo apt install ./AnF-Linux-*.deb`
@@ -108,8 +111,8 @@ so there it opens as a regular window. See [`windows/README.md`](windows/README.
 
 ```bash
 brew install xcodegen
-git clone https://github.com/Louis-CFM/%63%6f%75%63%6f%75.git
-cd anf/NotchBuddy
+git clone https://github.com/mwalikokelvo/AnF.git
+cd AnF/NotchBuddy
 xcodegen
 open NotchBuddy.xcodeproj   # then ⌘R
 ```
@@ -117,8 +120,8 @@ open NotchBuddy.xcodeproj   # then ⌘R
 **Windows** — requirements: [Rust](https://rustup.rs), Node 20+, MSVC build tools.
 
 ```powershell
-git clone https://github.com/Louis-CFM/%63%6f%75%63%6f%75.git
-cd anf/windows
+git clone https://github.com/mwalikokelvo/AnF.git
+cd AnF/windows
 npm install
 npm run pack                # installer lands in windows/release/
 ```
@@ -131,8 +134,8 @@ sudo apt install build-essential pkg-config \
   libwebkit2gtk-4.1-dev libgtk-layer-shell-dev libayatana-appindicator3-dev \
   librsvg2-dev libssl-dev libdbus-1-dev patchelf \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-git clone https://github.com/Louis-CFM/%63%6f%75%63%6f%75.git
-cd anf/windows
+git clone https://github.com/mwalikokelvo/AnF.git
+cd AnF/windows
 npm install
 npm run pack                # AppImage, .deb and .rpm land in windows/release/
 ```
@@ -207,7 +210,7 @@ Inspired by the notch-companion concepts shared by design studios — this proje
 
 ## License
 
-- **Code:** [MIT](LICENSE) — use it, fork it, learn from it, just keep the copyright notice.
+- **Production AnF code:** [MIT](LICENSE). Preserve applicable third-party notices. The separate optional MKR catalog experiments are not covered by an MIT-only distribution claim; see [their production boundary and historical notices](integrations/mkr-music/README.md). They are not bundled into production AnF builds.
 - **Name, Mochi character, icon, sounds and media:** © Louis Raillé, all rights reserved — see [LICENSE-ASSETS.md](LICENSE-ASSETS.md). Shipping your own fork? Give it your own name and character.
 
 <div align="center">

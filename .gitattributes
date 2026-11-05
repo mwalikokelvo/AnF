@@ -7,3 +7,6 @@
 # Upstream asset licenses are hash-pinned; preserve their downloaded bytes.
 windows/src/workspace/assets/*-*.txt text eol=lf
 windows/src/workspace/assets/*.ttf binary
+
+# Windows batch files need CRLF in the working tree.
+*.cmd text eol=crlf

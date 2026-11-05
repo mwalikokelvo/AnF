@@ -7,7 +7,6 @@ use crate::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
@@ -30,11 +29,8 @@ pub struct Status {
     pub engine: String,
 }
 fn credential() -> Result<keyring::Entry, String> {
-    let id = format!(
-        "{:x}",
-        Sha256::digest(settings::local_dir().to_string_lossy().as_bytes())
-    );
-    keyring::Entry::new("\x43\x6f\x75\x63\x6f\x75 SQLCipher vault", &id).map_err(error)
+    let id = crate::hashing::sha256_hex(settings::local_dir().to_string_lossy().as_bytes());
+    keyring::Entry::new("Coucou SQLCipher vault", &id).map_err(error)
 }
 fn key(create: bool) -> Result<String, String> {
     let entry = credential()?;
@@ -248,7 +244,7 @@ pub fn migrate(
     for id in ids {
         let p = load(id)?;
         let json = serde_json::to_string(&p).map_err(error)?;
-        expected.push((id.clone(), Sha256::digest(json.as_bytes())));
+        expected.push((id.clone(), crate::hashing::sha256_hex(json.as_bytes())));
         write(&tx, &p)?;
     }
     tx.execute("INSERT INTO meta VALUES('schema','1')", [])
@@ -261,7 +257,7 @@ pub fn migrate(
         let json: String = check
             .query_row("SELECT json FROM projects WHERE id=?1", [id], |r| r.get(0))
             .map_err(error)?;
-        if Sha256::digest(json.as_bytes()) != *digest {
+        if crate::hashing::sha256_hex(json.as_bytes()) != *digest {
             return Err("Migration comparison failed. Legacy files are unchanged.".into());
         }
     }

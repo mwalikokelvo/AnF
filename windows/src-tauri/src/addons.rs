@@ -2,7 +2,6 @@
 //! they have a reviewed sandbox. Only the registry below is contacted, and only when
 //! the user opens the marketplace or presses Install.
 use serde::{Deserialize,Serialize};
-use sha2::{Digest,Sha256};
 use std::path::{Path,PathBuf};
 const REGISTRY:&str="https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/registry.json";
 const PREFIX:&str="https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/";
@@ -18,11 +17,21 @@ fn check_entry(e:&Entry)->Result<(),String>{
     if e.name.len()>80||e.description.len()>400||e.version.len()>20||e.author.len()>80{return Err("Add-on text is too long.".into());}
     Ok(())
 }
-/// A theme may restyle AnF but not load anything: no @import and no url() except data:.
+/// Remove `/* ... */` comments (an unterminated comment runs to the end, as browsers read it).
+fn strip_css_comments(css:&str)->String{
+    let mut out=String::with_capacity(css.len());let mut rest=css;
+    while let Some(i)=rest.find("/*"){out.push_str(&rest[..i]);match rest[i+2..].find("*/"){Some(j)=>{rest=&rest[i+2+j+2..];}None=>return out}}
+    out.push_str(rest);out
+}
+/// A theme may restyle AnF but not load anything: no @import, @font-face, image-set()/src()/image()/cross-fade(),
+/// no backslash escapes (they can spell any of those), and no url() except data:.
 pub fn check_css(css:&str)->Result<(),String>{
     if css.len()>200_000{return Err("Theme is larger than 200 KB.".into());}
-    let low=css.to_ascii_lowercase();
+    let low=strip_css_comments(css).to_ascii_lowercase();
+    if low.contains('\\'){return Err("Themes cannot use backslash escapes.".into());}
     if low.contains("@import"){return Err("Themes cannot use @import.".into());}
+    if low.contains("@font-face"){return Err("Themes cannot use @font-face.".into());}
+    for banned in["image-set","src(","image(","cross-fade("]{if low.contains(banned){return Err(format!("Themes cannot use {banned}."));}}
     for part in low.split("url(").skip(1){if !part.trim_start().trim_start_matches(['"','\'']).starts_with("data:"){return Err("Themes can only use url(data:…).".into());}}
     Ok(())
 }
@@ -48,7 +57,7 @@ async fn fetch(url:&str,max:usize)->Result<String,String>{
     String::from_utf8(bytes).map_err(|_|"The download was not text.".into())
 }
 pub fn parse_registry(body:&str)->Vec<Entry>{serde_json::from_str::<Vec<Entry>>(body).unwrap_or_default().into_iter().filter(|e|check_entry(e).is_ok()).take(100).collect()}
-fn matches_hash(content:&str,expected:&str)->bool{format!("{:x}",Sha256::digest(content.as_bytes())).eq_ignore_ascii_case(expected)}
+fn matches_hash(content:&str,expected:&str)->bool{crate::hashing::sha256_hex(content).eq_ignore_ascii_case(expected)}
 #[tauri::command]pub async fn addons_registry()->Result<Vec<Entry>,String>{Ok(parse_registry(&fetch(REGISTRY,200_000).await?))}
 #[tauri::command]pub async fn addons_install(id:String)->Result<(),String>{
     // The page names only an id; the URL and hash come from the registry, never from the page.
@@ -69,8 +78,15 @@ fn matches_hash(content:&str,expected:&str)->bool{format!("{:x}",Sha256::digest(
     #[test]fn ids_cannot_escape_the_addons_folder(){for bad in["","..","../x","a/b","a\\b","A","-a","a.b",&"a".repeat(65)]{assert!(!valid_id(bad),"{bad}");}assert!(valid_id("catppuccin-mocha"));assert!(read_theme(Path::new("/nonexistent"),"../etc").is_err());assert!(remove(Path::new("/nonexistent"),"..").is_err());}
     #[test]fn only_registry_urls_are_trusted(){assert!(check_entry(&good("a")).is_ok());for url in["https://evil.example/a.css","http://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/a.css",&format!("{PREFIX}../../x.css"),&format!("{PREFIX}a.css?x=1"),&format!("{PREFIX}"),"https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace@evil/a.css"]{assert!(check_entry(&entry("a",url)).is_err(),"{url}");}let mut e=good("a");e.sha256="zz".into();assert!(check_entry(&e).is_err());}
     #[test]fn css_cannot_load_anything(){assert!(check_css("#workspace-root{--bg:#000}").is_ok());assert!(check_css("a{background:url(data:image/png;base64,AAAA)}").is_ok());for bad in["@import 'x.css';","@IMPORT url(x)","a{background:url(https://evil.example/p.png)}","a{background:URL( 'http://x' )}","a{b:url(x)}"]{assert!(check_css(bad).is_err(),"{bad}");}assert!(check_css(&"a".repeat(200_001)).is_err());}
+    #[test]fn css_blocks_indirect_loads_and_escapes(){
+        for bad in["a{background:image-set('x.png' 1x)}","a{background:-webkit-image-set(url(data:a) 1x)}","A{B:IMAGE-SET(\"x\" 1x)}","a{b:src('x')}","a{b:SRC( x )}","a{background:image('x.png')}","a{background:cross-fade(url(data:a),url(data:b),50%)}","@font-face{font-family:x}","@FONT-FACE{src:local(x)}","@/**/import 'x';","@import/**/'x';","a{background:u\\72l(https://evil.example/p.png)}","a{background:\\75rl(x)}","a{content:\"\\41\"}","a{background:ur/**/l(https://evil.example/p.png)}"]{assert!(check_css(bad).is_err(),"{bad}");}
+        // Comments are stripped before checking, so a banned word hidden only inside a comment is harmless and a comment cannot hide one outside.
+        assert!(check_css("/* image-set( @import \\ */ a{color:red}").is_ok());
+        assert!(check_css("a{color:red} /* unterminated image-set(").is_ok());
+        assert!(check_css("a{background:image-set(x) /* ok */}").is_err());
+    }
     #[test]fn registry_drops_bad_entries_and_garbage(){let mut bad=good("b");bad.download_url="https://evil.example/x".into();let json=serde_json::to_string(&vec![good("a"),bad]).unwrap();let got=parse_registry(&json);assert_eq!(got.len(),1);assert_eq!(got[0].id,"a");assert!(parse_registry("not json").is_empty());}
-    #[test]fn checksum_must_match(){let css="#workspace-root{--bg:#111}";let hash=format!("{:x}",Sha256::digest(css.as_bytes()));assert!(matches_hash(css,&hash));assert!(matches_hash(css,&hash.to_uppercase()));assert!(!matches_hash("#workspace-root{--bg:#222}",&hash));}
+    #[test]fn checksum_must_match(){let css="#workspace-root{--bg:#111}";let hash=crate::hashing::sha256_hex(css);assert!(matches_hash(css,&hash));assert!(matches_hash(css,&hash.to_uppercase()));assert!(!matches_hash("#workspace-root{--bg:#222}",&hash));}
     #[test]fn save_read_list_remove_round_trip(){let base=temp("rt");let e=good("night");save_theme(&base,&e,"#workspace-root{--bg:#000}").unwrap();assert_eq!(read_theme(&base,"night").unwrap(),"#workspace-root{--bg:#000}");assert_eq!(list(&base).len(),1);assert!(save_theme(&base,&good("bad"),"@import 'x';").is_err());assert!(!base.join("addons/themes/bad").exists());std::fs::write(base.join("addons/themes/night/theme.css"),"a{b:url(https://x)}").unwrap();assert!(read_theme(&base,"night").is_err(),"tampered file is refused");remove(&base,"night").unwrap();assert!(list(&base).is_empty());let _=std::fs::remove_dir_all(&base);}
     #[test]fn published_registry_matches_its_files(){
         let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../marketplace");

@@ -18,13 +18,8 @@ struct Running {
     context: usize,
 }
 fn pack_available(path: &std::path::Path) -> bool {
-    path.join(if cfg!(windows) {
-        "llama-server.exe"
-    } else {
-        "llama-server"
-    })
-    .is_file()
-        && (path.join("model.gguf").is_file() || path.join("model-fast.gguf").is_file())
+    path.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }).is_file()
+        && (path.join("model.gguf").is_file() || path.join("model-fast.gguf").is_file() || crate::model_download::any_verified())
 }
 impl Drop for Running {
     fn drop(&mut self) {
@@ -109,10 +104,14 @@ impl Engine {
         } else {
             "llama-server"
         });
-        let model = directory.join(if profile == "fast" {
-            "model-fast.gguf"
-        } else {
-            "model.gguf"
+        let is_fast_slot = matches!(profile, "fast" | "deepseek-v4.1-flash" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-linear-a3b" | "kimi-linear");
+        // A model the user downloaded and whose SHA-256 was verified takes the slot; otherwise the pack's own files.
+        let model = crate::model_download::verified_model(if is_fast_slot { "fast" } else { "balanced" }).unwrap_or_else(|| {
+            directory.join(if is_fast_slot {
+                if directory.join("model-fast.gguf").is_file() { "model-fast.gguf" } else { "model.gguf" }
+            } else {
+                "model.gguf"
+            })
         });
         if !exe.is_file() || !model.is_file() {
             return Err(format!("The offline pack in {} is incomplete: {} is missing. Run the full installer again to repair it, then reopen AnF. Your saved projects and settings are kept.", directory.display(), if !exe.is_file() { "the local engine" } else { "the selected model" }));
@@ -221,14 +220,9 @@ impl Engine {
     ) -> Result<(String, bool), String> {
         self.reply_sized(messages, profile, false).await
     }
-    pub async fn reply_sized(
-        &self,
-        messages: &[Value],
-        profile: &str,
-        long: bool,
-    ) -> Result<(String, bool), String> {
-        if !matches!(profile, "fast" | "balanced") {
-            return Err("Choose Fast or Balanced.".into());
+    pub async fn reply_sized(&self,messages:&[Value],profile:&str,long:bool)->Result<(String,bool),String>{
+        if !matches!(profile, "fast" | "balanced" | "deepseek-v4.1-flash" | "deepseek-v3.2-reasoning" | "deepseek-v3.2" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-k3-thinking" | "kimi-k3" | "kimi-linear-a3b" | "kimi-linear") {
+            return Err("Choose a supported model profile.".into());
         }
         let _turn = self.reply_lock.lock().await;
         let mut inference = InferenceTurn {

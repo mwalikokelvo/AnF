@@ -286,8 +286,7 @@ struct Secrets {
     storage: String,
 }
 fn secrets() -> Result<Secrets, String> {
-    use sha2::{Digest, Sha256};
-    let account = format!("{:x}", Sha256::digest(home().to_string_lossy().as_bytes()));
+        let account = crate::hashing::sha256_hex(home().to_string_lossy().as_bytes());
     let entry = keyring::Entry::new("AnF managed OmniRoute", &account)
         .map_err(|_| "Cannot open the private gateway credential store.")?;
     match entry.get_password() {

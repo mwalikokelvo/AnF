@@ -240,4 +240,15 @@ not establish that an external provider accepted the user's current session.
 
 ## Embedded MKR Music request
 
-MKR Music must play inside AnF without launching Spotify, a website, another app or an emulator. Its current work includes the shared protocol, a compiled JVM catalog-core prototype and an isolated Windows native audio prototype. Five catalog fixture tests and an actual muted generated AAC duration/play/pause/seek/resume/reopen test pass; one public catalog probe returned search results but no compatible M4A stream. These components are not connected to AnF and do not provide an available music source. See [integration status](../integrations/mkr-music/README.md). Android upstream is Kotlin/Compose/Media3, not a Windows runtime. An embedded Android host, Windows catalog/audio bridge and controls, licensing/source review and actual in-app provider playback acceptance remain required. Do not advertise availability from component or browser-fixture tests. Pause every other AnF audio engine before starting it, and preserve the working local library and Studio.
+The requested player must remain inside AnF, with no external player fallback. Independent Windows and Android native audio adapters have passed isolated generated-media checks, including Android15 emulator decoding, seeking, pause/resume and denied-source handling. Those tests use fixture bytes, not a verified real provider. The optional catalog experiment is not linked into the production Android app; no MKR-backed source is advertised as available. Production licensing/source review, native service/bridge integration, genuine audio-engine handoff, provider acceptance and installed-app verification remain pending. See [integration boundaries and evidence scope](../integrations/mkr-music/README.md). Existing local music, Studio, podcasts and audiobooks must remain usable.
+
+
+---
+
+## Synced lyrics
+
+- **Local first:** lyrics come from `.lrc` files imported with the music (paired by folder path, then by file name) or from lyrics embedded in the audio file (`lyrics.ts`).
+- **Online, opt-in:** with *Online lookups* turned on, `lyrics-provider.ts` asks [LRCLIB](https://lrclib.net/docs): an exact lookup first, then a search ranked by how close each version's length is to the track. Titles are cleaned of upload labels such as "(Official Video)" first. Found lyrics are saved on the track for offline use.
+- **Player:** the full player highlights the current line, keeps it centred, and seeks when a line is clicked.
+
+The production lyrics feature is AnF's own. MKR Music inspired its behavior; the separate experimental catalog is not a production dependency. See `integrations/mkr-music/README.md`.

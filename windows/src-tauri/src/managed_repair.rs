@@ -207,8 +207,7 @@ fn repair_pinned(
 mod tests {
     use super::*;
     use crate::managed_component::{Entry, Manifest};
-    use sha2::{Digest, Sha256};
-    struct Fixture {
+        struct Fixture {
         root: std::path::PathBuf,
         home: std::path::PathBuf,
         source: std::path::PathBuf,
@@ -231,7 +230,7 @@ mod tests {
                     Entry {
                         path: p.to_string(),
                         size: 16,
-                        sha256: format!("{:x}", Sha256::digest(b"reviewed fixture")),
+                        sha256: crate::hashing::sha256_hex(b"reviewed fixture"),
                     }
                 })
                 .collect();
@@ -245,7 +244,7 @@ mod tests {
                 files,
             };
             let bytes = serde_json::to_vec(&manifest).unwrap();
-            let pin = format!("{:x}", Sha256::digest(&bytes));
+            let pin = crate::hashing::sha256_hex(&bytes);
             let source = source.join("component.json");
             fs::write(&source, bytes).unwrap();
             component::install_pinned(&source, &home, Arc::new(Progress::default()), 0, &pin)

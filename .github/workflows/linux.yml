@@ -122,9 +122,12 @@ jobs:
 
       # The app bundles target/release/anf-hook as a resource, and its build
       # script refuses to run until that file exists.
+      # tauri::generate_context! needs the built frontend (../dist) now that
+      # tauri.conf.json has no devUrl, so build it before the Rust tests.
       - name: Test
         run: |
           cargo build --release --locked -p anf-hook
+          npm run build
           cargo test --workspace --locked -- --test-threads=1
           cargo test --locked -p anf --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
           cargo test --locked -p anf --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1

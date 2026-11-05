@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
       if(id==null||!id.matches("[0-9]{1,12}"))return;
       if(operation==null||json==null||json.length()>17000000){vaultResult(id,"","Storage request exceeds the limit.");return;}
       if(vaultPending.incrementAndGet()>8){vaultPending.decrementAndGet();vaultResult(id,"","Storage is busy. Try again.");return;}
-      try{vaultWorker.execute(()->{try{if(vault==null)vault=new VaultRepository(MainActivity.this);vaultResult(id,vault.request(operation,json),"");}catch(Exception|LinkageError e){vaultResult(id,"","Encrypted storage could not complete this operation. Check your recovery key and available storage. Existing data was retained.");}finally{vaultPending.decrementAndGet();}});}catch(java.util.concurrent.RejectedExecutionException e){vaultPending.decrementAndGet();vaultResult(id,"","Workspace is closing. Reopen to retry.");}
+      try{vaultWorker.execute(()->{try{if(vault==null)vault=new VaultRepository(MainActivity.this);vaultResult(id,vault.request(operation,json),"");}catch(Exception|LinkageError e){String detail=e.getMessage();if(detail==null||detail.length()>160||detail.indexOf('/')>=0||detail.indexOf('\\')>=0)detail=e.getClass().getSimpleName();vaultResult(id,"","Encrypted storage could not complete this operation. "+detail+" Existing data was retained.");}finally{vaultPending.decrementAndGet();}});}catch(java.util.concurrent.RejectedExecutionException e){vaultPending.decrementAndGet();vaultResult(id,"","Workspace is closing. Reopen to retry.");}
     }
 
     @JavascriptInterface public void quickCaptureReady(){runOnUiThread(()->{quickReady=true;deliverCapture();});}
@@ -156,11 +156,11 @@ public class MainActivity extends Activity {
       vaultWorker.execute(()->{
         java.net.HttpURLConnection conn=null;
         try{
-          conn=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
-          conn.setConnectTimeout(15000);conn.setReadTimeout(60000);conn.setInstanceFollowRedirects(true);
-          conn.setRequestProperty("User-Agent","AnF/0.1");
+          conn=SafeHttps.open(url);
           int code=conn.getResponseCode();
           if(code<200||code>=300){downloadResult(id,"","Download failed ("+code+").");return;}
+          String type=conn.getContentType();
+          if(type!=null){String mime=type.split(";",2)[0].trim().toLowerCase(java.util.Locale.ROOT);if(!(mime.startsWith("audio/")||mime.equals("application/ogg")||mime.equals("application/octet-stream")||mime.equals("binary/octet-stream"))){downloadResult(id,"","That address did not return audio.");return;}}
           java.io.File dir=new java.io.File(getCacheDir(),"podcasts");if(!dir.isDirectory()&&!dir.mkdirs()){downloadResult(id,"","Could not store the episode.");return;}
           java.io.File out=new java.io.File(dir,id+".mp3");
           try(java.io.InputStream in=conn.getInputStream();java.io.OutputStream file=new java.io.FileOutputStream(out)){
@@ -179,10 +179,7 @@ public class MainActivity extends Activity {
       vaultWorker.execute(()->{
         java.net.HttpURLConnection conn=null;
         try{
-          conn=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
-          conn.setConnectTimeout(12000);conn.setReadTimeout(20000);
-          conn.setRequestProperty("User-Agent","AnF/0.1");
-          conn.setInstanceFollowRedirects(true);
+          conn=SafeHttps.open(url);
           int code=conn.getResponseCode();
           if(code<200||code>=300){feedResult(id,"","Feed request failed ("+code+").");return;}
           int max=1500000;

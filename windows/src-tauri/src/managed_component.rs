@@ -149,7 +149,7 @@ pub fn no_links(path: &Path) -> Result<(), String> {
     Ok(())
 }
 fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    crate::hashing::sha256_hex(bytes)
 }
 pub fn read_manifest(path: &Path, expected: &str) -> Result<Manifest, String> {
     no_links(path)?;
@@ -359,7 +359,7 @@ fn verify_one(
         hash.update(&buf[..n]);
         progress.done.fetch_add(n as u64, Ordering::Relaxed);
     }
-    if format!("{:x}", hash.finalize()) != item.sha256 {
+    if crate::hashing::hex_bytes(hash.finalize()) != item.sha256 {
         return Err("Component file integrity check failed.".into());
     }
     Ok(())
@@ -421,7 +421,7 @@ fn copy_one(
         hash.update(&buf[..n]);
         progress.done.fetch_add(n as u64, Ordering::Relaxed);
     }
-    if size != item.size || format!("{:x}", hash.finalize()) != item.sha256 {
+    if size != item.size || crate::hashing::hex_bytes(hash.finalize()) != item.sha256 {
         return Err("Component integrity check failed during import.".into());
     }
     output

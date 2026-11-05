@@ -1,11 +1,36 @@
 import './writing-layout.css';
 import {h} from '../views/dom';
+import {createOcrStatusIndicator} from './ocr-client';
 
 /** Deliberately limited Markdown: generated HTML and links are never executed. */
 export function renderWriting(text:string):HTMLElement {
   const page=h('div',{class:'writing-preview'});
+  let bodyText=text;
+  if(text.trimStart().startsWith('---')){
+    const endMarker=text.indexOf('\n---',3);
+    if(endMarker!==-1){
+      const rawHeader=text.slice(text.indexOf('---')+3,endMarker).trim();
+      bodyText=text.slice(endMarker+4).trimStart();
+      const meta:Record<string,string>={};
+      for(const line of rawHeader.split('\n')){
+        const colon=line.indexOf(':');
+        if(colon!==-1){
+          meta[line.slice(0,colon).trim().toLowerCase()]=line.slice(colon+1).trim().replace(/^["'](.*)["']$/,'$1');
+        }
+      }
+      const header=h('header',{class:'writing-article-header'});
+      if(meta.title)header.append(h('h1',{class:'article-title',text:meta.title}));
+      if(meta.subtitle)header.append(h('p',{class:'article-subtitle',text:meta.subtitle}));
+      const byline:string[]=[];
+      if(meta.author)byline.push('By '+meta.author);
+      if(meta.date)byline.push(meta.date);
+      if(meta.audience&&meta.audience!=='everyone')byline.push('('+meta.audience+')');
+      if(byline.length)header.append(h('div',{class:'article-byline',text:byline.join(' · ')}));
+      page.append(header);
+    }
+  }
   let code:string[]|undefined;
-  for(const line of text.split('\n')){
+  for(const line of bodyText.split('\n')){
     if(line.startsWith('```')){if(code){page.append(h('pre',{},h('code',{text:code.join('\n')})));code=undefined;}else code=[];continue;}
     if(code){code.push(line);continue;}
     const heading=/^(#{1,3})\s+(.*)$/.exec(line),bullet=/^[-*]\s+(.*)$/.exec(line);
@@ -36,11 +61,12 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   let previewTimer:ReturnType<typeof setTimeout>|undefined,lastPreview:string|undefined;
   function paintPreview(){previewTimer=undefined;if(lastPreview===draft.value)return;lastPreview=draft.value;preview.replaceChildren(renderWriting(draft.value||'Your document preview will appear here.'));}
   function refresh(projectKey=key){
+    void ocrStatus?.refresh();
     live?.sync();
     if(previewTimer)clearTimeout(previewTimer);
     if(projectKey!==key){key=projectKey;undo.length=0;redo.length=0;pending=undefined;proposal.hidden=true;previous=draft.value;}
     else if(previous!==draft.value){undo.push(previous);if(undo.length>40)undo.shift();redo.length=0;previous=draft.value;}
-    count.textContent=`${draft.value.trim()?draft.value.trim().split(/\s+/u).length:0} words · ${Array.from(draft.value).length.toLocaleString()} characters`;
+    const words=draft.value.trim()?draft.value.trim().split(/\s+/u).length:0,chars=Array.from(draft.value).length,readTime=Math.max(1,Math.ceil(words/200));count.textContent=`${words.toLocaleString()} word${words===1?'':'s'} · ${chars.toLocaleString()} char${chars===1?'':'s'} · ~${readTime} min read`;
     if(mode.value==='preview'||mode.value==='split'){if(draft.value.length>12000)previewTimer=setTimeout(paintPreview,180);else paintPreview();}
   }
   function commit(value:string){if(new TextEncoder().encode(value).length>200000){notify('This formatting change would exceed the writing size limit. Shorten the draft first.');return;}draft.value=value;refresh();changed();}
@@ -58,6 +84,30 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   tool('Checklist',()=>{const start=draft.value.lastIndexOf('\n',draft.selectionStart-1)+1;const end=draft.value.indexOf('\n',draft.selectionEnd);const stop=end<0?draft.value.length:end;commit(draft.value.slice(0,start)+draft.value.slice(start,stop).split('\n').map(l=>/^- \[[ xX]\] /.test(l)?l:'- [ ] '+l).join('\n')+draft.value.slice(stop));});
   tool('Quote',()=>wrap('> '));tool('Wiki link',()=>wrap('[[',']]'));
   tool('Code block',()=>wrap('\n```\n','\n```\n'));
+  tool('Article Frontmatter',()=>{
+    if(draft.value.trimStart().startsWith('---')){notify('Draft already contains frontmatter.');return;}
+    const today=new Date().toISOString().slice(0,10);
+    const template=`---\ntitle: "Untitled Article"\nsubtitle: ""\nauthor: ""\ndate: ${today}\naudience: everyone\ntags: []\n---\n\n`;
+    commit(template+draft.value);
+    draft.focus();draft.setSelectionRange(12,28);live?.focusSelection();
+  });
+  const ocrInput=h('input',{type:'file',accept:'image/*,.pdf',style:'display:none'}) as HTMLInputElement;
+  ocrInput.addEventListener('change',async()=>{
+    const file=ocrInput.files?.[0];if(!file)return;
+    notify('Parsing document with Unlimited-OCR…');
+    try{
+      const {parseImageBlobWithOcr}=await import('./ocr-client');
+      const result=await parseImageBlobWithOcr(file);
+      commit(draft.value+(draft.value?'\n\n':'')+result.markdown);
+      notify(`Imported via Unlimited-OCR (${result.headings.length} headings, ${result.tablesCount} tables).`);
+    }catch(e){
+      notify('Unlimited-OCR error: '+String(e));
+    }finally{ocrInput.value='';}
+  });
+  const ocrStatus=createOcrStatusIndicator({notify});
+  tools.append(ocrInput);
+  tool('Scan/OCR',()=>ocrInput.click());
+  if(ocrStatus?.element)tools.append(ocrStatus.element);
   const undoButton=tool('Undo',()=>{if(!undo.length)return;redo.push(draft.value);draft.value=undo.pop()!;previous=draft.value;refresh();changed();});
   const redoButton=tool('Redo',()=>{if(!redo.length)return;undo.push(draft.value);draft.value=redo.pop()!;previous=draft.value;refresh();changed();});
   draft.addEventListener('input',()=>refresh());
@@ -76,7 +126,6 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     close.addEventListener('click',()=>{pending=undefined;proposal.hidden=true;notify('Original draft kept.');});
     const actions=h('div',{class:'row'},close);
     if(!review){const accept=h('button',{text:'Accept changes',class:'primary'});accept.addEventListener('click',()=>{if(!pending)return;if(draft.value!==pending.original){notify('The draft has changed. Request a new suggestion before accepting.');return;}commit(pending.next);pending=undefined;proposal.hidden=true;notify('Revision accepted. Use Undo to restore the previous draft.');});actions.append(accept);}
-    proposal.replaceChildren(h('h3',{text:review?'Writing feedback':'Review suggested changes'}),h('div',{class:'revision-columns'},h('div',{},h('h4',{text:'Original'}),h('pre',{text:original})),h('div',{},h('h4',{text:review?'Feedback':'Suggestion'}),h('pre',{text:next}))),actions);
+    proposal.replaceChildren(h('div',{class:'revision-header'},h('h3',{text:review?'Writing feedback':'Review suggested changes'}),h('p',{class:'hint',text:review?'AI feedback on your draft':'Review side-by-side comparison before accepting.'})),h('div',{class:'revision-columns'},h('div',{class:'diff-card diff-original'},h('h4',{text:'Current draft'}),h('pre',{text:original})),h('div',{class:'diff-card diff-proposal'},h('h4',{text:review?'Feedback':'Proposed revision'}),h('pre',{text:next}))),actions);
   }};
 }
-

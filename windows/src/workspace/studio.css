@@ -13,8 +13,6 @@
 .live-markdown .cm-gutters{background:transparent}.editor-view-controls{border-bottom:1px solid var(--line)}
 .keyboard-visible .bottom-nav{display:none!important}.status:empty{display:none}
 .reader-footnote{font-size:11px}.studio-sort{max-width:200px}
-.reader-overlay[data-theme=amber]{--reader-bg:#100a03;--reader-ink:#d5a875;--reader-line:#614729;background:#100a03;color:#d5a875}
-.reader-overlay[data-theme=amber] .reader-page{color:#d5a875;background:#100a03}
 .speech-player{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid var(--line);background:var(--surface)}
 .speech-player input{width:180px;min-height:30px}.speech-player span{font-size:12px}.speech-player select{max-width:85px}
 .habit-matrix{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;overflow:auto}

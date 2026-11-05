@@ -8,6 +8,8 @@ mod addons;
 mod updates;
 mod ai;
 mod audio_native;
+mod model_download;
+mod hashing;
 mod book;
 mod claude;
 mod connections;
@@ -33,6 +35,8 @@ mod sync_data;
 mod vault;
 mod web_search;
 mod workspace;
+mod ocr_endpoint;
+mod safe_fetch;
 mod workspace_commands;
 use workspace_commands::*;
 mod files;
@@ -404,7 +408,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI --autoplay-po
 /// absolute dev URL; a bundled build resolves it inside the app bundle.
 fn settings_page_url(app: &AppHandle) -> WebviewUrl {
     #[cfg(dev)]
-    if let Some(mut base) = app.config().build.dev_url.clone() {
+    if let Some(mut base) = app.config().build.dev_url.clone().filter(|_| std::env::var("TAURI_DEV").is_ok()) {
         base.set_path("/settings.html");
         return WebviewUrl::External(base);
     }
@@ -524,6 +528,7 @@ pub fn run() {
         .manage(local_voice::VoiceJobs::default())
         .manage(managed_omniroute::Managed::default())
         .manage(mkr_native::Managed::default())
+        .manage(model_download::Downloads::default())
         .invoke_handler(tauri::generate_handler![
             companion::companion_open,companion::companion_close,companion::companion_compact,companion::companion_key,companion::companion_expand,screen_help::screen_help_capture,screen_help::screen_help_ask,
             addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,updates::update_check,
@@ -559,6 +564,8 @@ pub fn run() {
             music_native::music_hide,
             music_native::music_pause,
             music_native::music_control,
+            model_download::local_ai_models,model_download::local_ai_download,model_download::local_ai_download_cancel,
+            safe_fetch::command::safe_fetch_text,safe_fetch::command::safe_fetch_audio,
             boot,
             save_settings,
             set_collapsed,
@@ -615,6 +622,10 @@ pub fn run() {
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,
+            start_ocr_service,
+            ocr_status,
+            ocr_request,
+            ocr_configure_external,
             set_paused,
         ])
         .setup(move |app| {

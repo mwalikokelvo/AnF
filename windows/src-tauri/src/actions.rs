@@ -1,7 +1,6 @@
 //! Explicit preview/apply file actions. Model output is never a command.
 use crate::{local_ai::random_key, platform, settings};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     io::Write,
@@ -85,9 +84,8 @@ fn safe_file(path: &str) -> Result<PathBuf, String> {
     std::fs::canonicalize(p).map_err(|e| e.to_string())
 }
 fn hash(p: &Path) -> Result<String, String> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(std::fs::read(p).map_err(|e| e.to_string())?)
+    Ok(crate::hashing::sha256_hex(
+        std::fs::read(p).map_err(|e| e.to_string())?,
     ))
 }
 fn unchanged_parent(p: &Path) -> Result<(), String> {
@@ -248,7 +246,7 @@ impl Plans {
                 for (src, dst, fingerprint) in copies {
                     let result = (|| -> Result<(), String> {
                         let bytes = std::fs::read(&src).map_err(|e| e.to_string())?;
-                        if format!("{:x}", Sha256::digest(&bytes)) != fingerprint {
+                        if crate::hashing::sha256_hex(&bytes) != fingerprint {
                             return Err("Source changed since preview.".into());
                         }
                         let d = dst.parent().unwrap();

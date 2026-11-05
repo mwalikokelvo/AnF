@@ -32,3 +32,15 @@ integrations/mkr-music/engine/build/
 integrations/mkr-music/engine/.gradle/
 integrations/mkr-music/engine/.kotlin/
 integrations/mkr-music/windows-native/target/
+
+
+# Rust targets
+**/target/
+
+# Node / Web build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+.agents/

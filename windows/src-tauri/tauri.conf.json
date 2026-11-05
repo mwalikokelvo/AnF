@@ -1,19 +1,18 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AnF",
-  "version": "0.1.42",
+  "version": "0.1.48",
   "identifier": "fr.louisraille.anf",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": false,
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost",
-      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com https://*.mzstatic.com https://archive.org https://*.archive.org; media-src 'self' blob: https://archive.org https://*.archive.org https://audio-ssl.itunes.apple.com https://*.mzstatic.com https://*.googlevideo.com; connect-src 'self' ipc: http://ipc.localhost https://lrclib.net https://lyricsplus.binimum.org https://lyricsplus.atomix.one https://lyricsplus.prjktla.my.id https://lyricsplus-seven.vercel.app https://lyrics-api.boidu.dev https://lyrics.kugou.com https://mobileservice.kugou.com https://api-lyrics.simpmusic.org https://lyrics.paxsenix.org https://en.wikipedia.org https://genius.com https://canvas.echomusic.fun https://itunes.apple.com https://pipedapi.kavin.rocks https://pipedapi.leptons.xyz https://piped-api.privacy.com.de https://pipedapi.adminforge.de https://inv.nadeko.net https://invidious.nerdvpn.de https://archive.org https://*.archive.org https://www.youtube.com https://open.spotify.com",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com https://*.mzstatic.com https://archive.org https://*.archive.org; media-src 'self' blob: https://archive.org https://*.archive.org https://audio-ssl.itunes.apple.com https://*.mzstatic.com https://*.googlevideo.com; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 https://lrclib.net https://lyricsplus.binimum.org https://lyricsplus.atomix.one https://lyricsplus.prjktla.my.id https://lyricsplus-seven.vercel.app https://lyrics-api.boidu.dev https://lyrics.kugou.com https://mobileservice.kugou.com https://api-lyrics.simpmusic.org https://lyrics.paxsenix.org https://en.wikipedia.org https://genius.com https://canvas.echomusic.fun https://itunes.apple.com https://pipedapi.kavin.rocks https://pipedapi.leptons.xyz https://piped-api.privacy.com.de https://pipedapi.adminforge.de https://inv.nadeko.net https://invidious.nerdvpn.de https://archive.org https://*.archive.org https://www.youtube.com https://open.spotify.com"
     },
     "windows": [
       {
