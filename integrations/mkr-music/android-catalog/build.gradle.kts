@@ -46,7 +46,7 @@ val prepareAndroidCatalogSources by tasks.registering(PrepareCatalogKotlin::clas
 val prepareAndroidCatalogTests by tasks.registering(PrepareCatalogKotlin::class) {
     sources.from("../engine/src/test/kotlin")
     selected.set(listOf("**/MkrCatalogTest.kt", "**/PrimaryRequestPolicyTest.kt",
-        "**/PlayerResponseDiagnosticsTest.kt", "**/ResolutionFailureTest.kt",
+        "**/PrimaryRequestContractTest.kt", "**/PlayerResponseDiagnosticsTest.kt", "**/ResolutionFailureTest.kt",
         "**/SinglePlaybackClientTest.kt", "**/StreamRequirementsTest.kt"))
     excluded.set(emptyList())
     outputDirectory.convention(layout.buildDirectory.dir("generated/catalog/test"))
@@ -91,7 +91,7 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
     // Resolve the Android variant from the upstream multiplatform publication;
     // never package its desktop/JVM native library in an APK.
-    implementation("com.github.MetrolistGroup.innertubex:innertubex:v0.7.0")
+    implementation("com.github.MetrolistGroup.innertubex:innertubex:v0.7.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.3.10")
     testImplementation("io.ktor:ktor-client-mock")
     androidTestImplementation("androidx.test:runner:1.6.2")

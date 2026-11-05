@@ -66,3 +66,19 @@ the real cross-engine handoff/bridge and emulator/device/provider
 acceptance remain required. No production capability is enabled by this build.
 Prepared upstream sources retain their original licenses; this build adapter
 does not change AnF's repository-wide license or approve a combined distribution.
+
+
+## v0.7.2 compatibility candidate
+
+The isolated Android catalog now pins InnerTubeX v0.7.2, matching the JVM
+candidate reviewed at `195bac930073233fd2450edc5589033528cccd43`.
+Its automatic selection retires legacy visionOS 0.1. The shared real-extractor
+request contract also runs in the Android host test build, with mock transport
+and no live provider query. Exact Android publication checksums are added
+alongside retained historical pins; unrelated dependency locks are unchanged.
+
+Android compilation, runtime ABI inventory and generated-media instrumentation
+must pass at this candidate before it is accepted. Historical runtime evidence
+still refers to v0.7.0. Corresponding Android source/distribution review and
+production service/provider playback remain incomplete; no release app is linked
+or made available by this dependency update.
