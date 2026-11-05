@@ -43,6 +43,29 @@ try{
  await go('writing');assert.equal(await page.getByLabel('Live Markdown writing',{exact:true}).innerText(),draft);
  const views=['home','chat','documents','writing','music','audio','settings'];
  for(const view of views){await go(view);await page.screenshot({path:path.join(out,`${phase}-${view}.png`)});}
+ // Review settled native WebView layouts separately from immediate post-click
+ // captures. CDP emulates renderer viewports; physical OS window resizing is NOT claimed.
+ if(phase==='reopen'){
+  const layout=[];
+  for(const [width,height] of [[1280,800],[820,760],[600,500]]){
+   await page.setViewportSize({width,height});
+   for(const theme of ['light','dark']){
+    await go('settings');await page.getByLabel('Appearance',{exact:true}).selectOption(theme);
+    for(const view of ['home','music']){
+     await go(view);await page.mouse.move(Math.min(width-30,500),Math.min(height-30,450));
+     if(width>=768){
+      await page.waitForFunction(()=>{const rail=document.querySelector('.glass-rail');return rail?.dataset.rail==='collapsed'&&Math.abs(rail.getBoundingClientRect().width-parseFloat(getComputedStyle(rail).getPropertyValue('--rail-closed')))<0.75;},null,{timeout:8000});
+     }
+     await page.screenshot({path:path.join(out,`settled-${theme}-${view}-${width}.png`)});
+     const bounds=await page.evaluate(()=>{const rail=document.querySelector('.glass-rail').getBoundingClientRect();const main=document.querySelector('.workspace-content').getBoundingClientRect();return {rail:{left:rail.left,right:rail.right,top:rail.top,bottom:rail.bottom},main:{left:main.left,right:main.right},viewport:{width:innerWidth,height:innerHeight}};});
+     assert(bounds.rail.left>=0&&bounds.rail.right<=width+1,'Navigation extends beyond viewport');
+     if(width>=768)assert(bounds.rail.right<=bounds.main.left+1,'Settled icon rail covers workspace content');
+     layout.push({theme,view,width,height,bounds});
+    }
+   }
+  }
+  await writeFile(path.join(out,'settled-layout.json'),JSON.stringify({sourceCommit:process.env.GITHUB_SHA,nativeWebView:true,viewportEmulation:true,physicalWindowResizeVerified:false,measurements:layout},null,2)+'\n');
+ }
  assert.deepEqual(errors,[],'Native WebView page errors');
  await writeFile(path.join(out,`${phase}.json`),JSON.stringify({sourceCommit:process.env.GITHUB_SHA,phase,nativeTauri:true,
   savedWritingVerified:true,localImportExercised:phase==='seed',navigationViews:views,
