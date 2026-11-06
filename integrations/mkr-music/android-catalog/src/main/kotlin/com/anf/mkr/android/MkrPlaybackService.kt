@@ -26,7 +26,7 @@ class MkrPlaybackService : Service() {
     private var closing=false
     private var destroyed=false
     private var cleaned=false
-    private var bound=false
+    private var clients=0
     private val terminated=CompletableDeferred<Unit>()
     private var initialization: Job?=null
     private val observer=object : MediaController.Callback() {
@@ -37,14 +37,19 @@ class MkrPlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         if(closing || intent?.action!=BIND || owner==null ||
             intent.getParcelableExtra<MediaSession.Token>(TOKEN)!=owner!!.token)return null
-        bound=true;return NativeBinder(request!!.nonce)
+        return NativeBinder(request!!.nonce)
     }
-    override fun onUnbind(intent: Intent?): Boolean {bound=false;return true}
-    override fun onRebind(intent: Intent?) {bound=true;super.onRebind(intent)}
+    override fun onUnbind(intent: Intent?): Boolean = true
     /** Same-process native API; no raw controller, source URL, player or credentials. */
     internal inner class NativeBinder(private val nonce: String) : Binder() {
         // Android may reuse a cached Binder without calling onBind again.
         fun matches(token: MediaSession.Token)=!closing && request?.nonce==nonce && owner?.token==token
+        fun retain(token: MediaSession.Token): Boolean {
+            check(Looper.myLooper()==Looper.getMainLooper())
+            if(!matches(token))return false
+            clients++;return true
+        }
+        fun release() {check(Looper.myLooper()==Looper.getMainLooper());check(clients>0);clients--}
         private fun current(): AndroidMediaSession {
             check(!closing && request?.nonce==nonce && owner!=null){"Music service unavailable."}
             return owner!!
@@ -187,7 +192,10 @@ class MkrPlaybackService : Service() {
                     // AMS can remove its running-service entry before this
                     // process receives onDestroy. Await that existing teardown
                     // after the final unbind; never start a competing owner.
-                    running?.takeIf{it.closing && !it.bound}?.let {prior ->
+                    // onUnbind can lag both the caller's unbindService and AMS's
+                    // service-list removal. Count native handles synchronously;
+                    // a genuinely retained stopped owner must still reject start.
+                    running?.takeIf{it.closing && it.clients==0}?.let {prior ->
                         withTimeout(8000){prior.terminated.await()}
                     }
                     check(pending==null && running==null){"Music service already owned."}

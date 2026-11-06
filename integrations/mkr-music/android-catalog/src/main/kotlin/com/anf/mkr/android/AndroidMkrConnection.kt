@@ -36,12 +36,14 @@ internal class AndroidMkrConnection private constructor(
                         val app=context.applicationContext
                         val main=Handler(Looper.getMainLooper())
                         var registered=false
+                        var retained: MkrPlaybackService.NativeBinder?=null
                         var handle: AndroidMkrConnection?=null
                         lateinit var connection: ServiceConnection
                         fun detach() {
                             // Cancellation may arrive from another dispatcher. Serialize
                             // unregister with bindService's Main-thread return/registration.
                             val task=Runnable {
+                                retained?.release();retained=null
                                 if(registered) {registered=false;app.unbindService(connection)}
                             }
                             if(Looper.myLooper()==Looper.getMainLooper())task.run() else main.post(task)
@@ -53,7 +55,8 @@ internal class AndroidMkrConnection private constructor(
                         connection=object : ServiceConnection {
                             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                                 val local=service as? MkrPlaybackService.NativeBinder
-                                if(local==null || !local.matches(token) || !continuation.isActive){unavailable();return}
+                                if(local==null || !continuation.isActive || !local.retain(token)){unavailable();return}
+                                retained=local
                                 val client=AndroidMkrConnection(token,local,::detach);handle=client;prepared=client
                                 continuation.resume(client,onCancellation={_,value,_->value.close()})
                             }
