@@ -4,3 +4,14 @@
 .audio-artwork{width:64px;height:64px;object-fit:cover;border-radius:8px}.audio-artwork[hidden]{display:none}
 
 .audio-library-tracks{display:grid;gap:6px}.audio-library-tracks button{text-align:left;min-height:44px}@media(max-width:560px){.audio-queue-row{grid-template-columns:minmax(0,1fr) 44px 44px}.audio-queue-row>button:last-child{grid-column:1/-1;justify-self:end;font-size:12px}}
+
+/* Light theme: the tan accent (#c4a078) and grey (#8a8f98) were chosen for the dark page and measured 2.1:1 and 3.25:1 on the light one
+   (eyebrow, time, status line, section titles, queue highlight). Darker equivalents keep the hue at 4.5:1 or better. */
+[data-theme=light] :is(.audio-eyebrow,.audio-meter,.audio-studio output){color:#7a5a30}
+[data-theme=light] .audio-queue-row button[aria-current=true]{color:#7a5a30;background:#7a5a3014}
+[data-theme=light] .audio-studio details{color:#566069}
+@media(prefers-color-scheme:light){
+  [data-theme=system] :is(.audio-eyebrow,.audio-meter,.audio-studio output){color:#7a5a30}
+  [data-theme=system] .audio-queue-row button[aria-current=true]{color:#7a5a30;background:#7a5a3014}
+  [data-theme=system] .audio-studio details{color:#566069}
+}

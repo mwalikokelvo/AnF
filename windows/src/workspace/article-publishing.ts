@@ -103,14 +103,19 @@ export function parseFrontmatter(content: string): { metadata: ArticleMetadata; 
   return { metadata, body };
 }
 
+/** Escape for a double-quoted YAML scalar: backslash first, then quote. */
+function yamlEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 /**
  * Serialize metadata into standardized YAML frontmatter format
  */
 export function serializeFrontmatter(metadata: ArticleMetadata, body: string): string {
   const lines: string[] = ['---'];
-  lines.push(`title: "${metadata.title.replace(/"/g, '\\"')}"`);
-  if (metadata.subtitle) lines.push(`subtitle: "${metadata.subtitle.replace(/"/g, '\\"')}"`);
-  if (metadata.author) lines.push(`author: "${metadata.author.replace(/"/g, '\\"')}"`);
+  lines.push(`title: "${yamlEscape(metadata.title)}"`);
+  if (metadata.subtitle) lines.push(`subtitle: "${yamlEscape(metadata.subtitle)}"`);
+  if (metadata.author) lines.push(`author: "${yamlEscape(metadata.author)}"`);
   if (metadata.date) lines.push(`date: ${metadata.date}`);
   if (metadata.audience) lines.push(`audience: ${metadata.audience}`);
   if (metadata.tags && metadata.tags.length > 0) {

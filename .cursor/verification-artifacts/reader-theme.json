@@ -1,0 +1,25 @@
+{
+  "themes": [
+    "dark",
+    "black",
+    "sepia",
+    "light",
+    "amber"
+  ],
+  "shots": [
+    "reader-theme-dark.png",
+    "reader-theme-light.png",
+    "reader-theme-amber.png",
+    "reader-theme-glass-light.png"
+  ],
+  "transition": "--reader-bg, --reader-ink, --reader-line, --reader-focus, --reader-meter, --reader-quote",
+  "backgrounds": [
+    "rgb(24, 33, 43)",
+    "rgb(0, 0, 0)",
+    "rgb(243, 231, 209)",
+    "rgb(250, 250, 250)",
+    "rgb(16, 10, 3)"
+  ],
+  "warnings": [],
+  "errors": []
+}

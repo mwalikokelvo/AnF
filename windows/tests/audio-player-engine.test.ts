@@ -11,7 +11,7 @@ import {
   removeTrack
 } from '../src/workspace/audio-queue.js';
 
-describe('MKR Music Player Engine & Queue Algorithms', () => {
+describe('Music Hub Player Engine & Queue Algorithms', () => {
   describe('reconcileQueue', () => {
     test('filters out missing items and preserves valid saved order', () => {
       const saved = ['t1', 't2', 't3'];

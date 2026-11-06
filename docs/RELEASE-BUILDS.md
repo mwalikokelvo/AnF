@@ -1,12 +1,17 @@
 # Release builds
 
 The build workflows create review artifacts; they do not publish a GitHub release.
-Windows, Linux and Android source currently uses version 0.1.21. The separate native
+Windows, Linux and Android source currently uses version 0.1.48. The separate native
 macOS app retains version 0.1.4. No application data paths or identifiers change.
 
 See [RECOVERY.md](RECOVERY.md) for the recovered build state, verified download
 identities, and the pending native Spotube integration. A source version is not
 evidence that a matching native installer has been built.
+
+As of `main` 20e8557, 0.1.47 is compiled and tested in CI (Linux, Windows, Android
+APKs; the debug APK also passed a CI emulator smoke). The Windows portable build was
+smoke-launched on one PC at UI level only; no installer or APK has been installed.
+See [HANDOFF.md](../HANDOFF.md) for the verified and unverified list.
 
 ## Windows
 
@@ -87,9 +92,9 @@ node scripts/check-release.mjs
 
 Outputs under `releases/`:
 
-- `AnF-Android-0.1.21-unsigned.apk`: release build, requiring the original
+- `AnF-Android-0.1.48-unsigned.apk`: release build, requiring the original
   production certificate before distribution or compatible in-place updates.
-- `AnF-Android-0.1.21-debug.apk`: debug-signed test build. It cannot replace
+- `AnF-Android-0.1.48-debug.apk`: debug-signed test build. It cannot replace
   an installation signed with a different certificate.
 
 The app has no sign-in requirement. APK signing is separate from account access.

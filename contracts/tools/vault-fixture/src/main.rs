@@ -1,5 +1,5 @@
-//! Build a deterministic AnF vault v1 SQLCipher fixture.
-//! AnF only — do not use ThingsBook / `_core`.
+//! Build an encrypted AnF vault v1 SQLCipher fixture (random SQLCipher salt).
+//! AnF only - do not use ThingsBook / `_core`.
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -46,7 +46,7 @@ fn main() -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     if out.exists() {
-        fs::remove_file(&out).map_err(|e| e.to_string())?;
+        return Err("Refusing to overwrite an existing fixture; choose a new output path.".into());
     }
 
     let db = Connection::open(&out).map_err(|e| e.to_string())?;
@@ -54,15 +54,8 @@ fn main() -> Result<(), String> {
         "PRAGMA key=\"x'{KEY}'\"; PRAGMA temp_store=MEMORY; PRAGMA foreign_keys=ON;"
     ))
     .map_err(|e| format!("SQLCipher unlock failed: {e}"))?;
-    db.execute_batch(
-        "CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-         CREATE TABLE projects(id TEXT PRIMARY KEY,json TEXT NOT NULL,updated INTEGER NOT NULL);
-         CREATE TABLE versions(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL,json TEXT NOT NULL,updated INTEGER NOT NULL);
-         CREATE INDEX versions_id ON versions(id,seq);
-         CREATE VIRTUAL TABLE project_search USING fts5(id UNINDEXED,title,body,tokenize='unicode61');
-         INSERT INTO meta VALUES('schema','1');",
-    )
-    .map_err(|e| e.to_string())?;
+    db.execute_batch(anf_vault::SCHEMA_SQL).map_err(|e|e.to_string())?;
+    db.execute("INSERT INTO meta VALUES('schema',?1)", [anf_vault::SCHEMA_VERSION]).map_err(|e|e.to_string())?;
 
     let project = Project {
         id: PROJECT_ID.into(),
@@ -129,7 +122,7 @@ fn main() -> Result<(), String> {
     let schema: String = db
         .query_row("SELECT value FROM meta WHERE key='schema'", [], |r| r.get(0))
         .map_err(|e| e.to_string())?;
-    if schema != "1" {
+    if schema != anf_vault::SCHEMA_VERSION {
         return Err(format!("schema={schema}"));
     }
     let loaded: String = db
@@ -143,7 +136,23 @@ fn main() -> Result<(), String> {
         return Err("round-trip read failed".into());
     }
 
-    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let cipher: String = db.query_row("PRAGMA cipher_version", [], |r| r.get(0)).map_err(|e|e.to_string())?;
+    if cipher.is_empty() { return Err("SQLCipher runtime is required".into()); }
+    let integrity: String = db.query_row("PRAGMA integrity_check", [], |r|r.get(0)).map_err(|e|e.to_string())?;
+    if integrity != "ok" { return Err("Fixture integrity failed".into()); }
+    drop(db);
+    let wrong = Connection::open(&out).map_err(|e|e.to_string())?;
+    wrong.execute_batch("PRAGMA key=\"x'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'\";").map_err(|e|e.to_string())?;
+    if wrong.query_row("SELECT count(*) FROM projects", [], |r| r.get::<_,i64>(0)).is_ok() {
+        return Err("Incorrect recovery key unexpectedly opened the fixture".into());
+    }
+    drop(wrong);
+    let recovered=Connection::open(&out).map_err(|e|e.to_string())?;
+    recovered.execute_batch(&format!("PRAGMA key=\"x'{KEY}'\";")).map_err(|e|e.to_string())?;
+    let restored:String=recovered.query_row("SELECT json FROM projects WHERE id=?1",params![PROJECT_ID],|r|r.get(0)).map_err(|e|e.to_string())?;
+    if restored!=loaded {return Err("Recovery round trip changed the project".into());}
+    drop(recovered);
+    let digest = sha256_hex(&bytes);
     let meta = format!(
         "AnF vault fixture v1\n\
          file: {}\n\
@@ -164,4 +173,59 @@ fn main() -> Result<(), String> {
     println!("wrote {}", meta_path.display());
     println!("sha256 {digest}");
     Ok(())
+}
+
+/// Lowercase hex SHA-256. Explicit encoding (not `{:x}`) so output stays
+/// byte-identical across sha2 releases.
+fn sha256_hex(data: impl AsRef<[u8]>) -> String {
+    use std::fmt::Write;
+    let mut out = String::with_capacity(64);
+    for b in Sha256::digest(data.as_ref()) {
+        write!(out, "{b:02x}").expect("write to String");
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::OpenFlags;
+
+    fn committed() -> Connection {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/vault-v1-fixture.db");
+        Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap()
+    }
+
+    #[test]
+    fn committed_fixture_opens_with_documented_key() {
+        let db = committed();
+        db.execute_batch(&format!("PRAGMA key=\"x'{KEY}'\";")).unwrap();
+        let schema: String = db.query_row("SELECT value FROM meta WHERE key='schema'", [], |r| r.get(0)).unwrap();
+        assert_eq!(schema, anf_vault::SCHEMA_VERSION);
+        let n: i64 = db.query_row("SELECT count(*) FROM projects WHERE id=?1", params![PROJECT_ID], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn committed_fixture_rejects_wrong_key() {
+        let db = committed();
+        db.execute_batch(&format!("PRAGMA key=\"x'{}'\";", "ff".repeat(32))).unwrap();
+        assert!(db.query_row("SELECT count(*) FROM projects", [], |r| r.get::<_, i64>(0)).is_err());
+    }
+
+    #[test]
+    fn sha256_hex_matches_known_vectors() {
+        assert_eq!(
+            sha256_hex(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_hex("abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            sha256_hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        );
+    }
 }

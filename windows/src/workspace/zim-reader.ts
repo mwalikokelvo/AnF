@@ -36,23 +36,44 @@ export function resolveZimProtocolUrl(url: string): { archiveName: string; entry
   };
 }
 
+const ENTITIES: Record<string, string> = { nbsp: ' ', lt: '<', gt: '>', quot: '"', amp: '&' };
+
+/**
+ * Single-pass tag scanner (no regex HTML filtering): drops tags and the contents of
+ * script/style elements, then decodes the few supported entities in one pass so
+ * "&amp;lt;" stays "&lt;" instead of being unescaped twice.
+ */
+function htmlToPlainText(raw: string): string {
+  const lower = raw.toLowerCase();
+  let out = '';
+  let i = 0;
+  while (i < raw.length) {
+    const lt = raw.indexOf('<', i);
+    if (lt < 0) { out += raw.slice(i); break; }
+    out += raw.slice(i, lt);
+    const head = lower.slice(lt + 1, lt + 7);
+    const rawText = head.startsWith('script') ? 'script' : head.startsWith('style') ? 'style' : '';
+    let next: number;
+    if (rawText) {
+      const close = lower.indexOf('</' + rawText, lt + 1);
+      next = close < 0 ? raw.length : raw.indexOf('>', close) + 1 || raw.length;
+    } else {
+      const gt = raw.indexOf('>', lt + 1);
+      next = gt < 0 ? raw.length : gt + 1;
+    }
+    out += ' ';
+    i = next;
+  }
+  return out.replace(/&(nbsp|lt|gt|quot|amp);/g, (_m, name: string) => ENTITIES[name]);
+}
+
 /**
  * Extracts plain readable text from a ZIM article entry for knowledge indexing
  */
 export function extractZimArticleText(article: { mimeType: string; data: Uint8Array; title: string }): string {
   const raw = new TextDecoder('utf-8').decode(article.data);
   if (article.mimeType.includes('html')) {
-    return raw
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return htmlToPlainText(raw).replace(/\s+/g, ' ').trim();
   }
   return raw.trim();
 }

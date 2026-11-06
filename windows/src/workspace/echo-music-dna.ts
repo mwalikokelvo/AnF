@@ -5,6 +5,7 @@
  */
 import { cleanTitle, primaryArtist } from './lyrics-provider';
 
+import { gatedFetch } from './online-lookups';
 export interface MusicDnaRecord {
   songTitle: string;
   artistName: string;
@@ -74,7 +75,7 @@ export class EchoMusicDnaService {
   public async fetchWikipediaSummary(subject: string): Promise<string | null> {
     try {
       const slug = encodeURIComponent(subject.trim().replace(/\s+/g, '_'));
-      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${slug}`, {
+      const res = await gatedFetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${slug}`, {
         signal: getTimeoutSignal(4000),
       });
       if (res.ok) {
@@ -97,7 +98,7 @@ export class EchoMusicDnaService {
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
         query
       )}&utf8=&format=json&origin=*`;
-      const searchRes = await fetch(searchUrl, { signal: getTimeoutSignal(4000) });
+      const searchRes = await gatedFetch(searchUrl, { signal: getTimeoutSignal(4000) });
       if (!searchRes.ok) return null;
       const searchData = await searchRes.json();
       const hits = searchData?.query?.search;
@@ -107,7 +108,7 @@ export class EchoMusicDnaService {
       const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=4&exlimit=1&titles=${encodeURIComponent(
         pageTitle
       )}&explaintext=1&format=json&origin=*`;
-      const extractRes = await fetch(extractUrl, { signal: getTimeoutSignal(4000) });
+      const extractRes = await gatedFetch(extractUrl, { signal: getTimeoutSignal(4000) });
       if (!extractRes.ok) return null;
       const extractData = await extractRes.json();
       const pages = extractData?.query?.pages;
@@ -134,7 +135,7 @@ export class EchoMusicDnaService {
   } | null> {
     try {
       const q = encodeURIComponent(`${artist} ${title}`);
-      const res = await fetch(`https://genius.com/api/search/multi?q=${q}`, {
+      const res = await gatedFetch(`https://genius.com/api/search/multi?q=${q}`, {
         signal: getTimeoutSignal(4500),
       });
       if (!res.ok) return null;
@@ -154,7 +155,7 @@ export class EchoMusicDnaService {
 
       if (!songId) return null;
 
-      const songRes = await fetch(`https://genius.com/api/songs/${songId}?text_format=plain`, {
+      const songRes = await gatedFetch(`https://genius.com/api/songs/${songId}?text_format=plain`, {
         signal: getTimeoutSignal(4500),
       });
       if (!songRes.ok) return null;
@@ -170,7 +171,7 @@ export class EchoMusicDnaService {
       const artistId = song.primary_artist?.id;
       if (artistId) {
         try {
-          const artistRes = await fetch(
+          const artistRes = await gatedFetch(
             `https://genius.com/api/artists/${artistId}?text_format=plain`,
             { signal: getTimeoutSignal(4000) }
           );

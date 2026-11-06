@@ -102,16 +102,20 @@ For spoken word and public domain literature, AnF implements dedicated audiobook
 
 Public extraction instances can face rate limiting, IP bans, or downtime. To ensure uninterrupted service, AnF maintains a dynamic **Multi-Instance Circuit Breaker Matrix**:
 
-| Priority | Piped Instance | Invidious Instance | Geographic Region | Protocol |
-| :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | `https://pipedapi.kavin.rocks` | `https://inv.tux.pizza` | Global / US / EU | HTTPS / REST |
-| **Tier 2** | `https://api.piped.privacydev.net` | `https://invidious.nerdvpn.de` | EU / Germany | HTTPS / REST |
-| **Tier 3** | `https://piped-api.lunar.icu` | `https://yewtu.be` | Global CDN | HTTPS / REST |
-| **Tier 4** | `https://pipedapi.tokhmi.xyz` | `https://invidious.drgns.space` | Fallback CDN | HTTPS / REST |
+| Order | Instance (API root) | API | Source of the entry |
+| :--- | :--- | :--- | :--- |
+| 1 | `https://pipedapi.kavin.rocks` | Piped | Piped docs, official |
+| 2 | `https://pipedapi.leptons.xyz` | Piped | Piped docs |
+| 3 | `https://piped-api.privacy.com.de` | Piped | Piped docs |
+| 4 | `https://pipedapi.adminforge.de` | Piped | Piped docs |
+| 5 | `https://inv.nadeko.net` | Invidious (`/api/v1`) | Invidious docs instance list |
+| 6 | `https://invidious.nerdvpn.de` | Invidious (`/api/v1`) | Invidious docs instance list |
+
+The list is `STREAM_INSTANCES` in `streaming-provider.ts` (checked against both public lists on 2026-11-02; liveness is not guaranteed). Every host must also be in `connect-src` of `tauri.conf.json` (`csp` and `devCsp`); `tests/stream-resolution.test.ts` pins both.
 
 #### Circuit Breaker Logic
-1. **Timeout Threshold**: Each request has an aggressive 4,500ms abort signal.
-2. **Health Registry**: Failures increment an error counter per host in memory. If a host registers 3 consecutive errors or HTTP 429 (Too Many Requests), it is quarantined for 15 minutes.
+1. **Timeout Threshold**: Each request has a 4,000 ms abort signal; no new instance is started after 16 s in one lookup.
+2. **Health Registry**: An instance that fails to answer (network error, timeout, 5xx, 429, bot check) goes to the back of the order for 2 minutes (in memory only). It is still tried when nothing else answers. A success clears it.
 3. **Automatic Failover**: `resolveYouTubeStream` iterates down the matrix until a valid audio manifest is returned.
 4. **Direct Stream Extraction**: Extracts the direct `.m4a` or `.webm` stream URL and sends it to the player.
 
@@ -387,7 +391,7 @@ export class SpotubeStreamService {
 ### Phase 3: Audiobook Player Enhancements
 1. **Transport Buttons**: Add 15s backward and 30s forward buttons in the player transport.
 2. **Speed Chips**: Provide fast-toggle speed chips (`0.75x` to `2.0x`).
-3. **Sleep Timer Extensions**: Support `End of Chapter` and custom minute durations.
+3. **Sleep Timer Extensions**: Support `End of Chapter` (done, see `docs/specs/sleep-end-of-chapter.md`) and custom minute durations (open).
 
 ### Verification Checklist
 - [ ] Run `npm exec tsc -- --noEmit` to verify type compliance.

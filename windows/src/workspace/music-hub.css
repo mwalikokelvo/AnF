@@ -5,6 +5,13 @@
 body.music-view .workspace-header,body.music-view .mobile-project{display:none!important}body.music-view .panel-host{padding:16px!important}body.music-view .workspace-panel{max-width:none}body.music-view .panel{padding:0!important}body.has-music-player #app>main{padding-bottom:130px}
 body.has-music-player .panel-host{scroll-padding-bottom:140px}
 @media(max-width:1200px){.music-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.music-player{left:234px;gap:12px}.music-extras{display:none}.music-player{grid-template-columns:1fr 1.4fr}}
+/* Extras (including EQ) are hidden from 1280 down so the title keeps its width. One Equalizer control stays in the transport. */
+.music-player:not(.music-full-player) .music-eq-dock{display:none}
+.music-full-player .music-eq-dock{display:none!important}
+@media(max-width:1280px){.music-player:not(.music-full-player) .music-controls>.music-eq-dock{display:grid!important}}
+/* At 1280 and narrower the extras column squeezed the title to ~70px; the extras stay in the full player. The pill keeps its left edge until 1200. */
+@media(max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player) .music-extras{display:none}}
+@media(min-width:1201px) and (max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr)!important}}
 @media(max-width:760px){.music-heading{flex-wrap:wrap;gap:14px}.music-heading>div{flex:1}.music-monogram{order:0}.music-search{order:1;flex-basis:100%}.music-hub{padding:20px 14px 115px;border-radius:0}.music-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}.music-tabs{justify-content:space-between}.music-tabs button{flex:1;padding:12px 4px}.music-section-title{flex-wrap:wrap}.music-recent{grid-template-columns:1fr}.music-player{left:190px;right:10px;bottom:10px;grid-template-columns:minmax(0,1fr) auto;padding:9px;gap:8px}.music-player-art{width:48px;height:48px}.music-now{gap:10px}.music-now>button:not(.music-now-info){display:none}.music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}.music-progress span{display:none}.music-progress input{height:4px!important;min-height:4px!important}.music-controls{gap:0}.music-controls>button:not(.music-play){display:none}.music-now strong{font-size:12px}.music-now span{font-size:10px}.music-playlist-create{flex-wrap:wrap}}
 #app~.music-player,body:has(#app)>.music-player{left:10px;right:10px;bottom:var(--mobile-player-bottom,88px);grid-template-columns:minmax(0,1fr) auto;gap:12px}body:has(#app) .music-player .music-extras{display:none}body:has(#app) .music-player-art{width:48px;height:48px}body:has(#app) .music-player .music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}body:has(#app) .music-player .music-progress span{display:none}body:has(#app) .music-player .music-controls>button:not(.music-play){display:none}body:has(#app) .music-player .music-now>button:not(.music-now-info){display:none}body:has(#app) .bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr))!important}body:has(#app) .bottom-nav button{font-size:9px}
 
@@ -87,6 +94,9 @@ body:has(#app) .native-music-source{display:flex}
 .music-card:hover{transform:translateY(-2px);border-color:#79e4b466}
 .music-recent-track{background:#1c2224;border-radius:12px;padding:10px 12px;min-height:52px}
 .music-tabs button{font-size:14px}
+/* The six tabs need ~680px at full padding but the 3-column hub gives them ~600 at 1366 (and ~530 at 820): trim the side padding as the window narrows (24px from ~1700 wide, unchanged on large screens) and let a row wrap rather than cut Playlists off. */
+.music-tabs{flex-wrap:wrap}
+@media(min-width:761px){.music-tabs button{padding-inline:clamp(10px,1.4vw,24px)}}
 .music-player{backdrop-filter:blur(12px);background:#1a2122ee;border:1px solid #3a4543}
 .music-full-player .music-player-art{border-radius:22px}
 .music-notice{color:#79e4b4}
@@ -145,10 +155,10 @@ body:has(#app) .native-music-source{display:flex}
 
 .music-heading select{background:#22272a;color:var(--music-ink);border:1px solid var(--music-line);border-radius:8px;padding:8px 10px;font-size:12px}
 /* Spicetify Theme Engine presets */
-.music-hub[data-music-theme="ink"]{--music-accent:#1db954;--music-accent-glow:rgba(29,185,84,0.45);--music-bg:#121816;--music-panel:rgba(20,28,25,0.7);--music-card:rgba(24,34,30,0.65);--music-line:rgba(255,255,255,0.08);--music-ink:#f4f7f5;--music-muted:#95a39c;background:radial-gradient(900px 420px at 0% -10%,#173d2f 0%,transparent 60%),#121816}
+.music-hub[data-music-theme="ink"]{--music-accent:#1db954;--music-accent-glow:rgba(29,185,84,0.45);--music-bg:#121816;--music-panel:rgba(20,28,25,0.7);--music-card:rgba(24,34,30,0.65);--music-line:rgba(255,255,255,0.08);--music-ink:#f4f7f5;--music-muted:#a9b7b0;background:radial-gradient(900px 420px at 0% -10%,#173d2f 0%,transparent 60%),#121816}
 .music-hub[data-music-theme="bloom"],.music-hub[data-music-theme="violet"]{--music-accent:#c084fc;--music-accent-glow:rgba(192,132,252,0.5);--music-accent-secondary:#f43f5e;--music-bg:#0f0a17;--music-panel:rgba(25,16,38,0.72);--music-card:rgba(32,20,50,0.65);--music-line:rgba(192,132,252,0.16);--music-ink:#faf5ff;--music-muted:#b8a6cc;background:radial-gradient(900px 420px at 0% -10%,#3b145e 0%,transparent 60%),radial-gradient(600px 300px at 100% 0%,#f43f5e26,transparent 50%),#0f0a17}
 .music-hub[data-music-theme="cyberpunk"],.music-hub[data-music-theme="ember"]{--music-accent:#f59e0b;--music-accent-glow:rgba(245,158,11,0.5);--music-accent-secondary:#06b6d4;--music-bg:#120e06;--music-panel:rgba(30,22,10,0.75);--music-card:rgba(38,28,14,0.65);--music-line:rgba(245,158,11,0.18);--music-ink:#fffbeb;--music-muted:#ccba99;background:radial-gradient(900px 420px at 0% -10%,#4a340d 0%,transparent 60%),radial-gradient(600px 300px at 100% 0%,#06b6d422,transparent 50%),#120e06}
-.music-hub[data-music-theme="velvet"],.music-hub[data-music-theme="dusk"]{--music-accent:#38bdf8;--music-accent-glow:rgba(56,189,248,0.45);--music-accent-secondary:#818cf8;--music-bg:#070d18;--music-panel:rgba(12,22,38,0.72);--music-card:rgba(16,29,52,0.65);--music-line:rgba(56,189,248,0.15);--music-ink:#f0f9ff;--music-muted:#94a8c4;background:radial-gradient(900px 420px at 0% -10%,#152744 0%,transparent 60%),radial-gradient(600px 300px at 100% 0%,#818cf822,transparent 50%),#070d18}
+.music-hub[data-music-theme="velvet"],.music-hub[data-music-theme="dusk"]{--music-accent:#38bdf8;--music-accent-glow:rgba(56,189,248,0.45);--music-accent-secondary:#818cf8;--music-bg:#070d18;--music-panel:rgba(12,22,38,0.72);--music-card:rgba(16,29,52,0.65);--music-line:rgba(56,189,248,0.15);--music-ink:#f0f9ff;--music-muted:#a6b9d4;background:radial-gradient(900px 420px at 0% -10%,#152744 0%,transparent 60%),radial-gradient(600px 300px at 100% 0%,#818cf822,transparent 50%),#070d18}
 .music-hub[data-music-theme="oled"]{--music-accent:#ffffff;--music-accent-glow:rgba(255,255,255,0.3);--music-accent-secondary:#a3a3a3;--music-bg:#000000;--music-panel:#0a0a0a;--music-card:#121212;--music-line:rgba(255,255,255,0.12);--music-ink:#ffffff;--music-muted:#888888;background:#000000}
 
 
@@ -558,29 +568,31 @@ body:has(#app) .native-music-source{display:flex}
   -webkit-backdrop-filter: blur(14px);
   z-index: 2;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  /* The badge sits on cover art of any colour; a dark underlay (above its tint) keeps the light label readable. */
+  background-image: linear-gradient(rgba(8, 12, 10, 0.6), rgba(8, 12, 10, 0.6));
 }
 .music-badge-youtube {
-  background: rgba(220, 38, 38, 0.35);
+  background-color: rgba(220, 38, 38, 0.35);
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.55);
 }
 .music-badge-spotify {
-  background: rgba(29, 185, 84, 0.35);
+  background-color: rgba(29, 185, 84, 0.35);
   color: #86efac;
   border: 1px solid rgba(29, 185, 84, 0.55);
 }
 .music-badge-audiobook {
-  background: rgba(168, 85, 247, 0.35);
+  background-color: rgba(168, 85, 247, 0.35);
   color: #d8b4fe;
   border: 1px solid rgba(168, 85, 247, 0.55);
 }
 .music-badge-local {
-  background: rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.16);
   color: #e2e8f0;
   border: 1px solid rgba(255, 255, 255, 0.28);
 }
 .music-badge-custom {
-  background: rgba(14, 165, 233, 0.35);
+  background-color: rgba(14, 165, 233, 0.35);
   color: #7dd3fc;
   border: 1px solid rgba(14, 165, 233, 0.55);
 }
@@ -980,6 +992,18 @@ body:has(#app) .native-music-source{display:flex}
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease !important;
 }
+/* The pill's display:grid!important must not defeat [hidden]: with no track loaded the empty player used to sit over every view. */
+.music-player[hidden]:not(.music-full-player){display:none!important}
+/* At 1200px and below the extras column is hidden (legacy rule above), but the pill still reserved its grid column and the now-playing
+   title shrank to 2px. Drop that column, hide the decorative bars, tighten the transport, and below 900px move Like to the full player. */
+@media(min-width:768px) and (max-width:1200px){
+  .music-player:not(.music-full-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr) !important;gap:14px !important;padding:10px 18px !important}
+  .music-player:not(.music-full-player) .music-controls{gap:6px}
+}
+@media(max-width:1200px){.music-player:not(.music-full-player) .music-visualizer-mini{display:none}}
+@media(max-width:900px){.music-player:not(.music-full-player) .music-now>button:not(.music-now-info){display:none}}
+/* Bottom-bar layout (under 768px): span the window and sit above the bar (nav-rail.css asks for bottom:92px but loses to the pill's !important), instead of the 280-380px of the desktop width formula overlapping the bar. */
+@media(max-width:767px){.music-player:not(.music-full-player){width:calc(100vw - 32px) !important;bottom:92px !important;grid-template-columns:minmax(0,1fr) auto !important;gap:12px !important;padding:10px 14px !important}}
 .music-player:not(.music-full-player):hover {
   box-shadow: 0 24px 56px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
 }
@@ -1280,6 +1304,19 @@ body:has(#app) .native-music-source{display:flex}
   }
 }
 
+/* The hub is a dark surface in every theme (all its colour themes are dark). Under the light workspace theme it inherited the
+   light tokens, so ink-on-dark text and surface-filled boxes turned white-on-white (Listening options, the Music tab, AF,
+   card titles). Inside the hub the workspace tokens are the dark ones (the values anf-design.css gives the dark theme), which is exactly how the hub looks in the dark theme. */
+#workspace-root[data-theme=light] .music-hub{--bg:#101e21;--side:#0c171a;--surface:#182a2d;--panel:#182a2d;--hover:#233c40;--line:#385052;--ink:#edf4ef;--muted:#b0c4bd;--accent:#a3e5cd;--accent-ink:#10392e;--paper:#182a2d;--input:#142427;color-scheme:dark}
+@media(prefers-color-scheme:light){#workspace-root[data-theme=system] .music-hub{--bg:#101e21;--side:#0c171a;--surface:#182a2d;--panel:#182a2d;--hover:#233c40;--line:#385052;--ink:#edf4ef;--muted:#b0c4bd;--accent:#a3e5cd;--accent-ink:#10392e;--paper:#182a2d;--input:#142427;color-scheme:dark}}
 
-
-
+/* Reduced motion: the hub and its player set transitions behind !important rules (some with three classes) that beat the global reset in
+   anf-design.css. The ID in :not(#reduced-motion) only raises specificity so this reset wins. */
+@media (prefers-reduced-motion: reduce) {
+  html:not(#reduced-motion) :is(.music-hub, .music-player, .music-dialog),
+  html:not(#reduced-motion) :is(.music-hub, .music-player, .music-dialog) * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

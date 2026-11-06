@@ -15,7 +15,7 @@ import {
 import type { AudioTrack } from '../src/workspace/audio-library.js';
 import { trackBadge, createVisualizer } from '../src/workspace/music-hub.js';
 
-describe('MKR Music Player Engine & Audio Queue Controls', () => {
+describe('Music Hub Player Engine & Audio Queue Controls', () => {
   describe('Queue Algorithms & Navigation', () => {
     const queue = ['track-1', 'track-2', 'track-3', 'track-4'];
 

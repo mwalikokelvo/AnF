@@ -7,16 +7,17 @@
   color:var(--ink);color-scheme:dark;
   font-family:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
 }
+#workspace-root{background:var(--bg);min-height:100%}
 html[data-theme=light],#workspace-root[data-theme=light]{
   --bg:#f5f6f2;--side:#eef1eb;--surface:#ffffff;--panel:var(--surface);
-  --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#52695f;
+  --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#4a6055;
   --accent:#246c54;--accent-ink:#ffffff;--paper:#ffffff;--input:#f9faf7;
   --shadow:0 12px 36px #25433309;color-scheme:light;
 }
 @media(prefers-color-scheme:light){
   html[data-theme=system],#workspace-root[data-theme=system]{
     --bg:#f5f6f2;--side:#eef1eb;--surface:#ffffff;--panel:var(--surface);
-    --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#52695f;
+    --hover:#e5efe8;--line:#cddbd3;--ink:#223c35;--muted:#4a6055;
     --accent:#246c54;--accent-ink:#ffffff;--paper:#ffffff;--input:#f9faf7;
     --shadow:0 12px 36px #25433309;color-scheme:light;
   }
@@ -45,7 +46,9 @@ p{line-height:1.65}pre{overflow-wrap:anywhere}
 .workspace-navigation button[aria-current=page]{background:var(--surface);border-color:var(--line);color:var(--accent);box-shadow:var(--shadow);font-weight:700}
 .history-sidebar>button{border-style:solid;border-radius:12px}
 .history-heading{margin-top:28px}.history-item{border-radius:12px;padding:12px}
-.workspace-header{padding:20px 36px;min-height:92px;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:90}
+.workspace-header{padding:20px 36px;min-height:92px;--shell-blur:16px;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(var(--shell-blur));-webkit-backdrop-filter:blur(var(--shell-blur));border-bottom:1px solid var(--line);position:sticky;top:0;z-index:90}
+#workspace-root[data-theme=light] .workspace-header{--shell-blur:0px;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
+@media(prefers-color-scheme:light){#workspace-root[data-theme=system] .workspace-header{--shell-blur:0px;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}}
 .workspace-header h1{font-size:24px;margin-bottom:4px}.workspace-header .hint{margin:0}
 .project-title input{border:1px solid var(--line);background:var(--surface);padding:9px 12px;font-size:13px;border-radius:10px}
 .panel-host{padding:36px;scrollbar-width:thin}.workspace-panel{max-width:1080px}
@@ -95,7 +98,7 @@ main,.panel-host,.drawer,pre{scrollbar-width:thin;scrollbar-color:var(--line) tr
 @media(min-width:760px){#app>.bottom-nav{padding-left:calc((100% - 720px)/2);padding-right:calc((100% - 720px)/2)}.panel{padding:36px 40px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 @media print{#workspace-root{display:none!important}}
-.workspace-header{flex-wrap:wrap;gap:16px}.workspace-header>div:first-child{min-width:140px}
+.workspace-header{flex-wrap:wrap;gap:16px;transition:background-color var(--transition-smooth),border-color var(--transition-smooth),color var(--transition-smooth)}.workspace-header>div:first-child{min-width:140px}
 .dashboard-heading h2{white-space:pre-line}.mobile-project .studio-header-tools{flex-wrap:nowrap;gap:5px}
 @media(max-width:1100px){.workspace-header .studio-header-tools{width:100%}.workspace-header .project-title{flex:1}}
 /* Save failure notice, reply-to-draft undo and the replace confirmation (plan UI-02, UI-03) */
@@ -116,3 +119,8 @@ main,.panel-host,.drawer,pre{scrollbar-width:thin;scrollbar-color:var(--line) tr
 .history-item time{display:block;font-size:.72em;color:var(--muted);margin-top:3px}
 /* Narrow windows: the three mode tabs stack instead of clipping "Assistant" (plan UI-07) */
 @media(max-width:1000px){#workspace-root .mode-rail{grid-template-columns:1fr}#workspace-root .mode-rail button{min-height:34px;padding:6px 12px;text-align:left}}
+
+/* Target size (WCAG 2.5.8): disclosure rows were 20-21px tall, check rows 17-18px. Rows grow to 24px; nothing else moves. */
+summary{min-height:24px;align-content:center}
+.check-row{min-height:24px}
+label:has(>input[type=checkbox]):not(.check-row),label:has(>input[type=radio]):not(.check-row){display:inline-flex;align-items:center;gap:6px;min-height:24px}

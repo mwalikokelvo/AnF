@@ -135,3 +135,23 @@ describe('OpenZIM Knowledge Archive & Virtual Protocol Routing', () => {
     }, /Invalid ZIM magic bytes/);
   });
 });
+
+describe('ZIM HTML text extraction does not leak markup', () => {
+  const text = (s: string) =>
+    extractZimArticleText({ mimeType: 'text/html', data: new TextEncoder().encode(s), title: 't' });
+
+  it('drops script and style elements whatever their end-tag spelling', () => {
+    assert.equal(text('a<script>alert(1)</script >b'), 'a b');
+    assert.equal(text('a<SCRIPT\t\n bar>x</script\t\n bar>b'), 'a b');
+    assert.equal(text('a<style>p{}</style>b<p>c'), 'a b c');
+  });
+
+  it('keeps nested or unterminated tags from surviving as markup', () => {
+    assert.equal(text('<scr<script>ipt>x</script>'), 'ipt>x');
+    assert.equal(text('unterminated <div'), 'unterminated');
+  });
+
+  it('decodes entities once, so &amp;lt; stays &lt;', () => {
+    assert.equal(text('&amp;lt; &lt;b&gt; &nbsp;x'), '&lt; <b> x');
+  });
+});

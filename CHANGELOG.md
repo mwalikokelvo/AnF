@@ -1,3 +1,10 @@
+## Unreleased — Verified offline model download
+
+- Qwen3 0.6B and 1.7B (Q8_0 GGUF) can now be downloaded from huggingface.co in Settings > Offline models. Rust owns the pinned URL, size and SHA-256; the file streams to `local-ai/models/*.part`, is hashed, and is renamed into place only if the hash matches. Interrupted downloads resume; a mismatch deletes the file.
+- Redirects are limited to Hugging Face storage hosts and every hop is checked and DNS-pinned to public addresses. The webview CSP is unchanged.
+- Other catalog models carry no hash or URL and stay "Not available yet". Answers show the real model file name only when a verified file serves the slot.
+- No model weights have been downloaded from a real network in CI or tests; see PR for what was exercised.
+
 ## 0.1.21 — Music Hub
 
 - Add a responsive charcoal/mint Music Hub with artwork, search, local imports, listening history, playlists and a persistent player.
