@@ -125,7 +125,7 @@ let mkrSource:HTMLButtonElement|undefined,mkrEpoch=0;
 const mkrPort=createMkrPortClient(window,connected=>{
  const epoch=++mkrEpoch;if(mkrSource)mkrSource.hidden=true;
  if(connected&&mkrBrowser)void mkrBrowser.available().then(available=>{if(epoch===mkrEpoch&&mkrSource)mkrSource.hidden=!available;}).catch(()=>{});
-});
+},()=>pauseForMkr());
 async function pauseMkrForOtherAudio(){await mkrBrowser?.suspend();await mkrPort.pauseForOtherAudio();}
 
 const musicHub=createMusicHub({exportPlaylist:text=>exportText('AnF-playlist.json',text,'application/json'),notify,beforePlay:async()=>{await pauseMkrForOtherAudio();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();}});

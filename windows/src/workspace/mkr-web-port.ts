@@ -3,12 +3,14 @@ import type {MkrCommand,MkrTransport} from './mkr-player';
 /** One trusted Android page's native port. No global JavascriptInterface/fallback.
  * Native bootstrap must post only to the exact AnF origin and revoke on navigation.
  */
-export function createMkrPortClient(target:Window,changed:(connected:boolean)=>void=()=>{}){
+export function createMkrPortClient(target:Window,changed:(connected:boolean)=>void=()=>{},pauseOthers?:()=>Promise<void>){
  let port:MessagePort|undefined,closed=false,sequence=0,sawNativePort=false;
  const pending=new Map<string,{resolve:(value:unknown)=>void;reject:(error:Error)=>void;timer:number}>();
  const unavailable=()=>Error('Native MKR connection is unavailable. Reopen Music Hub.');
+ let handoff:{token:string;cancel:()=>void}|undefined;
  function disconnect(error:Error){
   const previous=port;port=undefined;
+  handoff?.cancel();handoff=undefined;
   if(previous){previous.onmessage=null;previous.onmessageerror=null;previous.close();}
   for(const request of pending.values()){target.clearTimeout(request.timer);request.reject(error);}pending.clear();
   if(previous)changed(false);
@@ -18,6 +20,10 @@ export function createMkrPortClient(target:Window,changed:(connected:boolean)=>v
   let reply:Record<string,unknown>;
   try{reply=JSON.parse(event.data) as Record<string,unknown>;}catch{disconnect(unavailable());return;}
   if(reply&&reply.event==='closed'&&Object.keys(reply).length===1){disconnect(unavailable());return;}
+  if(reply&&reply.event==='pause-others'){
+   if(Object.keys(reply).length!==2||typeof reply.token!=='string'||!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/iu.test(reply.token)){disconnect(unavailable());return;}
+   void acknowledgeAudio(reply.token);return;
+  }
   if(!reply||Array.isArray(reply)||typeof reply.id!=='string'||!/^\d{1,12}$/u.test(reply.id)||
     !Object.prototype.hasOwnProperty.call(reply,'value')||!Object.prototype.hasOwnProperty.call(reply,'error')||Object.keys(reply).some(key=>!['id','value','error'].includes(key))||
     (reply.error!==null&&typeof reply.error!=='string')){disconnect(unavailable());return;}
@@ -34,7 +40,7 @@ export function createMkrPortClient(target:Window,changed:(connected:boolean)=>v
   disconnect(Error('Native MKR connection changed. Try again.'));
   port=event.ports[0];sawNativePort=true;port.onmessage=receive;port.onmessageerror=()=>disconnect(unavailable());port.start();changed(true);
  }
- const transport:MkrTransport=async(command:MkrCommand,payload?:Record<string,unknown>)=>{
+ const request=async(command:string,payload?:Record<string,unknown>)=>{
   if(closed||!port)throw unavailable();
   if(pending.size>=8)throw Error('Music is busy. Try again.');
   if(sequence>=999_999_999_999){disconnect(unavailable());throw unavailable();}
@@ -48,6 +54,20 @@ export function createMkrPortClient(target:Window,changed:(connected:boolean)=>v
   });
   return result;
  };
+ const transport:MkrTransport=(command:MkrCommand,payload?:Record<string,unknown>)=>request(command,payload);
+ async function acknowledgeAudio(token:string){
+  const endpoint=port;if(!endpoint)return;
+  handoff?.cancel();const current={token,cancel:()=>{}};handoff=current;
+  let timer:number|undefined;
+  try{
+   const cancelled=new Promise<boolean>(resolve=>{current.cancel=()=>resolve(false);});
+   const deadline=new Promise<boolean>(resolve=>{timer=target.setTimeout(()=>resolve(false),3500);});
+   const paused=pauseOthers?Promise.resolve().then(pauseOthers).then(()=>true,()=>false):Promise.resolve(false);
+   const allowed=await Promise.race([paused,cancelled,deadline]);
+   if(!closed&&port===endpoint&&handoff===current)await request('audio-ack',{token,paused:allowed});
+  }catch{/* Missing/stale acknowledgement never grants native playback. */}
+  finally{if(timer!==undefined)target.clearTimeout(timer);if(handoff===current)handoff=undefined;}
+ }
  target.addEventListener('message',announcement);
  const close=()=>{if(closed)return;closed=true;target.removeEventListener('message',announcement);target.removeEventListener('pagehide',close);disconnect(unavailable());};
  target.addEventListener('pagehide',close);

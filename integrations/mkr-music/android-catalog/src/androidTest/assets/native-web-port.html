@@ -28,8 +28,13 @@ const client=window.createAnfMkrPortClient(connected=>{
     const paused=await call('pause');check(!paused.playing,'pause response');
     const sought=await call('seek',{positionMs:500});check(sought.positionMs===500,'paused seek');
     await call('play');await call('hide');await call('pause');
-    window.report={done:true,capabilities,tracks,state,paused,sought};
+    window.report={done:true,capabilities,tracks,state,paused,sought,audioPauseRequests:window.audioPauseRequests};
     document.getElementById('status').textContent='Native playback and controls passed';
   })().catch(error=>{window.report={done:true,error:String(error)};});
+},async()=>{
+  window.audioPauseRequests=(window.audioPauseRequests||0)+1;
+  if(window.otherAudioPaused)return;
+  window.report={phase:'audio-handoff'};
+  await new Promise(resolve=>{window.releaseOtherAudio=()=>{window.otherAudioPaused=true;resolve();};});
 });
 </script></html>

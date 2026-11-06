@@ -18,12 +18,14 @@ internal class AndroidMkrWebPort private constructor(
     private val web: WebView,
     private val origin: String,
     private val connection: AndroidMkrConnection,
+    private val handoff: AndroidAudioHandoff,
 ) : AutoCloseable {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private val closed=AtomicBoolean()
     private val requests=mutableSetOf<String>()
     private val ports=web.createWebMessageChannel()
     private var transferred=false
+    private var audioBinding: AndroidAudioHandoff.Binding?=null
     private fun trusted()=sameOrigin(web.url,origin)
     private fun reply(id: String, value: Any?, error: String?) {
         if(closed.get())return
@@ -63,6 +65,10 @@ internal class AndroidMkrWebPort private constructor(
     private suspend fun dispatch(command: String, payload: JSONObject): Any {
         // Even capabilities requires a live approved native owner, never merely a class.
         return when(command) {
+            "audio-ack" -> {fields(payload,setOf("token","paused"))
+                val token=text(payload,"token",36);val paused=payload.get("paused")
+                require(paused is Boolean)
+                JSONObject().put("accepted",audioBinding?.acknowledge(token,paused)?:false)}
             "capabilities" -> {fields(payload,emptySet());connection.status()
                 JSONObject().put("protocol",1).put("embedded",true).put("platform","android-native")}
             "open","hide" -> {fields(payload,emptySet());connection.status();JSONObject()}
@@ -83,6 +89,7 @@ internal class AndroidMkrWebPort private constructor(
         if(!closed.compareAndSet(false,true))return
         scope.cancel()
         val task=Runnable {
+            audioBinding?.close();audioBinding=null
             // Inform the page before revocation; never serialize a native error.
             try {if(transferred && trusted())ports[0].postMessage(WebMessage("{\"event\":\"closed\"}"))}catch(error: Exception){ /* Page already gone. */ }
             try {ports[0].close()}catch(error: Exception){ /* Already detached. */ }
@@ -116,16 +123,20 @@ internal class AndroidMkrWebPort private constructor(
             .put("positionMs",state.audio.positionMs.coerceAtLeast(0)).put("durationMs",state.audio.durationMs.coerceAtLeast(0))
             .put("track",state.track?.let{track(it)}?:JSONObject.NULL)
         /** Owns connection only after successful attachment; caller closes on failure. */
-        fun attach(web: WebView, origin: String, connection: AndroidMkrConnection): AndroidMkrWebPort {
+        fun attach(web: WebView, origin: String, connection: AndroidMkrConnection, handoff: AndroidAudioHandoff): AndroidMkrWebPort {
             check(Looper.myLooper()==Looper.getMainLooper())
             require(origin in setOf("https://anf.local","https://coucou.local") && sameOrigin(web.url,origin))
-            val host=AndroidMkrWebPort(web,origin,connection)
+            val host=AndroidMkrWebPort(web,origin,connection,handoff)
             try {
                 host.ports[0].setWebMessageCallback(object : WebMessagePort.WebMessageCallback() {
                     override fun onMessage(port: WebMessagePort?, message: WebMessage?) {host.receive(message?.data)}
                 })
                 web.postWebMessage(WebMessage("anf-mkr-port-v1",arrayOf(host.ports[1])),Uri.parse(origin))
                 host.transferred=true
+                host.audioBinding=host.handoff.attach {token ->
+                    if(host.closed.get() || !host.trusted())false
+                    else {host.ports[0].postMessage(WebMessage(JSONObject().put("event","pause-others").put("token",token).toString()));true}
+                }
                 return host
             } catch(error: Exception){host.close();throw error}
         }

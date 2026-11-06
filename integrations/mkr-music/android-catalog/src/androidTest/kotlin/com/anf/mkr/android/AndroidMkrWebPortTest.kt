@@ -26,7 +26,7 @@ class AndroidMkrWebPortTest {
         val data=context.assets.open("generated-aac.m4a").use{it.readBytes()}
         assertEquals("801e0e26a6f69c415fd06370b0fed08688802f031ba2da13046e1646aaaafd0a",
             MessageDigest.getInstance("SHA-256").digest(data).joinToString(""){"%02x".format(it)})
-        val requests=AtomicInteger();val closed=AtomicInteger();val requested=CompletableDeferred<Unit>();val allow=CompletableDeferred<Boolean>()
+        val requests=AtomicInteger();val closed=AtomicInteger();val requested=CompletableDeferred<Unit>();val handoff=AndroidAudioHandoff()
         val backend=object : CatalogBackend {
             override suspend fun search(query: String)=listOf(MkrTrack("abcdefghijk","Generated WebView fixture","AnF QA"))
             override suspend fun streams(videoId: String): List<Pair<Int,String>> {
@@ -35,7 +35,7 @@ class AndroidMkrWebPortTest {
         }
         val cdn=MkrNativePlaybackTest.GeneratedCdn(data)
         val audio=Media3Playback.create(context,muted=true)
-        val controller=AndroidPlaybackController(MkrCatalog(backend),audio,{requested.complete(Unit);allow.await()},
+        val controller=AndroidPlaybackController(MkrCatalog(backend),audio,{requested.complete(Unit);handoff.requestPause()},
             {closed.incrementAndGet()},leaseFactory={stream -> AndroidMediaLease(MkrStream(stream.url,stream.mimeType,stream.headers,
                 true,true,65536,data.size.toLong(),System.currentTimeMillis()+120000),connect=cdn::connect)})
         val web=withContext(Dispatchers.Main.immediate){WebView(activity)}
@@ -67,12 +67,14 @@ class AndroidMkrWebPortTest {
             val client=AndroidMkrConnection.connect(activity,token);connection=client
             withContext(Dispatchers.Main.immediate){
                 assertEquals("https://anf.local/",web.url)
-                host=AndroidMkrWebPort.attach(web,"https://anf.local",client)
+                host=AndroidMkrWebPort.attach(web,"https://anf.local",client,handoff)
             }
             withTimeout(8000){requested.await()}
-            assertEquals(0,requests.get());assertTrue(cdn.requests.isEmpty());allow.complete(true)
+            withTimeout(8000){while(report().optString("phase")!="audio-handoff")delay(20)}
+            assertEquals(0,requests.get());assertTrue(cdn.requests.isEmpty())
+            withContext(Dispatchers.Main.immediate){web.evaluateJavascript("window.releaseOtherAudio()",null)}
             val result=withTimeout(8000){var value=report();while(!value.optBoolean("done")){delay(25);value=report()};value}
-            assertFalse(result.toString(),result.has("error"))
+            assertFalse(result.toString(),result.has("error"));assertTrue(result.getInt("audioPauseRequests")>=2)
             assertEquals("Generated WebView fixture",result.getJSONArray("tracks").getJSONObject(0).getString("title"))
             assertTrue(result.getJSONObject("state").getBoolean("playing"))
             assertFalse(result.getJSONObject("paused").getBoolean("playing"))
@@ -95,11 +97,12 @@ class AndroidMkrWebPortTest {
                 web.loadDataWithBaseURL("https://untrusted.invalid/","<p>Untrusted fixture</p>","text/html","UTF-8","https://untrusted.invalid/")
             }
             withTimeout(8000){loaded.await()}
+            assertFalse(handoff.requestPause())
             val fresh=AndroidMkrConnection.connect(activity,token)
             try {
                 withContext(Dispatchers.Main.immediate) {
                     for(origin in listOf("https://anf.local","https://coucou.local","https://untrusted.invalid","*")) {
-                        try {AndroidMkrWebPort.attach(web,origin,fresh);fail("Accepted foreign/wildcard origin")}
+                        try {AndroidMkrWebPort.attach(web,origin,fresh,handoff);fail("Accepted foreign/wildcard origin")}
                         catch(expected: IllegalArgumentException){ /* Native origin boundary. */ }
                     }
                 }
