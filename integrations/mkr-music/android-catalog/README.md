@@ -282,3 +282,28 @@ access, Activity bootstrap, physical devices or installed signed upgrades.
 Production host registration, source/distribution review and packaging remain
 unfinished. Android navigation/content clearance needs real UI acceptance before
 enabling the production host. No updated APK/EXE is delivered by these checks.
+
+## Android player/content clearance
+
+Android main now reserves scroll content using an inner pseudo-element sized
+from the measured MKR dock, rather than adding a flex-box minimum that could push
+navigation offscreen. The space disappears when the dock hides. Short landscape
+windows use a compact player row, keeping its44-pixel controls. The shared mobile
+clearance observer watches status-footer resizing as well as both navigation
+rows; long progress/status messages therefore move floating players with the
+footer. It disconnects on page exit.
+
+[Run42151205625](https://github.com/mwalikokelvo/AnF/actions/runs/42151205625)
+at `91aef49` passed the existing6 renderer layouts and9 new Android-shell captures:
+320x568,390x850,800x1000 and740x420 in both themes, plus a growing status footer.
+It uses actual Android shell styles, the shared browser and production geometry
+observer with mocked native transport in Edge. It verifies last-item focus/tap
+reachability, navigation clearance, no horizontal overflow and removed space on
+hide. Minimum measured contrast was11.89 for controls and6.78 for metadata.
+
+The initial baseline failed because the last Android item was hidden beneath the
+dock; its screenshot/geometry was retained separately. The first spacer fix then
+exposed excessive player height in short landscape, which the compact row fixes.
+Phone/tablet/landscape and long-status images were visually inspected. These are
+browser fixtures, not full AnF Activity, Android device, provider or installed
+release acceptance. Production host/bootstrap and package gates still apply.
