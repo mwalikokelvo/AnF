@@ -10,6 +10,24 @@ The user's requested behavior remains an embedded player with navigation and con
 
 No MKR-derived catalog is currently linked into the production Android app. No updated production AnF package is delivered by these engineering tests. Source/notices, real native bridge/service/handoff, provider acceptance and installed-update verification remain required.
 
+The isolated Android library now has a page lifecycle owner,
+`AndroidMkrPageHost`. An Activity must forward main-frame page starts, page
+finishes and destruction to it, and supply a connector for an already approved
+service session. It revokes the old page before navigation, discards connections
+that arrive after cancellation, prevents duplicate attachment and supports both
+AnF and legacy Coucou origins. Closing the page detaches browsing without stopping
+ongoing service playback. A missing renderer still cannot approve a new audio
+handoff. The production MainActivity does not instantiate this host yet.
+
+[Native run42211028416](https://github.com/mwalikokelvo/AnF/actions/runs/42211028416)
+at `69731c4` passed43 host tests and15 Android15 component tests, including real
+WebView/Binder navigation, delayed connection delivery, destruction and legacy
+origin checks. The previous14 cases remain enabled. A stopped-service successor
+race exposed during this work was fixed by counting native connection handles
+instead of relying on delayed Android unbind callbacks. This evidence uses a
+disposable test identity and synthetic media; it does not establish production
+Activity integration, provider access, physical-device behavior or update signing.
+
 
 Renderer recovery and responsive dock checks passed in
 [run42058704736](https://github.com/mwalikokelvo/AnF/actions/runs/42058704736)
