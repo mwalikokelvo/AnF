@@ -1,0 +1,53 @@
+name: Windows frontend gates
+
+# The Tauri frontend is typechecked and tested here on every push to main.
+# Without this, a syntax error in windows/src can land on main unnoticed:
+# build.yml builds the macOS Swift app, and windows.yml only runs on PRs/tags.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'windows/**'
+      - 'shared/**'
+      - 'scripts/check-release.mjs'
+      - '.github/workflows/windows-gates.yml'
+  pull_request:
+    paths:
+      - 'windows/**'
+      - 'shared/**'
+      - 'scripts/check-release.mjs'
+      - '.github/workflows/windows-gates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npm test
+      - name: E2E tests
+        run: npm run test:e2e
+      - name: Release regression checks
+        working-directory: .
+        run: node scripts/check-release.mjs
