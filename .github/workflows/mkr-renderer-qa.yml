@@ -34,6 +34,8 @@ jobs:
           if($LASTEXITCODE){throw 'Renderer assertions failed'}
           node scripts/app-qa/mkr-android-layout.mjs
           if($LASTEXITCODE){throw 'Android shell clearance assertions failed'}
+          node scripts/app-qa/library-sort.mjs
+          if($LASTEXITCODE){throw 'Library preservation assertions failed'}
       - name: Retain fixture evidence only, no native/provider capability claim
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
