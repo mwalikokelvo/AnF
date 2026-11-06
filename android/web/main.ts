@@ -12,6 +12,7 @@ import {quickCapture} from '../../windows/src/workspace/quick-capture';
 import {createMusicHub} from '../../windows/src/workspace/music-hub';
 import {createMkrBrowser} from '../../windows/src/workspace/mkr-browser';
 import {createMkrPortClient} from '../../windows/src/workspace/mkr-web-port';
+import {watchMobilePlayerLayout} from './mobile-player-layout';
 import {createAudioStudio} from '../../windows/src/workspace/audio-studio';
 import {backupTools} from '../../windows/src/workspace/backup-tools';
 import {createStudio} from '../../windows/src/workspace/studio';
@@ -210,8 +211,8 @@ root.append(h('header',{class:'mobile-header'},wordmark(),h('span',{class:'mobil
 installSkipNavigation(root,host);
 // Keep both music docks above the real mode and section navigation. Heights can
 // change with text size, viewport and visible mode destinations.
-function placeMobilePlayer(){const top=Math.min(modeRail.getBoundingClientRect().top,nav.getBoundingClientRect().top);document.body.style.setProperty('--mobile-player-bottom',Math.max(0,innerHeight-top)+8+'px');}
-const mobileNavigationSize=new ResizeObserver(placeMobilePlayer);mobileNavigationSize.observe(modeRail);mobileNavigationSize.observe(nav);window.addEventListener('resize',placeMobilePlayer);placeMobilePlayer();
+const stopMobilePlayerLayout=watchMobilePlayerLayout(modeRail,nav,status);
+window.addEventListener('pagehide',stopMobilePlayerLayout,{once:true});
 for(const input of[title,prompt,draft,reply])input.addEventListener('input',autosave);
 let historyTimer:ReturnType<typeof setTimeout>|undefined;search.addEventListener('input',()=>{searchEpoch++;clearTimeout(historyTimer);historyTimer=setTimeout(()=>void refreshHistory().catch(e=>notify(String(e))),200);});
 responseLength.addEventListener('change',autosave);replyPlacement.addEventListener('change',autosave);

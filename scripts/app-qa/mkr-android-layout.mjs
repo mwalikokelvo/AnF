@@ -12,6 +12,7 @@ await build({stdin:{resolveDir:root,contents:`
 import {createMkrBrowser} from './windows/src/workspace/mkr-browser';
 import './android/web/style.css';import './windows/src/workspace/anf-design.css';
 import './windows/src/workspace/anf-color.css';import './android/web/anf-color.css';
+import {watchMobilePlayerLayout} from './android/web/mobile-player-layout';
 const track={id:'abcdefghijk',title:'Generated layout fixture song',artist:'Fixture'};
 let state={playing:false,positionMs:0,durationMs:10000,track:null};
 window.widget=createMkrBrowser({notify:()=>{},beforePlay:async()=>{},transport:async(command,payload)=>{
@@ -21,9 +22,7 @@ window.widget=createMkrBrowser({notify:()=>{},beforePlay:async()=>{},transport:a
  return structuredClone(state);
 }});
 document.querySelector('#music').prepend(window.widget.root);document.body.append(window.widget.dock);
-function navigation(){const top=Math.min(document.querySelector('.mode-rail').getBoundingClientRect().top,document.querySelector('.bottom-nav').getBoundingClientRect().top);
- document.body.style.setProperty('--mobile-player-bottom',Math.max(0,innerHeight-top)+8+'px');}
-new ResizeObserver(navigation).observe(document.querySelector('.bottom-nav'));window.addEventListener('resize',navigation);navigation();
+window.stopLayout=watchMobilePlayerLayout(document.querySelector('.mode-rail'),document.querySelector('.bottom-nav'),document.querySelector('.status'));
 window.start=async()=>{await window.widget.available();await window.widget.open();};
 `},bundle:true,format:'iife',outfile:path.join(out,'fixture.js')});
 const rows=Array.from({length:30},(_,i)=>`<p>Fixture library entry ${i+1}</p>`).join('');
@@ -63,11 +62,20 @@ try{
   assert(layout.controlContrast>=4.5&&layout.metadataContrast>=4.5,`${theme} control/metadata contrast below 4.5`);
   await page.getByRole('button',{name:'Last saved item',exact:true}).click();assert.equal(await page.evaluate(()=>window.lastClicked),true);
  }
+ const oldModeTop=await page.locator('.mode-rail').evaluate(element=>element.getBoundingClientRect().top);
+ await page.locator('.status').evaluate(element=>element.textContent='Generated long status message. '.repeat(30));
+ await page.waitForFunction(()=>document.querySelector('.mkr-dock').getBoundingClientRect().bottom<=document.querySelector('.mode-rail').getBoundingClientRect().top-7);
+ await page.evaluate(()=>{const main=document.querySelector('#app>main');main.scrollTop=main.scrollHeight;});
+ const dynamic=await page.evaluate(()=>{const dock=document.querySelector('.mkr-dock').getBoundingClientRect(),mode=document.querySelector('.mode-rail').getBoundingClientRect(),last=document.querySelector('#last').getBoundingClientRect(),main=document.querySelector('#app>main').getBoundingClientRect();return{scenario:'long-status',modeTop:mode.top,dockBottom:dock.bottom,dockTop:dock.top,lastTop:last.top,lastBottom:last.bottom,mainTop:main.top};});
+ assert(dynamic.modeTop<oldModeTop,'status wrapping must change the footer geometry');
+ assert(dynamic.lastTop>=dynamic.mainTop&&dynamic.lastBottom<=dynamic.dockTop-8,'status changes must keep last content accessible');
+ metrics.push(dynamic);await fs.writeFile(path.join(out,'metrics.json'),JSON.stringify(metrics,null,2));
+ await page.screenshot({path:path.join(out,'light-landscape-long-status.png')});
  const before=await page.evaluate(()=>document.querySelector('#app>main').scrollHeight);
  await page.evaluate(()=>window.widget.suspend());
  assert.equal(await page.locator('.mkr-dock').isVisible(),false);
  const after=await page.evaluate(()=>({scroll:document.querySelector('#app>main').scrollHeight,content:getComputedStyle(document.querySelector('#app>main'),'::after').content}));
  assert(after.scroll<before,'hiding the player must remove its reserved scroll space');
- assert(['none','normal'].includes(after.content));assert.deepEqual(errors,[]);
+ assert(['none','normal'].includes(after.content));assert.deepEqual(errors,[]);await page.evaluate(()=>window.stopLayout());
  console.log('PASS: actual Android shell CSS + shared MKR browser clears last content and both navigation rows at phone/tablet/landscape sizes in both themes; hidden player releases space. Mocked native transport only.');
 }finally{await browser.close();}

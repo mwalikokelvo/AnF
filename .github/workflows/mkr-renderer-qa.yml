@@ -2,7 +2,7 @@ name: MKR renderer recovery QA
 on:
   push:
     branches: ['qa/mkr-renderer-**']
-    paths: ['windows/src/workspace/mkr-*', 'windows/src/workspace/music-hub.css', 'android/web/style.css', 'scripts/app-qa/mkr-browser.mjs', 'scripts/app-qa/mkr-android-layout.mjs', '.github/workflows/mkr-renderer-qa.yml']
+    paths: ['windows/src/workspace/mkr-*', 'windows/src/workspace/music-hub.css', 'android/web/style.css', 'android/web/mobile-player-layout.ts', 'scripts/app-qa/mkr-browser.mjs', 'scripts/app-qa/mkr-android-layout.mjs', '.github/workflows/mkr-renderer-qa.yml']
   workflow_dispatch:
 permissions:
   contents: read
