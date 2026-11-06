@@ -77,9 +77,9 @@ try:
     for apk in signed:
         run([adb, 'install', '-t', apk])
     result = run([adb, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
-                  'com.anf.workspace.EntryPointsTest', test_id+'/androidx.test.runner.AndroidJUnitRunner'])
+                  'com.anf.workspace.EntryPointsTest,com.anf.workspace.RendererRecoveryTest', test_id+'/androidx.test.runner.AndroidJUnitRunner'])
     (reports/'instrumentation.txt').write_text(result, encoding='utf-8')
-    if not re.search(r'OK\s*\(1 test\)', result) or 'FAILURES!!!' in result or 'INSTRUMENTATION_FAILED' in result:
+    if not re.search(r'OK\s*\(2 tests\)', result) or 'FAILURES!!!' in result or 'INSTRUMENTATION_FAILED' in result:
         raise RuntimeError('Native entry-point assertions did not pass: ' + result)
     (reports/'scope.json').write_text(json.dumps({
         'sourceCommit': os.environ.get('GITHUB_SHA'), 'applicationId': identity,
