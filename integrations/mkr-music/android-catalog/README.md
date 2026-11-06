@@ -365,7 +365,25 @@ failures were retained and fixed without disabling locking or verification.
 
 This verifies one emulator ABI. ARM/other ABI and16KB-page compatibility, native
 source/distribution review, actual provider extraction and complete AnF host/
-installed-upgrade acceptance remain separate gates. The service cleanup coroutine
-also retains a compiler deprecation warning for later focused lifecycle work;
-it was unrelated to these test compile-path failures. No release is enabled by
+installed-upgrade acceptance remain separate gates. The former service cleanup launch deprecation was addressed in the subsequent
+service lifecycle verification below; it was unrelated to those compile-path
+failures. No release is enabled by
 this acceptance check.
+
+## Structured terminal cleanup
+
+The foreground service now launches cleanup as a child of its still-active
+service scope, using `withContext(NonCancellable)` around the terminal work.
+This preserves structured ownership without the deprecated non-cancellable
+launch override. The service scope is cancelled only after resources and the
+foreground notification have been released.
+
+[Run42168278443](https://github.com/mwalikokelvo/AnF/actions/runs/42168278443)
+at `32eef09` passed strict compile/frontend gates,43 host tests and all14
+Android15 instrumentation cases with the unchanged62-artifact runtime graph.
+The new case injects session-listener initialization failure, suspends native
+release, checks exactly-once decoder/catalog cleanup and starts a real Media3
+successor. Previous13 cases remain enabled. A local GitHub TLS outage delayed
+retrieving the result; it was not a build failure, and no duplicate was launched.
+This remains isolated component evidence, not a production release or full
+Activity/background-host/physical-device/provider/installed-upgrade acceptance.
