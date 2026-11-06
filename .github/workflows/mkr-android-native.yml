@@ -13,6 +13,11 @@ on:
       - windows/src/workspace/mkr-web-port.ts
       - android/web/main.ts
   workflow_dispatch:
+    inputs:
+      inventory_only:
+        description: Inspect pinned native ELF headers without rebuilding the emulator APK
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -64,13 +69,26 @@ jobs:
           node scripts/check-android-sdk-cli.mjs
           node scripts/prepare-android-sdk.mjs
           cli="$(node scripts/prepare-android-sdk.mjs --print-cli)"
-          "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
+          if [ "${{ inputs.inventory_only }}" != true ]; then
+            "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
+          fi
       - name: Build disposable instrumentation APK with strict dependency verification
         working-directory: integrations/mkr-music/android-catalog
-        run: gradle --no-daemon --no-configuration-cache testDebugUnitTest auditAndroidCatalogRuntime assembleDebugAndroidTest
+        run: |
+          if [ "${{ inputs.inventory_only }}" = true ]; then
+            gradle --no-daemon --no-configuration-cache auditAndroidCatalogRuntime
+          else
+            gradle --no-daemon --no-configuration-cache testDebugUnitTest auditAndroidCatalogRuntime assembleDebugAndroidTest
+          fi
+      - name: Inspect actual locked native ELF segments
+        run: |
+          python3 -B scripts/test-android-elf.py
+          python3 -B scripts/audit-android-elf.py integrations/mkr-music/android-catalog/build/reports/android-runtime.json integrations/mkr-music/android-catalog/build/reports/android-elf.json
       - name: Grant runner user access to KVM device
+        if: ${{ !inputs.inventory_only }}
         run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
       - name: Run real native generated-media tests on Android 15
+        if: ${{ !inputs.inventory_only }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 35
@@ -91,6 +109,7 @@ jobs:
           path: |
             integrations/mkr-music/android-catalog/build/test-results/**/*.xml
             integrations/mkr-music/android-catalog/build/reports/android-runtime.json
+            integrations/mkr-music/android-catalog/build/reports/android-elf.json
             integrations/mkr-music/android-catalog/build/reports/dependency-verification/**/*.html
             ${{ runner.temp }}/mkr-native-qa/*.txt
           if-no-files-found: ignore
