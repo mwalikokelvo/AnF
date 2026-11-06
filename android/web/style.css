@@ -5,3 +5,6 @@
 input[type=checkbox]{width:20px;height:20px;min-height:20px;vertical-align:middle;margin-right:8px;accent-color:var(--accent)}.callout>select{margin:10px 0}
 
 .connection-card textarea{min-height:90px;font-size:13px}.connection-card>button{margin:4px 6px 8px 0}.connection-card label{display:block;margin:12px 0}.connection-card p{margin-bottom:14px}
+/* Reserve scroll content inside main, keeping its flex box and navigation fixed. */
+body.has-mkr-player #app>main{scroll-padding-block-end:calc(var(--mkr-player-height,180px) + 16px)}
+body.has-mkr-player #app>main::after{content:'';display:block;block-size:calc(var(--mkr-player-height,180px) + 16px)}

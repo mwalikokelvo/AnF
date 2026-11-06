@@ -43,8 +43,14 @@ try{
   const layout=await page.evaluate(()=>{
    const main=document.querySelector('#app>main'),dock=document.querySelector('.mkr-dock'),last=document.querySelector('#last'),mode=document.querySelector('.mode-rail');
    const rect=element=>{const r=element.getBoundingClientRect();return{top:r.top,bottom:r.bottom,left:r.left,right:r.right,height:r.height};};
+   const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const context=canvas.getContext('2d');
+   const rgb=(...colors)=>{context.clearRect(0,0,1,1);for(const color of colors){context.fillStyle=color;context.fillRect(0,0,1,1);}return[...context.getImageData(0,0,1,1).data].slice(0,3);};
+   const luminance=values=>values.map(v=>{const n=v/255;return n<=0.04045?n/12.92:((n+0.055)/1.055)**2.4;}).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
+   const background=getComputedStyle(dock).backgroundColor;
+   const contrast=element=>{const style=getComputedStyle(element),back=luminance(rgb(background,style.backgroundColor)),fore=luminance(rgb(background,style.backgroundColor,style.color));return(Math.max(back,fore)+.05)/(Math.min(back,fore)+.05);};
    return{main:rect(main),dock:rect(dock),last:rect(last),mode:rect(mode),width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,
-    after:getComputedStyle(main,'::after').height,dockHeight:parseFloat(document.body.style.getPropertyValue('--mkr-player-height'))};
+    after:getComputedStyle(main,'::after').height,dockHeight:parseFloat(document.body.style.getPropertyValue('--mkr-player-height')),
+    controlContrast:contrast(dock.querySelector('button')),metadataContrast:contrast(dock.querySelector('.mkr-now span'))};
   });
   metrics.push({theme,...layout});await page.screenshot({path:path.join(out,`${theme}-${width}x${height}.png`)});
   await fs.writeFile(path.join(out,'metrics.json'),JSON.stringify(metrics,null,2));
@@ -53,6 +59,7 @@ try{
   assert(layout.dock.bottom<=layout.mode.top-7,'dock must clear both Android navigation rows');
   assert(layout.main.height>24&&layout.mode.bottom<=height,'scroll space must not push navigation offscreen');
   assert(layout.scrollWidth<=width&&layout.dock.left>=0&&layout.dock.right<=width,'no horizontal clipping');
+  assert(layout.controlContrast>=4.5&&layout.metadataContrast>=4.5,`${theme} control/metadata contrast below 4.5`);
   await page.getByRole('button',{name:'Last saved item',exact:true}).click();assert.equal(await page.evaluate(()=>window.lastClicked),true);
  }
  const before=await page.evaluate(()=>document.querySelector('#app>main').scrollHeight);
