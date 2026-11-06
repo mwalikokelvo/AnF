@@ -139,8 +139,9 @@ class MkrPlaybackService : Service() {
     private fun finish() {
         if(closing)return
         closing=true;initialization?.cancel()
-        // A fresh cleanup job is not cancelled with the service's command scope.
-        scope.launch(NonCancellable) {
+        // The service scope stays active until this child completes cleanup.
+        // Protect cleanup itself, retaining the child's structured parent.
+        scope.launch { withContext(NonCancellable) {
             try {
                 remote?.unregisterCallback(observer);remote=null
                 if(owner!=null) owner!!.close() else request?.controller?.close()
@@ -150,7 +151,7 @@ class MkrPlaybackService : Service() {
                 cleaned=true;clearDestroyedOwner()
                 stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();scope.cancel()
             }
-        }
+        }}
     }
     private fun clearDestroyedOwner() {
         if(destroyed && cleaned) {
