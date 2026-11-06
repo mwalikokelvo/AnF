@@ -10,6 +10,8 @@ import {vaultPanel} from '../../windows/src/workspace/vault-panel';
 import {workflowButtons} from '../../windows/src/workspace/workflows';
 import {quickCapture} from '../../windows/src/workspace/quick-capture';
 import {createMusicHub} from '../../windows/src/workspace/music-hub';
+import {createMkrBrowser} from '../../windows/src/workspace/mkr-browser';
+import {createMkrPortClient} from '../../windows/src/workspace/mkr-web-port';
 import {createAudioStudio} from '../../windows/src/workspace/audio-studio';
 import {backupTools} from '../../windows/src/workspace/backup-tools';
 import {createStudio} from '../../windows/src/workspace/studio';
@@ -117,15 +119,28 @@ section('home','Home',dashboard.root,button('Connect my devices',()=>show('setti
 section('documents','Documents',h('h1',{text:'Documents'}),h('p',{class:'muted',text:'PDF · EPUB · Word · Text. Up to four documents, 50 MB each; 600 PDF pages and 2 MB of extracted text. Protected books and scanned PDFs are not supported in this edition.'}),file,libraryControls(sourceList),reader.root,sourceList,webResearch);
 let nativeMedia:ReturnType<typeof nativeMediaPanel>|undefined;
 let nativeMusic:ReturnType<typeof createNativeMusicPlayer>|undefined;
-const musicHub=createMusicHub({exportPlaylist:text=>exportText('AnF-playlist.json',text,'application/json'),notify,beforePlay:async()=>{audioStudio.stop();audioStudio.hideDock();nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();}});
-const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{musicHub.suspend();nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();});
-if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,async()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();nativeMusic?.suspend();await spotubeRequest('pause');},notify);audioStudio.root.append(nativeMedia.root);}
+let mkrBrowser:ReturnType<typeof createMkrBrowser>|undefined;
+let mkrSource:HTMLButtonElement|undefined,mkrEpoch=0;
+const mkrPort=createMkrPortClient(window,connected=>{
+ const epoch=++mkrEpoch;if(mkrSource)mkrSource.hidden=true;
+ if(connected&&mkrBrowser)void mkrBrowser.available().then(available=>{if(epoch===mkrEpoch&&mkrSource)mkrSource.hidden=!available;}).catch(()=>{});
+});
+async function pauseMkrForOtherAudio(){await mkrBrowser?.suspend();await mkrPort.pauseForOtherAudio();}
+
+const musicHub=createMusicHub({exportPlaylist:text=>exportText('AnF-playlist.json',text,'application/json'),notify,beforePlay:async()=>{await pauseMkrForOtherAudio();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();}});
+const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{await pauseMkrForOtherAudio();musicHub.suspend();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();});
+if(native?.mediaRequest){nativeMedia=nativeMediaPanel(audioStudio.tracks,audioStudio.repeat,async()=>{await pauseMkrForOtherAudio();musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');},notify);audioStudio.root.append(nativeMedia.root);}
 if(spotubeAvailable()){
- nativeMusic=createNativeMusicPlayer({request:spotubeRequest,notify,beforePlay:async()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMedia?.suspend();},open:async()=>{show('music');await spotubeRequest('open');}});
+ nativeMusic=createNativeMusicPlayer({request:spotubeRequest,notify,beforePlay:async()=>{await pauseMkrForOtherAudio();musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMedia?.suspend();},open:async()=>{show('music');await spotubeRequest('open');}});
  musicHub.root.querySelector('.music-heading')!.append(button('Open Spotube',()=>void nativeMusic!.open()));
 }
 if(!spotubeAvailable()){musicHub.root.prepend(h('p',{class:'muted',text:'Spotube music is not available in this build. Local Audio Studio tracks still work when the Android media bridge is present.'}));}
-musicHub.root.querySelector('.music-heading')!.append(button('Open Spotify',()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();nativeMusic?.suspend();void spotubeRequest('pause').catch(()=>{});void nativeMedia?.suspend();if(native?.openSpotify)native.openSpotify();else notify('Open Spotify from the installed Android app.');}));
+const pauseForMkr=async()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();};
+mkrBrowser=createMkrBrowser({transport:mkrPort.transport,beforePlay:pauseForMkr,notify});
+musicHub.root.append(mkrBrowser.root);document.body.append(mkrBrowser.dock);
+mkrSource=button('MKR Music',()=>{show('music');void mkrBrowser!.open().catch(error=>notify(String(error)));});mkrSource.hidden=true;
+musicHub.root.querySelector('.music-heading')!.append(mkrSource);
+musicHub.root.querySelector('.music-heading')!.append(button('Open Spotify',()=>{void(async()=>{await pauseMkrForOtherAudio();musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();if(native?.openSpotify)native.openSpotify();else notify('Open Spotify from the installed Android app.');})().catch(error=>notify(String(error)));}));
 section('music','Music Hub',musicHub.root);
 section('audio','Audio Studio',audioStudio.root);
 section('writing','Writing',h('h1',{text:'Writing'}),h('p',{class:'muted',text:'Write freely. Preview your formatting and keep every draft local.'}),editor.root,h('div',{class:'row'},format,button('Export writing',()=>{if(!draft.value.trim()){notify('Write something first.');return;}const ext=format.value;let text=draft.value;const mime=ext==='html'?'text/html':ext==='md'?'text/markdown':'text/plain';if(ext==='html'){const preview=renderWriting(draft.value);text='<!doctype html><meta charset="utf-8"><title>'+escape(title.value)+'</title><body>'+ (preview?.innerHTML||'<pre>'+escape(text)+'</pre>')+'</body>';}exportText('AnF-writing.'+ext,text,mime);},'primary')),h('div',{class:'row'},button('Read aloud',()=>native?native.speak(draft.value):notify('Read-aloud is available in the Android app.')),button('Stop reading',()=>native?.stopSpeaking())));

@@ -60,7 +60,7 @@ class AndroidMkrWebPortTest {
                     override fun onPageFinished(view: WebView?, url: String?) {loaded.complete(Unit)}
                 }
                 activity.setContentView(web)
-                web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()},"text/html","UTF-8","https://anf.local/")
+                web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()}.replace("<script>","<script>"+context.assets.open("native-web-client.js").bufferedReader().use{it.readText()}+"</script><script>"),"text/html","UTF-8","https://anf.local/")
             }
             withTimeout(8000){loaded.await()}
             val token=MkrPlaybackService.start(activity,controller)

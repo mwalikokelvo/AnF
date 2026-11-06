@@ -8,6 +8,10 @@ on:
       - scripts/prepare-android-sdk.mjs
       - scripts/check-android-sdk-cli.mjs
       - scripts/app-qa/run-mkr-android-native.sh
+      - scripts/app-qa/build-mkr-web-client.mjs
+      - scripts/check-mkr-web-port.mjs
+      - windows/src/workspace/mkr-web-port.ts
+      - android/web/main.ts
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,6 +33,16 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Validate shipped renderer transport and build Android UI assets
+        run: |
+          set -euo pipefail
+          npm ci --prefix windows
+          npm ci --prefix android
+          node windows/node_modules/typescript/bin/tsc --noEmit --project windows/tsconfig.json
+          node scripts/check-mkr-player.mjs
+          node scripts/check-mkr-web-port.mjs
+          node scripts/build-android.mjs --assets-only
+          node scripts/app-qa/build-mkr-web-client.mjs
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
         with:
           cmdline-tools-version: '16111833'

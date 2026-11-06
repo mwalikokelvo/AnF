@@ -83,6 +83,8 @@ internal class AndroidMkrWebPort private constructor(
         if(!closed.compareAndSet(false,true))return
         scope.cancel()
         val task=Runnable {
+            // Inform the page before revocation; never serialize a native error.
+            try {if(transferred && trusted())ports[0].postMessage(WebMessage("{\"event\":\"closed\"}"))}catch(error: Exception){ /* Page already gone. */ }
             try {ports[0].close()}catch(error: Exception){ /* Already detached. */ }
             try {if(!transferred)ports[1].close()}catch(error: Exception){ /* Transfer already owns it. */ }
             finally {requests.clear();connection.close()}

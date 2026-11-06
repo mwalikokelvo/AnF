@@ -44,3 +44,4 @@ dist/
 **/dist/
 
 .agents/
+integrations/mkr-music/android-catalog/src/androidTest/assets/native-web-client.js

@@ -2,12 +2,16 @@
 <h1>Native music transport</h1><p id="status" role="status">Connecting</p>
 <script>
 window.report={phase:'waiting'};
+let started=false;
 window.addEventListener('message',event=>{
-  if(event.data!=='anf-mkr-port-v1'||!event.ports[0]||window.started)return;
-  window.started=true;const port=event.ports[0],pending=new Map();let sequence=0;
-  window.sendDeeplyNested=()=>port.postMessage('{"id":"999","command":"status","payload":{"nested":'+'['.repeat(20)+'0'+']'.repeat(20)+'}}');
-  port.onmessage=event=>{const reply=JSON.parse(event.data);const done=pending.get(reply.id);if(done){pending.delete(reply.id);done(reply);}};
-  function raw(command,payload={}){return new Promise(resolve=>{const id=String(++sequence);pending.set(id,resolve);port.postMessage(JSON.stringify({id,command,payload}));});}
+  if(event.source===null&&event.data==='anf-mkr-port-v1'&&event.ports[0]){
+    const port=event.ports[0];
+    window.sendDeeplyNested=()=>port.postMessage('{"id":"999","command":"status","payload":{"nested":'+'['.repeat(20)+'0'+']'.repeat(20)+'}}');
+  }
+});
+const client=window.createAnfMkrPortClient(connected=>{
+  if(!connected){window.disconnected=true;return;}if(started)return;started=true;
+  async function raw(command,payload={}){try{return{value:await client.transport(command,payload),error:null};}catch(error){return{error:error.message};}}
   async function call(command,payload){const reply=await raw(command,payload);if(reply.error)throw Error(reply.error);return reply.value;}
   function check(value,label){if(!value)throw Error(label);}
   (async()=>{
