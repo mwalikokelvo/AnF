@@ -344,3 +344,28 @@ native-other-engine silence proof in the pending Activity host. Do not enable
 production availability by treating renderer absence as automatic approval.
 Activity bootstrap, source/distribution packaging and full app/physical-device/
 provider/installed-upgrade release acceptance remain unfinished.
+
+## Actual Android QuickJS JNI
+
+[Run42164543338](https://github.com/mwalikokelvo/AnF/actions/runs/42164543338)
+at `025a95f` passed strict compile/frontend gates,43 host tests and all13
+Android15 API35 x86_64 instrumentation cases with the unchanged62-artifact runtime
+graph. The added case loads the actual pinned Android QuickJS1.0.14 AAR/native
+library, creates/closes3 contexts, evaluates generated arithmetic/string code,
+compiles/evaluates bytecode and recovers after a generated JavaScript exception.
+The default context exposes neither fetch nor XMLHttpRequest. This is runtime
+JNI acceptance, not a security sandbox certification or live provider test.
+
+The extractor's implementation dependency was already present at runtime but
+hidden from instrumentation compile consumers. A test-only direct declaration
+of the same pinned coordinate and its two existing lock entries' new compile
+scope make the API visible. Versions, artifact verification hashes and production
+runtime dependencies remain unchanged. Initial compile/classpath and strict lock
+failures were retained and fixed without disabling locking or verification.
+
+This verifies one emulator ABI. ARM/other ABI and16KB-page compatibility, native
+source/distribution review, actual provider extraction and complete AnF host/
+installed-upgrade acceptance remain separate gates. The service cleanup coroutine
+also retains a compiler deprecation warning for later focused lifecycle work;
+it was unrelated to these test compile-path failures. No release is enabled by
+this acceptance check.
