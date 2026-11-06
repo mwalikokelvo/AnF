@@ -30,6 +30,8 @@ jobs:
       - name: Check mocked-native UI recovery and responsive layouts
         shell: pwsh
         run: |
+          node windows/node_modules/typescript/bin/tsc --noEmit --project windows/tsconfig.json
+          if($LASTEXITCODE){throw 'Strict frontend typecheck failed'}
           node scripts/app-qa/mkr-browser.mjs 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/mkr-renderer.txt"
           if($LASTEXITCODE){throw 'Renderer assertions failed'}
           node scripts/app-qa/mkr-android-layout.mjs
