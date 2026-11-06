@@ -2,7 +2,7 @@ name: MKR renderer recovery QA
 on:
   push:
     branches: ['qa/mkr-renderer-**']
-    paths: ['windows/src/workspace/mkr-*', 'windows/src/workspace/music-hub.css', 'scripts/app-qa/mkr-browser.mjs', '.github/workflows/mkr-renderer-qa.yml']
+    paths: ['windows/src/workspace/mkr-*', 'windows/src/workspace/music-hub.css', 'android/web/style.css', 'scripts/app-qa/mkr-browser.mjs', 'scripts/app-qa/mkr-android-layout.mjs', '.github/workflows/mkr-renderer-qa.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,6 +32,8 @@ jobs:
         run: |
           node scripts/app-qa/mkr-browser.mjs 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/mkr-renderer.txt"
           if($LASTEXITCODE){throw 'Renderer assertions failed'}
+          node scripts/app-qa/mkr-android-layout.mjs
+          if($LASTEXITCODE){throw 'Android shell clearance assertions failed'}
       - name: Retain fixture evidence only, no native/provider capability claim
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -40,5 +42,7 @@ jobs:
           path: |
             ${{ runner.temp }}/mkr-renderer.txt
             windows/target/mkr-browser-check/*.png
+            windows/target/mkr-android-layout-check/*.png
+            windows/target/mkr-android-layout-check/metrics.json
           if-no-files-found: ignore
           retention-days: 14
