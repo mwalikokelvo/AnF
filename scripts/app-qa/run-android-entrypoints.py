@@ -81,14 +81,16 @@ try:
     (reports/'instrumentation.txt').write_text(result, encoding='utf-8')
     if not re.search(r'OK\s*\(2 tests\)', result) or 'FAILURES!!!' in result or 'INSTRUMENTATION_FAILED' in result:
         raise RuntimeError('Native entry-point assertions did not pass: ' + result)
+    run([adb,'pull',f'/sdcard/Android/data/{identity}/files/qa/renderer-recovery.png',reports/'renderer-recovery.png'])
     (reports/'scope.json').write_text(json.dumps({
         'sourceCommit': os.environ.get('GITHUB_SHA'), 'applicationId': identity,
         'androidApi': 35, 'nativePackageManager': True, 'nativeShortcutManager': True,
+        'nativeRendererRecovery': True, 'actualRendererTerminatedOnce': True,
         'freshInstallOnly': True, 'throwawaySigner': True,
         'originalSignerVerified': False, 'installedUpgradeVerified': False,
         'providerPlaybackVerified': False, 'readyForPublication': False,
     }, indent=2)+'\n', encoding='utf-8')
-    print('PASS native launcher, published shortcut, pinned tile and private media-service component checks. Fresh emulator/throwaway signer only.')
+    print('PASS native entry points and real renderer termination/recovery/reopen with generated saved-file preservation. Fresh emulator/throwaway signer only.')
 finally:
     try:
         diagnostic = subprocess.run([str(adb), 'logcat', '-d', '-v', 'brief'], capture_output=True, text=True, timeout=30)

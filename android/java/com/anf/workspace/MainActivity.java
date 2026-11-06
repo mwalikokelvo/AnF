@@ -51,6 +51,10 @@ public class MainActivity extends Activity {
     s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     web.addJavascriptInterface(new LocalActions(),"AnFAndroid");
     web.setWebViewClient(new WebViewClient(){
+      @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){
+        if(!closing && view==web)showRendererRecovery();
+        return true;
+      }
       @Override public boolean shouldOverrideUrlLoading(WebView w,WebResourceRequest r){return !r.getUrl().toString().startsWith(origin);}
       @Override public WebResourceResponse shouldInterceptRequest(WebView w,WebResourceRequest r){
         Uri u=r.getUrl();
@@ -90,7 +94,7 @@ public class MainActivity extends Activity {
   }
   private WebResourceResponse blocked(){return new WebResourceResponse("text/plain","UTF-8",403,"Blocked",Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));}
   private void notice(String text){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.nativeNotice && window.nativeNotice("+JSONObject.quote(text)+")",null);});}
-  @Override public void onBackPressed(){web.evaluateJavascript("typeof window.nativeBack === 'function' && window.nativeBack()",handled->{if(!"true".equals(handled))moveTaskToBack(true);});}
+  @Override public void onBackPressed(){if(closing){moveTaskToBack(true);return;}web.evaluateJavascript("typeof window.nativeBack === 'function' && window.nativeBack()",handled->{if(!"true".equals(handled))moveTaskToBack(true);});}
   public class LocalActions {
     @JavascriptInterface public boolean spotubeAvailable(){
       boolean supported=false;for(String abi:android.os.Build.SUPPORTED_ABIS)if("arm64-v8a".equals(abi)||"x86_64".equals(abi))supported=true;
@@ -202,6 +206,7 @@ public class MainActivity extends Activity {
   private void linkResult(String id,String value,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.linkResult && window.linkResult("+JSONObject.quote(id)+","+JSONObject.quote(value)+","+JSONObject.quote(error)+")",null);});}
   @Override protected void onActivityResult(int request,int result,Intent data){
     super.onActivityResult(request,result,data);
+    if(closing)return;
     if(request==1&&picker!=null){
       ArrayList<Uri> selected=new ArrayList<>();
       if(result==RESULT_OK&&data!=null){if(data.getClipData()!=null){for(int n=0;n<Math.min(100,data.getClipData().getItemCount());n++)selected.add(data.getClipData().getItemAt(n).getUri());}else if(data.getData()!=null)selected.add(data.getData());}
@@ -209,5 +214,38 @@ public class MainActivity extends Activity {
     }
     if(request==2){byte[] bytes=exportBytes;exportBytes=null;if(result==RESULT_OK&&data!=null&&bytes!=null){new Thread(()->{try(OutputStream out=getContentResolver().openOutputStream(data.getData())){if(out==null)throw new IOException();out.write(bytes);notice("Export saved.");}catch(Exception e){notice("Could not save this export.");}}).start();}else notice("Export cancelled.");}
   }
-  @Override protected void onDestroy(){closing=true;if(media!=null)media.close();if(addons!=null)addons.close();vaultWorker.shutdown();if(picker!=null)picker.onReceiveValue(null);if(speech!=null){speech.stop();speech.shutdown();}if(web!=null)web.destroy();super.onDestroy();}
+  private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
+  private void showRendererRecovery(){
+    android.widget.ScrollView recovery=new android.widget.ScrollView(this);recovery.setFillViewport(true);
+    android.widget.LinearLayout content=new android.widget.LinearLayout(this);content.setOrientation(android.widget.LinearLayout.VERTICAL);
+    content.setGravity(android.view.Gravity.CENTER_VERTICAL);content.setPadding(dp(24),dp(32),dp(24),dp(32));
+    android.widget.TextView title=new android.widget.TextView(this);title.setText("Workspace needs a reload");
+    title.setTextAppearance(android.R.style.TextAppearance_Material_Headline);title.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+    if(android.os.Build.VERSION.SDK_INT>=28)title.setAccessibilityHeading(true);
+    content.addView(title,new android.widget.LinearLayout.LayoutParams(-1,-2));
+    android.widget.TextView message=new android.widget.TextView(this);
+    message.setText("The display stopped unexpectedly. Reload to reopen your saved workspace.");
+    message.setTextAppearance(android.R.style.TextAppearance_Material_Body1);
+    android.widget.LinearLayout.LayoutParams copyLayout=new android.widget.LinearLayout.LayoutParams(-1,-2);copyLayout.topMargin=dp(12);content.addView(message,copyLayout);
+    android.widget.Button reload=new android.widget.Button(this);reload.setText("Reload workspace");reload.setAllCaps(false);reload.setMinHeight(dp(48));
+    reload.setOnClickListener(v->{if(!isFinishing()&&!isDestroyed()){reload.setEnabled(false);recreate();}});
+    android.widget.LinearLayout.LayoutParams actionLayout=new android.widget.LinearLayout.LayoutParams(-1,-2);actionLayout.topMargin=dp(24);content.addView(reload,actionLayout);
+    recovery.addView(content,new android.widget.ScrollView.LayoutParams(-1,-1));
+    recovery.setOnApplyWindowInsetsListener((v,insets)->{
+      if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);}
+      else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());
+      return insets;
+    });
+    // Remove the dead display before destroying it. Keep saved files and native
+    // service playback; recovery requires an explicit user action, never a loop.
+    setContentView(recovery);closeWorkspace();recovery.requestApplyInsets();reload.requestFocus();
+  }
+  private void closeWorkspace(){
+    if(closing)return;closing=true;
+    if(media!=null)media.close();if(addons!=null)addons.close();vaultWorker.shutdown();
+    if(picker!=null){ValueCallback<Uri[]> pending=picker;picker=null;pending.onReceiveValue(null);}
+    exportBytes=null;speechPartId=null;speechPartLength=0;
+    if(speech!=null){speech.stop();speech.shutdown();}if(web!=null)web.destroy();
+  }
+  @Override protected void onDestroy(){closeWorkspace();super.onDestroy();}
 }

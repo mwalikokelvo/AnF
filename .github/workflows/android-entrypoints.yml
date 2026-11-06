@@ -71,5 +71,6 @@ jobs:
           path: |
             ${{ runner.temp }}/anf-entrypoints-qa/reports/*.txt
             ${{ runner.temp }}/anf-entrypoints-qa/reports/*.json
+            ${{ runner.temp }}/anf-entrypoints-qa/reports/*.png
           if-no-files-found: ignore
           retention-days: 7
