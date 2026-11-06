@@ -39,7 +39,7 @@ class AndroidMkrWebPortTest {
             {closed.incrementAndGet()},leaseFactory={stream -> AndroidMediaLease(MkrStream(stream.url,stream.mimeType,stream.headers,
                 true,true,65536,data.size.toLong(),System.currentTimeMillis()+120000),connect=cdn::connect)})
         val web=withContext(Dispatchers.Main.immediate){WebView(activity)}
-        var host: AndroidMkrWebPort?=null
+        var host: AndroidMkrPageHost?=null
         var connection: AndroidMkrConnection?=null
         var loaded=CompletableDeferred<Unit>()
         suspend fun report(): JSONObject=withContext(Dispatchers.Main.immediate) {
@@ -56,8 +56,8 @@ class AndroidMkrWebPortTest {
             withContext(Dispatchers.Main.immediate) {
                 web.settings.javaScriptEnabled=true;web.settings.blockNetworkLoads=true
                 web.webViewClient=object : WebViewClient() {
-                    override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {host?.close()}
-                    override fun onPageFinished(view: WebView?, url: String?) {loaded.complete(Unit)}
+                    override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {host?.onPageStarted()}
+                    override fun onPageFinished(view: WebView?, url: String?) {host?.onPageFinished(url);loaded.complete(Unit)}
                 }
                 activity.setContentView(web)
                 web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()}.replace("<script>","<script>"+context.assets.open("native-web-client.js").bufferedReader().use{it.readText()}+"</script><script>"),"text/html","UTF-8","https://anf.local/")
@@ -67,7 +67,8 @@ class AndroidMkrWebPortTest {
             val client=AndroidMkrConnection.connect(activity,token);connection=client
             withContext(Dispatchers.Main.immediate){
                 assertEquals("https://anf.local/",web.url)
-                host=AndroidMkrWebPort.attach(web,"https://anf.local",client,handoff)
+                host=AndroidMkrPageHost(web,"https://anf.local",handoff){client}
+                host!!.onPageFinished(web.url)
             }
             withTimeout(8000){requested.await()}
             withTimeout(8000){while(report().optString("phase")!="audio-handoff")delay(20)}
@@ -91,9 +92,10 @@ class AndroidMkrWebPortTest {
                     if(!detached)delay(20)
                 }
             }
-            // Revoke before navigation. Neither app origin can be attached on a foreign page.
+            // Lifecycle host revokes on navigation; no manual port close here.
+            // Neither app origin can be attached on a foreign page.
             withContext(Dispatchers.Main.immediate) {
-                host!!.close();loaded=CompletableDeferred()
+                loaded=CompletableDeferred()
                 web.loadDataWithBaseURL("https://untrusted.invalid/","<p>Untrusted fixture</p>","text/html","UTF-8","https://untrusted.invalid/")
             }
             withTimeout(8000){loaded.await()}
