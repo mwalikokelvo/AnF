@@ -11,7 +11,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AndroidAudioHandoffTest {
-    @Test fun acknowledgementsAreSingleUseAndBoundToCurrentPage() = runBlocking {
+    @Test fun acknowledgementsAreSingleUseAndBoundToCurrentPage(): Unit = runBlocking {
         val owner=AndroidAudioHandoff();assertFalse(owner.requestPause())
         val sent=Channel<String>(Channel.UNLIMITED)
         val first=withContext(Dispatchers.Main.immediate){owner.attach{sent.trySend(it);true}}
@@ -34,7 +34,7 @@ class AndroidAudioHandoffTest {
         withContext(Dispatchers.Main.immediate){assertFalse(second.acknowledge(cancelledToken,true));second.close()}
         assertFalse(owner.requestPause());sent.close()
     }
-    @Test fun timeoutAndDetachedPageCannotApprovePlayback() = runBlocking {
+    @Test fun timeoutAndDetachedPageCannotApprovePlayback(): Unit = runBlocking {
         val owner=AndroidAudioHandoff();var token=""
         val binding=withContext(Dispatchers.Main.immediate){owner.attach{token=it;true}}
         val start=SystemClock.elapsedRealtime()
