@@ -10,6 +10,8 @@ on:
       - scripts/app-qa/run-mkr-android-native.sh
       - scripts/app-qa/build-mkr-web-client.mjs
       - scripts/check-mkr-web-port.mjs
+      - scripts/audit-android-elf.py
+      - scripts/test-android-elf.py
       - windows/src/workspace/mkr-web-port.ts
       - android/web/main.ts
   workflow_dispatch:

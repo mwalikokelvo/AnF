@@ -387,3 +387,20 @@ successor. Previous13 cases remain enabled. A local GitHub TLS outage delayed
 retrieving the result; it was not a build failure, and no duplicate was launched.
 This remains isolated component evidence, not a production release or full
 Activity/background-host/physical-device/provider/installed-upgrade acceptance.
+
+## Native ELF inspection
+
+The optional inventory_only workflow mode resolves the strict locked runtime and
+inspects native ELF headers without building an instrumentation APK or starting
+an emulator. It verifies each archive digest against the runtime inventory,
+records individual native-library SHA256 values and reports PT_LOAD alignment.
+Generated parser tests cover ELF32/64, both endiannesses, truncated tables,
+invalid alignments and missing load segments. Nothing is patched or executed.
+
+Run42187959359 at0c351b0 inspected all62 runtime artifacts. All4 QuickJS .so
+entries (arm64-v8a, armeabi-v7a, x86 and x86_64) have16KiB PT_LOAD alignment.
+This clears the header-alignment question only. APK ZIP alignment,16KB-device
+execution and complete native source/distribution review remain unverified;
+readyForPublication stays false. Published binaries and verification hashes
+were unchanged. See Android's official page-size guidance:
+https://developer.android.com/guide/practices/page-sizes
