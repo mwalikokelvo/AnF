@@ -96,6 +96,9 @@ dependencies {
     testImplementation("io.ktor:ktor-client-mock")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    // The extractor's implementation dependency is runtime-only to consumers.
+    // JNI acceptance needs its already-pinned Android variant on the test compile path.
+    androidTestImplementation("io.github.dokar3:quickjs-kt:1.0.14")
 }
 
 tasks.register("auditAndroidCatalogRuntime") {
