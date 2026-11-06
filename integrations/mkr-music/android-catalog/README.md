@@ -404,3 +404,19 @@ execution and complete native source/distribution review remain unverified;
 readyForPublication stays false. Published binaries and verification hashes
 were unchanged. See Android's official page-size guidance:
 https://developer.android.com/guide/practices/page-sizes
+
+## Built APK alignment check
+
+The package_only workflow mode builds the disposable instrumentation APK under
+strict dependency checks, then runs SDK36 zipalign in check-only mode with
+16KiB native alignment and independently reads local ZIP header offsets.
+It skips the emulator, preserving the existing normal14-case native path.
+Generated ZIP fixtures test aligned/unaligned/compressed/no-native cases.
+
+Run42195051665 at a1e9e44 passed43 host tests, both packaging-parser tests and
+official/independent alignment checks. All4 stored QuickJS native entries are
+16KiB aligned, including both64-bit entries. The APK was neither rewritten nor
+published; it uses the disposable test identity. This adds ZIP evidence to the
+previous ELF-header inspection, not16KB-device execution or production AnF APK/
+original signer/installed-upgrade acceptance. Check the final production APK
+again after real host integration; publication remains gated.
