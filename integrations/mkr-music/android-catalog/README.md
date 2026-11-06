@@ -307,3 +307,40 @@ exposed excessive player height in short landscape, which the compact row fixes.
 Phone/tablet/landscape and long-status images were visually inspected. These are
 browser fixtures, not full AnF Activity, Android device, provider or installed
 release acceptance. Production host/bootstrap and package gates still apply.
+
+## Current-page audio acknowledgement
+
+`AndroidAudioHandoff` now implements the native/renderer acknowledgement used by
+the controller's pause-other-audio callback. A host creates one coordinator for
+the controller and passes that same instance when attaching its trusted page
+port. Each request has a fresh one-use UUID, a current-page identity and a
+monotonic4-second deadline checked at acknowledgement and verdict return.
+Replacement, stale/duplicate/wrong tokens, cancellation, timeout and detached
+pages deny playback. Closing an old page cannot detach its successor.
+
+The native port sends `pause-others`; the shared TS client awaits its real
+pause-others callback and replies privately with `audio-ack`. Android main uses
+its existing pauseForMkr routine, including awaited native/Spotube/media pauses,
+without pausing MKR itself. A missing/rejected callback or3.5-second renderer
+deadline sends a negative acknowledgement. Replaced/closed/superseded callbacks
+cannot send a late positive response. No callback automatically grants playback.
+
+[Run42158352362](https://github.com/mwalikokelvo/AnF/actions/runs/42158352362)
+at `86db689` passed strict compilation, frontend policy checks/asset build,
+43 host and all12 Android15 instrumentation tests with the unchanged62-artifact
+runtime graph. The actual WebView/TS/native-controller test holds simulated
+other-engine completion, requires zero stream/decoder requests before positive
+acknowledgement, then decodes generated AAC and performs a second fresh handoff.
+Two additional native cases cover token/page ownership/cancellation and the real
+4-second timeout. The initial run failed JUnit discovery because a coroutine test
+inferred a Boolean return; explicit Unit signatures fixed discovery without
+removing assertions or changing deadlines.
+
+This proves the channel/coordinator with a fixture completion callback, not real
+Spotube/Studio switching in the full application. Without an attached renderer,
+new play/next/resume requests currently deny; ongoing service playback is a
+separate lifetime. Background control after page destruction requires a genuine
+native-other-engine silence proof in the pending Activity host. Do not enable
+production availability by treating renderer absence as automatic approval.
+Activity bootstrap, source/distribution packaging and full app/physical-device/
+provider/installed-upgrade release acceptance remain unfinished.
