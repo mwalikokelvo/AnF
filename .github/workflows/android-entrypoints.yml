@@ -44,6 +44,8 @@ jobs:
           "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
           npm ci --prefix windows
           npm ci --prefix android
+          node scripts/check-branding-test.mjs
+          node scripts/check-branding.mjs
           node scripts/build-android.mjs --assets-only ${{ matrix.lineage == 'legacy' && '--legacy' || '' }}
       - name: Build isolated QA inputs, never production-signed release artifacts
         run: gradle -p android --no-daemon --max-workers=2 assembleRelease assembleReleaseAndroidTest ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}

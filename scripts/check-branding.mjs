@@ -65,9 +65,17 @@ const compatibility=new Map([
  ['windows/src/workspace/main.ts',['coucou-windows-backup']],
  ['windows/src/workspace/podcast-feeds.ts',['coucouFeedResult']],
  ['windows/src-tauri/nsis/hooks.nsh',['coucou.exe','Coucou.lnk']],
+ // Quoted, exact native origins are sandbox compatibility, never display labels.
+ ['windows/src/workspace/mkr-web-port.ts',["'https://coucou.local'"]],
+ ['scripts/check-mkr-web-port.mjs',["'https://coucou.local'"]],
+ ['integrations/mkr-music/android-catalog/src/main/kotlin/com/anf/mkr/android/AndroidMkrPageHost.kt',['"https://coucou.local"']],
+ ['integrations/mkr-music/android-catalog/src/main/kotlin/com/anf/mkr/android/AndroidMkrWebPort.kt',['"https://coucou.local"']],
+ ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/AndroidMkrPageHostTest.kt',['"https://coucou.local"']],
+ ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/AndroidMkrWebPortTest.kt',['"https://coucou.local"']],
 ]);
 const upstreamUrl=/https:\/\/github\.com\/Louis-CFM\/coucou(?=[/"'\s)>]|$)/g;
-const historicalDoc=name=>name==='README.md'||name==='CLAUDE.md'||name==='android/RELEASE-PROCEDURE.txt'||name==='windows/README.md'||name.startsWith('docs/');
+const referenceDocs=new Set(['integrations/mkr-music/README.md','integrations/mkr-music/android-catalog/README.md']);
+const historicalDoc=name=>referenceDocs.has(name)||name==='README.md'||name==='CLAUDE.md'||name==='android/RELEASE-PROCEDURE.txt'||name==='windows/README.md'||name.startsWith('docs/');
 const auditFiles=new Set(['scripts/check-branding.mjs','scripts/check-branding-test.mjs','scripts/app-qa/appearance.mjs']);
 
 export function brandingProblems(name,text){

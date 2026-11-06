@@ -217,6 +217,18 @@ public class MainActivity extends Activity {
   private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
   private void showRendererRecovery(){
     android.widget.ScrollView recovery=new android.widget.ScrollView(this);recovery.setFillViewport(true);
+    android.content.res.TypedArray colors=obtainStyledAttributes(new int[]{android.R.attr.colorBackground});
+    int background;try{background=colors.getColor(0,android.graphics.Color.WHITE);}finally{colors.recycle();}
+    recovery.setBackgroundColor(background);
+    boolean light=android.graphics.Color.luminance(background)>0.5f;
+    if(android.os.Build.VERSION.SDK_INT>=30){
+      android.view.WindowInsetsController bars=getWindow().getInsetsController();
+      int mask=android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS|android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+      if(bars!=null)bars.setSystemBarsAppearance(light?mask:0,mask);
+    }else{
+      int mask=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+      View decor=getWindow().getDecorView();decor.setSystemUiVisibility(light?decor.getSystemUiVisibility()|mask:decor.getSystemUiVisibility()&~mask);
+    }
     android.widget.LinearLayout content=new android.widget.LinearLayout(this);content.setOrientation(android.widget.LinearLayout.VERTICAL);
     content.setGravity(android.view.Gravity.CENTER_VERTICAL);content.setPadding(dp(24),dp(32),dp(24),dp(32));
     android.widget.TextView title=new android.widget.TextView(this);title.setText("Workspace needs a reload");

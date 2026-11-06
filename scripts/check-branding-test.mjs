@@ -17,7 +17,6 @@ bad('README.md','# Coucou\nHistory is allowed, current title is not.');
 bad('android/java/com/coucou/workspace/Obsolete.java','package com.anf.workspace;');
 bad('android/build.gradle',"applicationId 'com.coucou.workspace';label='Coucou'");
 bad('windows/src/workspace/other.ts',"kind:'coucou-windows-backup'");
-console.log('PASS: visible branding failures remain enforced while exact legacy identity/payload and historical attribution fixtures pass.');
 
 // Historical component shims preserve pinned system identities, not visible branding.
 good('android/java/com/coucou/workspace/QuickNoteTile.java','package com.coucou.workspace;');
@@ -25,3 +24,20 @@ good('android/java/com/coucou/workspace/PlaybackService.java','package com.couco
 bad('android/java/com/coucou/workspace/PlaybackService.java','package com.coucou.workspace; String title="Coucou";');
 bad('windows/src/workspace/reader.ts',"const key='coucou-scroll-';title='Coucou';");
 bad('scripts/app-qa/fixture.mjs',"indexedDB.open('coucou-audio');title='Coucou';");
+
+for(const [name,quote] of [
+ ['windows/src/workspace/mkr-web-port.ts',"'"],['scripts/check-mkr-web-port.mjs',"'"],
+ ...['AndroidMkrPageHost','AndroidMkrWebPort'].map(file=>[`integrations/mkr-music/android-catalog/src/main/kotlin/com/anf/mkr/android/${file}.kt`,'"']),
+ ...['AndroidMkrPageHostTest','AndroidMkrWebPortTest'].map(file=>[`integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/${file}.kt`,'"']),
+]){
+ const origin=quote+'https://coucou.local'+quote;
+ good(name,'origin='+origin);
+ bad(name,'origin='+origin+'; title="Coucou music"');
+ bad(name,'origin='+quote+'https://coucou.local.evil'+quote);
+}
+bad('windows/src/workspace/unreviewed.ts',"origin='https://coucou.local'");
+for(const name of ['integrations/mkr-music/README.md','integrations/mkr-music/android-catalog/README.md']){
+ good(name,'# MKR integration\nLegacy Coucou origins include `https://coucou.local`.');
+ bad(name,'# Coucou\nLegacy origin `https://coucou.local`.');
+}
+console.log('PASS: visible branding, exact quoted native origins, rejected lookalikes/unreviewed paths and historical attribution guards.');

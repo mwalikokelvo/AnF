@@ -93,7 +93,15 @@ public class RendererRecoveryTest {
         return button!=null && button.isShown() && button.getWidth()>0;
       });
       instrumentation.waitForIdleSync();
+      instrumentation.getUiAutomation().waitForIdle(250,5000);
+      int[] location=new int[2];int[] size=new int[2];
+      instrumentation.runOnMainSync(()->{
+        Button button=reload(reopened.getWindow().getDecorView());button.getLocationOnScreen(location);
+        size[0]=button.getWidth();size[1]=button.getHeight();
+      });
       Bitmap screenshot=instrumentation.getUiAutomation().takeScreenshot();assertNotNull(screenshot);
+      assertNotEquals("Screenshot captured a blank transitional frame",
+        screenshot.getPixel(1,location[1]+size[1]/2),screenshot.getPixel(location[0]+size[0]/2,location[1]+size[1]/4));
       try(FileOutputStream out=new FileOutputStream(new File(context.getExternalFilesDir("qa"),"renderer-recovery.png"))){
         assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG,100,out));
       } finally {screenshot.recycle();}
