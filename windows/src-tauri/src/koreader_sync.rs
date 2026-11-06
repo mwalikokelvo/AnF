@@ -33,6 +33,15 @@ fn header_value(value: &str, label: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
+/// The stored user key is sent on every hop. A redirect to another origin
+/// would hand that key to whoever the sync server points at, so keep redirects
+/// on the same scheme/host/port.
+fn redirect_keeps_origin(from: &Url, to: &Url) -> bool {
+    from.scheme() == to.scheme()
+        && from.host_str() == to.host_str()
+        && from.port_or_known_default() == to.port_or_known_default()
+}
+
 async fn resolve_public(url: &Url) -> Result<Vec<SocketAddr>, String> {
     let host = url.host_str().ok_or("The address has no host.")?;
     let bare = host.trim_start_matches('[').trim_end_matches(']');
@@ -116,7 +125,11 @@ async fn request_inner(
                 .get(reqwest::header::LOCATION)
                 .and_then(|v| v.to_str().ok())
                 .ok_or("The server redirected without saying where.")?;
-            current = next_url(&current, location)?;
+            let next = next_url(&current, location)?;
+            if !redirect_keeps_origin(&current, &next) {
+                return Err("The sync server redirected to a different host; refusing to send your key there.".into());
+            }
+            current = next;
             continue;
         }
         if response.content_length().is_some_and(|n| n > BODY_CAP as u64) {
@@ -182,5 +195,14 @@ mod tests {
         assert!(header_value("ada", "Sync username").is_ok());
         assert!(header_value("ada\r\nX:1", "Sync username").is_err());
         assert!(header_value("", "Sync user key").is_err());
+    }
+
+    #[test]
+    fn redirects_must_stay_on_the_same_origin() {
+        let base = Url::parse("https://sync.example.com/syncs/progress").unwrap();
+        assert!(redirect_keeps_origin(&base, &Url::parse("https://sync.example.com/other").unwrap()));
+        assert!(!redirect_keeps_origin(&base, &Url::parse("https://evil.example/other").unwrap()));
+        assert!(!redirect_keeps_origin(&base, &Url::parse("https://sync.example.com:8443/other").unwrap()));
+        assert!(!redirect_keeps_origin(&base, &Url::parse("http://sync.example.com/other").unwrap()));
     }
 }
