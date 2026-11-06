@@ -8,3 +8,7 @@ input[type=checkbox]{width:20px;height:20px;min-height:20px;vertical-align:middl
 /* Reserve scroll content inside main, keeping its flex box and navigation fixed. */
 body.has-mkr-player #app>main{scroll-padding-block-end:calc(var(--mkr-player-height,180px) + 16px)}
 body.has-mkr-player #app>main::after{content:'';display:block;block-size:calc(var(--mkr-player-height,180px) + 16px)}
+@media(min-width:600px) and (max-height:500px){
+ body:has(#app) .mkr-dock{flex-wrap:nowrap;gap:12px;padding:12px}
+ body:has(#app) .mkr-now,body:has(#app) .mkr-progress{flex-basis:0}
+}

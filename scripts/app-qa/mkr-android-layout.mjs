@@ -58,6 +58,7 @@ try{
   assert(layout.last.top>=layout.main.top,'last item must remain inside the scroll viewport');
   assert(layout.dock.bottom<=layout.mode.top-7,'dock must clear both Android navigation rows');
   assert(layout.main.height>24&&layout.mode.bottom<=height,'scroll space must not push navigation offscreen');
+  if(width>=600&&height<=500)assert(layout.dock.height<=110,'short landscape must use the compact player row');
   assert(layout.scrollWidth<=width&&layout.dock.left>=0&&layout.dock.right<=width,'no horizontal clipping');
   assert(layout.controlContrast>=4.5&&layout.metadataContrast>=4.5,`${theme} control/metadata contrast below 4.5`);
   await page.getByRole('button',{name:'Last saved item',exact:true}).click();assert.equal(await page.evaluate(()=>window.lastClicked),true);
