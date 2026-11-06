@@ -42,6 +42,7 @@ run('scripts/check-skill-pack.mjs');
 
 run('scripts/check-listening.cjs');
 run('scripts/check-mkr-player.mjs');
+run('scripts/check-mkr-web-port.mjs');
 run('scripts/check-mkr-source.mjs');
 
 // package-release.py must refuse to package a release when inputs are missing.

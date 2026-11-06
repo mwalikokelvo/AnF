@@ -243,3 +243,42 @@ physical-device behavior or signed upgrade compatibility.
 
 Platform references: [WebView main-frame message transfer](https://developer.android.com/reference/android/webkit/WebView#postWebMessage(android.webkit.WebMessage,%20android.net.Uri))
 and [MessagePort ownership](https://developer.android.com/reference/android/webkit/WebMessagePort).
+
+## Android Music Hub client
+
+The shared `mkr-web-port.ts` is now the page-side counterpart to this native
+channel. Android Music Hub mounts the existing MKR browser/dock and keeps its
+source button hidden until a real native channel confirms capabilities. It has
+no browser/player fallback and does not change desktop native transport.
+Local music works as before when no native MKR port has ever been announced.
+
+The client requires a native (null Window-source) announcement on an exact AnF
+page origin; a null event origin alone grants nothing. It bounds pending requests,
+IDs, payload/response size and deadlines, validates response envelopes, masks raw
+server errors and cleans up replacement/revocation/pagehide requests. Search/play
+and queue controls allow30 seconds for native20-second resolution plus handoff;
+other requests allow8 seconds. Native revocation emits a fixed closed event.
+
+Music Hub, Studio, native media, Spotube and the existing separate Spotify action
+await confirmed MKR pause before switching audio. A channel lost after any native
+announcement cannot silently permit another engine, including before capability
+confirmation. MKR's own before-play path pauses other engines without waiting on
+itself. The real native/renderer handoff coordinator still belongs to the pending
+Activity bootstrap; these changes never automatically approve native handoff.
+
+[Run42144398991](https://github.com/mwalikokelvo/AnF/actions/runs/42144398991)
+at `248947e` passed strict TypeScript, port/old-contract policy checks, actual
+Android UI asset compilation,43 host tests and all10 Android15 instrumentation
+tests with the unchanged62-artifact runtime graph. The real WebView fixture now
+uses the actual shipped TS client, not a hand-written test Promise adapter.
+Generate its ignored asset with `node scripts/app-qa/build-mkr-web-client.mjs`
+after installing the locked frontend dependencies; the workflow does this before
+assembling the disposable instrumentation APK. `check-release.mjs` includes the
+port policy regression gate. The local full release regression script also passed.
+
+This proves the shared client reaches real muted Media3 using generated media.
+It does not prove the complete Android Music Hub runtime/layout, real-provider
+access, Activity bootstrap, physical devices or installed signed upgrades.
+Production host registration, source/distribution review and packaging remain
+unfinished. Android navigation/content clearance needs real UI acceptance before
+enabling the production host. No updated APK/EXE is delivered by these checks.
