@@ -80,3 +80,43 @@ Use exactly one per claim, never stronger than what was done:
 | smoke-launched | installed and the app started and showed its main window |
 
 Rule: never call anything a "verified release" or "working release" unless it was installed and smoke-launched from the exact file being offered. Browser fixtures and compilation are not installed verification. Release reports lead with the download links and the exact platform and version.
+
+
+## 8. Unified Multi-Agent Collaboration Protocol
+
+To ensure continuous, 24/7 autonomous forward velocity across multiple developer tools while shielding the project from cloud token exhaustion:
+
+### Collaborator Division of Labor
+
+1. **Antigravity Executive Manager (`f10fdf1b-...`)**:
+   - Architectural governance, system integrity checks, and user-facing release delivery reports.
+   - Cross-platform release compilation orchestration (Tauri, NSIS, APK packaging).
+   - Enforces Ponytail mode (least new code, small working diffs, zero speculative boilerplate).
+
+2. **Cursor IDE (`cursor/*` feature branches)**:
+   - Rapid inline feature writing, interactive code exploration, and local component editing.
+   - Authors focused PR branches (e.g. `cursor/full-song-playback-*`, `cursor/playlist-dialogs-*`).
+
+3. **Local Ollama (`http://127.0.0.1:11434`)**:
+   - **Zero-cost, 100% offline local LLM worker** (`qwen2.5-coder:1.5b`, `llama3.1:latest`).
+   - Generates unit test assertions, docstring formatting, AST inspections, and diff summaries.
+   - Consumes **0 cloud tokens** and runs indefinitely without subscription limits.
+
+4. **DeepSeek Harness**:
+   - Complex algorithmic DSP filter math, IIR/FIR curve computations, and Rust concurrency proofs.
+
+5. **Grok & Grok Bot**:
+   - Live external streaming protocol reverse-engineering (Invidious, Piped, YouTube formats, LRCLIB API changes).
+
+6. **GitHub Actions & GitHub Bot**:
+   - Automated cloud build matrix (Linux, Windows, Android emulator smoke testing, CodeQL audits).
+   - Headless verification using GitHub compute minutes, preserving local RAM and LLM tokens.
+
+7. **Craft Anything App**:
+   - Offline visual UI tokens, vector SVG icons, and Spicetify color palette design assets.
+
+### Token Conservation & Autonomous Hand-off Rules
+
+1. **Never Spawn Nested Polling Swarms**: Avoid multi-agent trees with frequent recurring crons that repeatedly transmit massive context windows. Prefer direct, targeted execution.
+2. **Atomic Git Checkpoints**: Commit changes to Git immediately after each discrete fix or milestone (`git commit`). Uncommitted work must never be left solely in conversational memory.
+3. **Continuous Hand-Off Log**: Before exiting or upon token warnings, summarize progress in `HANDOFF.md`. Any agent can resume by reading `HANDOFF.md` and `git status`.
