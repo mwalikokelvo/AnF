@@ -143,12 +143,15 @@ test('createNeuralUtterancePlayer caches chunks and stops cleanly', async () => 
   };
   const played: string[] = [];
   let releasePlay: (() => void) | null = null;
+  let pausePlay = false;
   const player = createNeuralUtterancePlayer(reg, {
     play: async (audio, format, rate, control) => {
       played.push(`${audio.length}:${format}:${rate}`);
-      await new Promise<void>((resolve) => {
-        releasePlay = () => resolve();
-      });
+      if (pausePlay) {
+        await new Promise<void>((resolve) => {
+          releasePlay = () => resolve();
+        });
+      }
       return control.isCancelled() ? 'cancelled' : 'completed';
     },
   });
@@ -161,6 +164,7 @@ test('createNeuralUtterancePlayer caches chunks and stops cleanly', async () => 
   assert.equal(await player.speak('Hello there.', 1, token, () => token), 'ok');
   assert.equal(synthCalls, 1, 'second utterance should hit disk cache');
 
+  pausePlay = true;
   token = 2;
   const pending = player.speak('Another line.', 1, token, () => token);
   await new Promise((resolve) => setTimeout(resolve, 0));
