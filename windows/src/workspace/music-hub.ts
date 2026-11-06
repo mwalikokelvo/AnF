@@ -476,6 +476,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
   const overlay = h('div', { class: 'music-flow-overlay' });
   const viewport = h('div', { class: 'music-flow-viewport' });
+  const flowArtUrls: string[] = [];
 
   const flowCandidates: MusicFlowItem[] = tracks.map(t => audioTrackToFlowItem(t));
   const filtered = filterMusicFlowCandidates(flowCandidates);
@@ -488,7 +489,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
   const topbar = h('div', { class: 'music-flow-topbar' },
    h('span', { class: 'nothing-pill', text: 'Music Flow · Reel' }),
-   button('Close Flow', () => { overlay.remove(); })
+   button('Close Flow', () => { for (const url of flowArtUrls) URL.revokeObjectURL(url); flowArtUrls.length = 0; overlay.remove(); })
   );
 
   function renderCard(item: MusicFlowItem) {
@@ -507,6 +508,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      if (!src) return;
      flowImg.src = src;
      backdrop.style.backgroundImage = cssUrl(src);
+     if (src.startsWith('blob:')) flowArtUrls.push(src);
     });
    } else {
     artContainer.append(svg(icons.music, 64, { stroke: 1.2 }));
@@ -932,7 +934,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
  function coverImg(url:string|undefined){
   const img=h('img',{alt:'',loading:'lazy'});
-  void resolveHubCover(url).then(src=>{if(!src)return;img.src=src;rememberArtBlob(src);});
+  const fallback=safeHttpsUrl(url)||'';
+  void resolveHubCover(url).then(src=>{const shown=src||fallback;if(!shown)return;img.src=shown;rememberArtBlob(shown);}).catch(()=>{if(fallback)img.src=fallback;});
   return img;
  }
 
