@@ -34,7 +34,7 @@ jobs:
           if($LASTEXITCODE){throw 'Renderer assertions failed'}
           node scripts/app-qa/mkr-android-layout.mjs
           if($LASTEXITCODE){throw 'Android shell clearance assertions failed'}
-          node scripts/app-qa/library-sort.mjs
+          node scripts/app-qa/library-sort.mjs 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/library-sort.txt"
           if($LASTEXITCODE){throw 'Library preservation assertions failed'}
       - name: Retain fixture evidence only, no native/provider capability claim
         if: always()
@@ -43,6 +43,7 @@ jobs:
           name: MKR-renderer-recovery-evidence
           path: |
             ${{ runner.temp }}/mkr-renderer.txt
+            ${{ runner.temp }}/library-sort.txt
             windows/target/mkr-browser-check/*.png
             windows/target/mkr-android-layout-check/*.png
             windows/target/mkr-android-layout-check/metrics.json
