@@ -680,13 +680,13 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }
   seek.max=String(duration()||1);
   seek.value=String(audio.currentTime||0);
-  elapsed.textContent=durationText(audio.currentTime||0);
+  const pct=duration()>0?Math.round(audio.currentTime/duration()*100):0;
+  elapsed.textContent=pct ? durationText(audio.currentTime||0)+' · '+pct+'%' : durationText(audio.currentTime||0);
   const rem=Math.max(0,duration()-(audio.currentTime||0));
   total.textContent=durationText(duration())+(rem>0?' (-'+durationText(rem)+')':'');
   seek.setAttribute('aria-valuetext',elapsed.textContent+' of '+total.textContent);
   like.setAttribute('aria-pressed',String(!!current&&prefs.favorites.includes(current.id)));
   dockTitle.textContent=current?.title||'';
-  const pct=duration()>0?Math.round(audio.currentTime/duration()*100):0;
   const nextId=current?nextTrack(queue,current.id,prefs.repeat,false):undefined;
   const next=nextId?tracks.find(t=>t.id===nextId):undefined;
   const qIndex=current?queue.indexOf(current.id):-1;
