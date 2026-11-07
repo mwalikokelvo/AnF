@@ -717,6 +717,29 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // YouTube fallback failed
     }
 
+    // Try finding the full-length song on Audius before falling back to a 30 s preview
+    try {
+      const q = [track.artist, track.title].filter(Boolean).join(' ');
+      const audiusMatches = await this.searchAudius(q, 5);
+      if (audiusMatches.length > 0) {
+        const best = audiusMatches.find(m => (m.duration ?? 0) > PREVIEW_CLIP_MAX_SEC) || audiusMatches[0];
+        if (best && best.streamUrl) {
+          track.bitrate = 320;
+          if (best.duration) track.duration = best.duration;
+          this.registerMetadata(track);
+          return {
+            streamUrl: best.streamUrl,
+            mimeType: 'audio/mpeg',
+            bitrate: 320,
+            cached: false,
+            duration: best.duration,
+          };
+        }
+      }
+    } catch {
+      // Audius fallback failed, proceed to preview clip
+    }
+
     // No full source: the catalogue's 30 s clip, flagged so the UI can label it and never save it as the song.
     const preview = safeHttpsUrl(track.previewUrl);
     if (preview) return { streamUrl: preview, mimeType: 'audio/mp4', cached: false, preview: true };

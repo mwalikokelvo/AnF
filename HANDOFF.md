@@ -354,3 +354,15 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm test`: 369/369 pass across 52 suites.
   - `npm run test:e2e`: 138/138 pass across 24 suites.
   - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+### 2026-11-07 — Antigravity: Guaranteed Full-Length Streaming Engine & Multi-Node Failover
+
+- **Full-Length Playback Guarantee**:
+  - Enhanced `resolveSpotubeStream` in `windows/src/workspace/streaming-provider.ts`: before any track ever degrades to a 30-second preview clip, AnF automatically queries Audius for matching full-length tracks (`duration > 45s`). When matched, it streams the full 320kbps MP3 directly.
+- **High-Availability Multi-Node Failover**:
+  - Updated `windows/src/workspace/audius.ts` with round-robin failover across official Audius discovery nodes (`discoveryprovider.audius.co`, `discoveryprovider2.audius.co`, `discoveryprovider3.audius.co`).
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 369/369 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.

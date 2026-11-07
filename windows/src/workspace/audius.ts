@@ -12,10 +12,14 @@ export interface AudiusTrack {
 }
 
 const APP_NAME = 'AnF';
-const DISCOVERY_ENDPOINT = 'https://discoveryprovider.audius.co/v1';
+export const DISCOVERY_NODES = [
+  'https://discoveryprovider.audius.co/v1',
+  'https://discoveryprovider2.audius.co/v1',
+  'https://discoveryprovider3.audius.co/v1',
+];
 
-export function audiusStreamUrl(trackId: string): string {
-  return `${DISCOVERY_ENDPOINT}/tracks/${encodeURIComponent(trackId)}/stream?app_name=${APP_NAME}`;
+export function audiusStreamUrl(trackId: string, node = DISCOVERY_NODES[0]): string {
+  return `${node}/tracks/${encodeURIComponent(trackId)}/stream?app_name=${APP_NAME}`;
 }
 
 export function parseAudiusTracks(data: unknown): AudiusTrack[] {
@@ -36,17 +40,37 @@ export function parseAudiusTracks(data: unknown): AudiusTrack[] {
 export async function searchAudius(query: string, limit = 20, fetcher: typeof fetch = fetch): Promise<AudiusTrack[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const url = `${DISCOVERY_ENDPOINT}/tracks/search?query=${encodeURIComponent(trimmed)}&app_name=${APP_NAME}&limit=${limit}`;
-  const res = await fetcher(url);
-  if (!res.ok) throw new Error(`Audius API returned status ${res.status}`);
-  const body = (await res.json()) as { data?: unknown };
-  return parseAudiusTracks(body?.data);
+  let lastError: Error | null = null;
+  for (const node of DISCOVERY_NODES) {
+    try {
+      const url = `${node}/tracks/search?query=${encodeURIComponent(trimmed)}&app_name=${APP_NAME}&limit=${limit}`;
+      const res = await fetcher(url);
+      if (res.ok) {
+        const body = (await res.json()) as { data?: unknown };
+        return parseAudiusTracks(body?.data);
+      }
+      lastError = new Error(`Audius node ${node} returned status ${res.status}`);
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('All Audius discovery nodes failed');
 }
 
 export async function trendingAudius(limit = 20, fetcher: typeof fetch = fetch): Promise<AudiusTrack[]> {
-  const url = `${DISCOVERY_ENDPOINT}/tracks/trending?app_name=${APP_NAME}&limit=${limit}`;
-  const res = await fetcher(url);
-  if (!res.ok) throw new Error(`Audius API returned status ${res.status}`);
-  const body = (await res.json()) as { data?: unknown };
-  return parseAudiusTracks(body?.data);
+  let lastError: Error | null = null;
+  for (const node of DISCOVERY_NODES) {
+    try {
+      const url = `${node}/tracks/trending?app_name=${APP_NAME}&limit=${limit}`;
+      const res = await fetcher(url);
+      if (res.ok) {
+        const body = (await res.json()) as { data?: unknown };
+        return parseAudiusTracks(body?.data);
+      }
+      lastError = new Error(`Audius node ${node} returned status ${res.status}`);
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('All Audius discovery nodes failed');
 }
