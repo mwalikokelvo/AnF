@@ -1720,7 +1720,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       )]
      :(streamingResults.length?[h('div',{},h('h3',{text:'Search results ('+streamingResults.length+')'}),resultsGrid)]:[])),
     ...(!streamingResults.length&&streamingServiceTab!=='cached'&&!streamingBusy
-     ?[h('p',{class:'music-empty',text:'Search across YouTube, Spotify, and Audiobooks, or paste any direct media link above.'})]
+     ?[h('p',{class:'music-empty',text:'Search across Audius, YouTube, and Audiobooks, or paste any direct media link above.'})]
      :[])
    );
 
