@@ -54,7 +54,10 @@ export function createNativeMusicPlayer(options:{
     total.textContent = durationText((state?.duration || 0)/1000);
     progress.max = state?.duration || 1; progress.value = Math.min(state?.position || 0,progress.max);
     const pct = state?.duration ? Math.round((state.position / state.duration) * 100) : 0;
-    progress.title = pct ? `${pct}% complete` : '';
+    const remainingSec = Math.max(0, ((state?.duration || 0) - (state?.position || 0)) / 1000);
+    const remText = durationText(remainingSec);
+    progress.title = pct ? `${pct}% complete · ${remText} remaining` : '';
+    progress.setAttribute('aria-valuetext', pct ? `${pct}% complete, ${remText} remaining` : '');
     for (const button of [previous,toggle,next]) button.disabled = busy;
   }
   function cancelTimer() { if (timer !== undefined) clearTimeout(timer); timer = undefined; }
