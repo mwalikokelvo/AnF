@@ -137,13 +137,25 @@ export function createVisualizer(barCount = 12, className = 'music-visualizer'):
 }
 
 const icons={play:'m8 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',previous:'M5 5v14M19 5 8 12l11 7Z',next:'M19 5v14M5 5l11 7L5 19Z',heart:'M12 20 3 11C-2 3 8-1 12 6c4-7 14-3 9 5Z',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm5 12 6 6',music:'M9 18V5l12-2v13M9 7l12-2M9 18c0 4-7 4-7 0s7-4 7 0Zm12-2c0 4-7 4-7 0s7-4 7 0Z',queue:'M3 5h18M3 11h18M3 17h12',shuffle:'M3 5h3l12 14h3M18 16l3 3-3 3M3 19h3l4-5M14 9l4-4h3M18 2l3 3-3 3',repeat:'M20 8V5H7a4 4 0 0 0-4 4M4 16v3h13a4 4 0 0 0 4-4M17 5l3 3 3-3M7 19l-3-3-3 3',eq:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',chevronRight:'M9 18l6-6-6-6',chevronLeft:'M15 18l-6-6 6-6',mic:'M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zm-7 9a7 7 0 0 0 14 0h-2a5 5 0 0 1-10 0H5zm6 8v3H9v2h6v-2h-2v-3a7.002 7.002 0 0 0 6-6.9v-.1h-2v.1a5 5 0 0 1-5 5 5 5 0 0 1-5-5v-.1H7v.1c0 3.53 2.61 6.43 6 6.9z',sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'};
-type Preferences={current?:string;position:number;volume:number;speed:number;recent:string[];favorites:string[];queue:string[];originalQueue:string[];shuffle:boolean;repeat:RepeatMode;sort:'newest'|'title'|'artist'|'longest'|'shortest'|'year'};
+type Preferences={current?:string;position:number;volume:number;speed:number;fade:number;recent:string[];favorites:string[];queue:string[];originalQueue:string[];shuffle:boolean;repeat:RepeatMode;sort:'newest'|'title'|'artist'|'longest'|'shortest'|'year'};
 
 export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Promise<void>;notify:(text:string)=>void;beforePlay:()=>void|Promise<void>}){
  const library=audioLibrary(),audio=new Audio();audio.preload='metadata';
  audio.crossOrigin='anonymous';
  audioDsp.attachAudioElement(audio);
  ensurePreservesPitch(audio, true);
+ let fadeTimer:ReturnType<typeof setInterval>|undefined,fadeOutArmed=false;
+ function stopFade(){if(fadeTimer!==undefined){clearInterval(fadeTimer);fadeTimer=undefined;}}
+ function fadeVolume(target:number,ms:number,done?:()=>void){
+  stopFade();
+  if(ms<=0||!Number.isFinite(ms)){audio.volume=target;done?.();return;}
+  const from=audio.volume,started=performance.now();
+  fadeTimer=setInterval(()=>{
+   const k=Math.min(1,(performance.now()-started)/ms);
+   audio.volume=Math.max(0,Math.min(1,from+(target-from)*k));
+   if(k>=1){stopFade();done?.();}
+  },40);
+ }
  const root=h('div',{class:'music-hub'}),content=h('div',{class:'music-content'}),notice=h('p',{class:'music-notice',role:'status'});
  const ambient=h('div',{class:'music-hub-ambient','aria-hidden':'true'});
  const search=h('input',{type:'search',placeholder:'Search songs, artists, albums or podcasts…','aria-label':'Search music'});
@@ -154,8 +166,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
- let prefs:Preferences={position:0,volume:.7,speed:1,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
- try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
+ let prefs:Preferences={position:0,volume:.7,speed:1,fade:0,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
+ try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,fade:[0,2,4,6,8,12].includes(value.fade)?value.fade:0,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
  let listening=listeningState(null),mix='all',lastWall=0,lastMedia=0;
  try{const raw=localStorage.getItem('anf-listening');if(raw){listening=listeningState(JSON.parse(raw));prefs.speed=listening.rate;}}catch{}
  
@@ -724,10 +736,15 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   await options.beforePlay();
   metadata();
   try{
+   fadeOutArmed=false;
+   audio.volume=prefs.fade>0?0:prefs.volume;
    await audio.play();
+   if(prefs.fade>0)fadeVolume(prefs.volume,prefs.fade*1000);
    setPlaybackState('playing');
    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
   }catch(err){
+   stopFade();
+   audio.volume=prefs.volume;
    setPlaybackState('paused');
    report('Playback failed: '+describeStreamError(err));
    return;
@@ -739,6 +756,9 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
  function pause(){
   sample();
+  stopFade();
+  fadeOutArmed=false;
+  audio.volume=prefs.volume;
   audio.pause();
   setPlaybackState('paused');
   if('mediaSession' in navigator)navigator.mediaSession.playbackState='paused';
@@ -1666,6 +1686,11 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      h('summary',{text:'Listening options'}),
      h('label',{},'New files',importKind),
      h('label',{},'Mix',mixes),
+     h('label',{},'Fade between tracks',
+      h('select',{'aria-label':'Fade between tracks',onchange:(e)=>{prefs.fade=Number((e.target as HTMLSelectElement).value)||0;save();}},
+       ...[0,2,4,6,8,12].map(seconds=>h('option',{value:String(seconds),text:seconds?seconds+' s':'Off',selected:prefs.fade===seconds}))
+      )
+     ),
      button('Listening recap',showRecap)
     ),
     h('label',{class:'music-sort'},'Sort',
@@ -1817,7 +1842,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  search.addEventListener('input',()=>{libraryLimit=80;render();});
  folder.addEventListener('change',()=>{const selected=Array.from(folder.files||[]);folder.value='';if(selected.length)void run(()=>importFiles(selected));});
  seek.addEventListener('input',()=>{audio.currentTime=Number(seek.value);paint();});
- volume.addEventListener('input',()=>{audio.volume=prefs.volume=Number(volume.value);save();});
+ volume.addEventListener('input',()=>{stopFade();audio.volume=prefs.volume=Number(volume.value);save();});
  speed.addEventListener('change',()=>{sample();audio.playbackRate=prefs.speed=Number(speed.value);ensurePreservesPitch(audio, true);resetClock();save();});
  sleep.addEventListener('change',()=>{if(sleep.value==='chapter'){armChapterSleep();return;}if(sleep.value==='end'){clearChapterSleep();if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}report('Sleep timer will stop at end of track.');return;}armSleep(Number(sleep.value));});
 
@@ -1842,6 +1867,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  });
  audio.addEventListener('ended',()=>{
+  stopFade();fadeOutArmed=false;audio.volume=prefs.volume;
   setPlaybackState('ended');
   if(sleep.value==='end'){
    armSleep(0);
@@ -1885,6 +1911,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  });
  audio.addEventListener('timeupdate',()=>{
+  if(prefs.fade>0&&!fadeOutArmed&&!audio.paused){
+   const left=duration()-audio.currentTime;
+   if(left>0&&left<=prefs.fade){fadeOutArmed=true;fadeVolume(0,left*1000);}
+  }
   if(chapterStopAt!==null){
    const step=chapterSleepStep(chapterStopAt,current?.chapters,audio.currentTime||0,duration());
    chapterStopAt=step.at;
