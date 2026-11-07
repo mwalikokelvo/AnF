@@ -671,6 +671,7 @@ dependencies = [
  "image",
  "keyring",
  "libc",
+ "md-5",
  "ocrs",
  "pdf-extract",
  "quick-xml",

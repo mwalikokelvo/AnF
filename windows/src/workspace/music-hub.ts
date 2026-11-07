@@ -59,6 +59,7 @@ import {
   type EqPresetName
 } from './audio-dsp';
 import { askConfirm, askText } from './music-dialogs';
+import {loadSubsonicSettings,searchSubsonic,streamSubsonic,subsonicReady,type SubsonicTrack} from './subsonic';
 import './music-hub.css';
 
 // Listening data helpers embedded for local offline tracking
@@ -152,6 +153,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
  let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
+ let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
  let prefs:Preferences={position:0,volume:.7,speed:1,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
  try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
  let listening=listeningState(null),mix='all',lastWall=0,lastMedia=0;
@@ -198,7 +200,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Audiobooks','Podcasts','Archive','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const tabButtons=['Music','Audiobooks','Podcasts','Archive','Subsonic','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
@@ -1158,6 +1160,57 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     );
     return;
    }
+  }
+
+  // --- TAB: SUBSONIC (the user's own Navidrome / Subsonic server) ---
+  if(tab==='subsonic'){
+   const settings=loadSubsonicSettings();
+   const ready=subsonicReady(settings);
+   const query=h('input',{type:'search','aria-label':'Search your Subsonic server',placeholder:'Search your server',value:subsonicQuery}) as HTMLInputElement;
+   query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchServer);});
+   async function searchServer(){
+    const current=loadSubsonicSettings();
+    if(!subsonicReady(current)){report('Add your server, username and password in Settings → Subsonic / Navidrome.');return;}
+    const text=query.value.trim();
+    subsonicQuery=text;
+    if(!text){report('Type a song, artist or album to search your server.');return;}
+    subsonicBusy=true;render();
+    try{
+     subsonicResults=await searchSubsonic(current.server,current.username,text);
+     report(subsonicResults.length?'Found '+subsonicResults.length+' tracks on your server.':'Nothing matched on your server.');
+    }catch(error){
+     subsonicResults=[];
+     report('Subsonic search failed: '+String(error).replace(/^Error:\s*/,''));
+    }finally{
+     subsonicBusy=false;render();
+    }
+   }
+   async function playServer(item:SubsonicTrack){
+    const current=loadSubsonicSettings();
+    if(!subsonicReady(current)){report('Add your server in Settings first.');return;}
+    try{
+     const blob=await streamSubsonic(current.server,current.username,item.id);
+     const track:AudioTrack={id:'subsonic:'+item.id,title:item.title,artist:item.artist||'Subsonic',name:item.title,album:item.album||'Subsonic',kind:'music',blob,format:item.suffix||'audio/mpeg',created:Date.now(),duration:item.duration||undefined};
+     playTrack(track,[track]);
+     report('Playing '+item.title+' from your server.');
+    }catch(error){
+     report('Could not play that track: '+String(error).replace(/^Error:\s*/,''));
+    }
+   }
+   const rows=subsonicResults.map(item=>{
+    const play=h('button',{type:'button','aria-label':'Play '+item.title,text:'Play',class:'music-archive-play',onclick:()=>void run(()=>playServer(item))});
+    return h('article',{class:'music-archive-row'},
+     h('div',{class:'music-archive-copy'},h('strong',{text:item.title}),h('span',{class:'music-archive-meta',text:[item.artist,item.album,item.duration?durationText(item.duration):''].filter(Boolean).join(' · ')})),
+     play);
+   });
+   content.replaceChildren(
+    h('section',{class:'music-archive'},
+     h('h3',{text:'Subsonic / Navidrome'}),
+     h('p',{class:'hint',text:'Your own music server. Search and playback run through Rust; the password stays in the system secret store.'}),
+     ...(ready?[h('div',{class:'row'},query,button('Search server',searchServer)),subsonicBusy?h('p',{class:'hint',text:'Searching your server…'}):null,...(rows.length?rows:[h('p',{class:'music-empty',text:subsonicQuery?'No results yet. Try another search.':'Search your server by song, artist or album.'})])]:[h('p',{class:'music-empty',text:'Add your server, username and password in Settings → Subsonic / Navidrome, then come back here.'})])
+    )
+   );
+   return;
   }
 
   // --- TAB: ARCHIVE (public-domain audiobooks from Internet Archive / LibriVox) ---
