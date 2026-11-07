@@ -53,6 +53,8 @@ export function createNativeMusicPlayer(options:{
     elapsed.textContent = durationText((state?.position || 0)/1000);
     total.textContent = durationText((state?.duration || 0)/1000);
     progress.max = state?.duration || 1; progress.value = Math.min(state?.position || 0,progress.max);
+    const pct = state?.duration ? Math.round((state.position / state.duration) * 100) : 0;
+    progress.title = pct ? `${pct}% complete` : '';
     for (const button of [previous,toggle,next]) button.disabled = busy;
   }
   function cancelTimer() { if (timer !== undefined) clearTimeout(timer); timer = undefined; }
