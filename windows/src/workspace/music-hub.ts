@@ -60,6 +60,7 @@ import {
 } from './audio-dsp';
 import { askConfirm, askText } from './music-dialogs';
 import {loadSubsonicSettings,searchSubsonic,streamSubsonic,subsonicReady,type SubsonicTrack} from './subsonic';
+import {searchAudius,trendingAudius,type AudiusTrack} from './audius';
 import './music-hub.css';
 
 // Listening data helpers embedded for local offline tracking
@@ -166,6 +167,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
+ let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false;
  let prefs:Preferences={position:0,volume:.7,speed:1,fade:0,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
  try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,fade:[0,2,4,6,8,12].includes(value.fade)?value.fade:0,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
  let listening=listeningState(null),mix='all',lastWall=0,lastMedia=0;
@@ -212,7 +214,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Audiobooks','Podcasts','Archive','Subsonic','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const tabButtons=['Music','Audiobooks','Podcasts','Audius','Archive','Subsonic','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
@@ -1180,6 +1182,84 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     );
     return;
    }
+  }
+
+  // --- TAB: AUDIUS (free streaming independent music without accounts or DRM) ---
+  if(tab==='audius'){
+   const query=h('input',{type:'search','aria-label':'Search Audius music',placeholder:'Search songs, artists, or genres on Audius',value:audiusQuery}) as HTMLInputElement;
+   query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchStream);});
+   async function searchStream(){
+    const text=query.value.trim();
+    audiusQuery=text;
+    if(!text){
+     audiusBusy=true;render();
+     try{
+      audiusResults=await trendingAudius(24);
+      report('Loaded trending tracks on Audius.');
+     }catch(error){
+      audiusResults=[];
+      report('Could not load trending tracks: '+String(error).replace(/^Error:\s*/,''));
+     }finally{
+      audiusBusy=false;render();
+     }
+     return;
+    }
+    audiusBusy=true;render();
+    try{
+     audiusResults=await searchAudius(text,24);
+     report(audiusResults.length?'Found '+audiusResults.length+' tracks on Audius.':'No tracks matched on Audius.');
+    }catch(error){
+     audiusResults=[];
+     report('Audius search failed: '+String(error).replace(/^Error:\s*/,''));
+    }finally{
+     audiusBusy=false;render();
+    }
+   }
+   async function playAudius(item:AudiusTrack){
+    try{
+     const track:AudioTrack={
+      id:'audius:'+item.id,
+      title:item.title,
+      artist:item.artist||'Audius',
+      name:item.title,
+      album:item.genre||'Audius',
+      kind:'music',
+      blob:new Blob([],{type:'audio/mpeg'}),
+      streamUrl:item.streamUrl,
+      coverUrl:item.artworkUrl,
+      format:'audio/mpeg',
+      created:Date.now(),
+      duration:item.duration||undefined
+     };
+     playTrack(track,[track]);
+     report('Streaming '+item.title+' via Audius.');
+    }catch(error){
+     report('Could not stream track: '+String(error).replace(/^Error:\s*/,''));
+    }
+   }
+   if(!audiusQuery && !audiusResults.length && !audiusBusy){
+    audiusBusy=true;
+    trendingAudius(24).then(tracks=>{audiusResults=tracks;audiusBusy=false;render();}).catch(()=>{audiusBusy=false;render();});
+   }
+   const rows=audiusResults.map(item=>{
+    const play=h('button',{type:'button','aria-label':'Play '+item.title,text:'Play',class:'music-archive-play',onclick:()=>void run(()=>playAudius(item))});
+    return h('article',{class:'music-archive-row'},
+     h('div',{class:'music-archive-copy'},
+      h('strong',{text:item.title}),
+      h('span',{class:'music-archive-meta',text:[item.artist,item.genre,item.duration?durationText(item.duration):''].filter(Boolean).join(' · ')})
+     ),
+     play);
+   });
+   content.replaceChildren(
+    h('section',{class:'music-archive'},
+     h('h3',{text:'Audius · Free Music Streaming'}),
+     h('p',{class:'hint',text:'Decentralized, open-access music streaming with full tracks, official API, and no DRM.'}),
+     h('div',{class:'row'},query,button('Search',searchStream),button('Trending',()=>void run(()=>{query.value='';searchStream();}))),
+     audiusBusy?h('p',{class:'hint',text:'Loading tracks from Audius…'}):null,
+     ...(rows.length?rows:[h('p',{class:'music-empty',text:audiusBusy?'Loading…':'Search by song, artist, or genre, or tap Trending.'})])
+    )
+   );
+   return;
   }
 
   // --- TAB: SUBSONIC (the user's own Navidrome / Subsonic server) ---

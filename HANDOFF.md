@@ -316,3 +316,23 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - **Fixes added on the integration branch** (`76ba604`, `2a694a0`): Flow card covers created `blob:` URLs that were never revoked (leak per card; now revoked on Close); `coverImg` falls back to the direct https URL when safe-fetch returns nothing instead of leaving an empty `<img>`; the OPDS panel called `workspace_read_web` with `webEnabled:true` even when **Search the web** was off (now refused, same as `addWebSource`); the KOReader bridge followed redirects to any public https host while re-sending the stored user key (now redirects must keep scheme, host and port, with a unit test).
 - Labels: **tested on Linux-style Node gates on Windows** (`npx tsc --noEmit` clean, `npm test` **356 pass / 0 fail**, `npm run test:e2e` **138 pass / 0 fail**, `node scripts/check-release.mjs` **11 pass**). NOT installed, not a release, no live OPDS/KOReader/cover hosts contacted.
 - Left for the owner: #95 is still open and should be closed; #100/#102 still target their stacked bases on GitHub; merge order above is the safe one. Adding a `windows` typecheck/test job on pushes to `main` is the durable fix for the missed breakage.
+
+
+### 2026-11-07 — Antigravity: Audius Decentralized Music Streaming (Replacing Spotify)
+
+- **Spotify Replacement**: Spotify Connect is deprecated and removed following user account ban. Replaced with **Audius** decentralized music streaming.
+- **Audius Implementation**:
+  - Direct public Discovery API integration (`https://discoveryprovider.audius.co/v1/`).
+  - Search (`/v1/tracks/search`) and Trending tracks (`/v1/tracks/trending`).
+  - Direct 320kbps MP3 stream playback (`/v1/tracks/{track_id}/stream?app_name=AnF`) with cover artwork and metadata.
+  - Dedicated 'Audius' tab added to Music Hub with instant search and playback.
+- **Files Created & Updated**:
+  - `windows/src/workspace/audius.ts`
+  - `windows/src/workspace/audio/audius-provider.ts`
+  - `windows/src/workspace/music-hub.ts`
+  - `windows/tests/audius.test.ts`
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 369/369 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.

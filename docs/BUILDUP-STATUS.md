@@ -37,7 +37,7 @@ One page every builder should read before touching AnF. Keep it current; append,
 
 ## Next priorities
 
-1. Spotify Connect controller (official Web API; audio stays in Spotify). In-app Spotify audio is not legal in Tauri: WebView2 has no Widevine, and librespot-style clients violate Spotify's terms.
+1. **Audius Decentralized Streaming**: Built and verified. Replaces Spotify (which is avoided due to user account ban) with open, public, DRM-free streaming. Next polish: unified multi-source search across local/Archive/Subsonic/Audius.
 2. Player polish from Spotify's playbook: crossfade, volume normalization, one search across local/Archive/Subsonic.
 3. VoiceStudio TTS as Reader's neural provider (AGPL: integrate via HTTP, do not copy code).
 4. OpenWhispr (MIT) for local transcription → notes.
