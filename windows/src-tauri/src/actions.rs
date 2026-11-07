@@ -117,8 +117,8 @@ impl Plans {
                 Operation::Open(p)
             }
             "notepad" => {
-                if r.text.trim().is_empty() || r.text.len() > 200_000 {
-                    return Err("Draft must contain text under 200 KB.".into());
+                if r.text.trim().is_empty() || r.text.len() > 2_000_000 {
+                    return Err("Draft must contain text under 2 MB.".into());
                 }
                 let d = settings::local_dir().join("documents");
                 platform::ensure_private_dir(&d).map_err(|e| e.to_string())?;

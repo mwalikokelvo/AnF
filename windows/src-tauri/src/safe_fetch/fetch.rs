@@ -54,6 +54,7 @@ async fn fetch_inner(url: &str, kind: Kind) -> Result<Fetched, String> {
         Kind::Feed => "application/rss+xml, application/atom+xml, application/feed+json, application/xml, text/xml, application/json;q=0.9",
         Kind::Audio => "audio/*, application/octet-stream;q=0.8",
         Kind::Image => "image/jpeg, image/png, image/webp, image/gif, image/avif, image/*;q=0.8",
+        Kind::Document => "application/epub+zip, application/pdf, application/octet-stream;q=0.4",
     };
     for hop in 0..=MAX_REDIRECTS {
         validate_url(&current).map_err(|why| why.to_string())?;
@@ -98,11 +99,12 @@ async fn fetch_inner(url: &str, kind: Kind) -> Result<Fetched, String> {
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
             .map(str::to_owned);
-        if !content_type_allowed(kind, content_type.as_deref()) {
+        if !content_type_allowed(kind, content_type.as_deref(), Some(current.as_str())) {
             return Err(match kind {
                 Kind::Feed => "That address did not return a feed (XML or JSON).".into(),
                 Kind::Audio => "That address did not return audio.".into(),
                 Kind::Image => "That address did not return an image.".into(),
+                Kind::Document => "That address did not return a document.".into(),
             });
         }
         let cap = kind.cap();

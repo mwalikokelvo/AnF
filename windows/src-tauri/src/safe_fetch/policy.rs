@@ -12,10 +12,13 @@ pub enum Kind {
     Audio,
     /// Podcast / stream cover art. Binary, capped at `IMAGE_CAP`.
     Image,
+    /// EPUB/PDF book bytes from OPDS acquisition links. Binary, capped at `DOCUMENT_CAP`.
+    Document,
 }
 
 pub const TEXT_CAP: usize = 2_000_000;
 pub const IMAGE_CAP: usize = 2_000_000;
+pub const DOCUMENT_CAP: usize = 50_000_000;
 pub const AUDIO_CAP: usize = 200_000_000;
 pub const MAX_REDIRECTS: usize = 3;
 
@@ -25,6 +28,7 @@ impl Kind {
             "feed" | "json" | "text" => Some(Kind::Feed),
             "audio" => Some(Kind::Audio),
             "image" => Some(Kind::Image),
+            "document" => Some(Kind::Document),
             _ => None,
         }
     }
@@ -33,6 +37,7 @@ impl Kind {
             Kind::Feed => TEXT_CAP,
             Kind::Audio => AUDIO_CAP,
             Kind::Image => IMAGE_CAP,
+            Kind::Document => DOCUMENT_CAP,
         }
     }
     pub fn timeout_secs(self) -> u64 {
@@ -40,6 +45,7 @@ impl Kind {
             Kind::Feed => 20,
             Kind::Audio => 300,
             Kind::Image => 20,
+            Kind::Document => 300,
         }
     }
 }
@@ -137,11 +143,31 @@ fn public_v6(ip: Ipv6Addr) -> bool {
         && !(s[0] == 0x3fff)                   // documentation 3fff::/20
 }
 
+fn url_path(url: Option<&str>) -> &str {
+    let Some(url) = url else { return "" };
+    let without_fragment = url.split('#').next().unwrap_or(url);
+    let without_query = without_fragment.split('?').next().unwrap_or(without_fragment);
+    if let Some(scheme_end) = without_query.find("://") {
+        let after = &without_query[scheme_end + 3..];
+        if let Some(slash) = after.find('/') {
+            return &after[slash..];
+        }
+        return "/";
+    }
+    without_query
+}
+
+fn path_has_book_extension(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".epub") || lower.ends_with(".pdf")
+}
+
 /// Feed/metadata responses: XML or JSON only. Audio: audio containers or the
 /// generic binary types podcast hosts commonly send for enclosures.
-pub fn content_type_allowed(kind: Kind, header: Option<&str>) -> bool {
+pub fn content_type_allowed(kind: Kind, header: Option<&str>, url: Option<&str>) -> bool {
     let Some(raw) = header else { return false };
     let essence = raw.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    let path = url_path(url);
     match kind {
         Kind::Feed => {
             matches!(
@@ -163,6 +189,12 @@ pub fn content_type_allowed(kind: Kind, header: Option<&str>) -> bool {
                 "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "image/avif"
             )
         }
+        Kind::Document => match essence.as_str() {
+            "application/epub+zip" | "application/pdf" => true,
+            "application/octet-stream" | "binary/octet-stream" => path_has_book_extension(path),
+            "application/zip" => path.to_ascii_lowercase().ends_with(".epub"),
+            _ => false,
+        },
     }
 }
 
@@ -255,23 +287,23 @@ mod tests {
             "application/rss+xml", "application/atom+xml; charset=utf-8", "text/xml", "TEXT/XML;charset=UTF-8",
             "application/xml", "application/json", "application/feed+json", "application/rdf+xml", "text/json",
         ] {
-            assert!(content_type_allowed(Kind::Feed, Some(t)), "{t}");
+            assert!(content_type_allowed(Kind::Feed, Some(t), None), "{t}");
         }
         for t in ["text/html", "text/plain", "application/octet-stream", "audio/mpeg", "image/png", "application/javascript", "text/xml-evil", ""] {
-            assert!(!content_type_allowed(Kind::Feed, Some(t)), "{t}");
+            assert!(!content_type_allowed(Kind::Feed, Some(t), None), "{t}");
         }
-        assert!(!content_type_allowed(Kind::Feed, None));
+        assert!(!content_type_allowed(Kind::Feed, None, None));
     }
 
     #[test]
     fn audio_content_types() {
         for t in ["audio/mpeg", "audio/mp4", "audio/x-m4a", "application/ogg", "application/octet-stream", "binary/octet-stream; foo=bar"] {
-            assert!(content_type_allowed(Kind::Audio, Some(t)), "{t}");
+            assert!(content_type_allowed(Kind::Audio, Some(t), None), "{t}");
         }
         for t in ["text/html", "application/json", "image/jpeg", "video/mp4", "application/xml"] {
-            assert!(!content_type_allowed(Kind::Audio, Some(t)), "{t}");
+            assert!(!content_type_allowed(Kind::Audio, Some(t), None), "{t}");
         }
-        assert!(!content_type_allowed(Kind::Audio, None));
+        assert!(!content_type_allowed(Kind::Audio, None, None));
     }
 
     #[test]
@@ -283,12 +315,31 @@ mod tests {
             "image/gif; charset=binary",
             "image/avif",
         ] {
-            assert!(content_type_allowed(Kind::Image, Some(t)), "{t}");
+            assert!(content_type_allowed(Kind::Image, Some(t), None), "{t}");
         }
         for t in ["text/html", "application/json", "audio/mpeg", "image/svg+xml", "video/mp4"] {
-            assert!(!content_type_allowed(Kind::Image, Some(t)), "{t}");
+            assert!(!content_type_allowed(Kind::Image, Some(t), None), "{t}");
         }
-        assert!(!content_type_allowed(Kind::Image, None));
+        assert!(!content_type_allowed(Kind::Image, None, None));
+    }
+
+    #[test]
+    fn document_content_types() {
+        let epub_url = Some("https://books.example.org/files/story.epub");
+        let pdf_url = Some("https://books.example.org/files/guide.pdf");
+        for t in ["application/epub+zip", "application/epub+zip; charset=binary"] {
+            assert!(content_type_allowed(Kind::Document, Some(t), epub_url), "{t}");
+        }
+        assert!(content_type_allowed(Kind::Document, Some("application/pdf"), pdf_url));
+        assert!(content_type_allowed(Kind::Document, Some("application/octet-stream"), epub_url));
+        assert!(content_type_allowed(Kind::Document, Some("application/zip"), epub_url));
+        assert!(!content_type_allowed(Kind::Document, Some("application/zip"), Some("https://example.org/archive.zip")));
+        assert!(!content_type_allowed(Kind::Document, Some("application/octet-stream"), Some("https://example.org/unknown.bin")));
+        assert!(!content_type_allowed(Kind::Document, Some("application/octet-stream"), None));
+        for t in ["text/html", "application/json", "audio/mpeg", "image/png", "application/javascript"] {
+            assert!(!content_type_allowed(Kind::Document, Some(t), epub_url), "{t}");
+        }
+        assert!(!content_type_allowed(Kind::Document, None, epub_url));
     }
 
     #[test]
@@ -297,9 +348,12 @@ mod tests {
         assert_eq!(Kind::parse("json"), Some(Kind::Feed));
         assert_eq!(Kind::parse("audio"), Some(Kind::Audio));
         assert_eq!(Kind::parse("image"), Some(Kind::Image));
+        assert_eq!(Kind::parse("document"), Some(Kind::Document));
         assert_eq!(Kind::parse("html"), None);
         assert_eq!(Kind::Feed.cap(), 2_000_000);
         assert_eq!(Kind::Image.cap(), 2_000_000);
+        assert_eq!(Kind::Document.cap(), 50_000_000);
+        assert_eq!(Kind::Document.timeout_secs(), 300);
         assert_eq!(Kind::Image.timeout_secs(), 20);
         assert_eq!(MAX_REDIRECTS, 3);
     }

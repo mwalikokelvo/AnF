@@ -1,5 +1,5 @@
 import { h } from '../views/dom';
-import { hasSafeFetch, safeFetchText } from './safe-fetch';
+import { hasSafeFetch, safeFetchDocument, safeFetchText } from './safe-fetch';
 import {
   traverseOpds,
   type OpdsBook,
@@ -15,6 +15,8 @@ export interface OpdsPanelOptions {
   allowed?: () => boolean;
   openUrl: (url: string) => Promise<void>;
   addSource?: (url: string) => Promise<void>;
+  /** Ingest downloaded book bytes through the same path as the file picker (desktop OPDS). */
+  importBytes?: (fileName: string, bytes: ArrayBuffer) => Promise<void>;
 }
 
 function catalogUrl(value: unknown): string | undefined {
@@ -84,7 +86,7 @@ async function fetchCatalogText(url: string): Promise<string> {
   return response.text();
 }
 
-function isEpub(book: OpdsBook, url: string): boolean {
+export function isEpubAcquisition(book: OpdsBook, url: string): boolean {
   const type = book.acquisitionType?.toLowerCase() ?? '';
   if (type.includes('epub')) return true;
   try {
@@ -93,6 +95,38 @@ function isEpub(book: OpdsBook, url: string): boolean {
   } catch {
     return url.toLowerCase().includes('.epub');
   }
+}
+
+export function isPdfAcquisition(book: OpdsBook, url: string): boolean {
+  const type = book.acquisitionType?.toLowerCase() ?? '';
+  if (type.includes('pdf')) return true;
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith('.pdf');
+  } catch {
+    return url.toLowerCase().includes('.pdf');
+  }
+}
+
+export function shouldDownloadBookViaSafeFetch(book: OpdsBook, url: string, desktopSafeFetch: boolean): boolean {
+  return desktopSafeFetch && (isEpubAcquisition(book, url) || isPdfAcquisition(book, url));
+}
+
+export function acquisitionMime(book: OpdsBook, url: string): string {
+  if (isPdfAcquisition(book, url)) return 'application/pdf';
+  return 'application/epub+zip';
+}
+
+export function suggestAcquisitionFileName(book: OpdsBook, url: string): string {
+  try {
+    const base = new URL(url).pathname.split('/').pop() ?? '';
+    if (/\.(epub|pdf)$/i.test(base)) return decodeURIComponent(base);
+  } catch { /* use title below */ }
+  const stem = (book.title || book.id || 'book').replace(/[^\w\s.-]+/g, '').trim().slice(0, 80) || 'book';
+  return `${stem}${isPdfAcquisition(book, url) ? '.pdf' : '.epub'}`;
+}
+
+function isEpub(book: OpdsBook, url: string): boolean {
+  return isEpubAcquisition(book, url);
 }
 
 function isHtmlAcquisition(book: OpdsBook, url: string): boolean {
@@ -181,6 +215,12 @@ export function createOpdsPanel(opts: OpdsPanelOptions) {
     if (opts.addSource && isHtmlAcquisition(book, url)) {
       await opts.addSource(url);
       opts.notify('Web page added as a document source.');
+      return;
+    }
+    if (opts.importBytes && shouldDownloadBookViaSafeFetch(book, url, hasSafeFetch())) {
+      const blob = await safeFetchDocument(url, acquisitionMime(book, url));
+      await opts.importBytes(suggestAcquisitionFileName(book, url), await blob.arrayBuffer());
+      opts.notify('Book added as a document source.');
       return;
     }
     if (isEpub(book, url)) {

@@ -12,8 +12,10 @@
 .rail-pin[aria-pressed=true]{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 
 @media(min-width:768px){
-  /* The grid keeps a fixed column for the closed rail, so opening it floats over content instead of moving it. */
-  .workspace-layout.has-glass-rail{grid-template-columns:calc(var(--rail-closed,68px) + 28px) minmax(0,1fr)}
+  /* The grid keeps a fixed column for the closed rail. Opening the rail widens that
+     column too, so it pushes the content instead of covering it. */
+  .workspace-layout.has-glass-rail{grid-template-columns:calc(var(--rail-closed,68px) + 28px) minmax(0,1fr);transition:grid-template-columns .3s cubic-bezier(.16,1,.3,1)}
+  .workspace-layout.has-glass-rail:has(> .glass-rail[data-rail=open]){grid-template-columns:calc(248px + 28px) minmax(0,1fr)}
   .workspace-layout.has-glass-rail[data-rail-pinned=true]{grid-template-columns:calc(var(--rail-open,248px) + 28px) minmax(0,1fr)}
   .workspace-layout.has-glass-rail>main{grid-column:2}
   .glass-rail{
