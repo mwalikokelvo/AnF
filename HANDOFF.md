@@ -336,3 +336,21 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm test`: 369/369 pass across 52 suites.
   - `npm run test:e2e`: 138/138 pass across 24 suites.
   - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+### 2026-11-07 — Antigravity: Multi-Source Audius Search, Strict REA Mandate & Ecosystem Sync
+
+- **Strict REA Mandate Enacted**:
+  - Enforced "Never skip REA" in `CLAUDE.md`, `AGENTS.md`, and `docs/BUILDUP-STATUS.md`. All partner agents (DeepSeek Harness, Cursor, Claude Code) must run `rea` CLI / tools during app, binary, or protocol investigations to ground features in reverse-engineered evidence.
+- **Unified Multi-Source Streaming with Audius**:
+  - Integrated Audius as a primary streaming provider into `windows/src/workspace/streaming-provider.ts` alongside YouTube and Audiobooks.
+  - Enabled concurrent multi-source search across Audius, YouTube, and Audiobooks in `SpotubeStreamService.searchMultiSource`.
+  - Added dedicated 'Audius' filter tab in Music Hub streaming switcher and updated search box hints.
+- **Skills & App Catalog**:
+  - Added `openwhispr` local speech transcription skill (`~/.agents/skills/openwhispr/`).
+  - Added `digitalocean` droplet/self-hosting orchestrator skill (`~/.agents/skills/digitalocean/`).
+  - Added DigitalOcean self-hosting connector card to `windows/src/workspace/marketplace/apps-catalog.ts`.
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 369/369 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.

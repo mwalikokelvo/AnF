@@ -41,6 +41,7 @@ export const CATALOG:CatalogApp[] = [
   {id:'mirofish',name:'MiroFish',author:'666ghj',repo:'666ghj/MiroFish',category:'Local AI',platforms:['Windows','Linux'],license:'Apache-2.0',description:'Multi-agent simulation and universal swarm intelligence prediction engine using GraphRAG.'},
   {id:'jev-ultrafast',name:'Jev Ultrafast',author:'browser-use',repo:'browser-use/jev-ultrafast',category:'Local AI',platforms:['Windows','macOS','Linux'],license:'MIT',description:'Ultra-fast, token-efficient browser automation agent utilizing compact indexed element tables.'},
   {id:'jcode',name:'JCode',author:'1jehuang',repo:'1jehuang/jcode',category:'Local AI',platforms:['Windows','Linux','macOS'],license:'Apache-2.0',description:'High-performance Rust coding agent harness designed for low-memory multi-agent developer workflows.'},
+  {id:'digitalocean',name:'DigitalOcean',author:'DigitalOcean',repo:'digitalocean/doctl',category:'Privacy and sync',platforms:['Windows','macOS','Linux'],license:'Apache-2.0',description:'Deploy and host self-hosted instances (Chatwoot, Cal.com, OpenProject) and S3-compatible cloud storage.'},
 ];
 
 const CATEGORIES:Category[] = ['Reading','Listening','Notes and study','Privacy and sync','Local AI'];

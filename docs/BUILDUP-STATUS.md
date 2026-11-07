@@ -34,6 +34,7 @@ One page every builder should read before touching AnF. Keep it current; append,
 2. Authors work on branches; `main` gets plain merge commits. No force-push.
 3. Verify with `cd windows && npx tsc --noEmit && npm test && npm run test:e2e && node ../scripts/check-release.mjs`.
 4. The Windows frontend gates are the guard; keep them green.
+5. **Never skip REA.** Mandatory across all builders for feature, app, or protocol investigations. Evidence from ea must ground all designs.
 
 ## Next priorities
 

@@ -164,7 +164,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const folder=h('input',{type:'file',multiple:true,webkitdirectory:'','aria-label':'Import music folder',hidden:true});
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
- let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
+ let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
  let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false;
@@ -1382,8 +1382,9 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   // --- TAB: STREAMING (Multi-service Spicetify streaming platform) ---
   if(tab==='streaming'){
    const switcher=h('div',{class:'music-stream-tabs',role:'tablist','aria-label':'Streaming services'});
-   const serviceDefs:{id:'all'|'youtube'|'spotify'|'audiobook'|'cached';label:string}[]=[
+   const serviceDefs:{id:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'cached';label:string}[]=[
     {id:'all',label:'All Services'},
+    {id:'audius',label:'Audius'},
     {id:'youtube',label:'YouTube'},
     {id:'spotify',label:'Spotify / Spotube'},
     {id:'audiobook',label:'Audiobooks'},
@@ -1611,7 +1612,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    const searchBox=h('div',{class:'music-stream-search'},
     h('input',{
      type:'search',
-     placeholder:streamingServiceTab==='cached'?'Filter cached streams...':`Search ${streamingServiceTab==='all'?'YouTube, Spotify & Audiobooks':streamingServiceTab}...`,
+     placeholder:streamingServiceTab==='cached'?'Filter cached streams...':`Search ${streamingServiceTab==='all'?'Audius, YouTube & Audiobooks':streamingServiceTab}...`,
      value:streamingQuery,
      oninput:(e:Event)=>{
       streamingQuery=(e.target as HTMLInputElement).value;

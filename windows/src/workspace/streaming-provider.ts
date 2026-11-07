@@ -1,3 +1,4 @@
+import { searchAudius, audiusStreamUrl } from './audius';
 /**
  * Decoupled streaming audio provider supporting YouTube / Piped, Spotify / Spotube,
  * LibriVox / Internet Archive Audiobooks, and Direct Audio Streams.
@@ -175,7 +176,7 @@ export interface StreamTrackMetadata {
   streamUrl?: string;
   /** A catalogue's 30 s clip (iTunes / Spotify embed). It is not the song: it is only played, labelled, when no full source is found. */
   previewUrl?: string;
-  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom';
+  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius';
   bitrate?: number;
   isrc?: string;
   year?: number;
@@ -1175,7 +1176,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   /** Unified Multi-Source Search Across YouTube, Spotify, and Audiobooks */
   async searchMultiSource(
     query: string,
-    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook'; limit?: number }
+    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius'; limit?: number }
   ): Promise<StreamTrackMetadata[]> {
     const q = query.trim();
     if (!q) return [];
@@ -1199,14 +1200,19 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (service === 'audiobook') {
       return this.searchAudiobooks(q, limit);
     }
+    if (service === 'audius') {
+      return this.searchAudius(q, limit);
+    }
 
-    // Service 'all': query YouTube, Spotify, and Audiobooks concurrently
-    const [ytRes, spRes, abRes] = await Promise.allSettled([
+    // Service 'all': query Audius, YouTube, Spotify, and Audiobooks concurrently
+    const [audRes, ytRes, spRes, abRes] = await Promise.allSettled([
+      this.searchAudius(q, Math.ceil(limit / 2)),
       this.searchYouTube(q, Math.ceil(limit / 2)),
       this.searchTracks(q, { limit: Math.ceil(limit / 2) }),
       this.searchAudiobooks(q, Math.ceil(limit / 3)),
     ]);
 
+    const audItems = audRes.status === 'fulfilled' ? audRes.value : [];
     const ytItems = ytRes.status === 'fulfilled' ? ytRes.value : [];
     const spItems = spRes.status === 'fulfilled' ? spRes.value : [];
     const abItems = abRes.status === 'fulfilled' ? abRes.value : [];
@@ -1216,14 +1222,40 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const add = (t: StreamTrackMetadata | undefined) => {
       if (t && merged.length < limit && !seenIds.has(t.id)) { seenIds.add(t.id); merged.push(t); }
     };
-    const maxLen = Math.max(ytItems.length, spItems.length, abItems.length);
+    const maxLen = Math.max(audItems.length, ytItems.length, spItems.length, abItems.length);
     for (let i = 0; i < maxLen; i++) {
+      add(audItems[i]);
       add(spItems[i]);
       add(ytItems[i]);
       add(abItems[i]);
     }
 
     return merged.slice(0, limit);
+  }
+
+  
+  async searchAudius(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+    if (!onlineLookupsEnabled() || !query.trim()) return [];
+    try {
+      const results = await searchAudius(query.trim(), limit);
+      const mapped: StreamTrackMetadata[] = results.map(t => ({
+        id: 'audius:' + t.id,
+        title: t.title,
+        artist: t.artist || 'Audius',
+        album: t.genre || 'Audius',
+        duration: t.duration,
+        artworkUrl: t.artworkUrl,
+        streamUrl: t.streamUrl,
+        source: 'audius',
+        bitrate: 320,
+      }));
+      for (const track of mapped) {
+        this.cache.set(track.id, track);
+      }
+      return mapped;
+    } catch {
+      return [];
+    }
   }
 
   async getTrack(id: string): Promise<StreamTrackMetadata | null> {
@@ -1242,6 +1274,17 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   }
 
   async resolveStream(track: StreamTrackMetadata): Promise<ResolvedAudioStream | null> {
+    // 0. If Audius track
+    if (track.source === 'audius' || track.id.startsWith('audius:')) {
+      const trackId = track.id.replace(/^audius:/, '');
+      return {
+        streamUrl: track.streamUrl || audiusStreamUrl(trackId),
+        mimeType: 'audio/mpeg',
+        bitrate: 320,
+        cached: false,
+      };
+    }
+
     // 1. If YouTube track
     if (track.source === 'youtube' || track.id.startsWith('yt:')) {
       const videoId = track.id.replace(/^yt:/, '');
@@ -1346,7 +1389,7 @@ export const streamService = new SpotubeStreamService();
 
 export async function searchMultiSource(
   query: string,
-  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook'; limit?: number }
+  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius'; limit?: number }
 ): Promise<StreamTrackMetadata[]> {
   return streamService.searchMultiSource(query, options);
 }
