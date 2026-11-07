@@ -21,10 +21,10 @@ Status: normative for Phase 3. Android and Windows must accept and emit this wir
 | `name` | Display name | ≤ 160 bytes UTF-8 |
 | `title` | Sync title | ≤ 300 bytes UTF-8 |
 | `question` | Prompt / question | ≤ 10_000 bytes |
-| `draft` | Writing body | ≤ 200_000 bytes |
+| `draft` | Writing body | ≤ 2_000_000 bytes |
 | `history` | Turns | ≤ 1000 |
 | `history[].role` | `user` \| `assistant` (Windows may use other labels internally; wire uses these) | |
-| `history[].content[].text` | Turn text | ≤ 200_000 bytes |
+| `history[].content[].text` | Turn text | ≤ 2_000_000 bytes |
 | `sources` | Documents when `documents=true` | each text ≤ 2_000_000 bytes |
 | `sources[].path` | Always `null` on the wire | |
 | `memory` | Opaque | |

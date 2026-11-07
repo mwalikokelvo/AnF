@@ -49,10 +49,10 @@ CREATE VIRTUAL TABLE IF NOT EXISTS project_search USING fts5(
 | `name` | string | ≤ 160 chars |
 | `title` | string | ≤ 300 chars |
 | `question` | string | ≤ 10_000 bytes UTF-8 |
-| `draft` | string | ≤ 200_000 bytes UTF-8 |
+| `draft` | string | ≤ 2_000_000 bytes UTF-8 |
 | `history` | array | ≤ 1000 turns |
 | `history[].role` | string | non-empty |
-| `history[].content[].text` | string | ≤ 200_000 bytes each |
+| `history[].content[].text` | string | ≤ 2_000_000 bytes each |
 | `sources` | array | host-defined count (Android UI: ≤ 4) |
 | `sources[].name` | string | file label |
 | `sources[].text` | string | ≤ 2_000_000 bytes |
