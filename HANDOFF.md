@@ -366,3 +366,18 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm test`: 369/369 pass across 52 suites.
   - `npm run test:e2e`: 138/138 pass across 24 suites.
   - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+
+### 2026-11-07 — Antigravity: Spotify-Class Music Engine (Universal Search, Track Radio, Autoplay, Volume Normalization)
+
+- **Spotify-Class Music Engine Deliveries**:
+  - **Universal Online Search**: Restored and unified the `Streaming` tab in `tabButtons` supporting concurrent searches across Audius, YouTube, and global catalogue metadata. Enter on empty local searches prompts one-click online streaming resolution.
+  - **Track Radio & Similar Music**: Added `startRadio(seed)` algorithm that populates the queue with similar songs (querying Audius or matching library genres/artists). Exposed via "Track Radio" buttons on local cards, streaming results, Audius rows, and Now Playing dock.
+  - **Infinite Auto-Play**: When the playback queue ends, AnF automatically fetches and queues 3-4 similar tracks (Audius or local catalog) to ensure continuous, uninterrupted music playback.
+  - **Volume Normalization (Loudness Equalization)**: Integrated Web Audio `DynamicsCompressorNode` (-24 dB threshold, 30 dB knee, 12 ratio) in `AudioDspEngine` to prevent volume jumps between tracks, toggleable in EQ dialog, Listening options, and Full Player chips.
+  - **Smart Queue Actions**: Added "Play next", "Queue", and "Radio" actions directly on Audius and streaming cards.
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 370/370 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.

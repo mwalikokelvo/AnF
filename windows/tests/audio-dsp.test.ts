@@ -245,5 +245,24 @@ describe('Audio DSP Engine & 5-Band Equalizer', () => {
       assert.equal(mockAudio.preservesPitch, true);
       assert.equal(mockAudio.crossOrigin, 'anonymous');
     });
+
+    test('volume normalization controls loudness leveling state and persists', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.isVolumeNormalizationEnabled(), false);
+
+      let notified = false;
+      const unsubscribe = engine.subscribe(() => { notified = true; });
+
+      engine.setVolumeNormalization(true);
+      assert.equal(engine.isVolumeNormalizationEnabled(), true);
+      assert.equal(notified, true);
+
+      notified = false;
+      engine.setVolumeNormalization(false);
+      assert.equal(engine.isVolumeNormalizationEnabled(), false);
+      assert.equal(notified, true);
+
+      unsubscribe();
+    });
   });
 });
