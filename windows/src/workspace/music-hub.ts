@@ -151,6 +151,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
  let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
+ let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let prefs:Preferences={position:0,volume:.7,speed:1,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
  try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
  let listening=listeningState(null),mix='all',lastWall=0,lastMedia=0;
@@ -197,7 +198,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const tabButtons=['Music','Audiobooks','Podcasts','Archive','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
@@ -1157,6 +1158,72 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     );
     return;
    }
+  }
+
+  // --- TAB: ARCHIVE (public-domain audiobooks from Internet Archive / LibriVox) ---
+  if(tab==='archive'){
+   const query=h('input',{type:'search','aria-label':'Search the Internet Archive',placeholder:'Search free audiobooks, e.g. Sherlock Holmes',value:archiveQuery}) as HTMLInputElement;
+   query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchArchive);});
+   async function searchArchive(){
+    const text=query.value.trim();
+    archiveQuery=text;
+    if(!text){report('Type a title or author to search the Internet Archive.');return;}
+    if(!onlineLookupsEnabled()){report('Turn on Online lookups to search archive.org.');return;}
+    archiveBusy=true;render();
+    try{
+     const found=await searchMultiSource(text,{service:'audiobook',limit:24});
+     archiveResults=found.filter(item=>item.source==='audiobook');
+     report(archiveResults.length?'Found '+archiveResults.length+' free audiobooks on the Internet Archive.':'No free audiobooks found for that search.');
+    }catch(error){
+     archiveResults=[];
+     report('Archive search failed: '+describeStreamError(error));
+    }finally{
+     archiveBusy=false;render();
+    }
+   }
+   async function playArchive(item:StreamTrackMetadata){
+    if(!onlineLookupsEnabled()){report('Turn on Online lookups to stream from archive.org.');return;}
+    try{
+     const resolved=await streamService.resolveStream(item);
+     if(!resolved?.streamUrl)throw Error('That audiobook has no playable MP3.');
+     const parts=resolved.parts?.length?resolved.parts:[{title:item.title,streamUrl:resolved.streamUrl}];
+     const art=safeHttpsUrl(item.coverUrl)||safeHttpsUrl(item.artworkUrl);
+     const list:AudioTrack[]=parts.map((part,index)=>({
+      id:'stream:'+item.id+(index?':'+index:''),
+      title:parts.length>1?item.title+' · Part '+(index+1):item.title,
+      artist:item.artist||'LibriVox',
+      name:part.title,
+      album:'Audiobook',
+      kind:'audiobook',
+      blob:new Blob(),
+      streamUrl:safeHttpsUrl(part.streamUrl)||undefined,
+      coverUrl:art,
+      format:'audio/mpeg',
+      created:Date.now(),
+      duration:index===0?item.duration:undefined
+     }));
+     playTrack(list[0],list);
+     report('Streaming '+list[0].title+' from the Internet Archive.');
+    }catch(error){
+     report('Could not play that audiobook: '+describeStreamError(error));
+    }
+   }
+   const rows=archiveResults.map(item=>{
+    const play=h('button',{type:'button','aria-label':'Play '+item.title,text:'Play',class:'music-archive-play',onclick:()=>void run(()=>playArchive(item))});
+    return h('article',{class:'music-archive-row'},
+     h('div',{class:'music-archive-copy'},h('strong',{text:item.title}),h('span',{class:'music-archive-meta',text:[item.artist,item.year].filter(Boolean).join(' · ')||'Internet Archive'})),
+     play);
+   });
+   content.replaceChildren(
+    h('section',{class:'music-archive'},
+     h('h3',{text:'Internet Archive · free audiobooks'}),
+     h('p',{class:'hint',text:'Public-domain recordings from LibriVox and the Internet Archive. They stream directly from archive.org and are not added to your library.'}),
+     h('div',{class:'row'},query,button('Search archive',searchArchive)),
+     archiveBusy?h('p',{class:'hint',text:'Searching archive.org…'}):null,
+     ...(rows.length?rows:[h('p',{class:'music-empty',text:archiveQuery?'No results yet. Try another title or author.':'Search for a title or author to find a free audiobook.'})])
+    )
+   );
+   return;
   }
 
   // --- TAB: STREAMING (Multi-service Spicetify streaming platform) ---
