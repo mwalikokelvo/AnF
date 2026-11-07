@@ -212,7 +212,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const index=tabButtons.indexOf(document.activeElement as HTMLButtonElement);const next=event.key==='Home'?0:event.key==='End'?tabButtons.length-1:(index+(event.key==='ArrowRight'?1:tabButtons.length-1))%tabButtons.length;tabButtons[next].focus();tabButtons[next].click();});
  content.id='music-content';content.setAttribute('role','tabpanel');
  const subtitle=h('p',{text:'Your music, audiobooks, and podcasts. Everything plays from this computer.'});
- const theme=h('select',{'aria-label':'Music theme'},...[['ink','Emerald Ink (Default)'],['bloom','Spicetify Bloom (Neon)'],['cyberpunk','Cyberpunk Neon'],['velvet','Midnight Velvet'],['oled','OLED Pure Black']].map(([value,text])=>h('option',{value,text}))) as HTMLSelectElement;
+ const theme=h('select',{'aria-label':'Music theme'},...[['ink','Emerald Ink (Default)'],['bloom','Bloom (Neon)'],['cyberpunk','Cyberpunk Neon'],['velvet','Midnight Velvet'],['oled','OLED Pure Black']].map(([value,text])=>h('option',{value,text}))) as HTMLSelectElement;
  const savedTheme=localStorage.getItem('anf-music-theme')||'ink';
  const initialTheme=savedTheme==='ember'?'cyberpunk':savedTheme==='violet'?'bloom':savedTheme==='dusk'?'velvet':savedTheme;
  theme.value=['ink','bloom','cyberpunk','velvet','oled'].includes(initialTheme)?initialTheme:'ink';
