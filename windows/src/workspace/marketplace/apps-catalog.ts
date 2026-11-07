@@ -37,6 +37,10 @@ export const CATALOG:CatalogApp[] = [
   {id:'openproject',name:'OpenProject',author:'OpenProject GmbH',repo:'opf/openproject',category:'Notes and study',platforms:['Linux','macOS'],license:'GPL-3.0',description:'Open-source project management software for task tracking, roadmaps, and agile teams.'},
   {id:'higgsfield-ai',name:'Open Higgsfield AI',author:'Autom8AI',repo:'Autom8AI/Open-Higgsfield-AI',category:'Local AI',platforms:['Windows','Linux'],license:'Apache-2.0',description:'Open-source video generative AI and motion synthesis toolset.'},
   {id:'clouds-against-humanity',name:'Clouds Against Humanity',author:'ChiefGyk3D',repo:'ChiefGyk3D/Clouds-Against-Humanity',category:'Notes and study',platforms:['Windows','Linux','macOS'],license:'MIT',description:'Cloud security and architecture awareness game engine.'},
+  {id:'supoclip',name:'Supoclip',author:'FujiwaraChoki',repo:'FujiwaraChoki/supoclip',category:'Listening',platforms:['Windows','Linux','macOS'],license:'AGPL-3.0',description:'Open-source AI video clipper: extracts moments, tracks speakers in 9:16, and generates word-synced subtitles.'},
+  {id:'mirofish',name:'MiroFish',author:'666ghj',repo:'666ghj/MiroFish',category:'Local AI',platforms:['Windows','Linux'],license:'Apache-2.0',description:'Multi-agent simulation and universal swarm intelligence prediction engine using GraphRAG.'},
+  {id:'jev-ultrafast',name:'Jev Ultrafast',author:'browser-use',repo:'browser-use/jev-ultrafast',category:'Local AI',platforms:['Windows','macOS','Linux'],license:'MIT',description:'Ultra-fast, token-efficient browser automation agent utilizing compact indexed element tables.'},
+  {id:'jcode',name:'JCode',author:'1jehuang',repo:'1jehuang/jcode',category:'Local AI',platforms:['Windows','Linux','macOS'],license:'Apache-2.0',description:'High-performance Rust coding agent harness designed for low-memory multi-agent developer workflows.'},
 ];
 
 const CATEGORIES:Category[] = ['Reading','Listening','Notes and study','Privacy and sync','Local AI'];
