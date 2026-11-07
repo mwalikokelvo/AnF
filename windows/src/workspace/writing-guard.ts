@@ -6,7 +6,7 @@ export function writingGuard(external:()=>boolean,notify:(text:string)=>void){
   return EditorState.transactionFilter.of(tr=>{
     if(!tr.docChanged||external())return tr;
     if(tr.startState.readOnly)return [];
-    if(new TextEncoder().encode(tr.newDoc.toString()).length>200000){notify('Writing limit reached. Export or start another draft.');return [];}
+    if(new TextEncoder().encode(tr.newDoc.toString()).length>2_000_000){notify('Writing limit reached (2 MB). Export or start another draft.');return [];}
     return tr;
   });
 }

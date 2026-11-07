@@ -69,7 +69,7 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     const words=draft.value.trim()?draft.value.trim().split(/\s+/u).length:0,chars=Array.from(draft.value).length,readTime=Math.max(1,Math.ceil(words/200));count.textContent=`${words.toLocaleString()} word${words===1?'':'s'} · ${chars.toLocaleString()} char${chars===1?'':'s'} · ~${readTime} min read`;
     if(mode.value==='preview'||mode.value==='split'){if(draft.value.length>12000)previewTimer=setTimeout(paintPreview,180);else paintPreview();}
   }
-  function commit(value:string){if(new TextEncoder().encode(value).length>200000){notify('This formatting change would exceed the writing size limit. Shorten the draft first.');return;}draft.value=value;refresh();changed();}
+  function commit(value:string){if(new TextEncoder().encode(value).length>2_000_000){notify('This formatting change would exceed the 2 MB writing limit. Shorten the draft first.');return;}draft.value=value;refresh();changed();}
   function tool(label:string,action:()=>void){const b=h('button',{text:label,type:'button'});b.addEventListener('pointerdown',e=>e.preventDefault());b.addEventListener('click',()=>{action();if(mode.value==='live')live?.focusSelection();});tools.append(b);return b;}
   function wrap(prefix:string,suffix=''){
     const start=draft.selectionStart,end=draft.selectionEnd;

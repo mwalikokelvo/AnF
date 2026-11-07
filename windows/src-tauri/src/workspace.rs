@@ -503,8 +503,8 @@ fn formatted_line(line: &str, format: &str) -> String {
     }
 }
 pub fn save_document(title: &str, text: &str, format: &str) -> Result<String, String> {
-    if text.trim().is_empty() || text.len() > 200_000 {
-        return Err("Document must contain text under 200 KB.".into());
+    if text.trim().is_empty() || text.len() > 2_000_000 {
+        return Err("Document must contain text under 2 MB.".into());
     }
     let dir = settings::local_dir().join("documents");
     platform::ensure_private_dir(&dir).map_err(|e| e.to_string())?;
