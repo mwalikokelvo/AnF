@@ -1,6 +1,10 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { isBrokenStreamEntry, findBrokenStreamEntries } from '../src/workspace/streaming-provider.js';
+import {
+  isBrokenStreamEntry,
+  findBrokenStreamEntries,
+  pruneIdsFromPlaylistOrders,
+} from '../src/workspace/streaming-provider.js';
 
 const bad = (over: Record<string, unknown> = {}) => ({
   id: 'stream:custom:abc',
@@ -40,5 +44,20 @@ describe('broken stream entry detection', () => {
     const copy = [...list];
     assert.deepEqual(findBrokenStreamEntries(list).map(t => t.id), ['a', 'd']);
     assert.deepEqual(list, copy);
+  });
+
+  test('pruneIdsFromPlaylistOrders removes ids from playlist orders only', () => {
+    const playlists = [
+      { id: 'p1', name: 'A', order: ['a', 'b', 'c'] },
+      { id: 'p2', name: 'B', order: ['x', 'y'] },
+      { id: 'p3', name: 'C', order: ['b'] },
+    ];
+    const copy = playlists.map(p => ({ ...p, order: [...p.order] }));
+    const ids = new Set(['a', 'b', 'missing']);
+    assert.deepEqual(pruneIdsFromPlaylistOrders(playlists, ids), [
+      { id: 'p1', name: 'A', order: ['c'] },
+      { id: 'p3', name: 'C', order: [] },
+    ]);
+    assert.deepEqual(playlists, copy);
   });
 });

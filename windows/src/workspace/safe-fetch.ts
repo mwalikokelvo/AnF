@@ -54,3 +54,33 @@ export async function safeFetchAudio(url: string, type = 'audio/mpeg'): Promise<
   if (!bytes) throw new Error('The download returned an unexpected response.');
   return new Blob([bytes as BlobPart], { type });
 }
+
+/** Fetch cover art through Rust and return it as a Blob. */
+export async function safeFetchImage(url: string, type = 'image/jpeg'): Promise<Blob> {
+  const invoke = tauriInvoke();
+  if (!invoke) throw new Error('Safe fetch is only available in the desktop app.');
+  let raw: unknown;
+  try {
+    raw = await invoke('safe_fetch_image', { url });
+  } catch (err) {
+    throw new Error(message(err));
+  }
+  const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Array.isArray(raw) ? Uint8Array.from(raw as number[]) : raw instanceof Uint8Array ? raw : undefined;
+  if (!bytes) throw new Error('The download returned an unexpected response.');
+  return new Blob([bytes as BlobPart], { type });
+}
+
+/** Fetch an EPUB/PDF book through Rust and return it as a Blob. */
+export async function safeFetchDocument(url: string, type = 'application/epub+zip'): Promise<Blob> {
+  const invoke = tauriInvoke();
+  if (!invoke) throw new Error('Safe fetch is only available in the desktop app.');
+  let raw: unknown;
+  try {
+    raw = await invoke('safe_fetch_document', { url });
+  } catch (err) {
+    throw new Error(message(err));
+  }
+  const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Array.isArray(raw) ? Uint8Array.from(raw as number[]) : raw instanceof Uint8Array ? raw : undefined;
+  if (!bytes) throw new Error('The download returned an unexpected response.');
+  return new Blob([bytes as BlobPart], { type });
+}

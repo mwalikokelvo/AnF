@@ -53,7 +53,9 @@ try{
 
  // playlists: create (prompt), add, play, remove
  await page.locator('#music-tab-playlists').click();
- page.once('dialog',d=>d.accept('Evening'));await page.getByRole('button',{name:'New playlist',exact:true}).click();
+ await page.getByRole('button',{name:'New playlist',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Playlist name').fill('Evening');
+ await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
  await page.getByText('0 tracks',{exact:true}).waitFor();
  await page.locator('#music-tab-music').click();
  await page.locator('.music-card').filter({hasText:'City Signals'}).locator('summary').click();
@@ -65,8 +67,9 @@ try{
 
  // podcast: a failing feed explains itself and adds nothing
  await page.locator('#music-tab-podcasts').click();
- page.once('dialog',d=>d.accept('https://feeds.example.com/not-a-feed'));
  await page.getByRole('button',{name:'Add feed',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Podcast RSS URL').fill('https://feeds.example.com/not-a-feed');
+ await page.getByRole('dialog').getByRole('button',{name:'OK',exact:true}).click();
  await page.getByText(/did not return a feed/).first().waitFor();
  assert.match(await page.locator('.music-hub').innerText(),/0 podcast subscription/);
 
