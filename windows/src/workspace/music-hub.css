@@ -1038,17 +1038,18 @@ body:has(#app) .native-music-source{display:flex}
   transform: scale(1.08) !important;
 }
 
-/* 3. Ultrawide 3-Column Studio Layout */
+/* 3. Studio layout: library stage + now-playing drawer. The duplicate left rail
+   was removed in the local-first rebuild; the tabs are the only navigation. */
 .music-studio-layout {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) 330px;
   gap: 24px;
   position: relative;
   z-index: 1;
 }
 
 .music-studio-layout.drawer-collapsed {
-  grid-template-columns: 210px minmax(0, 1fr) 48px;
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 /* Left: Slim Library Navigation Rail */
@@ -1292,9 +1293,6 @@ body:has(#app) .native-music-source{display:flex}
   .music-studio-layout {
     grid-template-columns: minmax(0, 1fr) 300px;
   }
-  .music-library-rail {
-    display: none;
-  }
 }
 @media(max-width: 960px) {
   .music-studio-layout {
@@ -1321,3 +1319,6 @@ body:has(#app) .native-music-source{display:flex}
     scroll-behavior: auto !important;
   }
 }
+
+/* A document autosave failure must never appear over the music player. */
+body.music-view .save-alert{display:none!important}
