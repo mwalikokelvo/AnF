@@ -95,6 +95,11 @@ One page every builder should read before touching AnF. Keep it current; append,
    - **Pomodoro & Focus Timer**: Built `pomodoro.ts` providing 25m focus / 5m break / 15m long break state tracking, synthesized Web Audio harmonic bell chimes (zero audio files needed), and Markdown session logging.
    - **Verification**: **445/445 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 5.49s.
 
+10. **Vault Health, Broken Link Finder & Graph Analytics (2026-11-08)**:
+    - **Knowledge Vault Health Engine**: Built `vault-health.ts` analyzing note collections to identify broken wikilinks, orphan notes, and top hub notes with graph density calculation and 0–100 health scoring.
+    - **Actionable Markdown Reports**: Formatted structured Markdown audit reports via `vaultHealthToMarkdown` with frontmatter metadata and tabular repair recommendations.
+    - **Verification**: **450/450 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 4.49s.
+
 ## Next priorities
 
 1. Continuous UI polish and automated live testing across Windows and Android devices.

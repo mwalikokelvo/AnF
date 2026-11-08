@@ -487,3 +487,13 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 5.49s.
+
+### 2026-11-08: Vault Health, Broken Link Finder & Graph Analytics
+- **Vault Health Engine**: Created `vault-health.ts` analyzing notes for broken wikilinks, orphan notes, top knowledge hubs, graph density, and 0–100 overall vault health scoring.
+- **Markdown Audit Reports**: Implemented `vaultHealthToMarkdown` generating structured Obsidian/AnF audit reports with frontmatter and actionable tables.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **450/450 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 4.49s.
