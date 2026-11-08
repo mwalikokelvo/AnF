@@ -693,7 +693,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const qPos=qIndex>=0&&queue.length>1?' · '+(qIndex+1)+'/'+queue.length:'';
   const trackLabel=current?.trackNo?(current.trackOf?current.trackNo+'/'+current.trackOf:'#'+current.trackNo):'';
   const stateLabel=playbackState==='buffering'?' [Buffering...]':playbackState==='error'?' [Error]':'';
-  dockArtist.textContent=(current?kindLabel(current.kind||'music')+' · ':'')+(current?.artist||'Unknown artist')+(current?.album?' · '+current.album:'')+(trackLabel?' · '+trackLabel:'')+(current?.year?' · '+current.year:'')+(current?.genre?' · '+current.genre:'')+(current&&formatBadge(current)?' · '+formatBadge(current):'')+(pct>0?' · '+pct+'%':'')+qPos+(next?' · Up next: '+next.title:'')+stateLabel;
+  dockArtist.textContent=(current?kindLabel(current.kind||'music')+' · ':'')+(current?.artist||'Unknown artist')+(current?.album?' · '+current.album:'')+(trackLabel?' · '+trackLabel:'')+(current?.year?' · '+current.year:'')+(current?.genre?' · '+current.genre:'')+(current&&formatBadge(current)?' · '+formatBadge(current):'')+(pct>0?' · '+pct+'% complete · '+(100-pct)+'% left':'')+qPos+(next?' · Up next: '+next.title:'')+stateLabel;
   if(current){
    drawerPlayingBadge.textContent=(playing?'PLAYING':'PAUSED')+' · '+playbackMark(current);
    drawerLikeBtn.style.color=prefs.favorites.includes(current.id)?'var(--music-accent, #79e4b4)':'var(--music-ink)';
