@@ -74,6 +74,10 @@ const replyDraft=createReplyToDraft({draft:()=>draft.value,setDraft:text=>{draft
 const name=h('input',{value:'My project','aria-label':'Project name',maxlength:160}) as HTMLInputElement;
 const selector=h('select',{'aria-label':'Saved project'}) as HTMLSelectElement;
 const model=h('select',{'aria-label':'Local model'},
+  h('optgroup',{label:'Installed Offline Models'},
+    h('option',{value:'fast',text:'Fast · Qwen3 0.6B (Default)'}),
+    h('option',{value:'balanced',text:'Balanced · Qwen3 1.7B'}),
+  ),
   h('optgroup',{label:'DeepSeek AI (Hugging Face)'},
     h('option',{value:'deepseek-v4.1-flash',text:'DeepSeek V4.1 Flash (1017 · Engram)'}),
     h('option',{value:'deepseek-v3.2-reasoning',text:'DeepSeek V3.2 Reasoning (DSA · MoE)'}),
@@ -82,12 +86,9 @@ const model=h('select',{'aria-label':'Local model'},
   h('optgroup',{label:'Moonshot Kimi (Hugging Face)'},
     h('option',{value:'kimi-k3-thinking',text:'Kimi K3 Thinking (KDA · MoE)'}),
     h('option',{value:'kimi-linear-a3b',text:'Kimi Linear 48B-A3B (Edge Fast)'}),
-  ),
-  h('optgroup',{label:'Lightweight Fallbacks'},
-    h('option',{value:'fast',text:'Fast · Qwen3 0.6B'}),
-    h('option',{value:'balanced',text:'Balanced · Qwen3 1.7B'}),
   )
 ) as HTMLSelectElement;
+model.value='fast';
 const contextScope=h('select',{'aria-label':'AI context'},...[["loaded","Loaded documents"],["document","First document"],["draft","Active draft"],["none","General - no saved context"]].map(([value,text])=>h('option',{value,text})));
 const replyLength=h('select',{'aria-label':'Response length'},h('option',{value:'standard',text:'Standard response'}),h('option',{value:'long',text:'Long response · aim for 1,700 words'})) as HTMLSelectElement;
 const question=h('textarea',{rows:3,placeholder:'Ask a question, request a draft, or ask about loaded sources…','aria-label':'Your question'}) as HTMLTextAreaElement;
@@ -132,7 +133,7 @@ async function run(action:(active:number)=>Promise<unknown>,label='Working'){
   finally{clearInterval(ticker);if(active===operation){job=0;setBusy(false);}}
 }
 function button(label:string,action:(active:number)=>Promise<unknown>,progress=label):HTMLButtonElement{const b=h('button',{text:label}) as HTMLButtonElement;b.addEventListener('click',()=>void run(action,progress));return b;}
-function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:model.value};}
+function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:model.value||'fast'};}
 async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});selector.replaceChildren(h('option',{value:'',text:'Choose a saved project…'}),...entries.map(e=>h('option',{value:e.id,text:e.name})));selector.value=projectId;if(searchHistory.value.trim())await searchProjects();else renderProjectHistory(entries);}
 function renderProjectHistory(entries:Entry[]){historyItems.replaceChildren(...entries.map(e=>{const b=h('button',{class:'history-item',title:e.name+' · '+new Date(e.updated).toLocaleString(),'aria-current':e.id===projectId?'true':'false'},h('strong',{text:e.name}),h('time',{datetime:new Date(e.updated).toISOString(),text:historyDate(e.updated)}),showPreviews.checked&&e.snippet?h('small',{text:e.snippet}):null);b.disabled=busy;b.addEventListener('click',()=>{selector.value=e.id;selector.dispatchEvent(new Event('change'));});return b;}));if(!entries.length)historyItems.append(h('p',{class:'hint',text:searchHistory.value?'No matching conversations.':'Start a conversation. It will be saved here.'}));}
 async function searchProjects(){const request=++searchRequest;try{const entries=await invoke<Entry[]>('workspace_list_projects',{query:searchHistory.value});if(request===searchRequest)renderProjectHistory(entries);}catch(e){if(request===searchRequest)status.textContent=String(e);}}
@@ -211,7 +212,7 @@ const modeOf:Record<string,'read'|'ask'|'listen'|'keep'>={home:'read',documents:
 const modeLabels={read:'Reader',ask:'Assistant',listen:'Music'} as const;
 let workspaceMode:'read'|'ask'|'listen'='ask';
 const modeRail=h('div',{class:'mode-rail',role:'tablist','aria-label':'Workspace modes'});
-function paintModes(){for(const b of modeRail.querySelectorAll('button'))b.setAttribute('aria-selected',b.getAttribute('data-mode')===workspaceMode?'true':'false');for(const b of navigation.querySelectorAll('button')){const group=b.getAttribute('data-mode');b.hidden=group!=='keep'&&group!==workspaceMode;}}
+function paintModes(){for(const b of modeRail.querySelectorAll('button'))b.setAttribute('aria-selected',b.getAttribute('data-mode')===workspaceMode?'true':'false');for(const b of navigation.querySelectorAll('button'))b.hidden=false;}
 function showView(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
 function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-mode':modeOf[id]||'keep','data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);paintModes();}
 for(const id of ['read','ask','listen'] as const){const tab=h('button',{type:'button',role:'tab',text:modeLabels[id],'data-mode':id,'aria-selected':id==='ask'?'true':'false'});tab.addEventListener('click',()=>showView(id==='read'?'documents':id==='ask'?'chat':'music'));modeRail.append(tab);}

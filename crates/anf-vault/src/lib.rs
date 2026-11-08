@@ -74,6 +74,23 @@ pub fn id_valid(id: &str) -> bool {
 }
 
 /// Validate project shape and limits (vault contract v1 + host rules).
+fn is_valid_model(m: &str) -> bool {
+    matches!(
+        m,
+        "fast"
+            | "balanced"
+            | "deepseek-v4.1-flash"
+            | "deepseek-v3.2-reasoning"
+            | "deepseek-v3.2"
+            | "deepseek-r1-distill-qwen-1.5b"
+            | "deepseek-r1-distill"
+            | "kimi-k3-thinking"
+            | "kimi-k3"
+            | "kimi-linear-a3b"
+            | "kimi-linear"
+    )
+}
+
 pub fn validate(p: &Project) -> Result<(), String> {
     if !id_valid(&p.id)
         || p.name.len() > 160
@@ -81,7 +98,7 @@ pub fn validate(p: &Project) -> Result<(), String> {
         || p.question.len() > 10_000
         || p.draft.len() > 2_000_000
         || p.memory.len() > 12_000
-        || !matches!(p.model.as_str(), "fast" | "balanced")
+        || !is_valid_model(&p.model)
         || p.history.len() > 1000
         || p.sources.len() > 4
     {

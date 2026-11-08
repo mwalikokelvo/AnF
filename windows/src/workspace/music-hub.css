@@ -1350,3 +1350,7 @@ body.music-view .save-alert{display:none!important}
 
 /* Keep transport labels on one line; "Find lyrics" and "Mute" used to wrap in the dock. */
 .music-player button,.music-player .music-extras button{white-space:nowrap}
+
+.music-card-actions{display:flex;gap:4px;margin-top:8px}
+.music-card-actions button{flex:1;font-size:11px;padding:4px 6px;min-height:28px;border-radius:6px;background:rgba(255,255,255,0.06);border:1px solid var(--music-line);color:var(--music-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-card-actions button:hover{background:rgba(255,255,255,0.14);border-color:var(--music-accent)}

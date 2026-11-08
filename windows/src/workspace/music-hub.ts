@@ -1081,9 +1081,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }
  }
  function coverImg(url:string|undefined){
-  const img=h('img',{alt:'',loading:'lazy'});
   const fallback=safeHttpsUrl(url)||'';
-  void resolveHubCover(url).then(src=>{const shown=src||fallback;if(!shown)return;img.src=shown;rememberArtBlob(shown);}).catch(()=>{if(fallback)img.src=fallback;});
+  const img=h('img',{alt:'',loading:'lazy'});
+  if(fallback)img.src=fallback;
+  void resolveHubCover(url).then(src=>{const shown=src||fallback;if(!shown||shown===img.src)return;img.src=shown;rememberArtBlob(shown);}).catch(()=>{if(fallback&&img.src!==fallback)img.src=fallback;});
   return img;
  }
 
@@ -2002,24 +2003,23 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       h('span',{text:item.artist+(item.album?' · '+item.album:'')+(item.duration?' · '+durationText(item.duration):'')})
      );
 
-     const cardEl=h('article',{class:'music-card'},
-      playBtn,
-      button('Play next',()=>void run(async()=>{
+     const actionsEl=h('div',{class:'music-card-actions'},
+      button('Next',()=>void run(async()=>{
        report('Resolving stream for '+item.title+'...');
        const track=await resolveStreamingTrack(item);
        playNext(track);
       })),
-      button('Queue '+item.title,()=>void run(async()=>{
+      button('Queue',()=>void run(async()=>{
        report('Resolving stream for '+item.title+'...');
        const track=await resolveStreamingTrack(item);
        enqueue(track);
       })),
-      button('Track Radio',()=>void run(async()=>{
+      button('Radio',()=>void run(async()=>{
        report('Starting Radio for '+item.title+'...');
        const track=await resolveStreamingTrack(item);
        await startRadio(track);
       })),
-      button('Save offline',()=>void run(async()=>{
+      button('Save',()=>void run(async()=>{
        report('Resolving stream for offline caching...');
        const resolved=item.streamUrl?{streamUrl:item.streamUrl}:await streamService.resolveStream(item);
        if(!resolved?.streamUrl){report('No stream URL available to download.');return;}
@@ -2029,6 +2029,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
        report('Track saved to local library.');
       }))
      );
+     const cardEl=h('article',{class:'music-card'},playBtn,actionsEl);
      resultsGrid.append(cardEl);
     }
    }
