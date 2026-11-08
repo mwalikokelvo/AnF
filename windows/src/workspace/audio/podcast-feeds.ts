@@ -1,5 +1,6 @@
 /** Podcast subscriptions via RSS. Substack and Catholic Answers are first-class patterns. */
 import type { AudioTrack } from './audio-library';
+import { hasSafeFetch, safeFetchAudio, safeFetchText } from '../safe-fetch';
 
 export type EpisodeDownloadStatus = 'none' | 'downloading' | 'downloaded' | 'error';
 
@@ -22,6 +23,9 @@ export interface PodcastEpisode {
   episodeNo?: number;
   seasonNo?: number;
   link?: string;
+  chaptersUrl?: string;
+  transcriptUrl?: string;
+  soundbites?: { startTime: number; duration: number; title?: string }[];
 }
 
 export interface PodcastFeed {
@@ -191,6 +195,17 @@ export function parseRss(xml: string, feedUrl: string): PodcastFeed {
     const guid = text(item, 'guid') || `${feedUrl}#${index}`;
     const epImage = item.querySelector('itunes\\:image, image')?.getAttribute('href') || image;
     const epNo = parseInt(text(item, 'itunes\\:episode'), 10);
+    const chaptersAttr = item.querySelector('podcast\\:chapters, chapters')?.getAttribute('url') || undefined;
+    const transcriptAttr = item.querySelector('podcast\\:transcript, transcript')?.getAttribute('url') || undefined;
+    const soundbites: { startTime: number; duration: number; title?: string }[] = [];
+    (item.querySelectorAll ? Array.from(item.querySelectorAll('podcast\\:soundbite, soundbite')) : []).forEach(sb => {
+      const startTime = parseFloat(sb.getAttribute('startTime') || '0');
+      const sbDuration = parseFloat(sb.getAttribute('duration') || '0');
+      const sbTitle = sb.textContent?.trim() || undefined;
+      if (startTime >= 0 && sbDuration > 0) {
+        soundbites.push({ startTime, duration: sbDuration, title: sbTitle });
+      }
+    });
     const seasonNo = parseInt(text(item, 'itunes\\:season'), 10);
 
     const state = states[guid] || {};
@@ -213,6 +228,9 @@ export function parseRss(xml: string, feedUrl: string): PodcastFeed {
       episodeNo: Number.isFinite(epNo) ? epNo : undefined,
       seasonNo: Number.isFinite(seasonNo) ? seasonNo : undefined,
       link: text(item, 'link') || undefined,
+      chaptersUrl: chaptersAttr,
+      transcriptUrl: transcriptAttr,
+      soundbites: soundbites.length ? soundbites : undefined,
     });
   });
 
@@ -245,9 +263,14 @@ export async function downloadPodcastEnclosure(
 ): Promise<AudioTrack> {
   saveEpisodeState(episode.id, { downloadStatus: 'downloading' });
   try {
-    const res = await fetch(episode.audioUrl);
-    if (!res.ok) throw Error(`Failed to download podcast audio (${res.status})`);
-    const blob = await res.blob();
+    let blob: Blob;
+    if (hasSafeFetch()) {
+      blob = await safeFetchAudio(episode.audioUrl, episode.enclosureType || 'audio/mpeg');
+    } else {
+      const res = await fetch(episode.audioUrl);
+      if (!res.ok) throw Error(`Failed to download podcast audio (${res.status})`);
+      blob = await res.blob();
+    }
     const trackId = 'podcast:' + episode.id;
 
     const track: AudioTrack = {
@@ -306,6 +329,9 @@ async function fetchFeedText(url: string): Promise<string> {
       try { bridge.fetchRss!(id, url); }
       catch (e) { reject(e instanceof Error ? e : Error('Native feed fetch failed.')); }
     });
+  }
+  if (hasSafeFetch()) {
+    return (await safeFetchText(url, 'feed')).body;
   }
   try {
     const response = await fetch(url);

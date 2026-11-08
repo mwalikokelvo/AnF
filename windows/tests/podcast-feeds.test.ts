@@ -98,7 +98,18 @@ describe('Podcast Feeds & RSS Parser', () => {
                     if (s.includes('episode')) return { textContent: '101' };
                     if (s.includes('season')) return { textContent: '2' };
                     if (s === 'pubDate') return { textContent: 'Mon, 26 Oct 2026 12:00:00 GMT' };
+                    if (s.includes('chapters')) return { getAttribute: (a: string) => a === 'url' ? 'https://example.org/chapters.json' : null };
+                    if (s.includes('transcript')) return { getAttribute: (a: string) => a === 'url' ? 'https://example.org/transcript.srt' : null };
                     return null;
+                  },
+                  querySelectorAll: (s: string) => {
+                    if (s.includes('soundbite')) {
+                      return [{
+                        getAttribute: (a: string) => a === 'startTime' ? '120.5' : a === 'duration' ? '30' : null,
+                        textContent: 'Key Highlight'
+                      }];
+                    }
+                    return [];
                   }
                 }];
               }
@@ -121,6 +132,12 @@ describe('Podcast Feeds & RSS Parser', () => {
     assert.equal(ep.enclosureType, 'audio/mpeg');
     assert.equal(ep.episodeNo, 101);
     assert.equal(ep.seasonNo, 2);
+    assert.equal(ep.chaptersUrl, 'https://example.org/chapters.json');
+    assert.equal(ep.transcriptUrl, 'https://example.org/transcript.srt');
+    assert.equal(ep.soundbites?.length, 1);
+    assert.equal(ep.soundbites?.[0].title, 'Key Highlight');
+    assert.equal(ep.soundbites?.[0].startTime, 120.5);
+    assert.equal(ep.soundbites?.[0].duration, 30);
   });
 
   test('downloadPodcastEnclosure saves track to audioLibrary and updates episode state', async () => {

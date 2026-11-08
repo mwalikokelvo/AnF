@@ -1,4 +1,5 @@
-export type DraftTask={line:number;text:string;checked:boolean};
+export type TaskStatus = 'todo' | 'in-progress' | 'done';
+export type DraftTask={line:number;text:string;checked:boolean;status:TaskStatus};
 /** Fenced examples are not actionable content. Closing fences must match the
  * opening character and be at least as long, with no trailing information. */
 export function outsideCodeLines(text:string):{line:number;text:string}[]{
@@ -11,7 +12,13 @@ export function outsideCodeLines(text:string):{line:number;text:string}[]{
   });return result;
 }
 export function draftTasks(text:string):DraftTask[]{
-  return outsideCodeLines(text).flatMap(({line,text})=>{const match=/^\s*[-*] \[([ xX])\] (.+)$/.exec(text);return match?[{line,text:match[2],checked:match[1]!==' '}]:[];});
+  return outsideCodeLines(text).flatMap(({line,text})=>{
+    const match=/^\s*[-*] \[([ xX/~])\] (.+)$/.exec(text);
+    if (!match) return [];
+    const marker = match[1];
+    const status: TaskStatus = (marker === 'x' || marker === 'X') ? 'done' : (marker === '/' || marker === '~') ? 'in-progress' : 'todo';
+    return [{line, text: match[2], checked: status === 'done', status}];
+  });
 }
 export function dayName(date=new Date()){return 'Daily · '+[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');}
 export const quickCaptureLimit=8000;

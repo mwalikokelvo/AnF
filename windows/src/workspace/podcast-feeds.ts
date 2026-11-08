@@ -23,6 +23,9 @@ export interface PodcastEpisode {
   episodeNo?: number;
   seasonNo?: number;
   link?: string;
+  chaptersUrl?: string;
+  transcriptUrl?: string;
+  soundbites?: { startTime: number; duration: number; title?: string }[];
 }
 
 export interface PodcastFeed {
@@ -192,6 +195,17 @@ export function parseRss(xml: string, feedUrl: string): PodcastFeed {
     const guid = text(item, 'guid') || `${feedUrl}#${index}`;
     const epImage = item.querySelector('itunes\\:image, image')?.getAttribute('href') || image;
     const epNo = parseInt(text(item, 'itunes\\:episode'), 10);
+    const chaptersAttr = item.querySelector('podcast\\:chapters, chapters')?.getAttribute('url') || undefined;
+    const transcriptAttr = item.querySelector('podcast\\:transcript, transcript')?.getAttribute('url') || undefined;
+    const soundbites: { startTime: number; duration: number; title?: string }[] = [];
+    (item.querySelectorAll ? Array.from(item.querySelectorAll('podcast\\:soundbite, soundbite')) : []).forEach(sb => {
+      const startTime = parseFloat(sb.getAttribute('startTime') || '0');
+      const sbDuration = parseFloat(sb.getAttribute('duration') || '0');
+      const sbTitle = sb.textContent?.trim() || undefined;
+      if (startTime >= 0 && sbDuration > 0) {
+        soundbites.push({ startTime, duration: sbDuration, title: sbTitle });
+      }
+    });
     const seasonNo = parseInt(text(item, 'itunes\\:season'), 10);
 
     const state = states[guid] || {};
@@ -214,6 +228,9 @@ export function parseRss(xml: string, feedUrl: string): PodcastFeed {
       episodeNo: Number.isFinite(epNo) ? epNo : undefined,
       seasonNo: Number.isFinite(seasonNo) ? seasonNo : undefined,
       link: text(item, 'link') || undefined,
+      chaptersUrl: chaptersAttr,
+      transcriptUrl: transcriptAttr,
+      soundbites: soundbites.length ? soundbites : undefined,
     });
   });
 

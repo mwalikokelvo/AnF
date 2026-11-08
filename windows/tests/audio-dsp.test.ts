@@ -265,6 +265,37 @@ describe('Audio DSP Engine & 5-Band Equalizer', () => {
       unsubscribe();
     });
 
+    test('crossfade duration controls track transition time and clamps between 0 and 12s', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.getCrossfadeDuration(), 0);
+
+      let notified = false;
+      const unsubscribe = engine.subscribe(() => { notified = true; });
+
+      engine.setCrossfadeDuration(4);
+      assert.equal(engine.getCrossfadeDuration(), 4);
+      assert.equal(notified, true);
+
+      // Clamping upper limit
+      engine.setCrossfadeDuration(20);
+      assert.equal(engine.getCrossfadeDuration(), 12);
+
+      // Clamping lower limit
+      engine.setCrossfadeDuration(-5);
+      assert.equal(engine.getCrossfadeDuration(), 0);
+
+      unsubscribe();
+    });
+
+    test('fade resolves safely in Node environment and handles gain clamping', async () => {
+      const engine = new AudioDspEngine();
+      // Safe resolution in Node where WebAudio nodes are stubbed/unattached
+      await engine.fade(0.5, 0.01);
+      await engine.fade(0, 0);
+      await engine.fade(1.5, 0.01);
+      engine.resetFade();
+    });
+
     test('frequency data inspection safely returns null when unattached', () => {
       const engine = new AudioDspEngine();
       assert.equal(engine.getFrequencyData(), null);

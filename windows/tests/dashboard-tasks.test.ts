@@ -8,6 +8,29 @@ import {
 } from '../../shared/domain/dashboard-data.js';
 
 describe('Dashboard Tasks & iCalendar Export', () => {
+  test('draftTasks parses task status across todo, in-progress, and done markers', () => {
+    const markdown = `# Sprint Tasks
+- [ ] Todo backlog item
+- [/] Currently active task
+- [~] Alternative in-progress mark
+- [x] Finished item
+- [X] Uppercase finished item
+`;
+    const tasks = draftTasks(markdown);
+    assert.equal(tasks.length, 5);
+    assert.equal(tasks[0].status, 'todo');
+    assert.equal(tasks[0].checked, false);
+    assert.equal(tasks[1].status, 'in-progress');
+    assert.equal(tasks[1].checked, false);
+    assert.equal(tasks[2].status, 'in-progress');
+    assert.equal(tasks[2].checked, false);
+    assert.equal(tasks[3].status, 'done');
+    assert.equal(tasks[3].checked, true);
+    assert.equal(tasks[4].status, 'done');
+    assert.equal(tasks[4].checked, true);
+  });
+
+
   test('draftTasks parses checkbox tasks and ignores code block fences', () => {
     const markdown = `# Project Plan
 - [ ] First task

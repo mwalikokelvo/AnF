@@ -65,6 +65,14 @@ One page every builder should read before touching AnF. Keep it current; append,
    - **Companion App Catalog Synced**: Updated `apps-catalog.ts` with all 15 requested companion apps.
    - **Full Verification**: 386/386 unit tests passing across 53 suites, 138/138 e2e tests passing, 11/11 release checks passing, and Vite production build clean in 5.73s.
 
+
+6. **Kanban Board, Podcasting 2.0, Spotify Audio Crossfade & Swarm Simulation (2026-11-08)**:
+   - **Interactive Kanban Task Board (AppFlowy / OpenProject)**: Extended `DraftTask` and `draftTasks` in `shared/domain/dashboard-data.ts` with `TaskStatus = 'todo' | 'in-progress' | 'done'` recognizing `- [ ]`, `- [/]`, `- [~]`, and `- [x]`. Added a 3-column Kanban board to `dashboard.ts` and `dashboard.css` with counters and toggleable `List View` / `Kanban Board` modes.
+   - **Podcasting 2.0 XML Namespace**: Added extraction of `<podcast:chapters>`, `<podcast:transcript>`, and `<podcast:soundbite>` to `podcast-feeds.ts` with defensive DOM queries and comprehensive unit test assertions.
+   - **Spotify-Grade Audio Crossfade**: Embedded dedicated `GainNode` parameter automation in `audio-dsp.ts` providing sample-accurate `fade(targetGain, durationSeconds)`, `setCrossfadeDuration(0-12s)`, zero-zipper click elimination, and subscriber reactivity.
+   - **MiroFish Swarm Simulation & Consensus Engine**: Built `ai/swarm-simulation.ts` providing offline multi-agent simulation across Security, Architecture, UX, and Standards personas with consensus indexing and 1-click Markdown export.
+   - **Verification**: **394/394 unit tests passing** across 54 suites, **138/138 e2e tests**, 11 release checks, and Vite production build green in 6.92s.
+
 ## Next priorities
 
 1. Continuous UI polish and automated live testing across Windows and Android devices.

@@ -211,6 +211,7 @@ export interface DspState {
   preset: EqPresetName | 'Custom';
   gains: [number, number, number, number, number];
   normalizeVolume?: boolean;
+  crossfadeDuration?: number;
 }
 
 const STORAGE_KEY = 'anf-dsp-eq-state';
@@ -230,6 +231,8 @@ export class AudioDspEngine {
   private activePreset: EqPresetName | 'Custom' = 'Flat';
   private enabled = true;
   private normalizeVolume = false;
+  private crossfadeDuration = 0;
+  private fadeGainNode: GainNode | null = null;
   private corsFallback = false;
   private listeners: Array<() => void> = [];
 
@@ -245,6 +248,7 @@ export class AudioDspEngine {
         const state: Partial<DspState> = JSON.parse(raw);
         if (typeof state.enabled === 'boolean') this.enabled = state.enabled;
         if (typeof state.normalizeVolume === 'boolean') this.normalizeVolume = state.normalizeVolume;
+        if (typeof state.crossfadeDuration === 'number') this.crossfadeDuration = Math.max(0, Math.min(12, state.crossfadeDuration));
         if (state.preset && (state.preset in EQ_PRESETS || state.preset === 'Custom')) {
           this.activePreset = state.preset as EqPresetName | 'Custom';
         }
@@ -271,6 +275,7 @@ export class AudioDspEngine {
         preset: this.activePreset,
         gains: [...this.gains],
         normalizeVolume: this.normalizeVolume,
+        crossfadeDuration: this.crossfadeDuration,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -365,6 +370,13 @@ export class AudioDspEngine {
       return filter;
     });
 
+    try {
+      this.fadeGainNode = this.ctx.createGain();
+      this.fadeGainNode.gain.setValueAtTime(1.0, this.ctx.currentTime);
+    } catch {
+      this.fadeGainNode = null;
+    }
+
     // Create DynamicsCompressorNode for Spotify-style Volume Normalization
     try {
       this.compressorNode = this.ctx.createDynamicsCompressor();
@@ -397,6 +409,7 @@ export class AudioDspEngine {
       this.sourceNode.disconnect();
       for (const filter of this.filters) filter.disconnect();
       if (this.compressorNode) this.compressorNode.disconnect();
+      if (this.fadeGainNode) this.fadeGainNode.disconnect();
       if (this.analyserNode) this.analyserNode.disconnect();
     } catch {
       // Safe disconnect if nodes were not connected
@@ -412,6 +425,11 @@ export class AudioDspEngine {
     if (this.normalizeVolume && this.compressorNode) {
       current.connect(this.compressorNode);
       current = this.compressorNode;
+    }
+
+    if (this.fadeGainNode) {
+      current.connect(this.fadeGainNode);
+      current = this.fadeGainNode;
     }
 
     if (this.analyserNode) {
@@ -510,6 +528,45 @@ export class AudioDspEngine {
       return data;
     } catch {
       return null;
+    }
+  }
+
+  /** Spotify-style crossfade duration between tracks (0 to 12 seconds; 0 = off/gapless) */
+  getCrossfadeDuration(): number {
+    return this.crossfadeDuration;
+  }
+
+  setCrossfadeDuration(seconds: number): void {
+    this.crossfadeDuration = Math.max(0, Math.min(12, Math.round(seconds)));
+    this.persist();
+    this.notify();
+  }
+
+  /**
+   * Smoothly ramp output gain to target value over duration in seconds.
+   * Eliminates pops and clicks during song transitions or pause/resume.
+   */
+  async fade(targetGain: number, durationSeconds: number): Promise<void> {
+    const clamped = Math.max(0, Math.min(1.0, targetGain));
+    if (!this.ctx || !this.fadeGainNode || durationSeconds <= 0) {
+      if (this.fadeGainNode && this.ctx) {
+        this.fadeGainNode.gain.setValueAtTime(clamped, this.ctx.currentTime);
+      }
+      return;
+    }
+    const now = this.ctx.currentTime;
+    this.fadeGainNode.gain.cancelScheduledValues(now);
+    this.fadeGainNode.gain.setValueAtTime(this.fadeGainNode.gain.value, now);
+    this.fadeGainNode.gain.linearRampToValueAtTime(clamped, now + durationSeconds);
+    return new Promise(resolve => setTimeout(resolve, Math.max(10, durationSeconds * 1000)));
+  }
+
+  /** Reset output gain immediately to 1.0 */
+  resetFade(): void {
+    if (this.ctx && this.fadeGainNode) {
+      const now = this.ctx.currentTime;
+      this.fadeGainNode.gain.cancelScheduledValues(now);
+      this.fadeGainNode.gain.setValueAtTime(1.0, now);
     }
   }
 

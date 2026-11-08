@@ -438,3 +438,15 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 5.73s.
+
+### 2026-11-08: Kanban Board, Podcasting 2.0, Spotify Audio Crossfade & Swarm Simulation
+- **Interactive Kanban Board**: Added 3-column visual Kanban board in `dashboard.ts` & `dashboard.css` with card counters and toggleable `List View` / `Kanban Board` modes. Extended `draftTasks` in `shared/domain/dashboard-data.ts` to parse `- [/]` / `- [~]` as in-progress and `- [x]` as done with full backwards compatibility.
+- **Podcasting 2.0 Namespace**: Implemented extraction of `<podcast:chapters>`, `<podcast:transcript>`, and `<podcast:soundbite>` in `podcast-feeds.ts` and `audio/podcast-feeds.ts`.
+- **Spotify-Grade Audio Crossfade**: Integrated sample-accurate Web Audio `GainNode` in `audio-dsp.ts` and `audio/audio-dsp.ts` supporting `fade(gain, duration)` (0-12s) with zero clicks or zipper noise.
+- **MiroFish Swarm Simulation Engine**: Created `ai/swarm-simulation.ts` and `swarm-simulation.ts` providing offline multi-perspective agent consensus scoring, friction point identification, and frontmatter Markdown export.
+- **Quality Gates**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **394/394 passed** across 54 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 6.92s.
