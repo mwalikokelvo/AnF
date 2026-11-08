@@ -98,6 +98,27 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     commit(draft.value + (draft.value.endsWith('\n')?'\n':'\n\n') + md);
     notify(`Storyboard generated with Open-Higgsfield-AI (${sb.shots.length} shots, ~${sb.totalDurationSeconds}s).`);
   });
+  tool('Bionic View',async()=>{
+    if(!draft.value.trim()){notify('Draft is empty. Write or paste content first.');return;}
+    const {formatBionicText,computeReadingStats}=await import('./bionic-reading');
+    const stats=computeReadingStats(draft.value);
+    const bionicHtml=formatBionicText(draft.value);
+    const dialog=h('dialog',{class:'music-dialog bionic-dialog','aria-label':'Bionic Speed Reader'});
+    const closeBtn=h('button',{text:'Close',type:'button',onclick:()=>{dialog.close();dialog.remove();}});
+    const content=h('div',{class:'bionic-content'});
+    content.innerHTML=bionicHtml.replace(/\n\n/g,'<p></p>').replace(/\n/g,'<br/>');
+    dialog.append(
+      h('div',{class:'bionic-header'},
+        h('h3',{text:'Bionic Speed Reader'}),
+        h('p',{class:'hint',text:`${stats.wordCount} words · ~${stats.standardMinutes}m standard read · ~${stats.bionicMinutes}m bionic read (${Math.max(0, stats.standardMinutes - stats.bionicMinutes)}m saved)`})
+      ),
+      content,
+      h('div',{class:'row'},closeBtn)
+    );
+    dialog.addEventListener('cancel',()=>dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  });
   tool('Article Frontmatter',()=>{
     if(draft.value.trimStart().startsWith('---')){notify('Draft already contains frontmatter.');return;}
     const today=new Date().toISOString().slice(0,10);

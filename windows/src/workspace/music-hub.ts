@@ -61,6 +61,7 @@ import {
 import { askConfirm, askText } from './music-dialogs';
 import {loadSubsonicSettings,searchSubsonic,streamSubsonic,subsonicReady,type SubsonicTrack} from './subsonic';
 import {searchAudius,trendingAudius,type AudiusTrack} from './audius';
+import {listAvailableMixes,generateSmartMix,exportMixToM3u} from './smart-mix';
 import './music-hub.css';
 
 // Listening data helpers embedded for local offline tracking
@@ -220,7 +221,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Streaming','Audius','Subsonic','Archive','History','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const tabButtons=['Music','Streaming','Smart Mixes','Audius','Subsonic','Archive','History','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase().replace(/\s+/g,'-');b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
@@ -1330,10 +1331,51 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   for(const url of artUrls)URL.revokeObjectURL(url);
   artUrls=[];
   for(const [,b] of tabButtons.entries()){
-   const selected=b.id==='music-tab-'+tab;
+   const selected=b.id==='music-tab-'+tab.replace(/\s+/g,'-');
    b.setAttribute('aria-selected',String(selected));
    b.tabIndex=selected?0:-1;
    b.classList.toggle('active',selected);
+  }
+
+  // --- TAB: SMART MIXES (Spotify Smart Mixes & Mood Flow) ---
+  if(tab==='smart mixes'||tab==='smart-mixes'){
+   const summaries=listAvailableMixes(tracks);
+   const mixGrid=h('div',{class:'music-grid smart-mix-grid'});
+   for(const item of summaries){
+    const cardEl=h('article',{class:'music-card smart-mix-card'});
+    const playBtn=button('Play mix',()=>{
+     const fullMix=generateSmartMix(tracks,item.mood,40);
+     if(!fullMix.tracks.length){
+      report('No tracks match the '+item.title+' mix yet. Add music to your library.');
+      return;
+     }
+     playTrack(fullMix.tracks[0],fullMix.tracks);
+     report('Playing '+item.title+' ('+fullMix.tracks.length+' tracks).');
+    });
+    const exportBtn=button('Export .m3u',()=>{
+     const fullMix=generateSmartMix(tracks,item.mood,40);
+     const m3u=exportMixToM3u(fullMix);
+     const blob=new Blob([m3u],{type:'audio/x-mpegurl;charset=utf-8'});
+     const url=URL.createObjectURL(blob);
+     const link=h('a',{href:url,download:item.mood+'-mix.m3u'});
+     link.click();
+     setTimeout(()=>URL.revokeObjectURL(url),30000);
+     report('Exported '+item.title+' as standard M3U playlist');
+    });
+    cardEl.append(
+     h('h3',{text:item.title}),
+     h('p',{class:'smart-mix-desc',text:item.description}),
+     h('p',{class:'hint',text:item.trackCount+' available · '+durationText(item.totalDurationSeconds)}),
+     h('div',{class:'row'},playBtn,exportBtn)
+    );
+    mixGrid.append(cardEl);
+   }
+   content.replaceChildren(
+    h('h2',{text:'Spotify Smart Mixes & Mood Flow'}),
+    h('p',{class:'hint',text:'Auto-curated offline smart playlists partitioned by acoustic profile, tempo, and listening history.'}),
+    mixGrid
+   );
+   return;
   }
 
   // --- TAB: PODCASTS (Two-level navigation) ---
