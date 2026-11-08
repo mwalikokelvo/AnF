@@ -210,6 +210,7 @@ export interface DspState {
   enabled: boolean;
   preset: EqPresetName | 'Custom';
   gains: [number, number, number, number, number];
+  normalizeVolume?: boolean;
 }
 
 const STORAGE_KEY = 'anf-dsp-eq-state';
@@ -222,10 +223,13 @@ export class AudioDspEngine {
   private ctx: AudioContext | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private filters: BiquadFilterNode[] = [];
+  private compressorNode: DynamicsCompressorNode | null = null;
+  private analyserNode: AnalyserNode | null = null;
   private attachedElement: HTMLMediaElement | null = null;
   private gains: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   private activePreset: EqPresetName | 'Custom' = 'Flat';
   private enabled = true;
+  private normalizeVolume = false;
   private corsFallback = false;
   private listeners: Array<() => void> = [];
 
@@ -240,6 +244,7 @@ export class AudioDspEngine {
       if (raw) {
         const state: Partial<DspState> = JSON.parse(raw);
         if (typeof state.enabled === 'boolean') this.enabled = state.enabled;
+        if (typeof state.normalizeVolume === 'boolean') this.normalizeVolume = state.normalizeVolume;
         if (state.preset && (state.preset in EQ_PRESETS || state.preset === 'Custom')) {
           this.activePreset = state.preset as EqPresetName | 'Custom';
         }
@@ -265,6 +270,7 @@ export class AudioDspEngine {
         enabled: this.enabled,
         preset: this.activePreset,
         gains: [...this.gains],
+        normalizeVolume: this.normalizeVolume,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -359,16 +365,61 @@ export class AudioDspEngine {
       return filter;
     });
 
-    // Connect audio graph: source -> band0 -> band1 -> band2 -> band3 -> band4 -> destination
+    // Create DynamicsCompressorNode for Spotify-style Volume Normalization
+    try {
+      this.compressorNode = this.ctx.createDynamicsCompressor();
+      this.compressorNode.threshold.setValueAtTime(-24, this.ctx.currentTime);
+      this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
+      this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
+      this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
+      this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
+    } catch {
+      this.compressorNode = null;
+    }
+
+    try {
+      this.analyserNode = this.ctx.createAnalyser();
+      this.analyserNode.fftSize = 64;
+      this.analyserNode.smoothingTimeConstant = 0.8;
+    } catch {
+      this.analyserNode = null;
+    }
+
+    this.connectFilterChain();
+
+    // Synchronize initial filter gains
+    this.applyGainsToGraph();
+  }
+
+  private connectFilterChain(): void {
+    if (!this.ctx || !this.sourceNode || this.filters.length !== 5) return;
+    try {
+      this.sourceNode.disconnect();
+      for (const filter of this.filters) filter.disconnect();
+      if (this.compressorNode) this.compressorNode.disconnect();
+      if (this.analyserNode) this.analyserNode.disconnect();
+    } catch {
+      // Safe disconnect if nodes were not connected
+    }
+
+    // Connect audio graph: source -> band0 -> band1 -> band2 -> band3 -> band4 -> (compressor) -> (analyser) -> destination
     let current: AudioNode = this.sourceNode;
     for (const filter of this.filters) {
       current.connect(filter);
       current = filter;
     }
-    current.connect(this.ctx.destination);
 
-    // Synchronize initial filter gains
-    this.applyGainsToGraph();
+    if (this.normalizeVolume && this.compressorNode) {
+      current.connect(this.compressorNode);
+      current = this.compressorNode;
+    }
+
+    if (this.analyserNode) {
+      current.connect(this.analyserNode);
+      this.analyserNode.connect(this.ctx.destination);
+    } else {
+      current.connect(this.ctx.destination);
+    }
   }
 
   private applyGainsToGraph(): void {
@@ -435,8 +486,31 @@ export class AudioDspEngine {
     return this.enabled;
   }
 
+  setVolumeNormalization(enabled: boolean): void {
+    if (this.normalizeVolume === enabled) return;
+    this.normalizeVolume = enabled;
+    this.connectFilterChain();
+    this.persist();
+    this.notify();
+  }
+
+  isVolumeNormalizationEnabled(): boolean {
+    return this.normalizeVolume;
+  }
+
   isCorsFallbackActive(): boolean {
     return this.corsFallback;
+  }
+
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyserNode) return null;
+    try {
+      const data = new Uint8Array(this.analyserNode.frequencyBinCount);
+      this.analyserNode.getByteFrequencyData(data);
+      return data;
+    } catch {
+      return null;
+    }
   }
 
   reset(): void {
@@ -460,6 +534,7 @@ export class AudioDspEngine {
     this.ctx = null;
     this.sourceNode = null;
     this.filters = [];
+    this.compressorNode = null;
     this.attachedElement = null;
     this.listeners = [];
   }
@@ -554,7 +629,7 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
     slidersBox.append(col);
   }
 
-  // Controls footer (Enable / Bypass, Reset, Close)
+  // Controls footer (Enable / Bypass, Volume Normalization, Reset, Close)
   const footer = document.createElement('div');
   footer.className = 'music-eq-footer';
 
@@ -563,6 +638,14 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
   bypassBtn.className = 'music-eq-toggle';
   bypassBtn.onclick = () => {
     dsp.setEnabled(!dsp.isEnabled());
+    renderState();
+  };
+
+  const normBtn = document.createElement('button');
+  normBtn.type = 'button';
+  normBtn.className = 'music-eq-toggle';
+  normBtn.onclick = () => {
+    dsp.setVolumeNormalization(!dsp.isVolumeNormalizationEnabled());
     renderState();
   };
 
@@ -582,16 +665,21 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
     dialog.remove();
   };
 
-  footer.append(bypassBtn, resetBtn, closeBtn);
+  footer.append(bypassBtn, normBtn, resetBtn, closeBtn);
 
   function renderState(): void {
     const enabled = dsp.isEnabled();
     const gains = dsp.getBandGains();
     const currentPreset = dsp.getCurrentPreset();
+    const norm = dsp.isVolumeNormalizationEnabled();
 
     bypassBtn.textContent = enabled ? 'EQ: Active' : 'EQ: Bypassed';
     bypassBtn.classList.toggle('active', enabled);
     slidersBox.classList.toggle('bypassed', !enabled);
+
+    normBtn.textContent = norm ? 'Volume Normalization: On' : 'Volume Normalization: Off';
+    normBtn.classList.toggle('active', norm);
+    normBtn.title = 'Spotify-style loudness normalization (dynamics leveling across tracks)';
 
     for (let i = 0; i < presetButtons.length; i++) {
       const name = presetNames[i];

@@ -824,6 +824,8 @@ body:has(#app) .native-music-source{display:flex}
   100% { height: 95%; }
 }
 
+.music-visualizer-mini.realtime .music-vis-bar, .music-visualizer-full.realtime .music-vis-bar { animation: none; height: var(--bar-h, 15%); }
+
 /* 5-Band Graphic Equalizer UI */
 .music-eq-dialog {
   background: #181d1f;

@@ -54,11 +54,15 @@ One page every builder should read before touching AnF. Keep it current; append,
    - Formally created and synced 9 agent skills across `C:\Users\mwali\.agents\skills` and `.agents/skills`: `open-seo`, `cap`, `appflowy`, `chatwoot`, `calcom`, `openproject`, `open-higgsfield-ai`, `clouds-against-humanity`, `supoclip`.
    - Codified and enforced mandatory "Never skip REA" policy across all investigations.
 
+4. **Interactive Spectrum Visualizer & 1-Click Studio Transcription (Latest)**:
+   - **Real-Time Visualizer Animation**: Connected `requestAnimationFrame` loop in `music-hub.ts` to `audioDsp.getFrequencyData()`, updating `miniVis` (8 bars) and `fullVis` (24 bars) reactively with live audio FFT frequency data and graceful CSS fallback.
+   - **Audio Studio Transcribe to Note**: Added 1-click `Transcribe to Note` action in `audio-studio.ts` passing audio buffers to `transcribeAudio` and saving formatted AnF Markdown notes directly into documents or daily notes.
+   - **Complete Verification**: 378/378 unit tests passing across 52 suites, 138/138 e2e tests passing across 24 suites, 11/11 release checks passing, and Vite production build succeeding.
+
 ## Next priorities
 
 1. Continuous UI polish and automated live testing across Windows and Android devices.
 2. Remove now-unreachable legacy scraping layer in `streaming-provider.ts` once all callers rely on the unified Audius/YouTube/Subsonic providers.
-3. Audio Studio waveform timeline integration for directly transcribing recorded vocal tracks into Note drafts with OpenWhispr.
 
 ## Partner protocol
 

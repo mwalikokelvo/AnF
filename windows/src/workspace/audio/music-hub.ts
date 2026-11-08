@@ -651,6 +651,55 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  function save(){saveListening();prefs.queue=[...queue];prefs.current=current?.id;prefs.position=audio.readyState?audio.currentTime:pending;try{localStorage.setItem('anf-music-player',JSON.stringify(prefs));}catch{report('Could not save your listening position. Check device storage.');}}
  function duration(){return Number.isFinite(audio.duration)?audio.duration:current?.duration||0;}
 
+ let visRaf:number|undefined;
+ function startVisLoop(){
+  if(visRaf!==undefined||typeof requestAnimationFrame==='undefined')return;
+  const tick=()=>{
+   if(audio.paused||playbackState!=='playing'){
+    miniVis.classList.remove('realtime');
+    fullVis.classList.remove('realtime');
+    visRaf=undefined;
+    return;
+   }
+   const freq=audioDsp.getFrequencyData();
+   if(freq&&freq.length>0){
+    let hasEnergy=false;
+    const miniBars=miniVis.children;
+    if(miniBars&&miniBars.length){
+     const step=Math.floor(freq.length/miniBars.length);
+     for(let i=0;i<miniBars.length;i++){
+      const v=freq[i*step]||0;
+      if(v>10)hasEnergy=true;
+      const pct=Math.max(12,Math.round((v/255)*100));
+      (miniBars[i] as HTMLElement).style?.setProperty?.('--bar-h',pct+'%');
+     }
+    }
+    const fullBars=fullVis.children;
+    if(fullBars&&fullBars.length){
+     const step=Math.max(1,Math.floor(freq.length/fullBars.length));
+     for(let i=0;i<fullBars.length;i++){
+      const idx=Math.min(freq.length-1,i*step);
+      const v=freq[idx]||0;
+      if(v>10)hasEnergy=true;
+      const pct=Math.max(10,Math.round((v/255)*100));
+      (fullBars[i] as HTMLElement).style?.setProperty?.('--bar-h',pct+'%');
+     }
+    }
+    miniVis.classList.toggle('realtime',hasEnergy);
+    fullVis.classList.toggle('realtime',hasEnergy);
+   }
+   visRaf=requestAnimationFrame(tick);
+  };
+  visRaf=requestAnimationFrame(tick);
+ }
+ function stopVisLoop(){
+  if(visRaf!==undefined&&typeof cancelAnimationFrame!=='undefined'){
+   cancelAnimationFrame(visRaf);
+   visRaf=undefined;
+  }
+  miniVis.classList.remove('realtime');
+  fullVis.classList.remove('realtime');
+ }
  let paintedPlaying:boolean|undefined;
  function paint(){
   shuffle.setAttribute('aria-pressed',String(prefs.shuffle));
@@ -659,7 +708,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   repeat.title='Repeat '+prefs.repeat;
   const playing=!audio.paused&&playbackState==='playing';
   miniVis.classList.toggle('playing',playing);
-  fullVis.classList.toggle('playing',playing);
+  fullVis.classList.toggle('playing',playing);if(playing)startVisLoop();else stopVisLoop();
   updateChips();
   if(paintedPlaying!==playing){
    paintedPlaying=playing;
@@ -757,6 +806,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   pending=0;
   setPlaybackState('idle');
   clearMediaSession();
+  stopVisLoop();
   save();
   paint();
  }
@@ -1693,6 +1743,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    dock.hidden=true;
    document.body.classList.remove('has-music-player');
    clearMediaSession();
+  stopVisLoop();
   },
   refresh,
   ready,
