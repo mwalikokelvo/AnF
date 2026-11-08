@@ -90,6 +90,14 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     const topTip=res.suggestions[0]?` · Tip: ${res.suggestions[0]}`:' · Content & metadata optimized!';
     notify(`SEO Score: ${res.score}/100 (${res.titleStatus==='good'?'Title optimal':'Title needs review'}) · ~${res.estimatedMinutes} min read${topTip}`);
   });
+  tool('Storyboard',async()=>{
+    if(!draft.value.trim()){notify('Draft is empty. Write an outline or scene text first.');return;}
+    const {generateStoryboardFromText,storyboardToMarkdown}=await import('./storyboard');
+    const sb=generateStoryboardFromText(draft.value, 'Visual Storyboard');
+    const md=storyboardToMarkdown(sb);
+    commit(draft.value + (draft.value.endsWith('\n')?'\n':'\n\n') + md);
+    notify(`Storyboard generated with Open-Higgsfield-AI (${sb.shots.length} shots, ~${sb.totalDurationSeconds}s).`);
+  });
   tool('Article Frontmatter',()=>{
     if(draft.value.trimStart().startsWith('---')){notify('Draft already contains frontmatter.');return;}
     const today=new Date().toISOString().slice(0,10);

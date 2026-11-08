@@ -463,3 +463,15 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 4.97s.
+
+### 2026-11-08: Open-Higgsfield-AI Storyboard, Jev-Ultrafast BM25 Search & DigitalOcean Spaces Backup
+- **Open-Higgsfield-AI Storyboard Generator**: Built `storyboard.ts` implementing scene parsing, framing detection (wide, medium, close-up, macro, pov, aerial), camera trajectory motion controls (dolly-in, tracking, pan, orbital, tilt), speed and lighting inference, and Markdown screenplay/storyboard export with YAML frontmatter. Added a 1-click `Storyboard` action button to the Writing editor toolbar in `writing.ts`.
+- **Jev-Ultrafast & Agent-Reach BM25 Search**: Built `jev-index.ts` delivering sub-millisecond client-side BM25 ranking, token normalization, compact token-efficient serialization, and bounded-token context snippet extraction across notes, transcripts, lyrics, articles, and tasks.
+- **DigitalOcean Spaces & S3 Cloud Backup**: Built `cloud-backup.ts` supporting S3-compatible remote backup target configuration, vault manifest diffing, exportable `rclone.conf` and `s3cmd.cfg` configurations, and AWS Signature Version 4 request signing using native Web Crypto (`crypto.subtle.sign`).
+- **Codebase Cleanliness**: Converted `editor/writing.ts` and `editor/article-publishing.ts` to single-line re-exports, preventing file drift.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **428/428 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.20s.

@@ -81,6 +81,13 @@ One page every builder should read before touching AnF. Keep it current; append,
    - **Chatwoot Community & Support Inbox**: Built `chatwoot-inbox.ts` providing offline-first support thread triage (`open`, `pending`, `resolved`), reply appending, channel filtering, and 1-click Markdown thread export.
    - **Verification**: **409/409 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 4.97s.
 
+8. **Open-Higgsfield-AI Storyboard, Jev-Ultrafast BM25 Search & DigitalOcean Spaces Backup (2026-11-08)**:
+   - **Open-Higgsfield-AI Storyboard Engine**: Built `storyboard.ts` and editor mirror providing shot framing classification (wide, medium, close-up, macro, pov, aerial), camera trajectory motion controls (dolly-in, tracking, pan, orbital, tilt), speed and lighting inference, and 1-click Markdown screenplay/storyboard export with YAML frontmatter. Added a `Storyboard` action button directly to the Writing editor toolbar in `writing.ts`.
+   - **Jev-Ultrafast & Agent-Reach BM25 Search**: Built `jev-index.ts` delivering sub-millisecond client-side BM25 ranking, token normalization, compact token-efficient serialization, and bounded-token context snippet generation across notes, transcripts, lyrics, articles, and tasks.
+   - **DigitalOcean Spaces & S3 Cloud Backup**: Built `cloud-backup.ts` supporting S3-compatible remote backup target configuration, vault manifest diffing (toUpload, toDelete, unchanged), exportable `rclone.conf` and `s3cmd.cfg` configurations, and AWS Signature Version 4 request signing using standard Web Crypto (`crypto.subtle.sign`).
+   - **Codebase Cleanliness**: Converted `editor/writing.ts` and `editor/article-publishing.ts` to single-line re-exports, eliminating redundant code drift.
+   - **Verification**: **428/428 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 5.20s.
+
 ## Next priorities
 
 1. Continuous UI polish and automated live testing across Windows and Android devices.
