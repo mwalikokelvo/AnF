@@ -54,10 +54,16 @@ One page every builder should read before touching AnF. Keep it current; append,
    - Formally created and synced 9 agent skills across `C:\Users\mwali\.agents\skills` and `.agents/skills`: `open-seo`, `cap`, `appflowy`, `chatwoot`, `calcom`, `openproject`, `open-higgsfield-ai`, `clouds-against-humanity`, `supoclip`.
    - Codified and enforced mandatory "Never skip REA" policy across all investigations.
 
-4. **Interactive Spectrum Visualizer & 1-Click Studio Transcription (Latest)**:
+4. **Interactive Spectrum Visualizer & 1-Click Studio Transcription**:
    - **Real-Time Visualizer Animation**: Connected `requestAnimationFrame` loop in `music-hub.ts` to `audioDsp.getFrequencyData()`, updating `miniVis` (8 bars) and `fullVis` (24 bars) reactively with live audio FFT frequency data and graceful CSS fallback.
    - **Audio Studio Transcribe to Note**: Added 1-click `Transcribe to Note` action in `audio-studio.ts` passing audio buffers to `transcribeAudio` and saving formatted AnF Markdown notes directly into documents or daily notes.
-   - **Complete Verification**: 378/378 unit tests passing across 52 suites, 138/138 e2e tests passing across 24 suites, 11/11 release checks passing, and Vite production build succeeding.
+
+5. **Open-SEO Article Audit & iCalendar (.ics) Task Export**:
+   - **Open-SEO Article & Metadata Audit**: Built `auditSeo` in `article-publishing.ts` providing 0-100 SEO scoring, optimal title/subtitle length analysis, heading hierarchy checks, image alt-text verification, and actionable suggestions. Connected directly to an `Audit SEO` toolbar tool in `writing.ts`.
+   - **Open Graph & Twitter Social Metadata**: Automatically generates `og:title`, `og:description`, `og:type`, `og:url`, `og:image`, and `twitter:card` tags during HTML article exports.
+   - **RFC 5545 iCalendar (.ics) Task Export**: Built `tasksToIcs` in `dashboard-data.ts` and added an `Export tasks (.ics)` action button to the Dashboard task drawer, converting markdown checklist tasks into standard `VTODO` calendar files compatible with Cal.com, Outlook, Apple Calendar, and Google Calendar.
+   - **Companion App Catalog Synced**: Updated `apps-catalog.ts` with all 15 requested companion apps.
+   - **Full Verification**: 386/386 unit tests passing across 53 suites, 138/138 e2e tests passing, 11/11 release checks passing, and Vite production build clean in 5.73s.
 
 ## Next priorities
 

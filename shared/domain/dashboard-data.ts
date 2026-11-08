@@ -20,3 +20,34 @@ export function captureText(draft:string,text:string,date=new Date()){
   const next=draft+(draft.trim()?'\n\n':'')+'## '+date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'\n\n'+text.trim();
   if(new TextEncoder().encode(next).length>200000)throw Error('Today’s log is full. Export it or start another draft.');return next;
 }
+
+export function tasksToIcs(tasks: { text: string; source?: string }[]): string {
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//AnF Workspace//Task Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+  ];
+
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i];
+    const uid = `anf-task-${i}-${Date.now()}@anf.local`;
+    const cleanSummary = t.text.replace(/[,;\\]/g, ' ').replace(/\n/g, ' ').trim();
+    const cleanDesc = t.source ? `Source: ${t.source.replace(/[,;\\]/g, ' ')}` : 'AnF Workspace Task';
+
+    lines.push(
+      'BEGIN:VTODO',
+      `UID:${uid}`,
+      `DTSTAMP:${timestamp}`,
+      `SUMMARY:${cleanSummary}`,
+      `DESCRIPTION:${cleanDesc}`,
+      'STATUS:NEEDS-ACTION',
+      'END:VTODO'
+    );
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}

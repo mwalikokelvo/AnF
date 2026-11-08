@@ -420,3 +420,21 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 4.72s.
+
+### 2026-11-08 (Part 3) — Antigravity: Open-SEO Publishing Audit & iCalendar (.ics) Task Export
+
+- **Open-SEO Article & Metadata Audit Engine**:
+  - Built `auditSeo` in `windows/src/workspace/article-publishing.ts` providing 0–100 SEO scoring, optimal title length (30–60 chars), subtitle/description checks (60–160 chars), heading hierarchy validation, image alt-text verification, and actionable suggestions.
+  - Added 1-click `Audit SEO` action button in the Writing editor toolbar (`writing.ts` and `editor/writing.ts`) displaying immediate feedback and scores.
+  - Enhanced `exportArticleHtml` to automatically emit Open Graph (`og:title`, `og:description`, `og:type`, `og:url`, `og:image`) and Twitter Card (`twitter:card`, `twitter:title`, `twitter:description`) `<meta>` tags.
+- **RFC 5545 iCalendar (.ics) Task Export**:
+  - Built `tasksToIcs` in `shared/domain/dashboard-data.ts` converting Markdown checklist tasks (`- [ ] task`) into RFC 5545 compliant `VTODO` iCalendar streams.
+  - Added `Export tasks (.ics)` button to the Dashboard task drawer (`dashboard.ts`), enabling 1-click task export to Cal.com, Outlook, Apple Calendar, and Google Calendar.
+- **Companion App Catalog Synchronized**:
+  - Synced `windows/src/workspace/apps-catalog.ts` with all 15 companion open-source tools (`voicestudio`, `openwhispr`, `appflowy`, `cap`, `open-seo`, `chatwoot`, `cal-diy`, `openproject`, `higgsfield-ai`, `clouds-against-humanity`, `supoclip`, `mirofish`, `jev-ultrafast`, `jcode`, `digitalocean`).
+- **Comprehensive Quality Gates**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **386/386 passed** across 53 suites (+8 new unit tests).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.73s.

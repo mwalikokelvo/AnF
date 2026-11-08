@@ -69,7 +69,7 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     const words=draft.value.trim()?draft.value.trim().split(/\s+/u).length:0,chars=Array.from(draft.value).length,readTime=Math.max(1,Math.ceil(words/200));count.textContent=`${words.toLocaleString()} word${words===1?'':'s'} · ${chars.toLocaleString()} char${chars===1?'':'s'} · ~${readTime} min read`;
     if(mode.value==='preview'||mode.value==='split'){if(draft.value.length>12000)previewTimer=setTimeout(paintPreview,180);else paintPreview();}
   }
-  function commit(value:string){if(new TextEncoder().encode(value).length>200000){notify('This formatting change would exceed the writing size limit. Shorten the draft first.');return;}draft.value=value;refresh();changed();}
+  function commit(value:string){if(new TextEncoder().encode(value).length>2_000_000){notify('This formatting change would exceed the 2 MB writing limit. Shorten the draft first.');return;}draft.value=value;refresh();changed();}
   function tool(label:string,action:()=>void){const b=h('button',{text:label,type:'button'});b.addEventListener('pointerdown',e=>e.preventDefault());b.addEventListener('click',()=>{action();if(mode.value==='live')live?.focusSelection();});tools.append(b);return b;}
   function wrap(prefix:string,suffix=''){
     const start=draft.selectionStart,end=draft.selectionEnd;
@@ -84,6 +84,12 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   tool('Checklist',()=>{const start=draft.value.lastIndexOf('\n',draft.selectionStart-1)+1;const end=draft.value.indexOf('\n',draft.selectionEnd);const stop=end<0?draft.value.length:end;commit(draft.value.slice(0,start)+draft.value.slice(start,stop).split('\n').map(l=>/^- \[[ xX]\] /.test(l)?l:'- [ ] '+l).join('\n')+draft.value.slice(stop));});
   tool('Quote',()=>wrap('> '));tool('Wiki link',()=>wrap('[[',']]'));
   tool('Code block',()=>wrap('\n```\n','\n```\n'));
+  tool('Audit SEO',async()=>{
+    const {auditSeo}=await import('./article-publishing');
+    const res=auditSeo(draft.value);
+    const topTip=res.suggestions[0]?` · Tip: ${res.suggestions[0]}`:' · Content & metadata optimized!';
+    notify(`SEO Score: ${res.score}/100 (${res.titleStatus==='good'?'Title optimal':'Title needs review'}) · ~${res.estimatedMinutes} min read${topTip}`);
+  });
   tool('Article Frontmatter',()=>{
     if(draft.value.trimStart().startsWith('---')){notify('Draft already contains frontmatter.');return;}
     const today=new Date().toISOString().slice(0,10);

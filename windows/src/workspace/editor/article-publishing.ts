@@ -103,14 +103,19 @@ export function parseFrontmatter(content: string): { metadata: ArticleMetadata; 
   return { metadata, body };
 }
 
+/** Escape for a double-quoted YAML scalar: backslash first, then quote. */
+function yamlEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 /**
  * Serialize metadata into standardized YAML frontmatter format
  */
 export function serializeFrontmatter(metadata: ArticleMetadata, body: string): string {
   const lines: string[] = ['---'];
-  lines.push(`title: "${metadata.title.replace(/"/g, '\\"')}"`);
-  if (metadata.subtitle) lines.push(`subtitle: "${metadata.subtitle.replace(/"/g, '\\"')}"`);
-  if (metadata.author) lines.push(`author: "${metadata.author.replace(/"/g, '\\"')}"`);
+  lines.push(`title: "${yamlEscape(metadata.title)}"`);
+  if (metadata.subtitle) lines.push(`subtitle: "${yamlEscape(metadata.subtitle)}"`);
+  if (metadata.author) lines.push(`author: "${yamlEscape(metadata.author)}"`);
   if (metadata.date) lines.push(`date: ${metadata.date}`);
   if (metadata.audience) lines.push(`audience: ${metadata.audience}`);
   if (metadata.tags && metadata.tags.length > 0) {
@@ -184,6 +189,14 @@ export function exportArticleHtml(article: Article): string {
   <title>${escapeHtml(metadata.title)}</title>
   ${metadata.author ? `<meta name="author" content="${escapeHtml(metadata.author)}">` : ''}
   ${metadata.date ? `<meta name="date" content="${escapeHtml(metadata.date)}">` : ''}
+  ${metadata.subtitle ? `<meta name="description" content="${escapeHtml(metadata.subtitle)}">` : ''}
+  <meta property="og:title" content="${escapeHtml(metadata.title)}">
+  ${metadata.subtitle ? `<meta property="og:description" content="${escapeHtml(metadata.subtitle)}">` : ''}
+  <meta property="og:type" content="article">
+  ${metadata.canonicalUrl ? `<meta property="og:url" content="${escapeHtml(metadata.canonicalUrl)}"><link rel="canonical" href="${escapeHtml(metadata.canonicalUrl)}">` : ''}
+  ${metadata.coverImageUrl ? `<meta property="og:image" content="${escapeHtml(metadata.coverImageUrl)}"><meta name="twitter:card" content="summary_large_image">` : '<meta name="twitter:card" content="summary">'}
+  <meta name="twitter:title" content="${escapeHtml(metadata.title)}">
+  ${metadata.subtitle ? `<meta name="twitter:description" content="${escapeHtml(metadata.subtitle)}">` : ''}
   <style>
     :root {
       --measure: 68ch;
@@ -393,4 +406,157 @@ export function removeFromReadingQueue(queue: ReadingQueueItem[], id: string): R
   const updated = queue.filter(item => item.id !== id);
   saveReadingQueue(updated);
   return updated;
+}
+
+
+export interface SeoAuditResult {
+  score: number;
+  title: string;
+  titleStatus: 'good' | 'warning' | 'error';
+  titleMessage: string;
+  subtitle?: string;
+  descriptionStatus: 'good' | 'warning' | 'error';
+  descriptionMessage: string;
+  headingsCount: { h1: number; h2: number; h3: number };
+  headingsStatus: 'good' | 'warning' | 'error';
+  headingsMessage: string;
+  imagesTotal: number;
+  imagesWithAlt: number;
+  imagesStatus: 'good' | 'warning';
+  imagesMessage: string;
+  wordCount: number;
+  estimatedMinutes: number;
+  suggestions: string[];
+}
+
+/**
+ * Open-SEO content and metadata audit engine for article publishing.
+ */
+export function auditSeo(content: string): SeoAuditResult {
+  const { metadata, body } = parseFrontmatter(content);
+  const suggestions: string[] = [];
+  let score = 100;
+
+  const title = metadata.title && metadata.title !== 'Untitled Draft' ? metadata.title.trim() : '';
+  let titleStatus: 'good' | 'warning' | 'error' = 'good';
+  let titleMessage = 'Title length is optimal for search engine results.';
+
+  if (!title) {
+    titleStatus = 'error';
+    titleMessage = 'Missing title in frontmatter or # Heading.';
+    suggestions.push('Add a descriptive title between 30 and 60 characters.');
+    score -= 30;
+  } else if (title.length < 20) {
+    titleStatus = 'warning';
+    titleMessage = `Title is short (${title.length} chars). Aim for 30–60 characters.`;
+    suggestions.push('Expand title with key subject keywords.');
+    score -= 10;
+  } else if (title.length > 65) {
+    titleStatus = 'warning';
+    titleMessage = `Title is long (${title.length} chars). Search snippets may truncate after 60 chars.`;
+    suggestions.push('Shorten title to keep the most important keywords within 60 characters.');
+    score -= 10;
+  }
+
+  const subtitle = metadata.subtitle?.trim() || '';
+  let descriptionStatus: 'good' | 'warning' | 'error' = 'good';
+  let descriptionMessage = 'Subtitle/description length is well-suited for search snippets.';
+
+  if (!subtitle) {
+    descriptionStatus = 'warning';
+    descriptionMessage = 'Missing subtitle or meta description.';
+    suggestions.push('Add a subtitle (60–160 characters) summarizing the core insight for search previews.');
+    score -= 20;
+  } else if (subtitle.length < 50) {
+    descriptionStatus = 'warning';
+    descriptionMessage = `Subtitle is brief (${subtitle.length} chars). 70–160 characters provides better search snippets.`;
+    suggestions.push('Expand subtitle with more context for readers.');
+    score -= 10;
+  } else if (subtitle.length > 170) {
+    descriptionStatus = 'warning';
+    descriptionMessage = `Subtitle is long (${subtitle.length} chars) and may be truncated in search results.`;
+    score -= 5;
+  }
+
+  let h1Count = title ? 1 : 0;
+  let h2Count = 0;
+  let h3Count = 0;
+  for (const line of body.split('\n')) {
+    if (/^#\s+/.test(line)) h1Count++;
+    else if (/^##\s+/.test(line)) h2Count++;
+    else if (/^###\s+/.test(line)) h3Count++;
+  }
+
+  let headingsStatus: 'good' | 'warning' | 'error' = 'good';
+  let headingsMessage = 'Heading structure is clear and well-ordered.';
+
+  if (h1Count === 0) {
+    headingsStatus = 'error';
+    headingsMessage = 'No H1 heading found.';
+    suggestions.push('Include a single clear H1 heading for the article.');
+    score -= 20;
+  } else if (h1Count > 1) {
+    headingsStatus = 'warning';
+    headingsMessage = `Found ${h1Count} H1 headings. Search engines prefer exactly one H1 per page.`;
+    suggestions.push('Convert secondary H1 headings into H2 subsections.');
+    score -= 10;
+  }
+
+  if (h2Count === 0 && body.length > 600) {
+    headingsStatus = 'warning';
+    headingsMessage = 'No H2 section headings found in long text.';
+    suggestions.push('Organize content into H2 sections (## Section) to improve readability.');
+    score -= 10;
+  }
+
+  const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+  let imagesTotal = 0;
+  let imagesWithAlt = 0;
+  let match: RegExpExecArray | null;
+  while ((match = imageRegex.exec(body)) !== null) {
+    imagesTotal++;
+    if (match[1].trim().length > 0) {
+      imagesWithAlt++;
+    }
+  }
+
+  let imagesStatus: 'good' | 'warning' = 'good';
+  let imagesMessage = imagesTotal === 0 ? 'No images embedded.' : `${imagesWithAlt} of ${imagesTotal} images have descriptive alt text.`;
+  if (imagesTotal > 0 && imagesWithAlt < imagesTotal) {
+    imagesStatus = 'warning';
+    const missing = imagesTotal - imagesWithAlt;
+    imagesMessage = `${missing} image${missing > 1 ? 's are' : ' is'} missing alt text for screen readers and SEO.`;
+    suggestions.push('Add alt text to images: ![description](url).');
+    score -= Math.min(15, missing * 5);
+  }
+
+  const wordCount = body.trim() ? body.trim().split(/\s+/u).length : 0;
+  const estimatedMinutes = Math.max(1, Math.ceil(wordCount / 220));
+
+  if (wordCount < 150) {
+    suggestions.push('Short article (< 150 words). Search engines rank in-depth answers higher.');
+    score -= 15;
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  return {
+    score,
+    title,
+    titleStatus,
+    titleMessage,
+    subtitle: subtitle || undefined,
+    descriptionStatus,
+    descriptionMessage,
+    headingsCount: { h1: h1Count, h2: h2Count, h3: h3Count },
+    headingsStatus,
+    headingsMessage,
+    imagesTotal,
+    imagesWithAlt,
+    imagesStatus,
+    imagesMessage,
+    wordCount,
+    estimatedMinutes,
+    suggestions,
+  };
 }

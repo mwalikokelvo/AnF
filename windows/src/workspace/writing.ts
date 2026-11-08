@@ -84,6 +84,12 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   tool('Checklist',()=>{const start=draft.value.lastIndexOf('\n',draft.selectionStart-1)+1;const end=draft.value.indexOf('\n',draft.selectionEnd);const stop=end<0?draft.value.length:end;commit(draft.value.slice(0,start)+draft.value.slice(start,stop).split('\n').map(l=>/^- \[[ xX]\] /.test(l)?l:'- [ ] '+l).join('\n')+draft.value.slice(stop));});
   tool('Quote',()=>wrap('> '));tool('Wiki link',()=>wrap('[[',']]'));
   tool('Code block',()=>wrap('\n```\n','\n```\n'));
+  tool('Audit SEO',async()=>{
+    const {auditSeo}=await import('./article-publishing');
+    const res=auditSeo(draft.value);
+    const topTip=res.suggestions[0]?` · Tip: ${res.suggestions[0]}`:' · Content & metadata optimized!';
+    notify(`SEO Score: ${res.score}/100 (${res.titleStatus==='good'?'Title optimal':'Title needs review'}) · ~${res.estimatedMinutes} min read${topTip}`);
+  });
   tool('Article Frontmatter',()=>{
     if(draft.value.trimStart().startsWith('---')){notify('Draft already contains frontmatter.');return;}
     const today=new Date().toISOString().slice(0,10);
