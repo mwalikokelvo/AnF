@@ -370,6 +370,25 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   eqChips.append(b);
  }
 
+ const crossfadeChips=h('div',{class:'music-sleep-chips','aria-label':'Crossfade transition chips'});
+ for(const [sec, label] of [[0,'Off'],[2,'2s'],[4,'4s'],[6,'6s'],[8,'8s'],[12,'12s']] as const){
+  const b=h('button',{
+   type:'button',
+   class:'music-chip'+(audioDsp.getCrossfadeDuration()===sec?' active':''),
+   text:label,
+   title:sec===0?'Gapless playback without crossfade':`Smooth ${sec}s crossfade between tracks`,
+   onclick:()=>{
+    audioDsp.setCrossfadeDuration(sec);
+    prefs.fade=sec;
+    save();
+    updateChips();
+    report(sec===0?'Crossfade disabled (gapless playback).':`Crossfade set to ${sec} seconds.`);
+   }
+  });
+  b.dataset.crossfade=String(sec);
+  crossfadeChips.append(b);
+ }
+
  function openEqModal(){
   const dlg=createEqDialog(audioDsp);
   document.body.append(dlg);
@@ -381,6 +400,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   for(const el of root.querySelectorAll<HTMLElement>('.music-chip[data-sleep], .music-player .music-chip[data-sleep]'))el.classList.toggle('active',el.dataset.sleep===sleep.value);
   const curPreset=audioDsp.getCurrentPreset();
   for(const el of document.querySelectorAll<HTMLElement>('.music-chip[data-eq]'))el.classList.toggle('active',el.dataset.eq===curPreset);
+   const curFade=audioDsp.getCrossfadeDuration();
+   for(const el of document.querySelectorAll<HTMLElement>('.music-chip[data-crossfade]'))el.classList.toggle('active',Number(el.dataset.crossfade)===curFade);
  }
  audioDsp.subscribe(()=>updateChips());
  const shuffle=button('Shuffle queue',()=>{prefs.shuffle=!prefs.shuffle;if(prefs.shuffle){prefs.originalQueue=[...queue];queue=[...(current?[current.id]:[]),...shuffled(queue.filter(id=>id!==current?.id))];}else queue=reconcileQueue(prefs.originalQueue,tracks.map(t=>t.id),false);save();paint();renderQueue();},'shuffle');
@@ -670,7 +691,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     ),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Speed'}),speedChips),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips),
-    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'))
+    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Crossfade'}),crossfadeChips),
+     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'))
    )
   );
   dock.hidden=true;

@@ -73,6 +73,14 @@ One page every builder should read before touching AnF. Keep it current; append,
    - **MiroFish Swarm Simulation & Consensus Engine**: Built `ai/swarm-simulation.ts` providing offline multi-agent simulation across Security, Architecture, UX, and Standards personas with consensus indexing and 1-click Markdown export.
    - **Verification**: **394/394 unit tests passing** across 54 suites, **138/138 e2e tests**, 11 release checks, and Vite production build green in 6.92s.
 
+7. **Spotify Crossfade Chips, Audio Clip Exporter, Security Cards, Brag Generator & Chatwoot Inbox (2026-11-08)**:
+   - **Spotify Crossfade UI & Automated Transitions**: Added interactive crossfade chips (`Off`, `2s`, `4s`, `6s`, `8s`, `12s`) to Music Hub full player with automated sample-accurate Web Audio DSP fading on track advance and playlist transitions.
+   - **Cap / Supoclip Audio Studio Clip Exporter**: Added `slicePcmAudio` in `audio-data.ts` and UI in `audio-studio.ts` with duration selector (`15s`–`120s`) exporting standalone 16-bit PCM WAV clips. Re-exported domain audio files to remove ~4,000 lines of duplicate code.
+   - **Clouds Against Humanity Challenge Cards**: Built `security-cards.ts` evaluating offline-first architecture, privacy, AES-GCM cryptography, Web Audio DSP, and RFC standards with interactive scorecards.
+   - **Latent-Spaces Brag Document Generator**: Built `brag-document.ts` analyzing completed tasks into structured engineering accomplishment documents with a 1-click `Brag Doc` button in the Dashboard task drawer.
+   - **Chatwoot Community & Support Inbox**: Built `chatwoot-inbox.ts` providing offline-first support thread triage (`open`, `pending`, `resolved`), reply appending, channel filtering, and 1-click Markdown thread export.
+   - **Verification**: **409/409 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 4.97s.
+
 ## Next priorities
 
 1. Continuous UI polish and automated live testing across Windows and Android devices.

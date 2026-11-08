@@ -13,3 +13,12 @@ export function wav(channels:Float32Array[],rate:number):ArrayBuffer {
   let p=44;for(let i=0;i<channels[0].length;i++)for(const c of channels){const x=Number.isFinite(c[i])?Math.max(-1,Math.min(1,c[i])):0;v.setInt16(p,Math.round(x*(x<0?32768:32767)),true);p+=2;}return bytes;
 }
 export function durationText(seconds:number){const n=Number.isFinite(seconds)?Math.max(0,Math.floor(seconds)):0;return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');}
+
+/** Slices a contiguous time window from multi-channel PCM audio (Cap / Supoclip audio clipping) */
+export function slicePcmAudio(channels:Float32Array[],rate:number,startSeconds:number,durationSeconds:number):Float32Array[] {
+  if(!channels.length||!channels[0].length)return [];
+  const start=Math.max(0,Math.min(channels[0].length,Math.round(startSeconds*rate)));
+  const len=Math.max(0,Math.min(channels[0].length-start,Math.round(durationSeconds*rate)));
+  if(len<=0)return [];
+  return channels.map(c=>c.slice(start,start+len));
+}

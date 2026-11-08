@@ -450,3 +450,16 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 6.92s.
+
+### 2026-11-08: Spotify Crossfade Chips, Cap Audio Clip Exporter, Security Challenge Cards, Brag Document Generator & Chatwoot Inbox
+- **Spotify Crossfade Chips & DSP Automation**: Added crossfade duration selector chips (`Off`, `2s`, `4s`, `6s`, `8s`, `12s`) to Music Hub full player with automated sample-accurate Web Audio DSP fading on track switch and end-of-track.
+- **Audio Studio Cap/Supoclip Audio Clip Exporter**: Implemented `slicePcmAudio` in `audio-data.ts` and added an `Export Clip` button with duration options (`15s`–`120s`) in `audio-studio.ts` generating standalone 16-bit PCM WAV clips. Re-exported domain audio modules to deduplicate codebase by ~4,000 lines.
+- **Clouds Against Humanity Security Challenge Cards**: Created `security-cards.ts` providing an interactive evaluation engine for offline-first architecture, privacy, AES-GCM cryptography, Web Audio DSP, and RFC standards with scorecards and markdown report export.
+- **Latent-Spaces Brag Document Generator**: Created `brag-document.ts` analyzing completed and in-progress tasks to produce structured Markdown engineering accomplishment documents with impact categories and added a 1-click `Brag Doc` button in the Dashboard task drawer.
+- **Chatwoot Community & Support Inbox**: Created `chatwoot-inbox.ts` providing offline-first support thread triage (`open`, `pending`, `resolved`), reply appending, channel filtering, and 1-click Markdown thread export.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **409/409 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 4.97s.

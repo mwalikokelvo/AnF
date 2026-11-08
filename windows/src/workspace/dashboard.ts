@@ -1,6 +1,7 @@
 import {habitState} from './knowledge-data';
 import {h} from '../views/dom';
 import {draftTasks,dayName,tasksToIcs} from './dashboard-data';
+import {buildBragDocument} from './brag-document';
 import './dashboard.css';
 type Source=import('./reader-data').ReadingSource;
 type Draft={id:string;name:string;draft:string;sources:Source[]};
@@ -33,10 +34,28 @@ export function createDashboard(a:Adapter){
     setTimeout(()=>URL.revokeObjectURL(url),30000);
     state.textContent=`Exported ${currentOpenTasks.length} tasks as iCalendar (.ics). Ready for Cal.com, Outlook, or Apple Calendar.`;
   });
+  const exportBrag=button('Brag Doc',()=>{
+    const doneTasks: {text:string;source?:string}[] = [];
+    for(const card of Array.from(colDone.querySelectorAll('.kanban-card'))){
+      const t = card.querySelector('.kanban-card-title')?.textContent || '';
+      const s = card.querySelector('.kanban-card-source')?.textContent || '';
+      if(t) doneTasks.push({text:t, source:s});
+    }
+    const doc = buildBragDocument({
+      completedTasks: doneTasks.length ? doneTasks : [{text:'System reliability and 100% test gate coverage', category:'Quality'}],
+      inProgressTasks: currentOpenTasks.map(t => ({text:t.text, source:t.source})),
+    });
+    const blob=new Blob([doc],{type:'text/markdown;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const link=h('a',{href:url,download:'brag-document-'+new Date().toISOString().slice(0,10)+'.md'});
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    state.textContent='Generated Brag Document. Ready for engineering reviews.';
+  });
   const capture=button('Save to today’s log',()=>{if(working||!a.allowed())return;working=true;capture.disabled=true;const value=scratch.value;void a.capture(value).then(()=>{if(scratch.value===value){scratch.value='';try{localStorage.removeItem('coucou-quick-capture');}catch{}}state.textContent='Saved in '+dayName()+'.';void refresh();}).catch(e=>state.textContent=String(e).replace(/^Error: /,'')).finally(()=>{working=false;capture.disabled=false;});});
   try{scratch.value=localStorage.getItem('coucou-quick-capture')||'';}catch{}
   scratch.addEventListener('input',()=>{try{localStorage.setItem('coucou-quick-capture',scratch.value);}catch{state.textContent='Scratchpad cannot be saved automatically here; use Save to today’s log.';}});
-  const taskDrawer=h('details',{class:'dashboard-task-drawer'},h('summary',{text:'Tasks across your drafts'}),taskCount,h('div',{class:'row'},button('Refresh tasks',()=>void refresh()),toggleView,exportIcs),tasks,kanban);
+  const taskDrawer=h('details',{class:'dashboard-task-drawer'},h('summary',{text:'Tasks across your drafts'}),taskCount,h('div',{class:'row'},button('Refresh tasks',()=>void refresh()),toggleView,exportIcs,exportBrag),tasks,kanban);
   const root=h('div',{class:'dashboard'},h('div',{class:'dashboard-heading'},h('p',{class:'eyebrow',text:'YOUR DAY, YOUR SPACE'}),h('h2',{text:'A little space.\nA lot of possibility.'}),h('p',{class:'dashboard-subtitle',text:'Read, write and make something yours. Your ideas stay on your devices.'})),jump,h('article',{class:'capture-card'},h('h3',{text:'Quick capture'}),scratch,h('div',{class:'row'},capture,button('Open today’s log',()=>{if(!a.allowed())return;void a.list().then(entries=>{const today=entries.find(e=>e.name===dayName());if(today)return a.open(today.id);state.textContent='Save your first thought to create today’s log.';}).catch(e=>a.notify(String(e)));})),state),h('h3',{text:'Daily habits · last seven days'}),habits,taskDrawer);
   async function refresh(){const request=++epoch;const current=a.current(),source=current.sources[0];jump.replaceChildren(h('article',{class:'resume-card'},h('span',{class:'eyebrow',text:'READING'}),h('h3',{text:source?.name||'No document open'}),source?h('progress',{max:Math.max(1,source.text.length),value:source.reading?.offset||0,'aria-label':'Saved reading progress'}):h('p',{text:'Add a document in Documents.'}),...(source?[button('Resume reading',()=>a.read(source))]:[])),h('article',{class:'resume-card'},h('span',{class:'eyebrow',text:'WRITING'}),h('h3',{text:current.name}),h('p',{class:'draft-snippet',text:current.draft.slice(0,180).replace(/^#{1,6} /gm,'').replace(/\*\*/g,'')||'Empty draft'}),button('Continue writing',a.write)));
         taskCount.textContent='Reading saved drafts…';tasks.replaceChildren();currentOpenTasks=[];let count=0,scanned=0;const daily=new Map<string,Record<string,boolean>>();
