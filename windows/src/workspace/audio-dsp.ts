@@ -224,6 +224,7 @@ export class AudioDspEngine {
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private filters: BiquadFilterNode[] = [];
   private compressorNode: DynamicsCompressorNode | null = null;
+  private analyserNode: AnalyserNode | null = null;
   private attachedElement: HTMLMediaElement | null = null;
   private gains: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   private activePreset: EqPresetName | 'Custom' = 'Flat';
@@ -376,6 +377,14 @@ export class AudioDspEngine {
       this.compressorNode = null;
     }
 
+    try {
+      this.analyserNode = this.ctx.createAnalyser();
+      this.analyserNode.fftSize = 64;
+      this.analyserNode.smoothingTimeConstant = 0.8;
+    } catch {
+      this.analyserNode = null;
+    }
+
     this.connectFilterChain();
 
     // Synchronize initial filter gains
@@ -388,11 +397,12 @@ export class AudioDspEngine {
       this.sourceNode.disconnect();
       for (const filter of this.filters) filter.disconnect();
       if (this.compressorNode) this.compressorNode.disconnect();
+      if (this.analyserNode) this.analyserNode.disconnect();
     } catch {
       // Safe disconnect if nodes were not connected
     }
 
-    // Connect audio graph: source -> band0 -> band1 -> band2 -> band3 -> band4 -> (compressor) -> destination
+    // Connect audio graph: source -> band0 -> band1 -> band2 -> band3 -> band4 -> (compressor) -> (analyser) -> destination
     let current: AudioNode = this.sourceNode;
     for (const filter of this.filters) {
       current.connect(filter);
@@ -401,7 +411,12 @@ export class AudioDspEngine {
 
     if (this.normalizeVolume && this.compressorNode) {
       current.connect(this.compressorNode);
-      this.compressorNode.connect(this.ctx.destination);
+      current = this.compressorNode;
+    }
+
+    if (this.analyserNode) {
+      current.connect(this.analyserNode);
+      this.analyserNode.connect(this.ctx.destination);
     } else {
       current.connect(this.ctx.destination);
     }
@@ -485,6 +500,17 @@ export class AudioDspEngine {
 
   isCorsFallbackActive(): boolean {
     return this.corsFallback;
+  }
+
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyserNode) return null;
+    try {
+      const data = new Uint8Array(this.analyserNode.frequencyBinCount);
+      this.analyserNode.getByteFrequencyData(data);
+      return data;
+    } catch {
+      return null;
+    }
   }
 
   reset(): void {

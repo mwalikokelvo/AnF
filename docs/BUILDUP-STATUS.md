@@ -36,13 +36,29 @@ One page every builder should read before touching AnF. Keep it current; append,
 4. The Windows frontend gates are the guard; keep them green.
 5. **Never skip REA.** Mandatory across all builders for feature, app, or protocol investigations. Evidence from ea must ground all designs.
 
+## Completed in this session (2026-11-08)
+
+1. **Spotify-Class Music Player Capabilities**:
+   - **Continuous Seamless Crossfade**: Replaced silent pause transitions with smooth volume crossfade stepping (`step(1, true)`) when remaining duration reaches configured fade seconds (0s to 12s).
+   - **Volume Normalization (Loudness Equalization)**: Studio-grade `DynamicsCompressorNode` integrated in `AudioDspEngine` with toggleable leveling in EQ dialog and full player.
+   - **Audio Spectrum FFT Analyser**: Real-time Web Audio `AnalyserNode` frequency inspection exposed via `getFrequencyData()` in `AudioDspEngine`.
+   - **Unified Omni-Search**: `searchMultiSource` connects Local, Audius (320kbps MP3s), Subsonic/Navidrome (self-hosted cloud), YouTube streams, and Internet Archive audiobooks in a single query.
+   - **Listening History Tab**: Dedicated "History" view in Music Hub displaying played tracks chronologically with one-click replay and history clearing.
+   - **Infinite Auto-Play & Track Radio**: Seamless queue continuation and similar track radio recommendations across local and online tracks.
+
+2. **Reader & Studio Neural Integrations**:
+   - **VoiceStudio Neural TTS Provider**: `VoiceStudioTtsProvider` in `neural-speech.ts` connects to local `http://localhost:3900/v1/audio/speech` with zero cloud telemetry and graceful offline fallback.
+   - **OpenWhispr Local Speech Transcription**: `transcription.ts` transcribes voice memos and audio studio clips into formatted Markdown notes with frontmatter metadata.
+
+3. **Skills & Partner Ecosystem Installed**:
+   - Formally created and synced 9 agent skills across `C:\Users\mwali\.agents\skills` and `.agents/skills`: `open-seo`, `cap`, `appflowy`, `chatwoot`, `calcom`, `openproject`, `open-higgsfield-ai`, `clouds-against-humanity`, `supoclip`.
+   - Codified and enforced mandatory "Never skip REA" policy across all investigations.
+
 ## Next priorities
 
-1. **Audius Decentralized Streaming**: Built and verified. Replaces Spotify (which is avoided due to user account ban) with open, public, DRM-free streaming. Next polish: unified multi-source search across local/Archive/Subsonic/Audius.
-2. Player polish from Spotify's playbook: crossfade, volume normalization, one search across local/Archive/Subsonic.
-3. VoiceStudio TTS as Reader's neural provider (AGPL: integrate via HTTP, do not copy code).
-4. OpenWhispr (MIT) for local transcription → notes.
-5. Remove the now-unreachable scraping layer (`streaming-provider.ts` YouTube/Piped/Spotify paths) once no caller needs them.
+1. Continuous UI polish and automated live testing across Windows and Android devices.
+2. Remove now-unreachable legacy scraping layer in `streaming-provider.ts` once all callers rely on the unified Audius/YouTube/Subsonic providers.
+3. Audio Studio waveform timeline integration for directly transcribing recorded vocal tracks into Note drafts with OpenWhispr.
 
 ## Partner protocol
 

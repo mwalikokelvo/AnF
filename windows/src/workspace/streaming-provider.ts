@@ -176,7 +176,7 @@ export interface StreamTrackMetadata {
   streamUrl?: string;
   /** A catalogue's 30 s clip (iTunes / Spotify embed). It is not the song: it is only played, labelled, when no full source is found. */
   previewUrl?: string;
-  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius';
+  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius' | 'subsonic';
   bitrate?: number;
   isrc?: string;
   year?: number;
@@ -1199,7 +1199,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   /** Unified Multi-Source Search Across YouTube, Spotify, and Audiobooks */
   async searchMultiSource(
     query: string,
-    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius'; limit?: number }
+    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic'; limit?: number }
   ): Promise<StreamTrackMetadata[]> {
     const q = query.trim();
     if (!q) return [];
@@ -1223,30 +1223,34 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (service === 'audiobook') {
       return this.searchAudiobooks(q, limit);
     }
+    if (service === 'subsonic') return this.searchSubsonic(q, limit);
     if (service === 'audius') {
       return this.searchAudius(q, limit);
     }
 
     // Service 'all': query Audius, YouTube, Spotify, and Audiobooks concurrently
-    const [audRes, ytRes, spRes, abRes] = await Promise.allSettled([
+    const [audRes, ytRes, spRes, abRes, subRes] = await Promise.allSettled([
       this.searchAudius(q, Math.ceil(limit / 2)),
       this.searchYouTube(q, Math.ceil(limit / 2)),
       this.searchTracks(q, { limit: Math.ceil(limit / 2) }),
       this.searchAudiobooks(q, Math.ceil(limit / 3)),
+      this.searchSubsonic(q, Math.ceil(limit / 3)),
     ]);
 
     const audItems = audRes.status === 'fulfilled' ? audRes.value : [];
     const ytItems = ytRes.status === 'fulfilled' ? ytRes.value : [];
     const spItems = spRes.status === 'fulfilled' ? spRes.value : [];
     const abItems = abRes.status === 'fulfilled' ? abRes.value : [];
+    const subItems = subRes.status === 'fulfilled' ? subRes.value : [];
 
     const merged: StreamTrackMetadata[] = [];
     const seenIds = new Set<string>();
     const add = (t: StreamTrackMetadata | undefined) => {
       if (t && merged.length < limit && !seenIds.has(t.id)) { seenIds.add(t.id); merged.push(t); }
     };
-    const maxLen = Math.max(audItems.length, ytItems.length, spItems.length, abItems.length);
+    const maxLen = Math.max(audItems.length, subItems.length, ytItems.length, spItems.length, abItems.length);
     for (let i = 0; i < maxLen; i++) {
+      add(subItems[i]);
       add(audItems[i]);
       add(spItems[i]);
       add(ytItems[i]);
@@ -1257,6 +1261,31 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   }
 
   
+  async searchSubsonic(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+    if (!query.trim()) return [];
+    try {
+      const { loadSubsonicSettings, subsonicReady, searchSubsonic } = await import('./subsonic');
+      const settings = loadSubsonicSettings();
+      if (!subsonicReady(settings)) return [];
+      const results = await searchSubsonic(settings.server, settings.username, query.trim());
+      const mapped: StreamTrackMetadata[] = results.slice(0, limit).map(t => ({
+        id: 'subsonic:' + t.id,
+        title: t.title,
+        artist: t.artist || 'Unknown Artist',
+        album: t.album || 'Subsonic',
+        duration: t.duration,
+        source: 'subsonic',
+        bitrate: 320,
+      }));
+      for (const track of mapped) {
+        this.cache.set(track.id, track);
+      }
+      return mapped;
+    } catch {
+      return [];
+    }
+  }
+
   async searchAudius(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
     if (!onlineLookupsEnabled() || !query.trim()) return [];
     try {
@@ -1306,6 +1335,27 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
         bitrate: 320,
         cached: false,
       };
+    }
+
+    // 0.5. If Subsonic track
+    if (track.source === 'subsonic' || track.id.startsWith('subsonic:')) {
+      const trackId = track.id.replace(/^subsonic:/, '');
+      try {
+        const { loadSubsonicSettings, subsonicReady, streamSubsonic } = await import('./subsonic');
+        const settings = loadSubsonicSettings();
+        if (subsonicReady(settings)) {
+          const blob = await streamSubsonic(settings.server, settings.username, trackId);
+          const streamUrl = typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(blob) : 'blob:' + trackId;
+          return {
+            streamUrl,
+            mimeType: 'audio/mpeg',
+            bitrate: 320,
+            cached: false,
+          };
+        }
+      } catch {
+        return null;
+      }
     }
 
     // 1. If YouTube track
@@ -1412,7 +1462,7 @@ export const streamService = new SpotubeStreamService();
 
 export async function searchMultiSource(
   query: string,
-  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius'; limit?: number }
+  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic'; limit?: number }
 ): Promise<StreamTrackMetadata[]> {
   return streamService.searchMultiSource(query, options);
 }

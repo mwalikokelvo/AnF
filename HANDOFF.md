@@ -381,3 +381,25 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm test`: 370/370 pass across 52 suites.
   - `npm run test:e2e`: 138/138 pass across 24 suites.
   - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+
+### 2026-11-08 — Antigravity: Seamless Crossfade, Audio Spectrum Analyser, Unified Omni-Search, History, VoiceStudio TTS & OpenWhispr
+
+- **Spotify-Grade Capabilities Completed**:
+  - **Seamless Continuous Crossfade**: Replaced silence gaps with smooth volume crossfade stepping (`step(1, true)`) triggering as the remaining track duration hits `prefs.fade` (0s - 12s), fading out current track and fading in next track concurrently.
+  - **Real-Time Audio Spectrum FFT Analyser**: Web Audio API `AnalyserNode` integrated into `AudioDspEngine` and exposed via `getFrequencyData()`.
+  - **Unified Multi-Source Omni-Search**: Connected Subsonic/Navidrome alongside Audius, YouTube, and Internet Archive audiobooks in `searchMultiSource` and added Subsonic switcher tab.
+  - **Dedicated Listening History Tab**: Added "History" tab to `tabButtons` displaying `prefs.recent` tracks in chronological order with quick replay and history clearing.
+  - **Custom Badges**: Added styled source badges for Audius (`.music-badge-audius`) and Subsonic (`.music-badge-subsonic`).
+- **Neural Reader & Speech Integrations**:
+  - **VoiceStudio Neural TTS Provider**: Built `VoiceStudioTtsProvider` in `windows/src/workspace/neural-speech.ts` connecting Reader to local `http://localhost:3900/v1/audio/speech` via HTTP with zero cloud telemetry.
+  - **OpenWhispr Local Speech-to-Text**: Built `windows/src/workspace/transcription.ts` for transcribing audio recordings into structured AnF/Obsidian Markdown notes with frontmatter metadata.
+- **Skills Ecosystem**:
+  - Formally created and synced 9 agent skills across `~/.agents/skills` and `.agents/skills`: `open-seo`, `cap`, `appflowy`, `chatwoot`, `calcom`, `openproject`, `open-higgsfield-ai`, `clouds-against-humanity`, `supoclip`.
+  - Maintained and re-enforced mandatory "Never skip REA" policy.
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: **376/376 passed** across 52 suites.
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Vite build succeeded in 5.90s.

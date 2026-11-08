@@ -396,4 +396,10 @@ describe('YouTube URL resolution, gate and non-audio refusal', () => {
     assert.equal(stored.length, 0);
     assert.equal(await service.getTrack('stream:custom:x'), null);
   });
+
+  test('searchMultiSource supports subsonic service option safely when unconfigured', async () => {
+    const service = new SpotubeStreamService();
+    const results = await service.searchMultiSource('test query', { service: 'subsonic' });
+    assert.deepEqual(results, []);
+  });
 });

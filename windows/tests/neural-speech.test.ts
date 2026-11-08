@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   NullTtsProvider,
+  VoiceStudioTtsProvider,
   createMemoryVoiceDisk,
   createNeuralUtterancePlayer,
   neuralSpeechEnabled,
@@ -180,4 +181,54 @@ test('createNeuralUtterancePlayer caches chunks and stops cleanly', async () => 
   });
   assert.equal(await failPlayer.speak('Nope.', 1, 1, () => 1), 'fallback');
   assert.equal(synthCalls, 0);
+});
+
+test('VoiceStudioTtsProvider synthesizes via localhost API and handles errors', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.endsWith('/health')) {
+        return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+      }
+      if (urlStr.endsWith('/v1/audio/speech')) {
+        return new Response(new Uint8Array([82, 73, 70, 70]), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const provider = new VoiceStudioTtsProvider({ serverUrl: 'http://localhost:3900' });
+    const healthy = await provider.isHealthy();
+    assert.equal(healthy, true);
+
+    const audio = await provider.synthesize({
+      providerId: 'voicestudio',
+      voiceId: 'alloy',
+      text: 'Hello world',
+      format: 'wav',
+      sampleRate: 22050,
+    });
+    assert.equal(audio.length, 4);
+    assert.equal(audio[0], 82);
+
+    globalThis.fetch = (async () => {
+      return new Response('Internal error', { status: 500 });
+    }) as any;
+
+    const failProvider = new VoiceStudioTtsProvider({ serverUrl: 'http://localhost:3900' });
+    assert.equal(await failProvider.isHealthy(), false);
+    await assert.rejects(
+      () =>
+        failProvider.synthesize({
+          providerId: 'voicestudio',
+          voiceId: 'alloy',
+          text: 'Hello world',
+          format: 'wav',
+          sampleRate: 22050,
+        }),
+      /HTTP 500/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

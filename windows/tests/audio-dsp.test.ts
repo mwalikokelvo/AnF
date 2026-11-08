@@ -264,5 +264,10 @@ describe('Audio DSP Engine & 5-Band Equalizer', () => {
 
       unsubscribe();
     });
+
+    test('frequency data inspection safely returns null when unattached', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.getFrequencyData(), null);
+    });
   });
 });

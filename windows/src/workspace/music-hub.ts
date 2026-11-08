@@ -108,9 +108,15 @@ export function matchPlaylist<T extends {id:string;title:string;artist:string;na
 
 export type PlaybackState = 'idle' | 'buffering' | 'ready' | 'playing' | 'paused' | 'ended' | 'error';
 
-export function trackBadge(t: AudioTrack | StreamTrackMetadata): { label: string; kind: 'youtube' | 'spotify' | 'audiobook' | 'local' | 'custom' } {
+export function trackBadge(t: AudioTrack | StreamTrackMetadata): { label: string; kind: 'youtube' | 'spotify' | 'audiobook' | 'local' | 'custom' | 'audius' | 'subsonic' } {
  const source = (t as StreamTrackMetadata).source;
  const id = t.id || '';
+ if (source === 'audius' || id.startsWith('audius:') || id.startsWith('stream:audius:')) {
+  return { label: 'Audius', kind: 'audius' };
+ }
+ if (source === 'subsonic' || id.startsWith('subsonic:') || id.startsWith('stream:subsonic:')) {
+  return { label: 'Subsonic', kind: 'subsonic' };
+ }
  if (source === 'youtube' || id.startsWith('yt:') || id.startsWith('stream:yt:') || (t as AudioTrack).format?.includes('youtube')) {
   return { label: 'YouTube', kind: 'youtube' };
  }
@@ -164,7 +170,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const folder=h('input',{type:'file',multiple:true,webkitdirectory:'','aria-label':'Import music folder',hidden:true});
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
- let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
+ let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='';
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
  let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false;
@@ -214,7 +220,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Streaming','Audius','Subsonic','Archive','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const tabButtons=['Music','Streaming','Audius','Subsonic','Archive','History','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
@@ -288,6 +294,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
  const drawerActions=h('div',{class:'music-drawer-actions'});
  const drawerLikeBtn=h('button',{type:'button',class:'music-drawer-btn','aria-label':'Favorite',onclick:()=>{
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   prefs.favorites=prefs.favorites.includes(current.id)?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];
   save();paint();render();
@@ -385,6 +392,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let lyrics:Lyrics={synced:false,lines:[]},lyricRows:HTMLElement[]=[],lyricIndex=-2;
  
  async function lookupLyrics(){
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   if(!onlineLookupsEnabled()){report(ONLINE_LOOKUPS_OFF);return;}
   report('Searching LRCLIB for synced lyrics...');
@@ -745,6 +753,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  async function resume(){
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   suspended=false;
   dock.hidden=false;
@@ -879,6 +888,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  async function step(direction:number,automatic=false){
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   if(direction<0&&audio.currentTime>3){audio.currentTime=0;paint();save();return;}
   const id=direction>0
@@ -992,6 +1002,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    if(tab==='music'&&kind!=='music')return false;
    if(tab==='podcasts'&&kind!=='podcast')return false;
    if(tab==='favorites'&&!prefs.favorites.includes(t.id))return false;
+   if(tab==='history'&&!prefs.recent.includes(t.id))return false;
    if(tab==='streaming'&&(!t.id.startsWith('stream:')&&!t.streamUrl))return false;
    return !term||[t.title,t.artist,t.album,t.genre,t.format].some(s=>s?.toLocaleLowerCase().includes(term));
   });
@@ -1522,14 +1533,37 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    return;
   }
 
+  // --- TAB: HISTORY (Listening history) ---
+  if(tab==='history'){
+   const recentTracks=prefs.recent.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);
+   const grid=h('div',{class:'music-grid'});
+   for(const t of recentTracks){
+    grid.append(card(t,recentTracks));
+   }
+   content.replaceChildren(
+    h('div',{class:'music-section-header'},
+     h('h3',{text:'Listening History ('+recentTracks.length+')'}),
+     recentTracks.length?button('Clear history',()=>{
+      prefs.recent=[];
+      save();
+      render();
+      report('Listening history cleared.');
+     }):null
+    ),
+    recentTracks.length?grid:h('p',{class:'music-empty',text:'No listening history yet. Start playing tracks to see them here.'})
+   );
+   return;
+  }
+
   // --- TAB: STREAMING (Multi-service Spicetify streaming platform) ---
   if(tab==='streaming'){
    const switcher=h('div',{class:'music-stream-tabs',role:'tablist','aria-label':'Streaming services'});
-   const serviceDefs:{id:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'cached';label:string}[]=[
+   const serviceDefs:{id:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached';label:string}[]=[
     {id:'all',label:'All Services'},
     {id:'audius',label:'Audius'},
     {id:'youtube',label:'YouTube'},
     {id:'spotify',label:'Spotify / Spotube'},
+    {id:'subsonic',label:'Subsonic'},
     {id:'audiobook',label:'Audiobooks'},
     {id:'cached',label:'Cached Offline'}
    ];
@@ -2190,7 +2224,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  audio.addEventListener('timeupdate',()=>{
   if(prefs.fade>0&&!fadeOutArmed&&!audio.paused){
    const left=duration()-audio.currentTime;
-   if(left>0&&left<=prefs.fade){fadeOutArmed=true;fadeVolume(0,left*1000);}
+   if(left>0&&left<=prefs.fade){fadeOutArmed=true;fadeVolume(0,left*1000,()=>{if(!audio.paused&&fadeOutArmed){fadeOutArmed=false;void step(1,true);}});}
   }
   if(chapterStopAt!==null){
    const step=chapterSleepStep(chapterStopAt,current?.chapters,audio.currentTime||0,duration());

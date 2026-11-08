@@ -8,6 +8,7 @@ import {
   type TtsAudioFormat,
   type TtsProvider,
   type VoiceDisk,
+  type TtsSynthesisRequest,
 } from './tts-service';
 
 export const NEURAL_TTS_STORAGE_KEY = 'anf-neural-tts';
@@ -31,6 +32,57 @@ export class NullTtsProvider implements TtsProvider {
     throw new Error('NullTtsProvider: no neural model is installed.');
   }
 }
+
+export interface VoiceStudioProviderOptions {
+  serverUrl?: string;
+  model?: string;
+}
+
+/**
+ * Local neural speech synthesis provider backed by VoiceStudio (http://localhost:3900).
+ * AGPL integration: connects purely via local HTTP OpenAI-compatible endpoint with zero cloud telemetry.
+ */
+export class VoiceStudioTtsProvider implements TtsProvider {
+  private serverUrl: string;
+  private model: string;
+
+  constructor(options: VoiceStudioProviderOptions = {}) {
+    this.serverUrl = options.serverUrl || 'http://localhost:3900';
+    this.model = options.model || 'tts-1';
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.serverUrl}/health`);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async synthesize(request: TtsSynthesisRequest): Promise<Uint8Array> {
+    const format = request.format || 'wav';
+    const body = JSON.stringify({
+      model: this.model,
+      voice: request.voiceId || 'alloy',
+      input: request.text,
+      response_format: format,
+    });
+
+    const res = await fetch(`${this.serverUrl}/v1/audio/speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+
+    if (!res.ok) {
+      throw new Error(`VoiceStudio synthesis failed: HTTP ${res.status}`);
+    }
+
+    const buffer = await res.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+  }
 
 let registered: NeuralSpeechRegistration | null = null;
 

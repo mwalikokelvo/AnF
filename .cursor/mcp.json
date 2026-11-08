@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\mwali\\.gemini\\antigravity\\scratch\\AnF"
+      ]
+    },
+    "fetch": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_server_fetch"
+      ]
+    },
+    "git": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_server_git",
+        "--repository",
+        "C:\\Users\\mwali\\.gemini\\antigravity\\scratch\\AnF"
+      ]
+    }
+  }
+}

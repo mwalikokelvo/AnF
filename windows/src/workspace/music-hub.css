@@ -598,6 +598,17 @@ body:has(#app) .native-music-source{display:flex}
   border: 1px solid rgba(14, 165, 233, 0.55);
 }
 
+.music-badge-audius {
+  background-color: rgba(204, 34, 238, 0.35);
+  color: #f0abfc;
+  border: 1px solid rgba(217, 70, 239, 0.55);
+}
+.music-badge-subsonic {
+  background-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+}
+
 /* Streaming Service Switcher Pills */
 .music-stream-tabs {
   display: flex;
