@@ -475,3 +475,15 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 5.20s.
+
+### 2026-11-08: Spotify Smart Mixes, Gentle Sleep Fade, Bionic Reading & Pomodoro Focus Timer
+- **Spotify Smart Mixes & Mood Flow**: Created `smart-mix.ts` with multi-attribute scoring across 6 smart playlist types (`Deep Focus Flow`, `High Energy Cardio`, `Late Night Acoustic`, `Discovery Radar`, `Spoken Stories`, `Time Capsule Classics`) with Extended M3U export.
+- **Sleep Timer Gentle DSP Fade-Out**: Updated `music-hub.ts` to execute gradual Web Audio DSP gain ramp down (`audioDsp.fade(0, fadeSeconds)`) in the final seconds of the sleep timer before pausing playback.
+- **Bionic Reading & Speed Reader**: Created `bionic-reading.ts` providing adaptive fixation emphasis to accelerate eye tracking and reading speed while preserving code blocks, markdown syntax, tags, and URLs.
+- **Pomodoro & Focus Timer**: Created `pomodoro.ts` implementing a 25/5/15 Pomodoro state machine, pure Web Audio harmonic bell chime synthesis, and Markdown session logging.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **445/445 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.49s.

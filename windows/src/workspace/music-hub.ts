@@ -325,7 +325,27 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let sleepTimer:ReturnType<typeof setTimeout>|undefined;
  let chapterStopAt:number|null=null;
  function clearChapterSleep(){chapterStopAt=null;}
- function armSleep(minutes:number){clearChapterSleep();if(sleepTimer)clearTimeout(sleepTimer);sleepTimer=undefined;if(!Number.isFinite(minutes)||minutes<=0){report('');return;}sleepTimer=setTimeout(()=>{pause();report('Sleep timer ended playback.');},minutes*60*1000);report('Sleep timer set for '+minutes+' minutes.');}
+ function armSleep(minutes:number){
+  clearChapterSleep();
+  if(sleepTimer)clearTimeout(sleepTimer);
+  sleepTimer=undefined;
+  audioDsp.resetFade();
+  if(!Number.isFinite(minutes)||minutes<=0){report('');return;}
+  const ms=minutes*60*1000;
+  const fadeSeconds=Math.min(10,Math.max(2,Math.floor(minutes*2)));
+  const fadeStartMs=Math.max(0,ms-fadeSeconds*1000);
+  sleepTimer=setTimeout(()=>{
+   audioDsp.fade(0,fadeSeconds);
+   setTimeout(()=>{
+    pause();
+    audioDsp.resetFade();
+    sleep.value='0';
+    updateChips();
+    report('Sleep timer gently ended playback.');
+   },fadeSeconds*1000);
+  },fadeStartMs);
+  report('Sleep timer set for '+minutes+' minutes.');
+ }
  function armChapterSleep(){
   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}
   const at=chapterEndAt(current?.chapters,audio.currentTime||0,duration());

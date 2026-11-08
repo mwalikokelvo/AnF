@@ -88,6 +88,13 @@ One page every builder should read before touching AnF. Keep it current; append,
    - **Codebase Cleanliness**: Converted `editor/writing.ts` and `editor/article-publishing.ts` to single-line re-exports, eliminating redundant code drift.
    - **Verification**: **428/428 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 5.20s.
 
+9. **Spotify Smart Mixes, Gentle Sleep Fade, Bionic Reading & Pomodoro Focus Timer (2026-11-08)**:
+   - **Spotify-Class Smart Mixes**: Built `smart-mix.ts` and audio mirror evaluating track characteristics into 6 themed playlists (`Deep Focus Flow`, `High Energy Cardio`, `Late Night Acoustic`, `Discovery Radar`, `Spoken Stories`, `Time Capsule Classics`) with Extended M3U export.
+   - **Sleep Timer Gentle Fade-Out**: Enhanced `music-hub.ts` sleep timer to trigger sample-accurate Web Audio DSP volume fade-out over the final seconds before pausing, providing a gentle sleep transition with zero abrupt stops.
+   - **Bionic Reading & Speed Reader**: Built `bionic-reading.ts` providing adaptive word fixation bolding to accelerate reading comprehension while defensively preserving code blocks, inline backticks, tags, and URLs.
+   - **Pomodoro & Focus Timer**: Built `pomodoro.ts` providing 25m focus / 5m break / 15m long break state tracking, synthesized Web Audio harmonic bell chimes (zero audio files needed), and Markdown session logging.
+   - **Verification**: **445/445 unit tests passing** across 58 suites (100% green), **138/138 e2e tests**, 11/11 release regression checks, and Vite production build clean in 5.49s.
+
 ## Next priorities
 
 1. Continuous UI polish and automated live testing across Windows and Android devices.
