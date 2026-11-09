@@ -70,3 +70,26 @@ test('serializeM3u generates valid standard #EXTM3U format and roundtrips', () =
   assert.equal(parsed[0].duration, 125);
   assert.equal(parsed[1].title, 'Live Broadcast');
 });
+
+test('parseM3u and matching against library tracks handles case-insensitivity and uri basenames', () => {
+  const library = [
+    { id: 'track-1', name: 'solar_fields_sol.flac', title: 'Sol', artist: 'Solar Fields' },
+    { id: 'track-2', name: 'cbl_sleepers.mp3', title: 'World of Sleepers', artist: 'Carbon Based Lifeforms' },
+    { id: 'track-3', name: 'ambient_stream.opus', title: 'Deep Space', artist: 'Stellardrone' },
+  ];
+
+  const m3uText = `#EXTM3U\n#EXTINF:200,Solar Fields - Sol\nsolar_fields_sol.flac\n#EXTINF:180,Unknown - Deep Space\nambient_stream.opus\n`;
+  const entries = parseM3u(m3uText);
+  const matchedIds: string[] = [];
+
+  for (const entry of entries) {
+    const found = library.find(
+      (t) => t.name.toLowerCase() === entry.uri.toLowerCase() || t.title.toLowerCase() === entry.title.toLowerCase()
+    );
+    if (found && !matchedIds.includes(found.id)) {
+      matchedIds.push(found.id);
+    }
+  }
+
+  assert.deepEqual(matchedIds, ['track-1', 'track-3']);
+});
