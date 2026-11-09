@@ -8,7 +8,7 @@
 import { hasSafeFetch, safeFetchAudio } from './safe-fetch';
 
 const MEDIA_SRC_EXACT = ['archive.org', 'audio-ssl.itunes.apple.com'];
-const MEDIA_SRC_SUFFIX = ['.archive.org', '.mzstatic.com', '.googlevideo.com'];
+const MEDIA_SRC_SUFFIX = ['.archive.org', '.mzstatic.com', '.googlevideo.com', '.audius.co', '.audius.org'];
 
 /** True when the CSP lets the audio element load this https URL directly. */
 export function mediaSrcAllows(url: string): boolean {

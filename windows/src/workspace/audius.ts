@@ -44,7 +44,8 @@ export async function searchAudius(query: string, limit = 20, fetcher: typeof fe
   for (const node of DISCOVERY_NODES) {
     try {
       const url = `${node}/tracks/search?query=${encodeURIComponent(trimmed)}&app_name=${APP_NAME}&limit=${limit}`;
-      const res = await fetcher(url);
+      const signal = typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(6000) : undefined;
+      const res = await fetcher(url, signal ? { signal } : undefined);
       if (res.ok) {
         const body = (await res.json()) as { data?: unknown };
         return parseAudiusTracks(body?.data);
@@ -62,7 +63,8 @@ export async function trendingAudius(limit = 20, fetcher: typeof fetch = fetch):
   for (const node of DISCOVERY_NODES) {
     try {
       const url = `${node}/tracks/trending?app_name=${APP_NAME}&limit=${limit}`;
-      const res = await fetcher(url);
+      const signal = typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(6000) : undefined;
+      const res = await fetcher(url, signal ? { signal } : undefined);
       if (res.ok) {
         const body = (await res.json()) as { data?: unknown };
         return parseAudiusTracks(body?.data);

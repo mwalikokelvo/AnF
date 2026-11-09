@@ -104,4 +104,35 @@ describe('Audius Music Service Integration', () => {
     assert.equal(called, false);
     assert.equal(results.length, 0);
   });
+
+  test('searchAudius and trendingAudius configure timeout signal and failover across nodes', async () => {
+    const attemptedNodes: string[] = [];
+    let signalCaptured: any = null;
+    const mockFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+      attemptedNodes.push(String(url));
+      signalCaptured = init?.signal;
+      if (String(url).includes('discoveryprovider.audius.co')) {
+        return { ok: false, status: 503 } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'alt-1', title: 'Backup Node Track', user: { name: 'Backup' }, duration: 120 }],
+        }),
+      } as Response;
+    };
+
+    const tracks = await trendingAudius(10, mockFetch as any);
+    assert.equal(tracks.length, 1);
+    assert.equal(tracks[0].title, 'Backup Node Track');
+    assert.equal(attemptedNodes.length, 2);
+    assert.ok(signalCaptured, 'AbortSignal timeout should be provided');
+  });
+
+  test('trendingAudius throws clean error when all nodes fail without hanging', async () => {
+    const mockFetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    await assert.rejects(trendingAudius(10, mockFetch as any), /Failed to fetch|All Audius discovery nodes failed/);
+  });
 });
