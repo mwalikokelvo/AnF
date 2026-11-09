@@ -60,6 +60,7 @@ import {
 } from './audio-dsp';
 import { askConfirm, askText } from './music-dialogs';
 import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,searchSubsonic,streamSubsonic,subsonicReady,connectDemoSubsonic,clearSubsonicSettings,type SubsonicTrack} from './subsonic';
+import {parseM3u,serializeM3u} from './m3u';
 import {searchRadioStations,getTopRadioStations,getRadioStationsByTag,POPULAR_RADIO_TAGS,type RadioStation} from './radio';
 import {searchAudius,trendingAudius,type AudiusTrack} from './audius';
 import {listAvailableMixes,generateSmartMix,exportMixToM3u} from './smart-mix';
@@ -221,8 +222,74 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const importKind=h('select',{'aria-label':'Import content as'},...['auto','music','podcast','audiobook'].map(value=>h('option',{value,text:value==='auto'?'Detect file type':value==='music'?'Music':value==='podcast'?'Podcast':'Audiobook'})));
  const mixes=h('select',{'aria-label':'Listening mix'},...['all','liked','fresh','recent'].map(value=>h('option',{value,text:value==='all'?'All items':value==='liked'?'Liked items':value==='fresh'?'Not recently played':'Recently played'})));
  mixes.addEventListener('change',()=>{mix=mixes.value;render();});
- const playlistFile=h('input',{type:'file',accept:'.json,application/json',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
- playlistFile.addEventListener('change',()=>void run(async()=>{try{const file=playlistFile.files?.[0];if(!file)return;if(file.size>2_000_000)throw Error('Playlist files must be smaller than 2 MB.');const recipe=playlistRecipe(JSON.parse(await file.text()));const match=matchPlaylist(recipe,tracks);if(!await askConfirm('Import '+recipe.name+' with '+match.order.length+' matched items? '+match.missing+' missing or ambiguous items will be skipped. Audio files are not included.'))return;await library.savePlaylist({id:crypto.randomUUID(),name:recipe.name,order:match.order});await refresh();report('Playlist imported. '+match.missing+' items skipped.');}finally{playlistFile.value='';}}));
+ const playlistFile=h('input',{type:'file',accept:'.json,application/json,.m3u,.m3u8,audio/x-mpegurl',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
+ playlistFile.addEventListener('change',()=>void run(async()=>{
+  try{
+   const file=playlistFile.files?.[0];if(!file)return;
+   if(file.size>5_000_000)throw Error('Playlist files must be smaller than 5 MB.');
+   const text=await file.text();
+   if(file.name.endsWith('.m3u')||file.name.endsWith('.m3u8')||text.startsWith('#EXTM3U')){
+    const entries=parseM3u(text);
+    if(!entries.length)throw Error('No tracks found in this M3U playlist.');
+    const playlistName=file.name.replace(/\.(m3u8?|json)$/i,'')||'Imported Playlist';
+    const matchedIds:string[]=[];
+    for(const entry of entries){
+     const matched=tracks.find(t=>(t.title&&t.title.toLowerCase()===entry.title.toLowerCase())||(entry.artist&&t.artist&&t.artist.toLowerCase()===entry.artist.toLowerCase()&&t.title.toLowerCase()===entry.title.toLowerCase()));
+     if(matched){
+      matchedIds.push(matched.id);
+     }else if(entry.isStream){
+      const streamId='stream:custom:'+crypto.randomUUID().slice(0,8);
+      const newTrack:AudioTrack={
+       id:streamId,
+       title:entry.title,
+       artist:entry.artist||'Stream',
+       name:entry.title,
+       album:entry.group||'M3U Stream',
+       kind:'music',
+       blob:new Blob([],{type:'audio/mpeg'}),
+       streamUrl:entry.uri,
+       coverUrl:entry.logoUrl,
+       format:'custom',
+       created:Date.now(),
+       duration:entry.duration||undefined
+      };
+      await library.put(newTrack);
+      tracks.push(newTrack);
+      matchedIds.push(streamId);
+     }
+    }
+    if(!matchedIds.length)throw Error('No playable tracks matched or imported from this M3U file.');
+    await library.savePlaylist({id:crypto.randomUUID(),name:playlistName,order:matchedIds});
+    await refresh();
+    report('Imported M3U playlist "'+playlistName+'" with '+matchedIds.length+' tracks.');
+   }else{
+    const recipe=playlistRecipe(JSON.parse(text));
+    const match=matchPlaylist(recipe,tracks);
+    if(!await askConfirm('Import '+recipe.name+' with '+match.order.length+' matched items? '+match.missing+' missing or ambiguous items will be skipped. Audio files are not included.'))return;
+    await library.savePlaylist({id:crypto.randomUUID(),name:recipe.name,order:match.order});
+    await refresh();
+    report('Playlist imported. '+match.missing+' items skipped.');
+   }
+  }finally{
+   playlistFile.value='';
+  }
+ }));
+ async function exportM3u(p:AudioPlaylist){
+  const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);
+  const m3uText=serializeM3u(selected.map(t=>({
+   title:t.title,
+   artist:t.artist,
+   duration:t.duration,
+   uri:t.streamUrl||(t.id.startsWith('stream:')?t.id:`anf-track://${t.id}`)
+  })));
+  const url=URL.createObjectURL(new Blob([m3uText],{type:'audio/x-mpegurl'}));
+  const link=h('a',{href:url,download:(p.name.replace(/[^a-zA-Z0-9_-]/g,'_')||'playlist')+'.m3u'});
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  report('Exported '+p.name+' as standard M3U.');
+ }
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
@@ -233,7 +300,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    const latest=(await library.playlists()).find(item=>item.id===p.id);
    if(!latest){dialog.close();report('This playlist no longer exists.');return;}
    const selected=latest.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);
-   dialog.replaceChildren(h('h3',{text:latest.name}),...selected.map(t=>h('div',{class:'music-recent-row'},button(t.title,()=>playTrack(t,selected)),button('Remove '+t.title+' from playlist',async()=>{const fresh=(await library.playlists()).find(item=>item.id===p.id);if(!fresh)return;await library.savePlaylist({...fresh,order:fresh.order.filter(id=>id!==t.id)});await paintPlaylist();await refresh();}))),...(!selected.length?[h('p',{text:'This playlist is empty.'})]:[]),button('Close playlist',()=>dialog.close()));
+   dialog.replaceChildren(h('h3',{text:latest.name}),...selected.map(t=>h('div',{class:'music-recent-row'},button(t.title,()=>playTrack(t,selected)),button('Remove '+t.title+' from playlist',async()=>{const fresh=(await library.playlists()).find(item=>item.id===p.id);if(!fresh)return;await library.savePlaylist({...fresh,order:fresh.order.filter(id=>id!==t.id)});await paintPlaylist();await refresh();}))),...(!selected.length?[h('p',{text:'This playlist is empty.'})]:[]),h('div',{class:'row',style:'gap:8px;margin-top:12px'},button('Export M3U',()=>exportM3u(latest)),button('Export JSON',()=>exportPlaylist(latest)),button('Close playlist',()=>dialog.close())));
   }
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();void paintPlaylist().catch(error=>{dialog.close();report(String(error));});
  }
@@ -2257,8 +2324,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     button('Import playlist file',()=>playlistFile.click()),
     h('p',{class:'music-muted',text:'Playlist files contain track names, not audio. Each device needs its own files.'}),
     h('div',{class:'music-playlists'},
-     button('New playlist',()=>void run(async()=>{const name=await askText('Playlist name');if(!name?.trim())return;await library.savePlaylist({id:crypto.randomUUID(),name:name.trim(),order:[]});await refresh();})),
-     ...playlists.map(p=>h('article',{class:'music-card'},h('strong',{text:p.name}),h('span',{text:p.order.length+' tracks'}),button('Play playlist',()=>{const list=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);if(!list.length){report('Empty playlist.');return;}prefs.originalQueue=list.map((item:AudioTrack)=>item.id);queue=[...prefs.originalQueue];void select(list[0]);}),button('View playlist',()=>showPlaylist(p)),button('Export playlist file',()=>exportPlaylist(p)),button('Delete playlist',()=>void run(async()=>{if(!await askConfirm('Delete '+p.name+'?'))return;await library.removePlaylist(p.id);await refresh();}))))
+     button('New playlist',()=>void run(async()=>{const name=await askText('Playlist name');if(!name?.trim())return;await library.savePlaylist({id:crypto.randomUUID(),name:name.trim(),order:[]});await refresh();})),button('Import Playlist (.m3u, .json)',()=>playlistFile.click()),
+     ...playlists.map(p=>h('article',{class:'music-card'},h('strong',{text:p.name}),h('span',{text:p.order.length+' tracks'}),button('Play playlist',()=>{const list=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);if(!list.length){report('Empty playlist.');return;}prefs.originalQueue=list.map((item:AudioTrack)=>item.id);queue=[...prefs.originalQueue];void select(list[0]);}),button('View playlist',()=>showPlaylist(p)),button('Export M3U',()=>exportM3u(p)),button('Export JSON',()=>exportPlaylist(p)),button('Delete playlist',()=>void run(async()=>{if(!await askConfirm('Delete '+p.name+'?'))return;await library.removePlaylist(p.id);await refresh();}))))
     )
    );
    return;

@@ -126,6 +126,94 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     commit(template+draft.value);
     draft.focus();draft.setSelectionRange(12,28);live?.focusSelection();
   });
+  tool('Export Article', async () => {
+    if (!draft.value.trim()) { notify('Draft is empty. Write or paste content first.'); return; }
+    const { parseFrontmatter, exportArticleHtml, exportArticleRss, auditSeo } = await import('./article-publishing');
+    const parsed = parseFrontmatter(draft.value);
+    const seo = auditSeo(draft.value);
+    const article = {
+      id: crypto.randomUUID(),
+      metadata: parsed.metadata,
+      markdown: parsed.body,
+      updatedAt: Date.now()
+    };
+    const html = exportArticleHtml(article);
+
+    const dialog = h('dialog', { class: 'music-dialog writing-export-dialog', 'aria-label': 'Export Article' });
+    const download = (filename: string, content: string, type: string) => {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = h('a', { href: url, download: filename });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      notify(`Exported ${filename}.`);
+    };
+
+    const baseName = (parsed.metadata.title || 'article').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+
+    const exportHtmlBtn = h('button', {
+      type: 'button',
+      class: 'primary',
+      text: 'Export Standalone HTML (.html)',
+      onclick: () => download(`${baseName}.html`, html, 'text/html;charset=utf-8')
+    });
+
+    const exportRssBtn = h('button', {
+      type: 'button',
+      text: 'Export RSS 2.0 Feed (.xml)',
+      onclick: () => {
+        const rss = exportArticleRss(
+          { title: parsed.metadata.title, link: parsed.metadata.canonicalUrl || 'https://localhost', description: parsed.metadata.subtitle || 'Article from AnF Workspace', author: parsed.metadata.author },
+          [article]
+        );
+        download(`${baseName}-feed.xml`, rss, 'application/rss+xml;charset=utf-8');
+      }
+    });
+
+    const exportMdBtn = h('button', {
+      type: 'button',
+      text: 'Export Markdown (.md)',
+      onclick: () => download(`${baseName}.md`, draft.value, 'text/markdown;charset=utf-8')
+    });
+
+    const copyHtmlBtn = h('button', {
+      type: 'button',
+      text: 'Copy HTML to Clipboard',
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(html);
+          notify('HTML copied to clipboard!');
+        } catch {
+          notify('Could not copy to clipboard.');
+        }
+      }
+    });
+
+    const closeBtn = h('button', {
+      type: 'button',
+      text: 'Close',
+      onclick: () => { dialog.close(); dialog.remove(); }
+    });
+
+    dialog.append(
+      h('div', { class: 'writing-export-header' },
+        h('h3', { text: `Export "${parsed.metadata.title || 'Untitled Draft'}"` }),
+        h('p', { class: 'hint', text: `SEO Score: ${seo.score}/100 · ~${seo.estimatedMinutes} min read · Ready for Substack, Medium, Ghost, or static web hosting.` })
+      ),
+      h('div', { style: 'display:flex;flex-direction:column;gap:10px;margin:16px 0' },
+        exportHtmlBtn,
+        copyHtmlBtn,
+        exportRssBtn,
+        exportMdBtn
+      ),
+      h('div', { class: 'row' }, closeBtn)
+    );
+    dialog.addEventListener('cancel', () => dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  });
   const ocrInput=h('input',{type:'file',accept:'image/*,.pdf',style:'display:none'}) as HTMLInputElement;
   ocrInput.addEventListener('change',async()=>{
     const file=ocrInput.files?.[0];if(!file)return;

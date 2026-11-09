@@ -47,9 +47,54 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
       notice.textContent='OCR error: '+String(e);
     }finally{ocrFileInput.value='';}
   });
+  function showReadingStats(){
+    if(!source)return;
+    const current=parts[index];
+    const state=readingState(source.reading,source.text);
+    const totalWords=source.text.trim().split(/\s+/u).length;
+    const remainingWords=source.text.slice(current.start).trim().split(/\s+/u).length;
+    const readWords=Math.max(0, totalWords - remainingWords);
+    const pct=Math.round((current.end / Math.max(1, source.text.length)) * 100);
+    const estMinutes=Math.max(1, Math.ceil(remainingWords / 220));
+    const dialog=h('dialog',{class:'music-dialog reader-stats-dialog','aria-label':'Reading Statistics'});
+    const closeBtn=h('button',{text:'Close',type:'button',onclick:()=>{dialog.close();dialog.remove();}});
+
+    dialog.append(
+      h('div',{class:'reader-stats-header'},
+        h('h3',{text:`Reading Stats · ${source.name}`}),
+        h('p',{class:'hint',text:`Section ${index+1} of ${parts.length} · ${pct}% completed`})
+      ),
+      h('div',{style:'display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:16px 0'},
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Progress'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--accent,#79e4b4)',text:`${pct}%`}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:`${readWords.toLocaleString()} / ${totalWords.toLocaleString()} words`})
+        ),
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Time Remaining'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--ink,#edf4ef)',text:`~${estMinutes}m`}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:'At 220 words / min'})
+        ),
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Highlights & Notes'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--ink,#edf4ef)',text:String(state.annotations.length)}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:'Saved in document'})
+        ),
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Bookmarks'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--ink,#edf4ef)',text:String(state.bookmarks.length)}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:'Bookmarked positions'})
+        )
+      ),
+      h('div',{class:'row'},closeBtn)
+    );
+    dialog.addEventListener('cancel',()=>dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  }
   const navigation=h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';}));
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
-    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),exit),
+    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),exit),
     h('div',{class:'reader-controls'},theme,font,size,line,width),
     h('div',{class:'reader-nav-slot'},navigation),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,
