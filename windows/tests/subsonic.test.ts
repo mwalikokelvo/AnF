@@ -5,6 +5,10 @@ import {
   responseBytes,
   saveSubsonicSettings,
   subsonicReady,
+  connectDemoSubsonic,
+  clearSubsonicSettings,
+  DEMO_SUBSONIC_SERVER,
+  DEMO_SUBSONIC_USER,
 } from '../src/workspace/subsonic';
 
 const data = new Map<string, string>();
@@ -41,4 +45,17 @@ test('raw IPC responses are accepted as ArrayBuffer, Uint8Array or number arrays
   assert.deepEqual(responseBytes(bytes), bytes);
   assert.deepEqual(responseBytes([1, 2, 3]), bytes);
   assert.equal(responseBytes('nope'), undefined);
+});
+
+test('connectDemoSubsonic sets official Navidrome demo server and user', async () => {
+  data.clear();
+  const settings = await connectDemoSubsonic();
+  assert.equal(settings.server, DEMO_SUBSONIC_SERVER);
+  assert.equal(settings.username, DEMO_SUBSONIC_USER);
+  assert.equal(subsonicReady(settings), true);
+  assert.deepEqual(loadSubsonicSettings(), settings);
+
+  clearSubsonicSettings();
+  assert.deepEqual(loadSubsonicSettings(), { server: '', username: '' });
+  assert.equal(subsonicReady(loadSubsonicSettings()), false);
 });

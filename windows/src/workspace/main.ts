@@ -24,7 +24,7 @@ import './anf-color.css';
 import {attachNavRail} from './nav-rail';
 import {appCatalogPanel} from './apps-catalog';
 import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
-import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic} from './subsonic';
+import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,connectDemoSubsonic} from './subsonic';
 import {sectionIcon,wordmark} from './anf-brand';
 import {invoke} from '@tauri-apps/api/core';
 import {emitTo} from '@tauri-apps/api/event';
@@ -262,7 +262,7 @@ const subsonicServer=h('input',{type:'url','aria-label':'Subsonic server address
 const subsonicUser=h('input',{'aria-label':'Subsonic username',placeholder:'Username',value:subsonicSettings.username,maxlength:128}) as HTMLInputElement;
 const subsonicPassword=h('input',{type:'password','aria-label':'Subsonic password',placeholder:'Password (stored in the system secret store)',autocomplete:'new-password',maxlength:512}) as HTMLInputElement;
 const subsonicHint=h('p',{class:'hint',text:'Connect your own Subsonic or Navidrome server. Search and streaming run in Rust; the password stays in the system secret store and never enters the page.'});
-const subsonicPanel=h('details',{},h('summary',{text:'Subsonic / Navidrome'}),subsonicHint,subsonicServer,subsonicUser,subsonicPassword,h('div',{class:'row'},button('Save password',async()=>{saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});await saveSubsonicPassword(subsonicPassword.value);subsonicPassword.value='';subsonicHint.textContent='Password saved. Use Test connection, then search in Music Hub → Subsonic.';}),button('Test connection',async()=>{const saved=saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});subsonicHint.textContent=await testSubsonic(saved.server,saved.username);})));
+const subsonicPanel=h('details',{},h('summary',{text:'Subsonic / Navidrome'}),subsonicHint,subsonicServer,subsonicUser,subsonicPassword,h('div',{class:'row'},button('Save password',async()=>{saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});await saveSubsonicPassword(subsonicPassword.value);subsonicPassword.value='';subsonicHint.textContent='Password saved. Use Test connection, then search in Music Hub → Subsonic.';}),button('Test connection',async()=>{const saved=saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});subsonicHint.textContent=await testSubsonic(saved.server,saved.username);}),button('Use Public Demo',async()=>{await connectDemoSubsonic();const cur=loadSubsonicSettings();subsonicServer.value=cur.server;subsonicUser.value=cur.username;subsonicHint.textContent='Connected to official Navidrome public demo (demo.navidrome.org).';})));
 subsonicServer.addEventListener('change',()=>saveSubsonicSettings({server:subsonicServer.value}));
 subsonicUser.addEventListener('change',()=>saveSubsonicSettings({username:subsonicUser.value}));
 const linkAddress=h('input',{'aria-label':'This PC Wi-Fi IPv4 address',placeholder:'PC Wi-Fi IPv4 address, e.g. 192.168.1.20'});

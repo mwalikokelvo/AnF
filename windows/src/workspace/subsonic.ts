@@ -41,8 +41,31 @@ export function saveSubsonicSettings(patch: Partial<SubsonicSettings>): Subsonic
   return { server: next.server.trim(), username: next.username.trim() };
 }
 
+export const DEMO_SUBSONIC_SERVER = 'https://demo.navidrome.org';
+export const DEMO_SUBSONIC_USER = 'demo';
+export const DEMO_SUBSONIC_PASS = 'demo';
+
 export function subsonicReady(settings: SubsonicSettings): boolean {
   return settings.server.trim() !== '' && settings.username.trim() !== '';
+}
+
+/** Connects and saves the official public Navidrome demo instance for instant access without a personal server. */
+export async function connectDemoSubsonic(): Promise<SubsonicSettings> {
+  const settings = saveSubsonicSettings({ server: DEMO_SUBSONIC_SERVER, username: DEMO_SUBSONIC_USER });
+  try {
+    await saveSubsonicPassword(DEMO_SUBSONIC_PASS);
+  } catch {
+    /* desktop secret store may not be available outside Tauri runtime */
+  }
+  return settings;
+}
+
+/** Clears saved Subsonic credentials and server address. */
+export function clearSubsonicSettings(): void {
+  try {
+    localStorage.removeItem(SERVER_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch {}
 }
 
 export async function saveSubsonicPassword(value: string): Promise<void> {

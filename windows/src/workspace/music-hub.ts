@@ -59,7 +59,7 @@ import {
   type EqPresetName
 } from './audio-dsp';
 import { askConfirm, askText } from './music-dialogs';
-import {loadSubsonicSettings,searchSubsonic,streamSubsonic,subsonicReady,type SubsonicTrack} from './subsonic';
+import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,searchSubsonic,streamSubsonic,subsonicReady,connectDemoSubsonic,clearSubsonicSettings,type SubsonicTrack} from './subsonic';
 import {searchAudius,trendingAudius,type AudiusTrack} from './audius';
 import {listAvailableMixes,generateSmartMix,exportMixToM3u} from './smart-mix';
 import './music-hub.css';
@@ -1555,22 +1555,23 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    return;
   }
 
-  // --- TAB: SUBSONIC (the user's own Navidrome / Subsonic server) ---
+  // --- TAB: SUBSONIC (the user's own Navidrome / Subsonic server or public demo) ---
   if(tab==='subsonic'){
    const settings=loadSubsonicSettings();
    const ready=subsonicReady(settings);
-   const query=h('input',{type:'search','aria-label':'Search your Subsonic server',placeholder:'Search your server',value:subsonicQuery}) as HTMLInputElement;
+   const isDemo=settings.server.includes('demo.navidrome.org');
+   const query=h('input',{type:'search','aria-label':'Search Subsonic server',placeholder:'Search your server by song, artist or album',value:subsonicQuery}) as HTMLInputElement;
    query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchServer);});
    async function searchServer(){
     const current=loadSubsonicSettings();
-    if(!subsonicReady(current)){report('Add your server, username and password in Settings → Subsonic / Navidrome.');return;}
+    if(!subsonicReady(current)){report('Connect your server below or tap "Use Public Demo".');return;}
     const text=query.value.trim();
     subsonicQuery=text;
-    if(!text){report('Type a song, artist or album to search your server.');return;}
+    if(!text){report('Type a song, artist or album to search.');return;}
     subsonicBusy=true;render();
     try{
      subsonicResults=await searchSubsonic(current.server,current.username,text);
-     report(subsonicResults.length?'Found '+subsonicResults.length+' tracks on your server.':'Nothing matched on your server.');
+     report(subsonicResults.length?'Found '+subsonicResults.length+' tracks on server.':'Nothing matched on server.');
     }catch(error){
      subsonicResults=[];
      report('Subsonic search failed: '+String(error).replace(/^Error:\s*/,''));
@@ -1580,12 +1581,12 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    }
    async function playServer(item:SubsonicTrack){
     const current=loadSubsonicSettings();
-    if(!subsonicReady(current)){report('Add your server in Settings first.');return;}
+    if(!subsonicReady(current)){report('Connect your server first.');return;}
     try{
      const blob=await streamSubsonic(current.server,current.username,item.id);
      const track:AudioTrack={id:'subsonic:'+item.id,title:item.title,artist:item.artist||'Subsonic',name:item.title,album:item.album||'Subsonic',kind:'music',blob,format:item.suffix||'audio/mpeg',created:Date.now(),duration:item.duration||undefined};
      playTrack(track,[track]);
-     report('Playing '+item.title+' from your server.');
+     report('Playing '+item.title+' from '+current.server);
     }catch(error){
      report('Could not play that track: '+String(error).replace(/^Error:\s*/,''));
     }
@@ -1596,11 +1597,59 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      h('div',{class:'music-archive-copy'},h('strong',{text:item.title}),h('span',{class:'music-archive-meta',text:[item.artist,item.album,item.duration?durationText(item.duration):''].filter(Boolean).join(' · ')})),
      play);
    });
+
+   const inServer=h('input',{type:'url','aria-label':'Subsonic server address',placeholder:'https://your-server.com (or tap Public Demo below)'}) as HTMLInputElement;
+   const inUser=h('input',{'aria-label':'Subsonic username',placeholder:'Username',maxlength:128}) as HTMLInputElement;
+   const inPass=h('input',{type:'password','aria-label':'Subsonic password',placeholder:'Password (stored in secure vault)',maxlength:512}) as HTMLInputElement;
+   const connectBtn=button('Connect & Save',()=>void run(async()=>{
+    const s=inServer.value.trim(), u=inUser.value.trim(), p=inPass.value;
+    if(!s||!u){report('Enter your server address and username, or tap Use Public Demo.');return;}
+    saveSubsonicSettings({server:s,username:u});
+    await saveSubsonicPassword(p).catch(()=>{});
+    report('Connecting to '+s+'…');
+    try{
+     const testRes=await testSubsonic(s,u);
+     report('Connected: '+testRes);
+    }catch(e){
+     report('Saved credentials. '+String(e).replace(/^Error:\s*/,''));
+    }
+    render();
+   }));
+   const demoBtn=button('Use Public Navidrome Demo (Instant Connect)',()=>void run(async()=>{
+    report('Connecting to official Navidrome public demo…');
+    await connectDemoSubsonic();
+    report('Connected to Navidrome public demo! Ready to search.');
+    render();
+   }));
+
+   const statusBar=ready?h('div',{class:'row',style:'align-items:center;justify-content:space-between;margin-bottom:12px'},
+    h('span',{class:'hint',text:(isDemo?'⚡ Public Demo Server: ':'Connected Server: ')+settings.server+' ('+settings.username+')'}),
+    button('Disconnect / Change',()=>void run(async()=>{
+     clearSubsonicSettings();
+     subsonicResults=[];
+     report('Subsonic server disconnected.');
+     render();
+    }))
+   ):null;
+
    content.replaceChildren(
     h('section',{class:'music-archive'},
      h('h3',{text:'Subsonic / Navidrome'}),
-     h('p',{class:'hint',text:'Your own music server. Search and playback run through Rust; the password stays in the system secret store.'}),
-     ...(ready?[h('div',{class:'row'},query,button('Search server',searchServer)),subsonicBusy?h('p',{class:'hint',text:'Searching your server…'}):null,...(rows.length?rows:[h('p',{class:'music-empty',text:subsonicQuery?'No results yet. Try another search.':'Search your server by song, artist or album.'})])]:[h('p',{class:'music-empty',text:'Add your server, username and password in Settings → Subsonic / Navidrome, then come back here.'})])
+     h('p',{class:'hint',text:'Stream music from your personal Subsonic or Navidrome server, or explore instantly with the official public demo server.'}),
+     statusBar,
+     ...(ready?[
+       h('div',{class:'row'},query,button('Search server',searchServer),button('Explore Library',()=>void run(async()=>{query.value='';subsonicQuery='';subsonicBusy=true;render();try{subsonicResults=await searchSubsonic(settings.server,settings.username,'');if(!subsonicResults.length)subsonicResults=await searchSubsonic(settings.server,settings.username,'a');report('Found '+subsonicResults.length+' tracks on server.');}catch(e){report('Could not browse: '+String(e).replace(/^Error:\s*/,''));}finally{subsonicBusy=false;render();}}))),
+       subsonicBusy?h('p',{class:'hint',text:'Searching server…'}):null,
+       ...(rows.length?rows:[h('p',{class:'music-empty',text:subsonicQuery?'No tracks matched that search.':'Search your server by song, artist or album, or tap Explore Library.'})])
+     ]:[
+       h('div',{class:'subsonic-setup-card',style:'display:flex;flex-direction:column;gap:8px;max-width:560px;margin:16px 0;padding:16px;background:var(--anf-surface);border:1px solid var(--anf-border);border-radius:12px'},
+        h('strong',{text:'Quick Connect or Try Public Demo'}),
+        h('p',{class:'hint',text:'Tap "Use Public Navidrome Demo" to explore an open music catalog instantly, or enter your personal server details:'}),
+        h('div',{class:'row'},inServer),
+        h('div',{class:'row'},inUser,inPass),
+        h('div',{class:'row'},connectBtn,demoBtn)
+       )
+     ])
     )
    );
    return;
