@@ -54,7 +54,7 @@ export function createNativeMusicPlayer(options:{
     const remText = durationText(remainingSec);
     const durText = durationText((state?.duration || 0)/1000);
     const pct = state?.duration ? Math.round((state.position / state.duration) * 100) : 0;
-    elapsed.textContent = durationText((state?.position || 0)/1000);
+    elapsed.textContent = pct ? `${durationText((state?.position || 0)/1000)} · ${pct}%` : durationText((state?.position || 0)/1000);
     total.textContent = pct ? `${durText} · ${remText} left` : durText;
     total.title = pct ? `${remText} remaining of ${durText}` : '';
     progress.max = state?.duration || 1; progress.value = Math.min(state?.position || 0,progress.max);

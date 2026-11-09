@@ -22,8 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo install cargo-audit --locked
-      # zip 2.4.2: the three advisories concern extract(), which AnF never calls (it reads single
-      # members). Remove these once zip is on 9.x.
+      # zip: advisories concern ZipArchive::extract(), which AnF never calls (it only reads
+      # individual members). Remove once zip is on 9.x.
+      # libsqlite3-sys: medium advisory on the bundled C SQLite; upgrade rusqlite when practical.
       - run: >
           cargo audit --file windows/Cargo.lock
           --ignore RUSTSEC-2026-0367 --ignore RUSTSEC-2026-0368 --ignore RUSTSEC-2026-0369
+          --ignore RUSTSEC-2026-0429 --ignore RUSTSEC-2026-0459

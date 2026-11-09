@@ -317,6 +317,14 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Labels: **tested on Linux-style Node gates on Windows** (`npx tsc --noEmit` clean, `npm test` **356 pass / 0 fail**, `npm run test:e2e` **138 pass / 0 fail**, `node scripts/check-release.mjs` **11 pass**). NOT installed, not a release, no live OPDS/KOReader/cover hosts contacted.
 - Left for the owner: #95 is still open and should be closed; #100/#102 still target their stacked bases on GitHub; merge order above is the safe one. Adding a `windows` typecheck/test job on pushes to `main` is the durable fix for the missed breakage.
 
+## 2026-11-04 Cursor: neural read-aloud wiring (Phase 5 prep)
+
+- `windows/src/workspace/neural-speech.ts`: `playNeuralSentence`, `createNeuralUtterancePlayer`, `registerNeuralSpeechProvider`, `neuralSpeechEnabled()` (`anf-neural-tts=1`), `NullTtsProvider` stub, in-memory disk helper for tests.
+- `speech-player.ts`: optional per-player `{ disk, provider, config }`; Reader tries neural when flag + provider, else system/Android speech.
+- Settings: **Neural read-aloud (experimental)** `<details>`; checkbox disabled until a provider is registered.
+- `docs/specs/neural-tts-wire.md`: Phase 5 checklist (Piper/Kokoro or Tauri command + disk registration).
+- Labels: tested on Linux (`tsc` clean, `npm test` 335 pass / 0 fail, `check-release.mjs` 11 pass). NOT installed. No live neural model.
+- Branch: `cursor/tts-cache-wire-d2fe`.
 
 ### 2026-11-07 — Antigravity: Audius Decentralized Music Streaming (Replacing Spotify)
 

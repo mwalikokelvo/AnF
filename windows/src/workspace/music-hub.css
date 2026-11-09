@@ -1443,3 +1443,5 @@ body:has(#app) .music-player:not(.music-full-player) .music-controls>.music-expa
   color: var(--ink, #fff);
   box-sizing: border-box;
 }
+.music-card-progress{height:3px;background:rgba(255,255,255,0.12);border-radius:2px;margin:6px 0 2px;overflow:hidden}
+.music-card-progress-bar{height:100%;background:var(--music-accent,#1db954);border-radius:2px}

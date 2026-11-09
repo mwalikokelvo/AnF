@@ -31,6 +31,6 @@
     "@fishaudio/agent-client": "^0.3.0",
     "@lezer/highlight": "^1.2.5",
     "@tauri-apps/api": "^2",
-    "music-metadata": "12.3.2"
+    "music-metadata": "12.3.5"
   }
 }
