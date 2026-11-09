@@ -42,6 +42,9 @@ export const CATALOG:CatalogApp[] = [
   {id:'jev-ultrafast',name:'Jev Ultrafast',author:'browser-use',repo:'browser-use/jev-ultrafast',category:'Local AI',platforms:['Windows','macOS','Linux'],license:'MIT',description:'Ultra-fast, token-efficient browser automation agent utilizing compact indexed element tables.'},
   {id:'jcode',name:'JCode',author:'1jehuang',repo:'1jehuang/jcode',category:'Local AI',platforms:['Windows','Linux','macOS'],license:'Apache-2.0',description:'High-performance Rust coding agent harness designed for low-memory multi-agent developer workflows.'},
   {id:'digitalocean',name:'DigitalOcean',author:'DigitalOcean',repo:'digitalocean/doctl',category:'Privacy and sync',platforms:['Windows','macOS','Linux'],license:'Apache-2.0',description:'Deploy and host self-hosted instances (Chatwoot, Cal.com, OpenProject) and S3-compatible cloud storage.'},
+  {id:'spotube',name:'Spotube',author:'KRTirtho',repo:'KRTirtho/spotube',category:'Listening',platforms:['Windows','Android','macOS','Linux'],license:'BSD-4-Clause',description:'Open-source Spotify & YouTube music streaming client with zero telemetry and no account needed.'},
+  {id:'newpipe',name:'NewPipe',author:'TeamNewPipe',repo:'TeamNewPipe/NewPipe',category:'Listening',platforms:['Android'],license:'GPL-3.0',description:'Lightweight open-source media player and YouTube frontend with background audio and offline downloads.'},
+  {id:'echo-music',name:'Echo Music',author:'EchoMusicApp',repo:'EchoMusicApp/Echo-Music',category:'Listening',platforms:['Android'],license:'GPL-3.0',description:'Open-source music streaming application with canvas artwork, synchronized multi-provider lyrics, and smart mixes.'},
 ];
 
 const CATEGORIES:Category[] = ['Reading','Listening','Notes and study','Privacy and sync','Local AI'];
