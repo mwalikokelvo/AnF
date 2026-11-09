@@ -161,13 +161,34 @@ export function createDashboard(a:Adapter){
     }
   });
 
+  const viewGraphBtn = button('View Knowledge Graph', async () => {
+    if (!a.allowed()) return;
+    try {
+      const entries = await a.list();
+      const notes: KnowledgeNote[] = [];
+      for (const entry of entries) {
+        const doc = await a.load(entry.id);
+        notes.push({ id: doc.id, name: doc.name, draft: doc.draft, sources: doc.sources || [] });
+      }
+      const { openVaultGraphModal } = await import('./vault-graph');
+      openVaultGraphModal(notes, {
+        onSelectNote: (noteName) => {
+          document.dispatchEvent(new CustomEvent('coucou-open-note', { detail: noteName }));
+        },
+        notify: a.notify,
+      });
+    } catch (e) {
+      a.notify('Failed to load notes for knowledge graph: ' + String(e));
+    }
+  });
+
   const vaultHealthCard = h('div',{class:'vault-health-widget'},
     h('div',{class:'vault-health-header'},
       h('span',{class:'eyebrow',text:'VAULT HEALTH & LINKS'}),
       vaultScoreBadge
     ),
     vaultSummaryText,
-    h('div',{class:'row'}, runVaultAuditBtn, exportVaultReportBtn)
+    h('div',{class:'row'}, runVaultAuditBtn, viewGraphBtn, exportVaultReportBtn)
   );
 
   // --- Security Challenge Modal ---
