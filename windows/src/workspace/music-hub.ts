@@ -1,4 +1,5 @@
 import {h,svg} from '../views/dom';
+import {AbLoopEngine} from './ab-loop';
 import {audioLibrary,type AudioTrack,type AudioPlaylist} from './audio-library';
 import {readAudioMetadata,formatBadge} from './audio-metadata';
 import {durationText} from './audio-data';
@@ -502,6 +503,36 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   crossfadeChips.append(b);
  }
 
+ const abLoop=new AbLoopEngine();
+ const loopStatusBtn=button(abLoop.formatStatus(),()=>{
+  abLoop.toggle();
+  updateLoopChips();
+  report(abLoop.getState().enabled?'A-B Loop enabled.':'A-B Loop paused.');
+ });
+ const loopChips=h('div',{class:'music-sleep-chips music-loop-chips','aria-label':'A-B Loop chips'});
+ function updateLoopChips(){
+  loopStatusBtn.textContent=abLoop.formatStatus();
+  loopStatusBtn.classList.toggle('active',abLoop.getState().enabled);
+ }
+ loopChips.append(
+  button('A',()=>{
+   abLoop.setPointA(audio.currentTime);
+   report('A set at '+durationText(audio.currentTime)+'.');
+   updateLoopChips();
+  }),
+  button('B',()=>{
+   abLoop.setPointB(audio.currentTime);
+   report('B set at '+durationText(audio.currentTime)+'.');
+   updateLoopChips();
+  }),
+  loopStatusBtn,
+  button('Clear',()=>{
+   abLoop.clear();
+   report('A-B Loop cleared.');
+   updateLoopChips();
+  })
+ );
+
  function openEqModal(){
   const dlg=createEqDialog(audioDsp);
   document.body.append(dlg);
@@ -805,6 +836,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Speed'}),speedChips),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips,sleepCountdown),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Crossfade'}),crossfadeChips),
+     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'A-B Loop'}),loopChips),
      h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'))
    )
   );
@@ -2640,6 +2672,11 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  });
  audio.addEventListener('timeupdate',()=>{
+  const loopSeek=abLoop.checkLoop(audio.currentTime);
+  if(loopSeek!==null){
+   audio.currentTime=loopSeek;
+   return;
+  }
   if(prefs.fade>0&&!fadeOutArmed&&!audio.paused){
    const left=duration()-audio.currentTime;
    if(left>0&&left<=prefs.fade){fadeOutArmed=true;fadeVolume(0,left*1000,()=>{if(!audio.paused&&fadeOutArmed){fadeOutArmed=false;void step(1,true);}});}

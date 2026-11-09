@@ -32,6 +32,15 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
     try{localStorage.setItem('anf-reader-bionic',bionicActive?'1':'0');}catch{}
     render();
   });
+  let zenMode=false;
+  try{zenMode=localStorage.getItem('anf-reader-zen')==='1';}catch{}
+  const zenBtn=action(zenMode?'Exit Zen':'Zen',()=>{
+    zenMode=!zenMode;
+    root.classList.toggle('reader-zen',zenMode);
+    zenBtn.textContent=zenMode?'Exit Zen':'Zen';
+    try{localStorage.setItem('anf-reader-zen',zenMode?'1':'0');}catch{}
+    notice.textContent=zenMode?'Zen mode: distractions hidden. Press Zen to restore.':'Standard reader view restored.';
+  });
   function appendText(parent:HTMLElement,txt:string){
     if(bionicActive){
       const spans=parseBionicSpans(txt);
@@ -114,7 +123,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   }
   const navigation=h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';}));
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
-    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),exit),
+    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),zenBtn,exit),
     h('div',{class:'reader-controls'},theme,font,size,line,width,bionicBtn),
     h('div',{class:'reader-nav-slot'},navigation),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,
@@ -123,6 +132,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
       action('Ask local AI about selection',()=>{if(!source||!selection)throw Error('Select an excerpt first.');if(!ask)throw Error('Local AI is unavailable.');const text=source.text.slice(selection.start,selection.end),name=source.name;close();ask(text,name);}),
       action('Clip this section to writing',()=>{if(source){clip(source.text.slice(parts[index].start,parts[index].end),source.name);notice.textContent='Section appended to your writing draft.';}}),
       action('Add to reading queue',()=>{if(!source)return;const q=loadReadingQueue();addToReadingQueue(q,{title:source.name,source:source.name,text:source.text});notice.textContent='Added to reading queue.';}),
+      action('Export highlights (.md)',async()=>{if(!source)return;const state=readingState(source.reading,source.text);if(!state.annotations.length){notice.textContent='No highlights in this document yet.';return;}const {formatAnnotationsToMarkdown}=await import('./reader-annotations-export');const md=formatAnnotationsToMarkdown(source.name,source.text,state.annotations);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${source.name.replace(/[\\/:*?"<>|]/g,'_')}-highlights.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);notice.textContent=`Exported ${state.annotations.length} highlights as Markdown note.`;}),
       notes)),audio.root,notice,
     h('p',{class:'reader-footnote',text:'Extracted text view. Original page layout, images and some formatting are not shown. Reading notes sync only with document-text sharing; update both devices.'}));
   function saveScroll(){if(scrollTimer)clearTimeout(scrollTimer);if(!source||!scrollKey)return;try{localStorage.setItem(scrollKey,JSON.stringify({section:parts[index].start,top:root.querySelector('.reader-body')!.scrollTop}));}catch{}}

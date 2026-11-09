@@ -1420,3 +1420,5 @@ body.music-view .save-alert{display:none!important}
 .music-player.music-full-player .music-expand-dock{display:none!important}
 @media(max-width:760px){.music-player:not(.music-full-player) .music-controls>.music-expand-dock{display:grid!important}}
 body:has(#app) .music-player:not(.music-full-player) .music-controls>.music-expand-dock{display:grid!important}
+
+.music-loop-chips button.active{background:#79e4b4;color:#123327;font-weight:700}
