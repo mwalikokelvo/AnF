@@ -1380,14 +1380,50 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  function showDetails(track:AudioTrack){
-  const dialog=h('dialog',{class:'music-dialog','aria-label':'Audio details'});
+  const dialog=h('dialog',{class:'music-dialog track-details-dialog','aria-label':'Audio details'});
+  const titleInput=h('input',{type:'text',value:track.title,'aria-label':'Track title',placeholder:'Title'}) as HTMLInputElement;
+  const artistInput=h('input',{type:'text',value:track.artist||'','aria-label':'Artist name',placeholder:'Artist'}) as HTMLInputElement;
+  const albumInput=h('input',{type:'text',value:track.album||'','aria-label':'Album name',placeholder:'Album'}) as HTMLInputElement;
+  const genreInput=h('input',{type:'text',value:track.genre||'','aria-label':'Genre',placeholder:'Genre'}) as HTMLInputElement;
+  const yearInput=h('input',{type:'number',min:1900,max:2100,value:track.year?String(track.year):'','aria-label':'Release year',placeholder:'Year'}) as HTMLInputElement;
   const kind=h('select',{'aria-label':'Item content type'},...['music','audiobook','podcast'].map(value=>h('option',{value,text:kindLabel(value as 'music'|'audiobook'|'podcast')})));
   kind.value=track.kind||'music';
   const close=()=>{dialog.close();dialog.remove();};
   async function update(changes:Partial<AudioTrack>){const latest=await library.get(track.id);if(!latest)throw Error('This audio item was removed.');const updated={...latest,...changes};await library.put(updated);if(current?.id===track.id){current=updated;renderLyrics();paint();}await refresh();close();}
   const lyricsFile=h('input',{type:'file',accept:'.lrc,.txt,text/plain','aria-label':'Import timed lyrics'});
   lyricsFile.addEventListener('change',()=>void run(async()=>{const file=lyricsFile.files?.[0];if(!file)return;if(file.size>200000)throw Error('Lyrics files must be under 200 KB.');const text=await file.text();if(!parseLyrics(text).lines.length)throw Error('Choose a nonempty lyrics file.');await update({lyrics:text});report('Lyrics saved locally.');}));
-  dialog.append(h('h3',{text:track.title}),h('p',{text:[track.name,track.artist,track.album,track.year,track.genre,formatBadge(track)].filter(Boolean).join(' · ')}),kind,button('Save content type',()=>update({kind:kind.value as 'music'|'audiobook'|'podcast'})),lyricsFile,button('Close details',close));
+
+  const saveMetadataBtn=button('Save metadata',()=>{
+   const nextTitle=titleInput.value.trim()||track.name;
+   const nextArtist=artistInput.value.trim()||undefined;
+   const nextAlbum=albumInput.value.trim()||undefined;
+   const nextGenre=genreInput.value.trim()||undefined;
+   const nextYear=yearInput.value.trim()?Number(yearInput.value):undefined;
+   void run(async()=>{
+    await update({
+     title:nextTitle,
+     artist:nextArtist,
+     album:nextAlbum,
+     genre:nextGenre,
+     year:nextYear&&Number.isFinite(nextYear)?nextYear:undefined,
+     kind:kind.value as 'music'|'audiobook'|'podcast',
+    });
+    report('Updated metadata for “'+nextTitle+'”.');
+   });
+  });
+
+  dialog.append(
+   h('h3',{text:'Edit Track Metadata'}),
+   h('p',{class:'hint',text:[track.name,formatBadge(track)].filter(Boolean).join(' · ')}),
+   h('label',{},'Title',titleInput),
+   h('label',{},'Artist',artistInput),
+   h('label',{},'Album',albumInput),
+   h('label',{},'Genre',genreInput),
+   h('label',{},'Year',yearInput),
+   h('label',{},'Content Type',kind),
+   h('label',{},'Timed Lyrics (.lrc)',lyricsFile),
+   h('div',{class:'row',style:'margin-top:12px;gap:8px;'},saveMetadataBtn,button('Cancel',close))
+  );
   dialog.addEventListener('cancel',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
  }
 
