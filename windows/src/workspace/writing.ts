@@ -140,6 +140,15 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     commit(template+draft.value);
     draft.focus();draft.setSelectionRange(12,28);live?.focusSelection();
   });
+  tool('Outline', async () => {
+    if (!draft.value.trim()) { notify('Draft is empty. Add headings first.'); return; }
+    const { openOutlineModal } = await import('./document-outline');
+    openOutlineModal(draft.value, (offset) => {
+      draft.focus();
+      draft.setSelectionRange(offset, offset);
+      live?.focusSelection();
+    });
+  });
   tool('Export Article', async () => {
     if (!draft.value.trim()) { notify('Draft is empty. Write or paste content first.'); return; }
     const { parseFrontmatter, exportArticleHtml, exportArticleRss, auditSeo } = await import('./article-publishing');

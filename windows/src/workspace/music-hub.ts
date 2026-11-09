@@ -396,15 +396,34 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const speed=h('select',{'aria-label':'Playback speed'},...[.75,1,1.25,1.5,1.75,2].map(n=>h('option',{value:String(n),text:n+'×'})));speed.value=String(prefs.speed);
  const sleep=h('select',{'aria-label':'Sleep timer'},...[['0','Off'],['15','15 min'],['30','30 min'],['45','45 min'],['60','60 min'],['end','End of track'],['chapter','End of chapter']].map(([value,text])=>h('option',{value,text})));
  let sleepTimer:ReturnType<typeof setTimeout>|undefined;
+ let sleepCountdownInterval:ReturnType<typeof setInterval>|undefined;
+ let sleepTargetTime:number|null=null;
+ const sleepCountdown=h('span',{class:'music-sleep-countdown',text:''});
+ function clearCountdown(){
+  if(sleepCountdownInterval){clearInterval(sleepCountdownInterval);sleepCountdownInterval=undefined;}
+  sleepTargetTime=null;
+  sleepCountdown.textContent='';
+ }
+ function updateCountdown(){
+  if(!sleepTargetTime){clearCountdown();return;}
+  const remSec=Math.max(0,Math.round((sleepTargetTime-Date.now())/1000));
+  if(remSec<=0){clearCountdown();return;}
+  const m=Math.floor(remSec/60),s=remSec%60;
+  sleepCountdown.textContent=`⏱ ${m}:${s.toString().padStart(2,'0')}`;
+ }
  let chapterStopAt:number|null=null;
- function clearChapterSleep(){chapterStopAt=null;}
+ function clearChapterSleep(){chapterStopAt=null;clearCountdown();}
  function armSleep(minutes:number){
   clearChapterSleep();
+  clearCountdown();
   if(sleepTimer)clearTimeout(sleepTimer);
   sleepTimer=undefined;
   audioDsp.resetFade();
   if(!Number.isFinite(minutes)||minutes<=0){report('');return;}
   const ms=minutes*60*1000;
+  sleepTargetTime=Date.now()+ms;
+  updateCountdown();
+  sleepCountdownInterval=setInterval(updateCountdown,1000);
   const fadeSeconds=Math.min(10,Math.max(2,Math.floor(minutes*2)));
   const fadeStartMs=Math.max(0,ms-fadeSeconds*1000);
   sleepTimer=setTimeout(()=>{
@@ -413,6 +432,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     pause();
     audioDsp.resetFade();
     sleep.value='0';
+    clearCountdown();
     updateChips();
     report('Sleep timer gently ended playback.');
    },fadeSeconds*1000);
@@ -754,7 +774,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  dock.append(
   h('div',{class:'music-now'},dockArt,h('button',{class:'music-now-info',type:'button','aria-label':'Open full player',onclick:()=>openFullPlayer()},h('div',{style:'display:flex;align-items:center;min-width:0'},dockTitle,dockBadge),dockArtist,dockLyric),miniVis,like),
   h('div',{class:'music-transport'},h('div',{class:'music-controls'},shuffle,button('Previous track',()=>step(-1),'previous'),toggle,stopBtn,button('Next track',()=>step(1),'next'),repeat,Object.assign(button('Equalizer',()=>openEqModal(),'eq'),{className:'music-eq-dock'}),Object.assign(button('Expand player',()=>openFullPlayer(),'expand'),{className:'music-expand-dock'})),h('div',{class:'music-progress'},elapsed,seek,total)),
-  h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 30s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+30);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('Radio',()=>{if(current)void run(()=>startRadio(current!));}),button('DNA',()=>{if(current)void showMusicDna(current);}),button('Flow',()=>openMusicFlow()),button('Find lyrics',lookupLyrics),button('EQ',()=>openEqModal(),'eq'),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep),h('label',{class:'music-volume'},'Volume',volume),mute),
+  h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 30s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+30);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('Radio',()=>{if(current)void run(()=>startRadio(current!));}),button('DNA',()=>{if(current)void showMusicDna(current);}),button('Flow',()=>openMusicFlow()),button('Find lyrics',lookupLyrics),button('EQ',()=>openEqModal(),'eq'),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep,sleepCountdown),h('label',{class:'music-volume'},'Volume',volume),mute),
   queuePanel,
   lyricsPanel
  );
@@ -783,7 +803,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      }),{className:'music-chip'+(audioDsp.isVolumeNormalizationEnabled()?' active':''),title:'Spotify-style volume normalization'})
     ),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Speed'}),speedChips),
-    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips),
+    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips,sleepCountdown),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Crossfade'}),crossfadeChips),
      h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'))
    )
@@ -2662,7 +2682,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   stop,
   suspend:()=>{
    pause();
-   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';}
+   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';clearCountdown();}
    clearChapterSleep();
    suspended=true;
    if(fullPlayer.open)fullPlayer.close();

@@ -40,3 +40,12 @@
 .bionic-content{max-height:450px;overflow-y:auto;line-height:1.7;margin:16px 0;padding:16px;background:var(--surface,#141f23);border-radius:8px;font-size:15px}
 .bionic-content b{color:var(--accent,#78cbbb);font-weight:700}
 @media(max-width:768px){.companion-grid{grid-template-columns:1fr}}
+
+.outline-dialog{max-width:620px;width:92%;max-height:80vh;overflow-y:auto;background:var(--panel,var(--surface,#19282e));color:var(--ink,#fff);border:1px solid var(--line,#3d5355);border-radius:18px;padding:24px}
+.outline-list{display:flex;flex-direction:column;gap:6px;margin:16px 0;max-height:55vh;overflow-y:auto}
+.outline-item{display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,0.04);border:1px solid var(--line,#3d5355);border-radius:8px;padding:8px 12px;color:var(--ink,#edf4ef);cursor:pointer;transition:all 0.15s ease}
+.outline-item:hover{background:rgba(121,228,180,0.12);border-color:#79e4b4}
+.outline-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#253c32;color:#79e4b4;flex-shrink:0}
+.outline-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.outline-words{font-size:11px;color:var(--muted,#8fa0a3);flex-shrink:0}
+.music-sleep-countdown{font-size:11px;color:#79e4b4;font-variant-numeric:tabular-nums;margin-left:6px;font-weight:600}
