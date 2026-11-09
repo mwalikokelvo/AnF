@@ -1,3 +1,4 @@
+import {searchDocument,DocumentSearchNavigator} from './search-in-document';
 import {nextReaderNavMode,readerNavModeAfterFocus,readerNavToggleShortcut,readerNavZone,type ReaderNavMode} from './reader-nav';
 import {createSpeechPlayer} from './speech-player';
 import {h} from '../views/dom';
@@ -41,6 +42,49 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
     try{localStorage.setItem('anf-reader-zen',zenMode?'1':'0');}catch{}
     notice.textContent=zenMode?'Zen mode: distractions hidden. Press Zen to restore.':'Standard reader view restored.';
   });
+
+  const searchNav=new DocumentSearchNavigator();
+  const searchInput=h('input',{class:'reader-search-input',type:'search',placeholder:'Find in document…','aria-label':'Find in document'}) as HTMLInputElement;
+  const searchStatus=h('span',{class:'reader-search-status',text:''});
+  function stepMatch(dir:number){
+    if(!source)return;
+    const match=dir>0?searchNav.next():searchNav.prev();
+    searchStatus.textContent=searchNav.statusText();
+    if(match){
+      if(match.sectionIndex!==index)go(match.sectionIndex);
+      notice.textContent=`Match in ${match.sectionLabel}: ${match.snippet}`;
+    }
+  }
+  function executeSearch(){
+    if(!source)return;
+    const res=searchDocument(source.text,searchInput.value,parts);
+    searchNav.setResult(res);
+    searchStatus.textContent=searchNav.statusText();
+    const match=searchNav.current();
+    if(match){
+      if(match.sectionIndex!==index)go(match.sectionIndex);
+      notice.textContent=`Match in ${match.sectionLabel}: ${match.snippet}`;
+    }
+  }
+  function closeSearch(){searchBar.hidden=true;page.focus();}
+  function toggleSearch(){
+    searchBar.hidden=!searchBar.hidden;
+    if(!searchBar.hidden){searchInput.focus();if(searchInput.value)executeSearch();}
+  }
+  searchInput.addEventListener('input',executeSearch);
+  searchInput.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();stepMatch(e.shiftKey?-1:1);}
+    else if(e.key==='Escape'){e.preventDefault();closeSearch();}
+  });
+  const searchBar=h('div',{class:'reader-search-bar',hidden:true},
+    searchInput,
+    h('button',{type:'button','aria-label':'Previous match',text:'▲',onclick:()=>stepMatch(-1)}),
+    h('button',{type:'button','aria-label':'Next match',text:'▼',onclick:()=>stepMatch(1)}),
+    searchStatus,
+    h('button',{type:'button','aria-label':'Close search',text:'✕',onclick:()=>closeSearch()})
+  );
+  const findBtn=action('Find',toggleSearch);
+
   function appendText(parent:HTMLElement,txt:string){
     if(bionicActive){
       const spans=parseBionicSpans(txt);
@@ -123,7 +167,8 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   }
   const navigation=h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';}));
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
-    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),zenBtn,exit),
+    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),findBtn,zenBtn,exit),
+    searchBar,
     h('div',{class:'reader-controls'},theme,font,size,line,width,bionicBtn),
     h('div',{class:'reader-nav-slot'},navigation),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,
@@ -167,6 +212,6 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   paintNav('open');
   page.addEventListener('pointerdown',armReadingPlace);
   root.addEventListener('focusin',e=>{const node=e.target;if(!(node instanceof Node))return;const zone=readerNavZone(page.contains(node),navigation.contains(node));if(zone==='page'){keepReadingPlace();requestAnimationFrame(()=>{keepReadingPlace();requestAnimationFrame(()=>{keepReadingPlace();freezeReadingScroll=false;});});}else freezeReadingScroll=false;setNavMode(readerNavModeAfterFocus(navMode,zone));});
-  root.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Tab')armReadingPlace();const field=(e.target as HTMLElement|null)?.closest('input,textarea,select');if(e.key==='Escape'){e.preventDefault();close();}else if(readerNavToggleShortcut(e)){e.preventDefault();setNavMode(nextReaderNavMode(navMode));}else if(!field&&e.key==='ArrowLeft'){e.preventDefault();go(index-1);}else if(!field&&e.key==='ArrowRight'){e.preventDefault();go(index+1);}if(e.key==='Tab'){const items=Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled),select,textarea,[tabindex="0"]')).filter(el=>!el.closest('[inert]'));const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus({preventScroll:true});}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus({preventScroll:true});}}});
+  root.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Tab')armReadingPlace();const field=(e.target as HTMLElement|null)?.closest('input,textarea,select');if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();toggleSearch();return;}if(e.key==='Escape'){e.preventDefault();close();}else if(readerNavToggleShortcut(e)){e.preventDefault();setNavMode(nextReaderNavMode(navMode));}else if(!field&&e.key==='ArrowLeft'){e.preventDefault();go(index-1);}else if(!field&&e.key==='ArrowRight'){e.preventDefault();go(index+1);}if(e.key==='Tab'){const items=Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled),select,textarea,[tabindex="0"]')).filter(el=>!el.closest('[inert]'));const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus({preventScroll:true});}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus({preventScroll:true});}}});
   return{root,close,open(s:ReadingSource){try{paintNav('open');const state=readingState(s.reading,s.text);source=s;let hash=2166136261;for(let i=0;i<s.text.length;i++)hash=Math.imul(hash^s.text.charCodeAt(i),16777619);scrollKey='coucou-scroll-'+(hash>>>0)+'-'+s.text.length;parts=sections(s.text);index=Math.max(0,parts.findIndex(p=>p.end>state.offset));selection=undefined;previousFocus=document.activeElement as HTMLElement;toc.replaceChildren(...parts.map((p,i)=>h('option',{value:i,text:p.label})));root.hidden=false;appearance();render();void ocrStatus?.refresh();try{const position=JSON.parse(localStorage.getItem(scrollKey)||'null');if(position?.section===parts[index].start&&Number.isFinite(position.top)&&position.top>=0)root.querySelector('.reader-body')!.scrollTop=position.top;else root.querySelector('.reader-body')!.scrollTop=0;}catch{}exit.focus();void (async()=>{if(!source)return;const settings=loadKoreaderSettings();const merged=await koreaderOnReaderOpen(settings,source.text,readingState(source.reading,source.text),msg=>{notice.textContent=msg;});source.reading=merged;index=Math.max(0,parts.findIndex(p=>p.end>merged.offset));render();changed();})();}catch(e){notify(String(e));}}};
 }
