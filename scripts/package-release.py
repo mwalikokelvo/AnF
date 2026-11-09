@@ -86,7 +86,7 @@ def main():
         "unsigned": f"AnF-Android-{version}-unsigned.apk",
     }
     # Never reuse a stale artifact: start from a clean set of known names.
-    for n in [*names.values(), "SHA256SUMS"]:
+    for n in [*names.values(), "SHA256SUMS", "manifest.json"]:
         p = os.path.join(out_dir, n)
         if os.path.exists(p):
             os.remove(p)
@@ -153,6 +153,24 @@ def main():
         f.write("\n".join(lines) + "\n")
     print("\nSHA256SUMS:")
     print("\n".join(f"  {l}" for l in lines))
+
+    manifest = {
+        "version": version,
+        "format": "anf-release-manifest-v1",
+        "artifacts": {
+            k: {
+                "file": names[k],
+                "sha256": sha256_file(dest[k]),
+                "size": os.path.getsize(dest[k]),
+                "platform": "windows" if "Windows" in names[k] else "android",
+                "arch": "x64" if "Windows" in names[k] else "universal",
+            }
+            for k in names if os.path.isfile(dest[k])
+        },
+    }
+    with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(manifest, f, indent=2)
+    print("  wrote manifest.json")
 
     print("\nChecks:")
     for name, status in checks.items():

@@ -145,23 +145,82 @@ export function pruneIdsFromPlaylistOrders<T extends { id: string; order: string
   return pruned;
 }
 
+export interface RemoteAudioProbe {
+  contentType?: string;
+  size?: number;
+  acceptsRanges?: boolean;
+}
+
 /**
- * Best-effort HEAD check of a direct link before it is handed to the audio element.
+ * Best-effort probe of a remote stream URL for Content-Type, Content-Length, and Range support.
+ * First attempts a fast HEAD check. If HEAD fails, is disallowed (e.g. HTTP 405), or returns no
+ * length, falls back to a GET with Range: bytes=0-0 (parsing Content-Range: bytes 0-0/<total>).
+ * Immediately cancels the response body to avoid consuming unnecessary bandwidth.
+ */
+export async function probeRemoteAudioStream(url: string, fetchImpl: typeof fetch = fetch): Promise<RemoteAudioProbe> {
+  // Desktop, host outside the CSP: fetch() cannot reach it; Rust checks the content type when it downloads.
+  if (needsRustFetch(url)) return {};
+  const probe: RemoteAudioProbe = {};
+
+  try {
+    const res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
+    if (res.ok) {
+      const type = res.headers.get('content-type') || undefined;
+      if (type && !isAudioContentType(type)) {
+        throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+      }
+      probe.contentType = type;
+      const len = parseInt(res.headers.get('content-length') || '', 10);
+      if (Number.isFinite(len) && len > 0) probe.size = len;
+      if (res.headers.get('accept-ranges') === 'bytes') probe.acceptsRanges = true;
+      if (probe.size !== undefined) return probe;
+    }
+  } catch (err) {
+    if (err instanceof StreamResolutionError) throw err;
+    // Fall through to Range GET fallback
+  }
+
+  try {
+    const res = await fetchImpl(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      redirect: 'follow',
+      signal: getTimeoutSignal(5000),
+    });
+    if (res.ok || res.status === 206) {
+      const type = res.headers.get('content-type') || undefined;
+      if (type && !isAudioContentType(type)) {
+        throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+      }
+      probe.contentType = type;
+      if (res.status === 206 || res.headers.get('accept-ranges') === 'bytes') {
+        probe.acceptsRanges = true;
+      }
+      const cr = res.headers.get('content-range') || '';
+      const match = cr.match(/\/(\d+)$/);
+      if (match) {
+        probe.size = parseInt(match[1], 10);
+      } else {
+        const len = parseInt(res.headers.get('content-length') || '', 10);
+        if (Number.isFinite(len) && len > 1) probe.size = len;
+      }
+      try { void res.body?.cancel?.(); } catch {}
+    }
+  } catch (err) {
+    if (err instanceof StreamResolutionError) throw err;
+    // Network or policy failure is inconclusive and lets the player's own error handling decide.
+  }
+
+  return probe;
+}
+
+/**
+ * Best-effort check of a direct link before it is handed to the audio element.
  * Refuses when the server answers with a non-audio type (for example text/html). A network
  * or policy failure is inconclusive and lets the player's own error handling decide.
  */
 export async function verifyAudioUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<void> {
-  // Desktop, host outside the CSP: fetch() cannot reach it; Rust checks the content type when it downloads.
-  if (needsRustFetch(url)) return;
-  let res: Response;
-  try {
-    res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
-  } catch {
-    return;
-  }
-  if (res.ok && !isAudioContentType(res.headers.get('content-type'))) {
-    throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
-  }
+  await probeRemoteAudioStream(url, fetchImpl);
 }
 
 const NON_AUDIO_EXTENSION = /\.(?:html?|php|aspx?|jsp|json|xml|txt|pdf|zip|jpe?g|png|gif|webp|svg)$/i;

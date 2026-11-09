@@ -1,6 +1,8 @@
 // Audius music discovery and streaming provider.
 // Free, decentralized music with an official REST API. No user accounts, credentials, or DRM required.
 
+import { PaceGate } from './pace-gate';
+
 export interface AudiusTrack {
   id: string;
   title: string;
@@ -17,6 +19,8 @@ export const DISCOVERY_NODES = [
   'https://discoveryprovider2.audius.co/v1',
   'https://discoveryprovider3.audius.co/v1',
 ];
+
+export const audiusPaceGate = new PaceGate();
 
 export function audiusStreamUrl(trackId: string, node = DISCOVERY_NODES[0]): string {
   return `${node}/tracks/${encodeURIComponent(trackId)}/stream?app_name=${APP_NAME}`;
@@ -42,7 +46,9 @@ export async function searchAudius(query: string, limit = 20, fetcher: typeof fe
   if (!trimmed) return [];
   let lastError: Error | null = null;
   for (const node of DISCOVERY_NODES) {
+    if (audiusPaceGate.isCoolingDown(node)) continue;
     try {
+      await audiusPaceGate.acquire(node, 100);
       const url = `${node}/tracks/search?query=${encodeURIComponent(trimmed)}&app_name=${APP_NAME}&limit=${limit}`;
       const signal = typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(6000) : undefined;
       const res = await fetcher(url, signal ? { signal } : undefined);
@@ -50,18 +56,23 @@ export async function searchAudius(query: string, limit = 20, fetcher: typeof fe
         const body = (await res.json()) as { data?: unknown };
         return parseAudiusTracks(body?.data);
       }
+      if (res.status === 429 || res.status === 503) {
+        audiusPaceGate.triggerCooldown(node, 30000);
+      }
       lastError = new Error(`Audius node ${node} returned status ${res.status}`);
     } catch (err: any) {
       lastError = err;
     }
   }
-  throw lastError || new Error('All Audius discovery nodes failed');
+  throw lastError || new Error('All Audius discovery nodes failed or are cooling down');
 }
 
 export async function trendingAudius(limit = 20, fetcher: typeof fetch = fetch): Promise<AudiusTrack[]> {
   let lastError: Error | null = null;
   for (const node of DISCOVERY_NODES) {
+    if (audiusPaceGate.isCoolingDown(node)) continue;
     try {
+      await audiusPaceGate.acquire(node, 100);
       const url = `${node}/tracks/trending?app_name=${APP_NAME}&limit=${limit}`;
       const signal = typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(6000) : undefined;
       const res = await fetcher(url, signal ? { signal } : undefined);
@@ -69,10 +80,13 @@ export async function trendingAudius(limit = 20, fetcher: typeof fetch = fetch):
         const body = (await res.json()) as { data?: unknown };
         return parseAudiusTracks(body?.data);
       }
+      if (res.status === 429 || res.status === 503) {
+        audiusPaceGate.triggerCooldown(node, 30000);
+      }
       lastError = new Error(`Audius node ${node} returned status ${res.status}`);
     } catch (err: any) {
       lastError = err;
     }
   }
-  throw lastError || new Error('All Audius discovery nodes failed');
+  throw lastError || new Error('All Audius discovery nodes failed or are cooling down');
 }

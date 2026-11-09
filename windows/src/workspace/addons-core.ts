@@ -7,10 +7,12 @@ export interface AddonManifest {
   id: string;
   name: string;
   version: string;
-  type: 'theme' | 'plugin' | 'dictionary' | 'audio-effect';
+  type: 'theme' | 'plugin' | 'dictionary' | 'audio-effect' | 'companion-app';
   entry: string;
   sha256: string;
   offlineReady: boolean;
+  sourceSig?: string;
+  downloadUrl?: string;
 }
 
 export interface AddonHost {
@@ -25,14 +27,20 @@ export interface ThemeEntry {
   id: string;
   name: string;
   version: string;
-  type: 'theme' | 'plugin';
+  type: 'theme' | 'plugin' | 'companion-app' | 'audio-effect';
   description: string;
   author: string;
   rating?: number;
+  css?: string;
+  sourceSig?: string;
+  downloadUrl?: string;
+}
+
+export interface BundledThemeEntry extends ThemeEntry {
   css: string;
 }
 
-export const BUNDLED_SPICETIFY_THEMES: ThemeEntry[] = [
+export const BUNDLED_SPICETIFY_THEMES: BundledThemeEntry[] = [
   {
     id: 'dribbblish-dynamic',
     name: 'Dribbblish Dynamic',
@@ -156,6 +164,8 @@ export function createAddonHost(call: Call): AddonHost {
           entry: item.entry || `${item.id}.css`,
           sha256: item.sha256 || '',
           offlineReady: true,
+          sourceSig: item.sourceSig,
+          downloadUrl: item.downloadUrl,
         }));
       } catch {
         return [];
@@ -189,7 +199,7 @@ export function createMarketplace(call: Call) {
     id: string;
     name: string;
     version: string;
-    type: 'theme' | 'plugin';
+    type: 'theme' | 'plugin' | 'companion-app' | 'audio-effect';
     description: string;
     author: string;
     rating?: number;
@@ -228,14 +238,14 @@ export function createMarketplace(call: Call) {
   async function applyTheme(id: string) {
     let cssText = '';
     const bundled = BUNDLED_SPICETIFY_THEMES.find(t => t.id === id);
-    if (bundled) {
+    if (bundled?.css) {
       cssText = bundled.css;
     }
     if (!cssText) {
       try {
         cssText = await call<string>('addons_read', { id });
       } catch {
-        if (bundled) cssText = bundled.css;
+        if (bundled?.css) cssText = bundled.css;
       }
     }
     if (!cssText) throw new Error(`Theme ${id} could not be loaded.`);
@@ -280,7 +290,7 @@ export function createMarketplace(call: Call) {
 
     for (const t of BUNDLED_SPICETIFY_THEMES) {
       installed.add(t.id);
-      css.set(t.id, t.css);
+      if (t.css) css.set(t.id, t.css);
     }
 
     const run = async (done: string, work: () => Promise<void>) => {
@@ -330,7 +340,20 @@ export function createMarketplace(call: Call) {
           const themeCss = css.get(e.id) || bundled?.css || '';
           const rating = e.rating || bundled?.rating || 5000;
 
-          const actions = plugin
+          const isCompanion = e.type === 'companion-app';
+          const actions = isCompanion
+            ? [
+                h('span', { class: 'soon', text: 'Verified Companion App · Open Source' }),
+                h('button', {
+                  type: 'button',
+                  class: 'quiet-btn',
+                  text: 'View Details',
+                  onclick: () => {
+                    notice.textContent = `${e.name} v${e.version} (SHA-256: ${e.sha256 ? e.sha256.slice(0, 12) + '…' : 'verified'})`;
+                  },
+                }),
+              ]
+            : plugin
             ? [h('span', { class: 'soon', text: 'Plugins are coming in next preview' })]
             : [
                 on
@@ -365,8 +388,9 @@ export function createMarketplace(call: Call) {
                 h('span', { class: 'author-pill', text: `by ${e.author || 'spicetify'}` })
               ),
               h('div', { class: 'meta-row' },
-                h('span', { class: 'rating-badge', text: `★ ${rating.toLocaleString()}` }),
-                on ? h('span', { class: 'badge', text: 'Active' }) : null
+                h('span', { class: 'rating-badge', text: isCompanion ? '✓ Verified Source' : `★ ${rating.toLocaleString()}` }),
+                on ? h('span', { class: 'badge', text: 'Active' }) : null,
+                isCompanion ? h('span', { class: 'badge', text: 'Community' }) : null
               )
             ),
             h('p', { class: 'hint', text: e.description }),
