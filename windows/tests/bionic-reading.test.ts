@@ -5,6 +5,7 @@ import {
   bionifyWord,
   formatBionicText,
   computeReadingStats,
+  parseBionicSpans,
 } from '../src/workspace/bionic-reading.js';
 
 test('Bionic Reading & Speed Reader Engine', async (t) => {
@@ -61,5 +62,28 @@ test('Bionic Reading & Speed Reader Engine', async (t) => {
     assert.equal(stats.wordCount, 0);
     assert.equal(stats.standardMinutes, 0);
     assert.equal(stats.bionicMinutes, 0);
+  });
+
+  await t.test('parseBionicSpans decomposes text into bold and plain tokens', () => {
+    assert.deepEqual(parseBionicSpans(''), []);
+
+    const spans = parseBionicSpans('Fast reading');
+    assert.deepEqual(spans, [
+      { bold: true, text: 'Fa' },
+      { bold: false, text: 'st' },
+      { bold: false, text: ' ' },
+      { bold: true, text: 'rea' },
+      { bold: false, text: 'ding' },
+    ]);
+
+    const punctuationSpans = parseBionicSpans('Hello, world!');
+    assert.deepEqual(punctuationSpans, [
+      { bold: true, text: 'He' },
+      { bold: false, text: 'llo' },
+      { bold: false, text: ', ' },
+      { bold: true, text: 'wo' },
+      { bold: false, text: 'rld' },
+      { bold: false, text: '!' },
+    ]);
   });
 });

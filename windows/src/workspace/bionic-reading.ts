@@ -127,3 +127,29 @@ export function computeReadingStats(text: string, wpm = 250): ReadingStats {
     wpm,
   };
 }
+
+export type BionicSpan = { bold: boolean; text: string };
+
+/**
+ * Splits text into a flat sequence of spans indicating whether each segment
+ * should be rendered with bold eye-fixation styling.
+ * Useful for building native DOM nodes safely without innerHTML.
+ */
+export function parseBionicSpans(text: string): BionicSpan[] {
+  if (!text) return [];
+  const spans: BionicSpan[] = [];
+  const tokens = text.split(/(\s+|[^\p{L}\p{N}]+)/u);
+  for (const token of tokens) {
+    if (!token) continue;
+    if (/^\s+$/u.test(token) || !/[\p{L}\p{N}]/u.test(token)) {
+      spans.push({ bold: false, text: token });
+    } else {
+      const fixLen = getFixationLength(token.length);
+      spans.push({ bold: true, text: token.slice(0, fixLen) });
+      if (token.length > fixLen) {
+        spans.push({ bold: false, text: token.slice(fixLen) });
+      }
+    }
+  }
+  return spans;
+}

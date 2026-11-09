@@ -25,3 +25,4 @@
 .reader-overlay :is(input,textarea)::placeholder{color:color-mix(in srgb,var(--reader-ink) 75%,var(--reader-bg));opacity:1}
 .reader-overlay :is(button,select,textarea){transition:background-color var(--reader-theme-duration) var(--reader-theme-ease),color var(--reader-theme-duration) var(--reader-theme-ease),border-color var(--reader-theme-duration) var(--reader-theme-ease),outline-color var(--reader-theme-duration) var(--reader-theme-ease)}
 .reader-overlay[data-theme=amber]{--reader-bg:#100a03;--reader-ink:#d5a875;--reader-line:#9a7854}
+.reader-page b{font-weight:700;color:var(--reader-focus,#4aa793);}

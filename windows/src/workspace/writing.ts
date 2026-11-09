@@ -98,6 +98,20 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     commit(draft.value + (draft.value.endsWith('\n')?'\n':'\n\n') + md);
     notify(`Storyboard generated with Open-Higgsfield-AI (${sb.shots.length} shots, ~${sb.totalDurationSeconds}s).`);
   });
+  tool('Swarm Review', async () => {
+    if (!draft.value.trim()) { notify('Draft is empty. Write or paste content first.'); return; }
+    const { openSwarmDialog } = await import('./swarm-dialog');
+    const { parseFrontmatter } = await import('./article-publishing');
+    const parsed = parseFrontmatter(draft.value);
+    openSwarmDialog({
+      topic: parsed.metadata.title || 'Draft Review',
+      context: draft.value,
+      onAppend: (md) => {
+        commit(draft.value + (draft.value.endsWith('\n') ? '\n' : '\n\n') + md);
+      },
+      notify
+    });
+  });
   tool('Bionic View',async()=>{
     if(!draft.value.trim()){notify('Draft is empty. Write or paste content first.');return;}
     const {formatBionicText,computeReadingStats}=await import('./bionic-reading');

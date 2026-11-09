@@ -3,6 +3,7 @@ import {createSpeechPlayer} from './speech-player';
 import {h} from '../views/dom';
 import {sections,readingState,addHighlight,type ReadingSource,type ReadingSection,type Highlight} from './reader-data';
 import {addToReadingQueue,loadReadingQueue} from './article-publishing';
+import {parseBionicSpans} from './bionic-reading';
 import {createOcrStatusIndicator} from './ocr-client';
 import {koreaderOnReaderClose,koreaderOnReaderOpen,loadKoreaderSettings,scheduleKoreaderPush} from './koreader-bridge';
 import './reader.css';
@@ -23,6 +24,25 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   const line=select('Reading line spacing',[['1.5','Compact'],['1.8','Comfortable'],['2.1','Spacious']]);
   const width=select('Reading width',[['640','Narrow'],['860','Wide']]);
   const action=(label:string,fn:()=>void)=>{const b=h('button',{text:label,type:'button'});b.addEventListener('click',()=>{try{fn();}catch(e){notice.textContent=String(e).replace(/^Error: /,'');}});return b;};
+  let bionicActive=false;
+  try{bionicActive=localStorage.getItem('anf-reader-bionic')==='1';}catch{}
+  const bionicBtn=action(bionicActive?'Bionic: On':'Bionic: Off',()=>{
+    bionicActive=!bionicActive;
+    bionicBtn.textContent=bionicActive?'Bionic: On':'Bionic: Off';
+    try{localStorage.setItem('anf-reader-bionic',bionicActive?'1':'0');}catch{}
+    render();
+  });
+  function appendText(parent:HTMLElement,txt:string){
+    if(bionicActive){
+      const spans=parseBionicSpans(txt);
+      for(const s of spans){
+        if(s.bold)parent.append(h('b',{text:s.text}));
+        else parent.append(document.createTextNode(s.text));
+      }
+    }else{
+      parent.append(document.createTextNode(txt));
+    }
+  }
   const close=()=>{if(source){const state=readingState(source.reading,source.text);state.offset=parts[index].start;source.reading=state;const settings=loadKoreaderSettings(),text=source.text,st=readingState(source.reading,source.text);changed();void koreaderOnReaderClose(settings,text,st,msg=>{notice.textContent=msg;});}saveScroll();audio.stop();root.hidden=true;selection=undefined;source=undefined;previousFocus?.focus();};
   const exit=action('Close reader',close);
   const prev=action('Previous section',()=>go(index-1)),next=action('Next section',()=>go(index+1));
@@ -95,7 +115,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   const navigation=h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';}));
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
     h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),exit),
-    h('div',{class:'reader-controls'},theme,font,size,line,width),
+    h('div',{class:'reader-controls'},theme,font,size,line,width,bionicBtn),
     h('div',{class:'reader-nav-slot'},navigation),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,
       action('Save highlight',()=>{if(!source||!selection)throw Error('Select an excerpt in the document first.');source.reading=addHighlight(readingState(source.reading,source.text),source.text,selection.start,selection.end,color.value as Highlight['color'],note.value,crypto.randomUUID());note.value='';changed();render();notice.textContent='Highlight and note saved.';}),
@@ -118,7 +138,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   function render(){if(!source)return;const current=parts[index],state=readingState(source.reading,source.text);title.textContent=source.name;toc.value=String(index);prev.disabled=index===0;next.disabled=index===parts.length-1;
     const through=Math.round(current.end/Math.max(1,source.text.length)*100);progress.textContent=`Continue · ${current.label||('Section '+(index+1))} · ${index+1} of ${parts.length} · ${through}% through text · approximately ${Math.max(1,Math.ceil(source.text.slice(current.start).split(/\s+/u).length/220))} minutes remaining`;(meter.firstElementChild as HTMLElement).style.width=through+'%';
     page.replaceChildren();const ranges=state.annotations.filter(a=>a.start<current.end&&a.end>current.start).sort((a,b)=>a.start-b.start);let cursor=current.start;
-    for(const a of ranges){const start=Math.max(a.start,cursor),end=Math.min(a.end,current.end);if(end<=start)continue;if(start>cursor)page.append(document.createTextNode(source.text.slice(cursor,start)));page.append(h('mark',{'data-color':a.color,title:a.note||'Saved highlight',text:source.text.slice(start,end)}));cursor=end;}if(cursor<current.end)page.append(document.createTextNode(source.text.slice(cursor,current.end)));
+    for(const a of ranges){const start=Math.max(a.start,cursor),end=Math.min(a.end,current.end);if(end<=start)continue;if(start>cursor)appendText(page,source.text.slice(cursor,start));page.append(h('mark',{'data-color':a.color,title:a.note||'Saved highlight',text:source.text.slice(start,end)}));cursor=end;}if(cursor<current.end)appendText(page,source.text.slice(cursor,current.end));
     bookmarks.replaceChildren(h('option',{value:'',text:'Bookmarks…'}),...state.bookmarks.map(offset=>h('option',{value:offset,text:parts.find(p=>p.start<=offset&&p.end>offset)?.label||'Saved position'})));
     notes.replaceChildren(...state.annotations.filter(a=>a.start>=current.start&&a.start<current.end).map(a=>h('article',{},h('blockquote',{text:a.quote}),h('p',{text:a.note||'Highlight'}),action('Clip excerpt',()=>{if(source)clip(a.quote,source.name);}),action('Remove highlight',()=>{if(source){source.reading={...state,annotations:state.annotations.filter(n=>n.id!==a.id)};changed();render();}}))));
     notice.textContent='';

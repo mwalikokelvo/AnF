@@ -360,6 +360,18 @@ export function createDashboard(a:Adapter){
   // --- Productivity & Companion Studio Card ---
   const launchSecurity = button('Security Challenge', () => openSecurityModal());
   const launchChatwoot = button('Community Support', () => openChatwootModal());
+  const launchSwarm = button('Swarm Review', async () => {
+    const cur = a.current();
+    const { openSwarmDialog } = await import('./swarm-dialog');
+    openSwarmDialog({
+      topic: cur.name || 'Workspace Strategy',
+      context: cur.draft || scratch.value || 'Local offline architecture with zero telemetry, privacy, and simplicity.',
+      onAppend: (md) => {
+        void a.capture('\n\n' + md).then(() => a.notify('Swarm review appended to daily note.'));
+      },
+      notify: a.notify
+    });
+  });
 
   const companionStudioCard = h('article',{class:'companion-hub-card'},
     h('div',{class:'companion-hub-header'},
@@ -373,6 +385,7 @@ export function createDashboard(a:Adapter){
     ),
     h('div',{class:'row companion-actions'},
       toggleView,
+      launchSwarm,
       launchSecurity,
       launchChatwoot,
       exportIcs,
