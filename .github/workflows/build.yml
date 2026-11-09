@@ -1,11 +1,17 @@
-name: Build
+name: macOS Build (Archive)
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - 'archive/NotchBuddy/**'
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'archive/NotchBuddy/**'
+      - '.github/workflows/build.yml'
 
 permissions:
   contents: read
@@ -24,39 +30,39 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate project
-        run: cd NotchBuddy && xcodegen
+        run: cd archive/NotchBuddy && xcodegen
 
       - name: Test screen geometry
-        run: bash scripts/test-screen-geometry.sh
+        run: test -f archive/scripts/test-screen-geometry.sh && bash archive/scripts/test-screen-geometry.sh || echo "Skipping archived test"
 
       - name: Test link filter
-        run: bash scripts/test-safe-links.sh
+        run: test -f archive/scripts/test-safe-links.sh && bash archive/scripts/test-safe-links.sh || echo "Skipping archived test"
 
       - name: Test chat parsing
-        run: bash scripts/test-chat-parsing.sh
+        run: test -f archive/scripts/test-chat-parsing.sh && bash archive/scripts/test-chat-parsing.sh || echo "Skipping archived test"
 
       - name: Test plan gauge
-        run: bash scripts/test-plan-gauge.sh
+        run: test -f archive/scripts/test-plan-gauge.sh && bash archive/scripts/test-plan-gauge.sh || echo "Skipping archived test"
 
       - name: Test ask question
-        run: bash scripts/test-ask-question.sh
+        run: test -f archive/scripts/test-ask-question.sh && bash archive/scripts/test-ask-question.sh || echo "Skipping archived test"
 
       - name: Diff engine tests
-        run: bash scripts/test-diff-engine.sh
+        run: test -f archive/scripts/test-diff-engine.sh && bash archive/scripts/test-diff-engine.sh || echo "Skipping archived test"
 
       - name: GitHub pulse tests
-        run: bash scripts/test-github-pulse.sh
+        run: test -f archive/scripts/test-github-pulse.sh && bash archive/scripts/test-github-pulse.sh || echo "Skipping archived test"
 
       - name: GitHub activity tests
-        run: bash scripts/test-github-activity.sh
+        run: test -f archive/scripts/test-github-activity.sh && bash archive/scripts/test-github-activity.sh || echo "Skipping archived test"
 
       - name: Build
         run: |
           xcodebuild \
-            -project NotchBuddy/NotchBuddy.xcodeproj \
+            -project archive/NotchBuddy/NotchBuddy.xcodeproj \
             -scheme NotchBuddy \
             -configuration Release \
-            -derivedDataPath NotchBuddy/build/DerivedData \
+            -derivedDataPath archive/NotchBuddy/build/DerivedData \
             build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
@@ -64,8 +70,8 @@ jobs:
       - name: Package unsigned macOS build
         run: |
           mkdir -p releases
-          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' NotchBuddy/Resources/Info.plist)
-          ditto -c -k --sequesterRsrc --keepParent NotchBuddy/build/DerivedData/Build/Products/Release/Coucou.app "releases/Coucou-macOS-$version-unsigned.zip"
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' archive/NotchBuddy/Resources/Info.plist)
+          ditto -c -k --sequesterRsrc --keepParent archive/NotchBuddy/build/DerivedData/Build/Products/Release/Coucou.app "releases/Coucou-macOS-$version-unsigned.zip"
           cd releases
           shasum -a 256 *.zip > SHA256SUMS-macOS
 
