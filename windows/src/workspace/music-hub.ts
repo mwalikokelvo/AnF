@@ -976,7 +976,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const pos=listening.positions[t.id]||0;
   const dur=t.duration||0;
   const pct=dur>0&&pos>0?Math.min(100,Math.round(100*pos/dur)):0;
-  const progress=pct>0&&pct<100?h('div',{class:'music-card-progress',title:'Resume at '+durationText(pos)+' ('+pct+'%)','aria-hidden':'true'},h('div',{class:'music-card-progress-bar',style:'width:'+pct+'%'})):null;
+  const rem=dur>0&&pos>0?Math.max(0,dur-pos):0; const remNote=rem>0?' · ~'+durationText(rem)+' left':''; const progress=pct>0&&pct<100?h('div',{class:'music-card-progress',title:'Resume at '+durationText(pos)+' ('+pct+'%)'+remNote,'aria-hidden':'true'},h('div',{class:'music-card-progress-bar',style:'width:'+pct+'%'})):null;
   play.replaceChildren(coverEl,h('strong',{text:t.title}),h('span',{text:meta}),...(progress?[progress]:[]));
   const liked=prefs.favorites.includes(t.id);
   const likeBtn=button(liked?'Unlike '+t.title:'Like '+t.title,()=>{prefs.favorites=liked?prefs.favorites.filter(id=>id!==t.id):[...prefs.favorites,t.id];save();render();},'heart');
