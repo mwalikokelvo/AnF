@@ -60,6 +60,32 @@ describe('Orion Addon Store & AddonHost Verification', () => {
       await host.installAddon(manifest, new Blob([content], { type: 'text/css' }));
     }, /Integrity verification failed/);
   });
+  it('loadCatalogSnapshot parses companion-app manifests from communitybuilds registry', async () => {
+    const host = createAddonHost(async (cmd) => {
+      if (cmd === 'addons_registry') {
+        return [
+          {
+            id: 'morphe-ytm',
+            name: 'YouTube Music Morphe',
+            version: '21.30.216',
+            type: 'companion-app',
+            entry: 'manifest.json',
+            sha256: '4bdc633372ce26632456d1ccb96d2b720ee7a735bddb6c726b6c43ac40b74095',
+            sourceSig: 'MorpheApp/morphe-cli@v2.0.0',
+            downloadUrl: 'https://raw.githubusercontent.com/mwalikokelvo/AnF/main/marketplace/morphe-ytm/manifest.json'
+          }
+        ];
+      }
+      return [];
+    });
+
+    const catalog = await host.loadCatalogSnapshot();
+    assert.equal(catalog.length, 1);
+    assert.equal(catalog[0].id, 'morphe-ytm');
+    assert.equal(catalog[0].type, 'companion-app');
+    assert.equal(catalog[0].sourceSig, 'MorpheApp/morphe-cli@v2.0.0');
+  });
+
 });
 
 describe('Local AI Model Manager & Hugging Face Bucket Integration', () => {

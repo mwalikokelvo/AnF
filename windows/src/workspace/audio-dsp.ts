@@ -210,6 +210,8 @@ export interface DspState {
   enabled: boolean;
   preset: EqPresetName | 'Custom';
   gains: [number, number, number, number, number];
+  normalizeVolume?: boolean;
+  crossfadeDuration?: number;
 }
 
 const STORAGE_KEY = 'anf-dsp-eq-state';
@@ -222,10 +224,15 @@ export class AudioDspEngine {
   private ctx: AudioContext | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private filters: BiquadFilterNode[] = [];
+  private compressorNode: DynamicsCompressorNode | null = null;
+  private analyserNode: AnalyserNode | null = null;
   private attachedElement: HTMLMediaElement | null = null;
   private gains: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   private activePreset: EqPresetName | 'Custom' = 'Flat';
   private enabled = true;
+  private normalizeVolume = false;
+  private crossfadeDuration = 0;
+  private fadeGainNode: GainNode | null = null;
   private corsFallback = false;
   private listeners: Array<() => void> = [];
 
@@ -240,6 +247,8 @@ export class AudioDspEngine {
       if (raw) {
         const state: Partial<DspState> = JSON.parse(raw);
         if (typeof state.enabled === 'boolean') this.enabled = state.enabled;
+        if (typeof state.normalizeVolume === 'boolean') this.normalizeVolume = state.normalizeVolume;
+        if (typeof state.crossfadeDuration === 'number') this.crossfadeDuration = Math.max(0, Math.min(12, state.crossfadeDuration));
         if (state.preset && (state.preset in EQ_PRESETS || state.preset === 'Custom')) {
           this.activePreset = state.preset as EqPresetName | 'Custom';
         }
@@ -265,6 +274,8 @@ export class AudioDspEngine {
         enabled: this.enabled,
         preset: this.activePreset,
         gains: [...this.gains],
+        normalizeVolume: this.normalizeVolume,
+        crossfadeDuration: this.crossfadeDuration,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -359,16 +370,74 @@ export class AudioDspEngine {
       return filter;
     });
 
-    // Connect audio graph: source -> band0 -> band1 -> band2 -> band3 -> band4 -> destination
+    try {
+      this.fadeGainNode = this.ctx.createGain();
+      this.fadeGainNode.gain.setValueAtTime(1.0, this.ctx.currentTime);
+    } catch {
+      this.fadeGainNode = null;
+    }
+
+    // Create DynamicsCompressorNode for Spotify-style Volume Normalization
+    try {
+      this.compressorNode = this.ctx.createDynamicsCompressor();
+      this.compressorNode.threshold.setValueAtTime(-24, this.ctx.currentTime);
+      this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
+      this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
+      this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
+      this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
+    } catch {
+      this.compressorNode = null;
+    }
+
+    try {
+      this.analyserNode = this.ctx.createAnalyser();
+      this.analyserNode.fftSize = 64;
+      this.analyserNode.smoothingTimeConstant = 0.8;
+    } catch {
+      this.analyserNode = null;
+    }
+
+    this.connectFilterChain();
+
+    // Synchronize initial filter gains
+    this.applyGainsToGraph();
+  }
+
+  private connectFilterChain(): void {
+    if (!this.ctx || !this.sourceNode || this.filters.length !== 5) return;
+    try {
+      this.sourceNode.disconnect();
+      for (const filter of this.filters) filter.disconnect();
+      if (this.compressorNode) this.compressorNode.disconnect();
+      if (this.fadeGainNode) this.fadeGainNode.disconnect();
+      if (this.analyserNode) this.analyserNode.disconnect();
+    } catch {
+      // Safe disconnect if nodes were not connected
+    }
+
+    // Connect audio graph: source -> band0 -> band1 -> band2 -> band3 -> band4 -> (compressor) -> (analyser) -> destination
     let current: AudioNode = this.sourceNode;
     for (const filter of this.filters) {
       current.connect(filter);
       current = filter;
     }
-    current.connect(this.ctx.destination);
 
-    // Synchronize initial filter gains
-    this.applyGainsToGraph();
+    if (this.normalizeVolume && this.compressorNode) {
+      current.connect(this.compressorNode);
+      current = this.compressorNode;
+    }
+
+    if (this.fadeGainNode) {
+      current.connect(this.fadeGainNode);
+      current = this.fadeGainNode;
+    }
+
+    if (this.analyserNode) {
+      current.connect(this.analyserNode);
+      this.analyserNode.connect(this.ctx.destination);
+    } else {
+      current.connect(this.ctx.destination);
+    }
   }
 
   private applyGainsToGraph(): void {
@@ -435,8 +504,81 @@ export class AudioDspEngine {
     return this.enabled;
   }
 
+  setVolumeNormalization(enabled: boolean): void {
+    if (this.normalizeVolume === enabled) return;
+    this.normalizeVolume = enabled;
+    this.connectFilterChain();
+    this.persist();
+    this.notify();
+  }
+
+  isVolumeNormalizationEnabled(): boolean {
+    return this.normalizeVolume;
+  }
+
   isCorsFallbackActive(): boolean {
     return this.corsFallback;
+  }
+
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyserNode) return null;
+    try {
+      const data = new Uint8Array(this.analyserNode.frequencyBinCount);
+      this.analyserNode.getByteFrequencyData(data);
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  getTimeDomainData(): Uint8Array | null {
+    if (!this.analyserNode) return null;
+    try {
+      const data = new Uint8Array(this.analyserNode.fftSize);
+      this.analyserNode.getByteTimeDomainData(data);
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Spotify-style crossfade duration between tracks (0 to 12 seconds; 0 = off/gapless) */
+  getCrossfadeDuration(): number {
+    return this.crossfadeDuration;
+  }
+
+  setCrossfadeDuration(seconds: number): void {
+    this.crossfadeDuration = Math.max(0, Math.min(12, Math.round(seconds)));
+    this.persist();
+    this.notify();
+  }
+
+  /**
+   * Smoothly ramp output gain to target value over duration in seconds.
+   * Eliminates pops and clicks during song transitions or pause/resume.
+   */
+  async fade(targetGain: number, durationSeconds: number): Promise<void> {
+    const clamped = Math.max(0, Math.min(1.0, targetGain));
+    if (!this.ctx || !this.fadeGainNode || durationSeconds <= 0) {
+      if (this.fadeGainNode && this.ctx) {
+        this.fadeGainNode.gain.setValueAtTime(clamped, this.ctx.currentTime);
+      }
+      return;
+    }
+    const now = this.ctx.currentTime;
+    this.fadeGainNode.gain.cancelScheduledValues(now);
+    this.fadeGainNode.gain.setValueAtTime(this.fadeGainNode.gain.value, now);
+    this.fadeGainNode.gain.linearRampToValueAtTime(clamped, now + durationSeconds);
+    return new Promise(resolve => setTimeout(resolve, Math.max(10, durationSeconds * 1000)));
+  }
+
+  /** Reset output gain immediately to 1.0 */
+  resetFade(): void {
+    if (this.ctx && this.fadeGainNode) {
+      const now = this.ctx.currentTime;
+      this.fadeGainNode.gain.cancelScheduledValues(now);
+      this.fadeGainNode.gain.setValueAtTime(1.0, now);
+    }
   }
 
   reset(): void {
@@ -460,6 +602,7 @@ export class AudioDspEngine {
     this.ctx = null;
     this.sourceNode = null;
     this.filters = [];
+    this.compressorNode = null;
     this.attachedElement = null;
     this.listeners = [];
   }
@@ -513,6 +656,38 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
     presetButtons.push(btn);
   }
 
+  // Interactive SVG frequency response curve visualization
+  const curveBox = document.createElement('div');
+  curveBox.className = 'music-eq-curve-box';
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNs, 'svg');
+  svg.setAttribute('viewBox', '0 0 320 70');
+  svg.setAttribute('class', 'music-eq-curve-svg');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const zeroLine = document.createElementNS(svgNs, 'line');
+  zeroLine.setAttribute('x1', '0');
+  zeroLine.setAttribute('y1', '35');
+  zeroLine.setAttribute('x2', '320');
+  zeroLine.setAttribute('y2', '35');
+  zeroLine.setAttribute('stroke', 'rgba(255, 255, 255, 0.12)');
+  zeroLine.setAttribute('stroke-dasharray', '3,3');
+
+  const curvePath = document.createElementNS(svgNs, 'path');
+  curvePath.setAttribute('class', 'music-eq-curve-line');
+  curvePath.setAttribute('fill', 'none');
+  curvePath.setAttribute('stroke', 'var(--music-accent, #79e4b4)');
+  curvePath.setAttribute('stroke-width', '2.5');
+  curvePath.setAttribute('stroke-linecap', 'round');
+
+  const areaPath = document.createElementNS(svgNs, 'path');
+  areaPath.setAttribute('class', 'music-eq-curve-area');
+  areaPath.setAttribute('fill', 'rgba(121, 228, 180, 0.15)');
+  areaPath.setAttribute('stroke', 'none');
+
+  svg.append(zeroLine, areaPath, curvePath);
+  curveBox.append(svg);
+
   // 5 Sliders Container
   const slidersBox = document.createElement('div');
   slidersBox.className = 'music-eq-sliders';
@@ -554,7 +729,7 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
     slidersBox.append(col);
   }
 
-  // Controls footer (Enable / Bypass, Reset, Close)
+  // Controls footer (Enable / Bypass, Volume Normalization, Reset, Close)
   const footer = document.createElement('div');
   footer.className = 'music-eq-footer';
 
@@ -563,6 +738,14 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
   bypassBtn.className = 'music-eq-toggle';
   bypassBtn.onclick = () => {
     dsp.setEnabled(!dsp.isEnabled());
+    renderState();
+  };
+
+  const normBtn = document.createElement('button');
+  normBtn.type = 'button';
+  normBtn.className = 'music-eq-toggle';
+  normBtn.onclick = () => {
+    dsp.setVolumeNormalization(!dsp.isVolumeNormalizationEnabled());
     renderState();
   };
 
@@ -582,16 +765,21 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
     dialog.remove();
   };
 
-  footer.append(bypassBtn, resetBtn, closeBtn);
+  footer.append(bypassBtn, normBtn, resetBtn, closeBtn);
 
   function renderState(): void {
     const enabled = dsp.isEnabled();
     const gains = dsp.getBandGains();
     const currentPreset = dsp.getCurrentPreset();
+    const norm = dsp.isVolumeNormalizationEnabled();
 
     bypassBtn.textContent = enabled ? 'EQ: Active' : 'EQ: Bypassed';
     bypassBtn.classList.toggle('active', enabled);
     slidersBox.classList.toggle('bypassed', !enabled);
+
+    normBtn.textContent = norm ? 'Volume Normalization: On' : 'Volume Normalization: Off';
+    normBtn.classList.toggle('active', norm);
+    normBtn.title = 'Spotify-style loudness normalization (dynamics leveling across tracks)';
 
     for (let i = 0; i < presetButtons.length; i++) {
       const name = presetNames[i];
@@ -603,6 +791,33 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
       sliderInputs[i].value = String(g);
       gainLabels[i].textContent = (g > 0 ? '+' : '') + g.toFixed(1) + ' dB';
     }
+
+    // Dynamic frequency response curve plotting
+    if (enabled) {
+      const freqs = [25, 40, 60, 100, 160, 250, 400, 650, 1000, 1600, 2500, 4000, 6500, 9000, 12000, 16000, 20000];
+      const points: [number, number][] = freqs.map((f) => {
+        const db = compute5BandEqResponse(gains, f);
+        const logMin = Math.log10(25);
+        const logMax = Math.log10(20000);
+        const x = ((Math.log10(f) - logMin) / (logMax - logMin)) * 320;
+        const y = Math.max(4, Math.min(66, 35 - (db / 12) * 28));
+        return [x, y];
+      });
+
+      if (points.length) {
+        let d = `M ${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
+        for (let i = 1; i < points.length; i++) {
+          d += ` L ${points[i][0].toFixed(1)} ${points[i][1].toFixed(1)}`;
+        }
+        curvePath.setAttribute('d', d);
+        areaPath.setAttribute('d', `${d} L 320 35 L 0 35 Z`);
+      }
+      curveBox.style.opacity = '1';
+    } else {
+      curvePath.setAttribute('d', 'M 0 35 L 320 35');
+      areaPath.setAttribute('d', 'M 0 35 L 320 35 Z');
+      curveBox.style.opacity = '0.4';
+    }
   }
 
   const unsubscribe = dsp.subscribe(renderState);
@@ -612,6 +827,6 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
   });
 
   renderState();
-  dialog.append(header, presetRow, slidersBox, footer);
+  dialog.append(header, presetRow, curveBox, slidersBox, footer);
   return dialog;
 }

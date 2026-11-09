@@ -44,20 +44,23 @@ for(let i=0;i<checks.length;i++) {
   await writeFile(path.join(tmp,'windows/src-tauri/tauri.conf.json'),'{"version":"9.9.9"}');
   const pkg=a=>spawnSync(py,[path.join(root,'scripts/package-release.py'),'--root',tmp,...a],{encoding:'utf8'});
   const sums=path.join(tmp,'releases/anf-9.9.9/SHA256SUMS');
+  const manifestFile=path.join(tmp,'releases/anf-9.9.9/manifest.json');
   const exists=f=>access(f).then(()=>true,()=>false);
   const assert=(c,m)=>{if(!c){console.error('package-release check failed: '+m);process.exit(1);}};
   let r=pkg([]);
   assert(r.status!==0,'missing artifacts must exit non-zero');
   for(const n of ['setup.exe','portable.zip','debug.apk','unsigned.apk'])assert(r.stderr.includes(n),'stderr must list '+n);
-  assert(!await exists(sums),'no SHA256SUMS when artifacts are missing');
+  assert(!await exists(sums)&&!await exists(manifestFile),'no SHA256SUMS or manifest.json when artifacts are missing');
   assert(!r.stdout.includes('Successfully packaged'),'must not claim success');
   r=pkg(['--allow-partial']);
-  assert(r.status!==0&&!await exists(sums),'--allow-partial with nothing must not write an empty SHA256SUMS');
+  assert(r.status!==0&&!await exists(sums)&&!await exists(manifestFile),'--allow-partial with nothing must not write an empty SHA256SUMS or manifest.json');
   r=pkg(['--version','1.0.0']);
   assert(r.status!==0&&r.stderr.includes('does not match'),'--version mismatch must be refused');
   await writeFile(path.join(tmp,'windows/release/AnF-Windows-9.9.9-setup.exe'),'x');
   r=pkg(['--allow-partial']);
   assert(r.status===0&&r.stdout.includes('NOT fully verified')&&!r.stdout.includes('Successfully packaged'),'partial run must be labelled unverified');
   assert((await readFile(sums,'utf8')).includes('AnF-Windows-9.9.9-setup.exe'),'SHA256SUMS must list the packaged file');
+  const mf=JSON.parse(await readFile(manifestFile,'utf8'));
+  assert(mf.version==='9.9.9'&&mf.artifacts.setup?.file==='AnF-Windows-9.9.9-setup.exe','manifest.json must accurately record artifacts');
 }
 console.log(`Passed ${checks.length+2} release regression checks.`);

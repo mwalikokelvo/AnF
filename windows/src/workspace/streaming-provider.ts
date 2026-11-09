@@ -1,3 +1,4 @@
+import { searchAudius, audiusStreamUrl } from './audius';
 /**
  * Decoupled streaming audio provider supporting YouTube / Piped, Spotify / Spotube,
  * LibriVox / Internet Archive Audiobooks, and Direct Audio Streams.
@@ -144,23 +145,82 @@ export function pruneIdsFromPlaylistOrders<T extends { id: string; order: string
   return pruned;
 }
 
+export interface RemoteAudioProbe {
+  contentType?: string;
+  size?: number;
+  acceptsRanges?: boolean;
+}
+
 /**
- * Best-effort HEAD check of a direct link before it is handed to the audio element.
+ * Best-effort probe of a remote stream URL for Content-Type, Content-Length, and Range support.
+ * First attempts a fast HEAD check. If HEAD fails, is disallowed (e.g. HTTP 405), or returns no
+ * length, falls back to a GET with Range: bytes=0-0 (parsing Content-Range: bytes 0-0/<total>).
+ * Immediately cancels the response body to avoid consuming unnecessary bandwidth.
+ */
+export async function probeRemoteAudioStream(url: string, fetchImpl: typeof fetch = fetch): Promise<RemoteAudioProbe> {
+  // Desktop, host outside the CSP: fetch() cannot reach it; Rust checks the content type when it downloads.
+  if (needsRustFetch(url)) return {};
+  const probe: RemoteAudioProbe = {};
+
+  try {
+    const res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
+    if (res.ok) {
+      const type = res.headers.get('content-type') || undefined;
+      if (type && !isAudioContentType(type)) {
+        throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+      }
+      probe.contentType = type;
+      const len = parseInt(res.headers.get('content-length') || '', 10);
+      if (Number.isFinite(len) && len > 0) probe.size = len;
+      if (res.headers.get('accept-ranges') === 'bytes') probe.acceptsRanges = true;
+      if (probe.size !== undefined) return probe;
+    }
+  } catch (err) {
+    if (err instanceof StreamResolutionError) throw err;
+    // Fall through to Range GET fallback
+  }
+
+  try {
+    const res = await fetchImpl(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      redirect: 'follow',
+      signal: getTimeoutSignal(5000),
+    });
+    if (res.ok || res.status === 206) {
+      const type = res.headers.get('content-type') || undefined;
+      if (type && !isAudioContentType(type)) {
+        throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
+      }
+      probe.contentType = type;
+      if (res.status === 206 || res.headers.get('accept-ranges') === 'bytes') {
+        probe.acceptsRanges = true;
+      }
+      const cr = res.headers.get('content-range') || '';
+      const match = cr.match(/\/(\d+)$/);
+      if (match) {
+        probe.size = parseInt(match[1], 10);
+      } else {
+        const len = parseInt(res.headers.get('content-length') || '', 10);
+        if (Number.isFinite(len) && len > 1) probe.size = len;
+      }
+      try { void res.body?.cancel?.(); } catch {}
+    }
+  } catch (err) {
+    if (err instanceof StreamResolutionError) throw err;
+    // Network or policy failure is inconclusive and lets the player's own error handling decide.
+  }
+
+  return probe;
+}
+
+/**
+ * Best-effort check of a direct link before it is handed to the audio element.
  * Refuses when the server answers with a non-audio type (for example text/html). A network
  * or policy failure is inconclusive and lets the player's own error handling decide.
  */
 export async function verifyAudioUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<void> {
-  // Desktop, host outside the CSP: fetch() cannot reach it; Rust checks the content type when it downloads.
-  if (needsRustFetch(url)) return;
-  let res: Response;
-  try {
-    res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: getTimeoutSignal(5000) });
-  } catch {
-    return;
-  }
-  if (res.ok && !isAudioContentType(res.headers.get('content-type'))) {
-    throw new StreamResolutionError('not-audio', NOT_AUDIO_MESSAGE);
-  }
+  await probeRemoteAudioStream(url, fetchImpl);
 }
 
 const NON_AUDIO_EXTENSION = /\.(?:html?|php|aspx?|jsp|json|xml|txt|pdf|zip|jpe?g|png|gif|webp|svg)$/i;
@@ -175,7 +235,7 @@ export interface StreamTrackMetadata {
   streamUrl?: string;
   /** A catalogue's 30 s clip (iTunes / Spotify embed). It is not the song: it is only played, labelled, when no full source is found. */
   previewUrl?: string;
-  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom';
+  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius' | 'subsonic';
   bitrate?: number;
   isrc?: string;
   year?: number;
@@ -716,6 +776,29 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // YouTube fallback failed
     }
 
+    // Try finding the full-length song on Audius before falling back to a 30 s preview
+    try {
+      const q = [track.artist, track.title].filter(Boolean).join(' ');
+      const audiusMatches = await this.searchAudius(q, 5);
+      if (audiusMatches.length > 0) {
+        const best = audiusMatches.find(m => (m.duration ?? 0) > PREVIEW_CLIP_MAX_SEC) || audiusMatches[0];
+        if (best && best.streamUrl) {
+          track.bitrate = 320;
+          if (best.duration) track.duration = best.duration;
+          this.registerMetadata(track);
+          return {
+            streamUrl: best.streamUrl,
+            mimeType: 'audio/mpeg',
+            bitrate: 320,
+            cached: false,
+            duration: best.duration,
+          };
+        }
+      }
+    } catch {
+      // Audius fallback failed, proceed to preview clip
+    }
+
     // No full source: the catalogue's 30 s clip, flagged so the UI can label it and never save it as the song.
     const preview = safeHttpsUrl(track.previewUrl);
     if (preview) return { streamUrl: preview, mimeType: 'audio/mp4', cached: false, preview: true };
@@ -1175,7 +1258,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   /** Unified Multi-Source Search Across YouTube, Spotify, and Audiobooks */
   async searchMultiSource(
     query: string,
-    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook'; limit?: number }
+    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic'; limit?: number }
   ): Promise<StreamTrackMetadata[]> {
     const q = query.trim();
     if (!q) return [];
@@ -1199,31 +1282,91 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (service === 'audiobook') {
       return this.searchAudiobooks(q, limit);
     }
+    if (service === 'subsonic') return this.searchSubsonic(q, limit);
+    if (service === 'audius') {
+      return this.searchAudius(q, limit);
+    }
 
-    // Service 'all': query YouTube, Spotify, and Audiobooks concurrently
-    const [ytRes, spRes, abRes] = await Promise.allSettled([
+    // Service 'all': query Audius, YouTube, Spotify, and Audiobooks concurrently
+    const [audRes, ytRes, spRes, abRes, subRes] = await Promise.allSettled([
+      this.searchAudius(q, Math.ceil(limit / 2)),
       this.searchYouTube(q, Math.ceil(limit / 2)),
       this.searchTracks(q, { limit: Math.ceil(limit / 2) }),
       this.searchAudiobooks(q, Math.ceil(limit / 3)),
+      this.searchSubsonic(q, Math.ceil(limit / 3)),
     ]);
 
+    const audItems = audRes.status === 'fulfilled' ? audRes.value : [];
     const ytItems = ytRes.status === 'fulfilled' ? ytRes.value : [];
     const spItems = spRes.status === 'fulfilled' ? spRes.value : [];
     const abItems = abRes.status === 'fulfilled' ? abRes.value : [];
+    const subItems = subRes.status === 'fulfilled' ? subRes.value : [];
 
     const merged: StreamTrackMetadata[] = [];
     const seenIds = new Set<string>();
     const add = (t: StreamTrackMetadata | undefined) => {
       if (t && merged.length < limit && !seenIds.has(t.id)) { seenIds.add(t.id); merged.push(t); }
     };
-    const maxLen = Math.max(ytItems.length, spItems.length, abItems.length);
+    const maxLen = Math.max(audItems.length, subItems.length, ytItems.length, spItems.length, abItems.length);
     for (let i = 0; i < maxLen; i++) {
+      add(subItems[i]);
+      add(audItems[i]);
       add(spItems[i]);
       add(ytItems[i]);
       add(abItems[i]);
     }
 
     return merged.slice(0, limit);
+  }
+
+  
+  async searchSubsonic(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+    if (!query.trim()) return [];
+    try {
+      const { loadSubsonicSettings, subsonicReady, searchSubsonic } = await import('./subsonic');
+      const settings = loadSubsonicSettings();
+      if (!subsonicReady(settings)) return [];
+      const results = await searchSubsonic(settings.server, settings.username, query.trim());
+      const mapped: StreamTrackMetadata[] = results.slice(0, limit).map(t => ({
+        id: 'subsonic:' + t.id,
+        title: t.title,
+        artist: t.artist || 'Unknown Artist',
+        album: t.album || 'Subsonic',
+        duration: t.duration,
+        source: 'subsonic',
+        bitrate: 320,
+      }));
+      for (const track of mapped) {
+        this.cache.set(track.id, track);
+      }
+      return mapped;
+    } catch {
+      return [];
+    }
+  }
+
+  async searchAudius(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+    if (!onlineLookupsEnabled() || !query.trim()) return [];
+    try {
+      const results = await searchAudius(query.trim(), limit);
+      const mapped: StreamTrackMetadata[] = results.map(t => ({
+        id: 'audius:' + t.id,
+        title: t.title,
+        artist: t.artist || 'Audius',
+        album: t.genre || 'Audius',
+        duration: t.duration,
+        artworkUrl: t.artworkUrl,
+        streamUrl: t.streamUrl,
+        source: 'audius',
+        bitrate: 320,
+      }));
+      for (const track of mapped) {
+        this.cache.set(track.id, track);
+      }
+      return mapped;
+    } catch {
+      return [];
+    }
   }
 
   async getTrack(id: string): Promise<StreamTrackMetadata | null> {
@@ -1242,6 +1385,38 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   }
 
   async resolveStream(track: StreamTrackMetadata): Promise<ResolvedAudioStream | null> {
+    // 0. If Audius track
+    if (track.source === 'audius' || track.id.startsWith('audius:')) {
+      const trackId = track.id.replace(/^audius:/, '');
+      return {
+        streamUrl: track.streamUrl || audiusStreamUrl(trackId),
+        mimeType: 'audio/mpeg',
+        bitrate: 320,
+        cached: false,
+      };
+    }
+
+    // 0.5. If Subsonic track
+    if (track.source === 'subsonic' || track.id.startsWith('subsonic:')) {
+      const trackId = track.id.replace(/^subsonic:/, '');
+      try {
+        const { loadSubsonicSettings, subsonicReady, streamSubsonic } = await import('./subsonic');
+        const settings = loadSubsonicSettings();
+        if (subsonicReady(settings)) {
+          const blob = await streamSubsonic(settings.server, settings.username, trackId);
+          const streamUrl = typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(blob) : 'blob:' + trackId;
+          return {
+            streamUrl,
+            mimeType: 'audio/mpeg',
+            bitrate: 320,
+            cached: false,
+          };
+        }
+      } catch {
+        return null;
+      }
+    }
+
     // 1. If YouTube track
     if (track.source === 'youtube' || track.id.startsWith('yt:')) {
       const videoId = track.id.replace(/^yt:/, '');
@@ -1346,7 +1521,7 @@ export const streamService = new SpotubeStreamService();
 
 export async function searchMultiSource(
   query: string,
-  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook'; limit?: number }
+  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic'; limit?: number }
 ): Promise<StreamTrackMetadata[]> {
   return streamService.searchMultiSource(query, options);
 }

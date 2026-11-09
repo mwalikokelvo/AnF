@@ -1,8 +1,10 @@
+import {searchDocument,DocumentSearchNavigator} from './search-in-document';
 import {nextReaderNavMode,readerNavModeAfterFocus,readerNavToggleShortcut,readerNavZone,type ReaderNavMode} from './reader-nav';
 import {createSpeechPlayer} from './speech-player';
 import {h} from '../views/dom';
 import {sections,readingState,addHighlight,type ReadingSource,type ReadingSection,type Highlight} from './reader-data';
 import {addToReadingQueue,loadReadingQueue} from './article-publishing';
+import {parseBionicSpans} from './bionic-reading';
 import {createOcrStatusIndicator} from './ocr-client';
 import {koreaderOnReaderClose,koreaderOnReaderOpen,loadKoreaderSettings,scheduleKoreaderPush} from './koreader-bridge';
 import './reader.css';
@@ -23,6 +25,77 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   const line=select('Reading line spacing',[['1.5','Compact'],['1.8','Comfortable'],['2.1','Spacious']]);
   const width=select('Reading width',[['640','Narrow'],['860','Wide']]);
   const action=(label:string,fn:()=>void)=>{const b=h('button',{text:label,type:'button'});b.addEventListener('click',()=>{try{fn();}catch(e){notice.textContent=String(e).replace(/^Error: /,'');}});return b;};
+  let bionicActive=false;
+  try{bionicActive=localStorage.getItem('anf-reader-bionic')==='1';}catch{}
+  const bionicBtn=action(bionicActive?'Bionic: On':'Bionic: Off',()=>{
+    bionicActive=!bionicActive;
+    bionicBtn.textContent=bionicActive?'Bionic: On':'Bionic: Off';
+    try{localStorage.setItem('anf-reader-bionic',bionicActive?'1':'0');}catch{}
+    render();
+  });
+  let zenMode=false;
+  try{zenMode=localStorage.getItem('anf-reader-zen')==='1';}catch{}
+  const zenBtn=action(zenMode?'Exit Zen':'Zen',()=>{
+    zenMode=!zenMode;
+    root.classList.toggle('reader-zen',zenMode);
+    zenBtn.textContent=zenMode?'Exit Zen':'Zen';
+    try{localStorage.setItem('anf-reader-zen',zenMode?'1':'0');}catch{}
+    notice.textContent=zenMode?'Zen mode: distractions hidden. Press Zen to restore.':'Standard reader view restored.';
+  });
+
+  const searchNav=new DocumentSearchNavigator();
+  const searchInput=h('input',{class:'reader-search-input',type:'search',placeholder:'Find in document…','aria-label':'Find in document'}) as HTMLInputElement;
+  const searchStatus=h('span',{class:'reader-search-status',text:''});
+  function stepMatch(dir:number){
+    if(!source)return;
+    const match=dir>0?searchNav.next():searchNav.prev();
+    searchStatus.textContent=searchNav.statusText();
+    if(match){
+      if(match.sectionIndex!==index)go(match.sectionIndex);
+      notice.textContent=`Match in ${match.sectionLabel}: ${match.snippet}`;
+    }
+  }
+  function executeSearch(){
+    if(!source)return;
+    const res=searchDocument(source.text,searchInput.value,parts);
+    searchNav.setResult(res);
+    searchStatus.textContent=searchNav.statusText();
+    const match=searchNav.current();
+    if(match){
+      if(match.sectionIndex!==index)go(match.sectionIndex);
+      notice.textContent=`Match in ${match.sectionLabel}: ${match.snippet}`;
+    }
+  }
+  function closeSearch(){searchBar.hidden=true;page.focus();}
+  function toggleSearch(){
+    searchBar.hidden=!searchBar.hidden;
+    if(!searchBar.hidden){searchInput.focus();if(searchInput.value)executeSearch();}
+  }
+  searchInput.addEventListener('input',executeSearch);
+  searchInput.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();stepMatch(e.shiftKey?-1:1);}
+    else if(e.key==='Escape'){e.preventDefault();closeSearch();}
+  });
+  const searchBar=h('div',{class:'reader-search-bar',hidden:true},
+    searchInput,
+    h('button',{type:'button','aria-label':'Previous match',text:'▲',onclick:()=>stepMatch(-1)}),
+    h('button',{type:'button','aria-label':'Next match',text:'▼',onclick:()=>stepMatch(1)}),
+    searchStatus,
+    h('button',{type:'button','aria-label':'Close search',text:'✕',onclick:()=>closeSearch()})
+  );
+  const findBtn=action('Find',toggleSearch);
+
+  function appendText(parent:HTMLElement,txt:string){
+    if(bionicActive){
+      const spans=parseBionicSpans(txt);
+      for(const s of spans){
+        if(s.bold)parent.append(h('b',{text:s.text}));
+        else parent.append(document.createTextNode(s.text));
+      }
+    }else{
+      parent.append(document.createTextNode(txt));
+    }
+  }
   const close=()=>{if(source){const state=readingState(source.reading,source.text);state.offset=parts[index].start;source.reading=state;const settings=loadKoreaderSettings(),text=source.text,st=readingState(source.reading,source.text);changed();void koreaderOnReaderClose(settings,text,st,msg=>{notice.textContent=msg;});}saveScroll();audio.stop();root.hidden=true;selection=undefined;source=undefined;previousFocus?.focus();};
   const exit=action('Close reader',close);
   const prev=action('Previous section',()=>go(index-1)),next=action('Next section',()=>go(index+1));
@@ -47,10 +120,56 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
       notice.textContent='OCR error: '+String(e);
     }finally{ocrFileInput.value='';}
   });
+  function showReadingStats(){
+    if(!source)return;
+    const current=parts[index];
+    const state=readingState(source.reading,source.text);
+    const totalWords=source.text.trim().split(/\s+/u).length;
+    const remainingWords=source.text.slice(current.start).trim().split(/\s+/u).length;
+    const readWords=Math.max(0, totalWords - remainingWords);
+    const pct=Math.round((current.end / Math.max(1, source.text.length)) * 100);
+    const estMinutes=Math.max(1, Math.ceil(remainingWords / 220));
+    const dialog=h('dialog',{class:'music-dialog reader-stats-dialog','aria-label':'Reading Statistics'});
+    const closeBtn=h('button',{text:'Close',type:'button',onclick:()=>{dialog.close();dialog.remove();}});
+
+    dialog.append(
+      h('div',{class:'reader-stats-header'},
+        h('h3',{text:`Reading Stats · ${source.name}`}),
+        h('p',{class:'hint',text:`Section ${index+1} of ${parts.length} · ${pct}% completed`})
+      ),
+      h('div',{style:'display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:16px 0'},
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Progress'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--accent,#79e4b4)',text:`${pct}%`}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:`${readWords.toLocaleString()} / ${totalWords.toLocaleString()} words`})
+        ),
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Time Remaining'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--ink,#edf4ef)',text:`~${estMinutes}m`}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:'At 220 words / min'})
+        ),
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Highlights & Notes'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--ink,#edf4ef)',text:String(state.annotations.length)}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:'Saved in document'})
+        ),
+        h('div',{class:'stat-card',style:'padding:14px;background:var(--surface,#1f2933);border-radius:12px;border:1px solid var(--line,#385052)'},
+          h('span',{style:'font-size:11px;color:var(--muted,#8fa0a3);text-transform:uppercase;letter-spacing:0.05em',text:'Bookmarks'}),
+          h('h2',{style:'margin:6px 0 0;font-size:26px;color:var(--ink,#edf4ef)',text:String(state.bookmarks.length)}),
+          h('span',{style:'font-size:12px;color:var(--muted,#8fa0a3)',text:'Bookmarked positions'})
+        )
+      ),
+      h('div',{class:'row'},closeBtn)
+    );
+    dialog.addEventListener('cancel',()=>dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  }
   const navigation=h('div',{class:'reader-navigation'},prev,toc,next,bookmarks,action('Toggle section bookmark',()=>{if(!source)return;const state=readingState(source.reading,source.text);const offset=parts[index].start;if(state.bookmarks.includes(offset)){source.reading={...state,bookmarks:state.bookmarks.filter(n=>n!==offset)};changed();render();notice.textContent='Bookmark removed.';return;}if(state.bookmarks.length>=100)throw Error('This document already has 100 bookmarks.');state.bookmarks.push(offset);source.reading=state;changed();render();notice.textContent='Bookmark saved with this document.';}));
   const root=h('section',{class:'reader-overlay',role:'dialog','aria-modal':true,'aria-label':'Deep reader',hidden:true},
-    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),exit),
-    h('div',{class:'reader-controls'},theme,font,size,line,width),
+    h('header',{class:'reader-header'},title,ocrFileInput,action('Scan/OCR',()=>ocrFileInput.click()),...(ocrStatus?.element?[ocrStatus.element]:[]),action('Read aloud',()=>{if(!source)return;const key='anf-listen-'+source.name+'-'+parts[index].start;let start=0;try{start=Number(localStorage.getItem(key))||0;}catch{}audio.load(source.text.slice(parts[index].start),start);const tick=setInterval(()=>{try{localStorage.setItem(key,String(audio.index()));}catch{}if(audio.root.hidden)clearInterval(tick);},2000);}),action('Stats',()=>showReadingStats()),findBtn,zenBtn,exit),
+    searchBar,
+    h('div',{class:'reader-controls'},theme,font,size,line,width,bionicBtn),
     h('div',{class:'reader-nav-slot'},navigation),
     progress,meter,h('div',{class:'reader-body'},page,h('aside',{class:'reader-aside'},h('h3',{text:'Highlights & notes'}),h('p',{text:'Select up to 2,000 characters in this section, then save a highlight.'}),color,note,
       action('Save highlight',()=>{if(!source||!selection)throw Error('Select an excerpt in the document first.');source.reading=addHighlight(readingState(source.reading,source.text),source.text,selection.start,selection.end,color.value as Highlight['color'],note.value,crypto.randomUUID());note.value='';changed();render();notice.textContent='Highlight and note saved.';}),
@@ -58,6 +177,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
       action('Ask local AI about selection',()=>{if(!source||!selection)throw Error('Select an excerpt first.');if(!ask)throw Error('Local AI is unavailable.');const text=source.text.slice(selection.start,selection.end),name=source.name;close();ask(text,name);}),
       action('Clip this section to writing',()=>{if(source){clip(source.text.slice(parts[index].start,parts[index].end),source.name);notice.textContent='Section appended to your writing draft.';}}),
       action('Add to reading queue',()=>{if(!source)return;const q=loadReadingQueue();addToReadingQueue(q,{title:source.name,source:source.name,text:source.text});notice.textContent='Added to reading queue.';}),
+      action('Export highlights (.md)',async()=>{if(!source)return;const state=readingState(source.reading,source.text);if(!state.annotations.length){notice.textContent='No highlights in this document yet.';return;}const {formatAnnotationsToMarkdown}=await import('./reader-annotations-export');const md=formatAnnotationsToMarkdown(source.name,source.text,state.annotations);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${source.name.replace(/[\\/:*?"<>|]/g,'_')}-highlights.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);notice.textContent=`Exported ${state.annotations.length} highlights as Markdown note.`;}),
       notes)),audio.root,notice,
     h('p',{class:'reader-footnote',text:'Extracted text view. Original page layout, images and some formatting are not shown. Reading notes sync only with document-text sharing; update both devices.'}));
   function saveScroll(){if(scrollTimer)clearTimeout(scrollTimer);if(!source||!scrollKey)return;try{localStorage.setItem(scrollKey,JSON.stringify({section:parts[index].start,top:root.querySelector('.reader-body')!.scrollTop}));}catch{}}
@@ -73,7 +193,7 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   function render(){if(!source)return;const current=parts[index],state=readingState(source.reading,source.text);title.textContent=source.name;toc.value=String(index);prev.disabled=index===0;next.disabled=index===parts.length-1;
     const through=Math.round(current.end/Math.max(1,source.text.length)*100);progress.textContent=`Continue · ${current.label||('Section '+(index+1))} · ${index+1} of ${parts.length} · ${through}% through text · approximately ${Math.max(1,Math.ceil(source.text.slice(current.start).split(/\s+/u).length/220))} minutes remaining`;(meter.firstElementChild as HTMLElement).style.width=through+'%';
     page.replaceChildren();const ranges=state.annotations.filter(a=>a.start<current.end&&a.end>current.start).sort((a,b)=>a.start-b.start);let cursor=current.start;
-    for(const a of ranges){const start=Math.max(a.start,cursor),end=Math.min(a.end,current.end);if(end<=start)continue;if(start>cursor)page.append(document.createTextNode(source.text.slice(cursor,start)));page.append(h('mark',{'data-color':a.color,title:a.note||'Saved highlight',text:source.text.slice(start,end)}));cursor=end;}if(cursor<current.end)page.append(document.createTextNode(source.text.slice(cursor,current.end)));
+    for(const a of ranges){const start=Math.max(a.start,cursor),end=Math.min(a.end,current.end);if(end<=start)continue;if(start>cursor)appendText(page,source.text.slice(cursor,start));page.append(h('mark',{'data-color':a.color,title:a.note||'Saved highlight',text:source.text.slice(start,end)}));cursor=end;}if(cursor<current.end)appendText(page,source.text.slice(cursor,current.end));
     bookmarks.replaceChildren(h('option',{value:'',text:'Bookmarks…'}),...state.bookmarks.map(offset=>h('option',{value:offset,text:parts.find(p=>p.start<=offset&&p.end>offset)?.label||'Saved position'})));
     notes.replaceChildren(...state.annotations.filter(a=>a.start>=current.start&&a.start<current.end).map(a=>h('article',{},h('blockquote',{text:a.quote}),h('p',{text:a.note||'Highlight'}),action('Clip excerpt',()=>{if(source)clip(a.quote,source.name);}),action('Remove highlight',()=>{if(source){source.reading={...state,annotations:state.annotations.filter(n=>n.id!==a.id)};changed();render();}}))));
     notice.textContent='';
@@ -92,6 +212,6 @@ export function createReader(changed:()=>void,clip:(text:string,source:string)=>
   paintNav('open');
   page.addEventListener('pointerdown',armReadingPlace);
   root.addEventListener('focusin',e=>{const node=e.target;if(!(node instanceof Node))return;const zone=readerNavZone(page.contains(node),navigation.contains(node));if(zone==='page'){keepReadingPlace();requestAnimationFrame(()=>{keepReadingPlace();requestAnimationFrame(()=>{keepReadingPlace();freezeReadingScroll=false;});});}else freezeReadingScroll=false;setNavMode(readerNavModeAfterFocus(navMode,zone));});
-  root.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Tab')armReadingPlace();const field=(e.target as HTMLElement|null)?.closest('input,textarea,select');if(e.key==='Escape'){e.preventDefault();close();}else if(readerNavToggleShortcut(e)){e.preventDefault();setNavMode(nextReaderNavMode(navMode));}else if(!field&&e.key==='ArrowLeft'){e.preventDefault();go(index-1);}else if(!field&&e.key==='ArrowRight'){e.preventDefault();go(index+1);}if(e.key==='Tab'){const items=Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled),select,textarea,[tabindex="0"]')).filter(el=>!el.closest('[inert]'));const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus({preventScroll:true});}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus({preventScroll:true});}}});
+  root.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Tab')armReadingPlace();const field=(e.target as HTMLElement|null)?.closest('input,textarea,select');if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();toggleSearch();return;}if(e.key==='Escape'){e.preventDefault();close();}else if(readerNavToggleShortcut(e)){e.preventDefault();setNavMode(nextReaderNavMode(navMode));}else if(!field&&e.key==='ArrowLeft'){e.preventDefault();go(index-1);}else if(!field&&e.key==='ArrowRight'){e.preventDefault();go(index+1);}if(e.key==='Tab'){const items=Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled),select,textarea,[tabindex="0"]')).filter(el=>!el.closest('[inert]'));const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus({preventScroll:true});}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus({preventScroll:true});}}});
   return{root,close,open(s:ReadingSource){try{paintNav('open');const state=readingState(s.reading,s.text);source=s;let hash=2166136261;for(let i=0;i<s.text.length;i++)hash=Math.imul(hash^s.text.charCodeAt(i),16777619);scrollKey='coucou-scroll-'+(hash>>>0)+'-'+s.text.length;parts=sections(s.text);index=Math.max(0,parts.findIndex(p=>p.end>state.offset));selection=undefined;previousFocus=document.activeElement as HTMLElement;toc.replaceChildren(...parts.map((p,i)=>h('option',{value:i,text:p.label})));root.hidden=false;appearance();render();void ocrStatus?.refresh();try{const position=JSON.parse(localStorage.getItem(scrollKey)||'null');if(position?.section===parts[index].start&&Number.isFinite(position.top)&&position.top>=0)root.querySelector('.reader-body')!.scrollTop=position.top;else root.querySelector('.reader-body')!.scrollTop=0;}catch{}exit.focus();void (async()=>{if(!source)return;const settings=loadKoreaderSettings();const merged=await koreaderOnReaderOpen(settings,source.text,readingState(source.reading,source.text),msg=>{notice.textContent=msg;});source.reading=merged;index=Math.max(0,parts.findIndex(p=>p.end>merged.offset));render();changed();})();}catch(e){notify(String(e));}}};
 }

@@ -326,3 +326,200 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Labels: tested on Linux (`tsc` clean, `npm test` 335 pass / 0 fail, `check-release.mjs` 11 pass). NOT installed. No live neural model.
 - Branch: `cursor/tts-cache-wire-d2fe`.
 
+### 2026-11-07 — Antigravity: Audius Decentralized Music Streaming (Replacing Spotify)
+
+- **Spotify Replacement**: Spotify Connect is deprecated and removed following user account ban. Replaced with **Audius** decentralized music streaming.
+- **Audius Implementation**:
+  - Direct public Discovery API integration (`https://discoveryprovider.audius.co/v1/`).
+  - Search (`/v1/tracks/search`) and Trending tracks (`/v1/tracks/trending`).
+  - Direct 320kbps MP3 stream playback (`/v1/tracks/{track_id}/stream?app_name=AnF`) with cover artwork and metadata.
+  - Dedicated 'Audius' tab added to Music Hub with instant search and playback.
+- **Files Created & Updated**:
+  - `windows/src/workspace/audius.ts`
+  - `windows/src/workspace/audio/audius-provider.ts`
+  - `windows/src/workspace/music-hub.ts`
+  - `windows/tests/audius.test.ts`
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 369/369 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+### 2026-11-07 — Antigravity: Multi-Source Audius Search, Strict REA Mandate & Ecosystem Sync
+
+- **Strict REA Mandate Enacted**:
+  - Enforced "Never skip REA" in `CLAUDE.md`, `AGENTS.md`, and `docs/BUILDUP-STATUS.md`. All partner agents (DeepSeek Harness, Cursor, Claude Code) must run `rea` CLI / tools during app, binary, or protocol investigations to ground features in reverse-engineered evidence.
+- **Unified Multi-Source Streaming with Audius**:
+  - Integrated Audius as a primary streaming provider into `windows/src/workspace/streaming-provider.ts` alongside YouTube and Audiobooks.
+  - Enabled concurrent multi-source search across Audius, YouTube, and Audiobooks in `SpotubeStreamService.searchMultiSource`.
+  - Added dedicated 'Audius' filter tab in Music Hub streaming switcher and updated search box hints.
+- **Skills & App Catalog**:
+  - Added `openwhispr` local speech transcription skill (`~/.agents/skills/openwhispr/`).
+  - Added `digitalocean` droplet/self-hosting orchestrator skill (`~/.agents/skills/digitalocean/`).
+  - Added DigitalOcean self-hosting connector card to `windows/src/workspace/marketplace/apps-catalog.ts`.
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 369/369 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+### 2026-11-07 — Antigravity: Guaranteed Full-Length Streaming Engine & Multi-Node Failover
+
+- **Full-Length Playback Guarantee**:
+  - Enhanced `resolveSpotubeStream` in `windows/src/workspace/streaming-provider.ts`: before any track ever degrades to a 30-second preview clip, AnF automatically queries Audius for matching full-length tracks (`duration > 45s`). When matched, it streams the full 320kbps MP3 directly.
+- **High-Availability Multi-Node Failover**:
+  - Updated `windows/src/workspace/audius.ts` with round-robin failover across official Audius discovery nodes (`discoveryprovider.audius.co`, `discoveryprovider2.audius.co`, `discoveryprovider3.audius.co`).
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 369/369 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+
+### 2026-11-07 — Antigravity: Spotify-Class Music Engine (Universal Search, Track Radio, Autoplay, Volume Normalization)
+
+- **Spotify-Class Music Engine Deliveries**:
+  - **Universal Online Search**: Restored and unified the `Streaming` tab in `tabButtons` supporting concurrent searches across Audius, YouTube, and global catalogue metadata. Enter on empty local searches prompts one-click online streaming resolution.
+  - **Track Radio & Similar Music**: Added `startRadio(seed)` algorithm that populates the queue with similar songs (querying Audius or matching library genres/artists). Exposed via "Track Radio" buttons on local cards, streaming results, Audius rows, and Now Playing dock.
+  - **Infinite Auto-Play**: When the playback queue ends, AnF automatically fetches and queues 3-4 similar tracks (Audius or local catalog) to ensure continuous, uninterrupted music playback.
+  - **Volume Normalization (Loudness Equalization)**: Integrated Web Audio `DynamicsCompressorNode` (-24 dB threshold, 30 dB knee, 12 ratio) in `AudioDspEngine` to prevent volume jumps between tracks, toggleable in EQ dialog, Listening options, and Full Player chips.
+  - **Smart Queue Actions**: Added "Play next", "Queue", and "Radio" actions directly on Audius and streaming cards.
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: 370/370 pass across 52 suites.
+  - `npm run test:e2e`: 138/138 pass across 24 suites.
+  - `node scripts/check-release.mjs`: 11/11 release checks pass.
+
+
+### 2026-11-08 — Antigravity: Seamless Crossfade, Audio Spectrum Analyser, Unified Omni-Search, History, VoiceStudio TTS & OpenWhispr
+
+- **Spotify-Grade Capabilities Completed**:
+  - **Seamless Continuous Crossfade**: Replaced silence gaps with smooth volume crossfade stepping (`step(1, true)`) triggering as the remaining track duration hits `prefs.fade` (0s - 12s), fading out current track and fading in next track concurrently.
+  - **Real-Time Audio Spectrum FFT Analyser**: Web Audio API `AnalyserNode` integrated into `AudioDspEngine` and exposed via `getFrequencyData()`.
+  - **Unified Multi-Source Omni-Search**: Connected Subsonic/Navidrome alongside Audius, YouTube, and Internet Archive audiobooks in `searchMultiSource` and added Subsonic switcher tab.
+  - **Dedicated Listening History Tab**: Added "History" tab to `tabButtons` displaying `prefs.recent` tracks in chronological order with quick replay and history clearing.
+  - **Custom Badges**: Added styled source badges for Audius (`.music-badge-audius`) and Subsonic (`.music-badge-subsonic`).
+- **Neural Reader & Speech Integrations**:
+  - **VoiceStudio Neural TTS Provider**: Built `VoiceStudioTtsProvider` in `windows/src/workspace/neural-speech.ts` connecting Reader to local `http://localhost:3900/v1/audio/speech` via HTTP with zero cloud telemetry.
+  - **OpenWhispr Local Speech-to-Text**: Built `windows/src/workspace/transcription.ts` for transcribing audio recordings into structured AnF/Obsidian Markdown notes with frontmatter metadata.
+- **Skills Ecosystem**:
+  - Formally created and synced 9 agent skills across `~/.agents/skills` and `.agents/skills`: `open-seo`, `cap`, `appflowy`, `chatwoot`, `calcom`, `openproject`, `open-higgsfield-ai`, `clouds-against-humanity`, `supoclip`.
+  - Maintained and re-enforced mandatory "Never skip REA" policy.
+- **Quality Gates Passed**:
+  - `npx tsc --noEmit`: Clean (0 errors).
+  - `npm test`: **376/376 passed** across 52 suites.
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Vite build succeeded in 5.90s.
+
+### 2026-11-08 (Part 2) — Antigravity: Interactive Spectrum Visualizer Animation & Audio Studio 1-Click Transcription
+
+- **Interactive Spectrum Visualizer Animation**:
+  - Connected `requestAnimationFrame` loop in `music-hub.ts` directly to `audioDsp.getFrequencyData()`.
+  - Dynamically drives `miniVis` (8 bars) and `fullVis` (24 bars) with real-time audio FFT frequency heights via CSS custom property `--bar-h`.
+  - Added `.realtime` reactive styles in `music-hub.css` that override static pulse keyframes when live frequencies are detected, smoothly resuming idle state when playback pauses.
+- **Audio Studio "Transcribe to Note" 1-Click Integration**:
+  - Added `Transcribe to Note` action in `audio-studio.ts` (and synchronized `audio/audio-studio.ts`).
+  - Converts active audio buffer to WAV, executes local speech-to-text via OpenWhispr (`transcribeAudio`), formats timestamped quotes (`transcriptionToMarkdownNote`), and saves note directly into AnF documents or daily note via `workspace_save`.
+  - Added unit tests in `windows/tests/transcription.test.ts` for plain text responses and timestamped multi-segment blockquote notes.
+- **Verification Gates 100% Green**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **378/378 passed** across 52 suites.
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 4.72s.
+
+### 2026-11-08 (Part 3) — Antigravity: Open-SEO Publishing Audit & iCalendar (.ics) Task Export
+
+- **Open-SEO Article & Metadata Audit Engine**:
+  - Built `auditSeo` in `windows/src/workspace/article-publishing.ts` providing 0–100 SEO scoring, optimal title length (30–60 chars), subtitle/description checks (60–160 chars), heading hierarchy validation, image alt-text verification, and actionable suggestions.
+  - Added 1-click `Audit SEO` action button in the Writing editor toolbar (`writing.ts` and `editor/writing.ts`) displaying immediate feedback and scores.
+  - Enhanced `exportArticleHtml` to automatically emit Open Graph (`og:title`, `og:description`, `og:type`, `og:url`, `og:image`) and Twitter Card (`twitter:card`, `twitter:title`, `twitter:description`) `<meta>` tags.
+- **RFC 5545 iCalendar (.ics) Task Export**:
+  - Built `tasksToIcs` in `shared/domain/dashboard-data.ts` converting Markdown checklist tasks (`- [ ] task`) into RFC 5545 compliant `VTODO` iCalendar streams.
+  - Added `Export tasks (.ics)` button to the Dashboard task drawer (`dashboard.ts`), enabling 1-click task export to Cal.com, Outlook, Apple Calendar, and Google Calendar.
+- **Companion App Catalog Synchronized**:
+  - Synced `windows/src/workspace/apps-catalog.ts` with all 15 companion open-source tools (`voicestudio`, `openwhispr`, `appflowy`, `cap`, `open-seo`, `chatwoot`, `cal-diy`, `openproject`, `higgsfield-ai`, `clouds-against-humanity`, `supoclip`, `mirofish`, `jev-ultrafast`, `jcode`, `digitalocean`).
+- **Comprehensive Quality Gates**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **386/386 passed** across 53 suites (+8 new unit tests).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.73s.
+
+### 2026-11-08: Kanban Board, Podcasting 2.0, Spotify Audio Crossfade & Swarm Simulation
+- **Interactive Kanban Board**: Added 3-column visual Kanban board in `dashboard.ts` & `dashboard.css` with card counters and toggleable `List View` / `Kanban Board` modes. Extended `draftTasks` in `shared/domain/dashboard-data.ts` to parse `- [/]` / `- [~]` as in-progress and `- [x]` as done with full backwards compatibility.
+- **Podcasting 2.0 Namespace**: Implemented extraction of `<podcast:chapters>`, `<podcast:transcript>`, and `<podcast:soundbite>` in `podcast-feeds.ts` and `audio/podcast-feeds.ts`.
+- **Spotify-Grade Audio Crossfade**: Integrated sample-accurate Web Audio `GainNode` in `audio-dsp.ts` and `audio/audio-dsp.ts` supporting `fade(gain, duration)` (0-12s) with zero clicks or zipper noise.
+- **MiroFish Swarm Simulation Engine**: Created `ai/swarm-simulation.ts` and `swarm-simulation.ts` providing offline multi-perspective agent consensus scoring, friction point identification, and frontmatter Markdown export.
+- **Quality Gates**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **394/394 passed** across 54 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 6.92s.
+
+### 2026-11-08: Spotify Crossfade Chips, Cap Audio Clip Exporter, Security Challenge Cards, Brag Document Generator & Chatwoot Inbox
+- **Spotify Crossfade Chips & DSP Automation**: Added crossfade duration selector chips (`Off`, `2s`, `4s`, `6s`, `8s`, `12s`) to Music Hub full player with automated sample-accurate Web Audio DSP fading on track switch and end-of-track.
+- **Audio Studio Cap/Supoclip Audio Clip Exporter**: Implemented `slicePcmAudio` in `audio-data.ts` and added an `Export Clip` button with duration options (`15s`–`120s`) in `audio-studio.ts` generating standalone 16-bit PCM WAV clips. Re-exported domain audio modules to deduplicate codebase by ~4,000 lines.
+- **Clouds Against Humanity Security Challenge Cards**: Created `security-cards.ts` providing an interactive evaluation engine for offline-first architecture, privacy, AES-GCM cryptography, Web Audio DSP, and RFC standards with scorecards and markdown report export.
+- **Latent-Spaces Brag Document Generator**: Created `brag-document.ts` analyzing completed and in-progress tasks to produce structured Markdown engineering accomplishment documents with impact categories and added a 1-click `Brag Doc` button in the Dashboard task drawer.
+- **Chatwoot Community & Support Inbox**: Created `chatwoot-inbox.ts` providing offline-first support thread triage (`open`, `pending`, `resolved`), reply appending, channel filtering, and 1-click Markdown thread export.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **409/409 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 4.97s.
+
+### 2026-11-08: Open-Higgsfield-AI Storyboard, Jev-Ultrafast BM25 Search & DigitalOcean Spaces Backup
+- **Open-Higgsfield-AI Storyboard Generator**: Built `storyboard.ts` implementing scene parsing, framing detection (wide, medium, close-up, macro, pov, aerial), camera trajectory motion controls (dolly-in, tracking, pan, orbital, tilt), speed and lighting inference, and Markdown screenplay/storyboard export with YAML frontmatter. Added a 1-click `Storyboard` action button to the Writing editor toolbar in `writing.ts`.
+- **Jev-Ultrafast & Agent-Reach BM25 Search**: Built `jev-index.ts` delivering sub-millisecond client-side BM25 ranking, token normalization, compact token-efficient serialization, and bounded-token context snippet extraction across notes, transcripts, lyrics, articles, and tasks.
+- **DigitalOcean Spaces & S3 Cloud Backup**: Built `cloud-backup.ts` supporting S3-compatible remote backup target configuration, vault manifest diffing, exportable `rclone.conf` and `s3cmd.cfg` configurations, and AWS Signature Version 4 request signing using native Web Crypto (`crypto.subtle.sign`).
+- **Codebase Cleanliness**: Converted `editor/writing.ts` and `editor/article-publishing.ts` to single-line re-exports, preventing file drift.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **428/428 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.20s.
+
+### 2026-11-08: Spotify Smart Mixes, Gentle Sleep Fade, Bionic Reading & Pomodoro Focus Timer
+- **Spotify Smart Mixes & Mood Flow**: Created `smart-mix.ts` with multi-attribute scoring across 6 smart playlist types (`Deep Focus Flow`, `High Energy Cardio`, `Late Night Acoustic`, `Discovery Radar`, `Spoken Stories`, `Time Capsule Classics`) with Extended M3U export.
+- **Sleep Timer Gentle DSP Fade-Out**: Updated `music-hub.ts` to execute gradual Web Audio DSP gain ramp down (`audioDsp.fade(0, fadeSeconds)`) in the final seconds of the sleep timer before pausing playback.
+- **Bionic Reading & Speed Reader**: Created `bionic-reading.ts` providing adaptive fixation emphasis to accelerate eye tracking and reading speed while preserving code blocks, markdown syntax, tags, and URLs.
+- **Pomodoro & Focus Timer**: Created `pomodoro.ts` implementing a 25/5/15 Pomodoro state machine, pure Web Audio harmonic bell chime synthesis, and Markdown session logging.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **445/445 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.49s.
+
+### 2026-11-08: Vault Health, Broken Link Finder & Graph Analytics
+- **Vault Health Engine**: Created `vault-health.ts` analyzing notes for broken wikilinks, orphan notes, top knowledge hubs, graph density, and 0–100 overall vault health scoring.
+- **Markdown Audit Reports**: Implemented `vaultHealthToMarkdown` generating structured Obsidian/AnF audit reports with frontmatter and actionable tables.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **450/450 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 4.49s.
+
+### 2026-11-08: Complete UI Integration & Fresh Native Releases for Windows and Android
+- **Front-and-Center Dashboard Productivity Studio**: Integrated uncollapsed, prominent companion tools directly into `dashboard.ts`:
+  - **Pomodoro Focus Timer**: Live 25:00 countdown display, phase badge (`FOCUS`, `SHORT BREAK`, `LONG BREAK`), Start/Pause/Reset controls, mode chips, harmonic Web Audio bell chime, and 1-click "Log Session to Daily Note" capturing `- [x] Pomodoro focus session (25m) #focus` directly into the day's markdown note.
+  - **Vault Health Diagnostics**: 1-click "Run Vault Audit" auditing all notes for broken wikilinks, orphan notes, and knowledge graph density; displays 0–100 health score badge; and 1-click "Export Report (.md)" generating full audit reports.
+  - **Clouds Against Humanity Security Challenge**: Interactive modal cycling through the 5 zero-trust security challenge cards with instant feedback, explanations, and score tracking.
+  - **Chatwoot Community & Support Inbox**: Interactive modal providing offline-first support thread triage (`open`, `pending`, `resolved`), reply dispatching as Maintainer, status toggles, and 1-click Markdown thread export.
+  - **Direct Launcher Row**: Kanban Board toggle, Export tasks (.ics), and Brag Document generator (.md).
+- **Spotify Smart Mixes & Mood Flow in Music Hub**: Added `Smart Mixes` as a top-level tab in `music-hub.ts` tab bar displaying all 6 partitioned smart mix playlists (*Deep Focus Flow*, *High Energy Cardio*, *Late Night Acoustic*, *Discovery Radar*, *Spoken Stories*, *Time Capsule*) with 1-click "Play mix" (immediately sets player queue) and "Export .m3u".
+- **Bionic Speed Reader in Writing Editor**: Added `Bionic View` action to the writing editor toolbar in `writing.ts` opening an interactive reading modal with adaptive fixation bolding and estimated reading time saved.
+- **Fresh Windows Local Release Compilation**: Compiled `coucou` Rust crate and Tauri NSIS bundle using `cargo build --release` and `npx tauri build`, updating `windows/release/AnF-Windows-0.1.48-setup.exe` (64.1 MB) and `windows/release/AnF-Windows-0.1.48-portable/AnF.exe` (16.89 MB) with fresh Nov 8, 2026 timestamps.
+- **Android Web Assets**: Rebuilt Android assets with `scripts/build-android.mjs --assets-only`, updating `android/build/assets/web/main.js` (1.6 MB) and `main.css`.
+- **Quality Gates (All 100% Green)**:
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm test`: **450/450 passed** across 58 suites (100% green).
+  - `npm run test:e2e`: **138/138 passed** across 24 suites.
+  - `node scripts/check-release.mjs`: **11/11 passed**.
+  - `npm run build`: Production Vite build completed cleanly in 5.82s.

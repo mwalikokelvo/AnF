@@ -6,6 +6,7 @@ import {
   parseYouTubeVideoId,
   isAudioContentType,
   verifyAudioUrl,
+  probeRemoteAudioStream,
   describeStreamError,
   StreamResolutionError,
   PIPED_INSTANCES,
@@ -377,6 +378,46 @@ describe('YouTube URL resolution, gate and non-audio refusal', () => {
     assert.equal(calls.length, 0);
   });
 
+
+  test('probeRemoteAudioStream parses size from HEAD or falls back to Range bytes=0-0', async () => {
+    // Case 1: HEAD provides content-length
+    const probe1 = await probeRemoteAudioStream('https://example.org/audio.mp3', (async (url, init: any) => {
+      assert.equal(init?.method, 'HEAD');
+      return new Response(null, { headers: { 'content-type': 'audio/mpeg', 'content-length': '2048', 'accept-ranges': 'bytes' } });
+    }) as any);
+    assert.equal(probe1.size, 2048);
+    assert.equal(probe1.contentType, 'audio/mpeg');
+    assert.equal(probe1.acceptsRanges, true);
+
+    // Case 2: HEAD returns 405 -> fallback to GET with Range: bytes=0-0
+    const probe2 = await probeRemoteAudioStream('https://example.org/audio.opus', (async (url, init: any) => {
+      if (init?.method === 'HEAD') return new Response('', { status: 405 });
+      assert.equal(init?.method, 'GET');
+      assert.equal(init?.headers?.Range, 'bytes=0-0');
+      return new Response('a', {
+        status: 206,
+        headers: {
+          'content-type': 'audio/ogg',
+          'content-range': 'bytes 0-0/5242880'
+        }
+      });
+    }) as any);
+    assert.equal(probe2.size, 5242880);
+    assert.equal(probe2.contentType, 'audio/ogg');
+    assert.equal(probe2.acceptsRanges, true);
+
+    // Case 3: Range fallback returns HTML -> rejected as not-audio
+    await assert.rejects(
+      () => probeRemoteAudioStream('https://example.org/fake.mp3', (async (url, init: any) => {
+        if (init?.method === 'HEAD') return new Response('', { status: 405 });
+        return new Response('<html>', {
+          status: 206,
+          headers: { 'content-type': 'text/html; charset=utf-8' }
+        });
+      }) as any),
+      (e: any) => e.code === 'not-audio'
+    );
+  });
   test('verifyAudioUrl refuses text/html, accepts audio, and is inconclusive when the request fails', async () => {
     await assert.rejects(() => verifyAudioUrl('https://example.org/x', (async () => new Response('<html>', { headers: { 'content-type': 'text/html; charset=utf-8' } })) as any), (e: any) => e.code === 'not-audio');
     await verifyAudioUrl('https://example.org/x', (async () => new Response(null, { headers: { 'content-type': 'audio/mpeg' } })) as any);
@@ -395,5 +436,11 @@ describe('YouTube URL resolution, gate and non-audio refusal', () => {
     await assert.rejects(() => service.cacheStreamTrack(lib, track, new Blob(['<html>'], { type: 'text/html' })), (e: any) => e.code === 'not-audio');
     assert.equal(stored.length, 0);
     assert.equal(await service.getTrack('stream:custom:x'), null);
+  });
+
+  test('searchMultiSource supports subsonic service option safely when unconfigured', async () => {
+    const service = new SpotubeStreamService();
+    const results = await service.searchMultiSource('test query', { service: 'subsonic' });
+    assert.deepEqual(results, []);
   });
 });

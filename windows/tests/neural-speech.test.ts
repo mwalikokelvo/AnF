@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   NullTtsProvider,
+  VoiceStudioTtsProvider,
   createMemoryVoiceDisk,
   createNeuralUtterancePlayer,
   neuralSpeechEnabled,
@@ -142,8 +143,8 @@ test('createNeuralUtterancePlayer caches chunks and stops cleanly', async () => 
     config: { providerId: 'piper', voiceId: 'en', format: 'wav', sampleRate: 22050 },
   };
   const played: string[] = [];
-  let pausePlay = false;
   let releasePlay: (() => void) | null = null;
+  let pausePlay = false;
   const player = createNeuralUtterancePlayer(reg, {
     play: async (audio, format, rate, control) => {
       played.push(`${audio.length}:${format}:${rate}`);
@@ -164,8 +165,8 @@ test('createNeuralUtterancePlayer caches chunks and stops cleanly', async () => 
   assert.equal(await player.speak('Hello there.', 1, token, () => token), 'ok');
   assert.equal(synthCalls, 1, 'second utterance should hit disk cache');
 
-  token = 2;
   pausePlay = true;
+  token = 2;
   const pending = player.speak('Another line.', 1, token, () => token);
   await new Promise((resolve) => setTimeout(resolve, 0));
   player.stop();
@@ -180,4 +181,54 @@ test('createNeuralUtterancePlayer caches chunks and stops cleanly', async () => 
   });
   assert.equal(await failPlayer.speak('Nope.', 1, 1, () => 1), 'fallback');
   assert.equal(synthCalls, 0);
+});
+
+test('VoiceStudioTtsProvider synthesizes via localhost API and handles errors', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.endsWith('/health')) {
+        return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+      }
+      if (urlStr.endsWith('/v1/audio/speech')) {
+        return new Response(new Uint8Array([82, 73, 70, 70]), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    }) as any;
+
+    const provider = new VoiceStudioTtsProvider({ serverUrl: 'http://localhost:3900' });
+    const healthy = await provider.isHealthy();
+    assert.equal(healthy, true);
+
+    const audio = await provider.synthesize({
+      providerId: 'voicestudio',
+      voiceId: 'alloy',
+      text: 'Hello world',
+      format: 'wav',
+      sampleRate: 22050,
+    });
+    assert.equal(audio.length, 4);
+    assert.equal(audio[0], 82);
+
+    globalThis.fetch = (async () => {
+      return new Response('Internal error', { status: 500 });
+    }) as any;
+
+    const failProvider = new VoiceStudioTtsProvider({ serverUrl: 'http://localhost:3900' });
+    assert.equal(await failProvider.isHealthy(), false);
+    await assert.rejects(
+      () =>
+        failProvider.synthesize({
+          providerId: 'voicestudio',
+          voiceId: 'alloy',
+          text: 'Hello world',
+          format: 'wav',
+          sampleRate: 22050,
+        }),
+      /HTTP 500/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

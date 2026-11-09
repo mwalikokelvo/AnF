@@ -11,7 +11,7 @@ pub struct Entry{pub id:String,pub name:String,pub version:String,#[serde(rename
 pub fn valid_id(id:&str)->bool{let b=id.as_bytes();!b.is_empty()&&b.len()<=64&&b[0].is_ascii_alphanumeric()&&b.iter().all(|c|c.is_ascii_lowercase()||c.is_ascii_digit()||*c==b'-')}
 fn check_entry(e:&Entry)->Result<(),String>{
     if !valid_id(&e.id){return Err("Invalid add-on id.".into());}
-    if e.kind!="theme"&&e.kind!="plugin"{return Err("Unknown add-on type.".into());}
+    if e.kind!="theme"&&e.kind!="plugin"&&e.kind!="companion-app"{return Err("Unknown add-on type.".into());}
     let tail=e.download_url.strip_prefix(PREFIX).unwrap_or("");
     if tail.is_empty()||tail.contains("..")||tail.contains(['?','#','\\','@'])||e.sha256.len()!=64||!e.sha256.bytes().all(|c|c.is_ascii_hexdigit()){return Err("Add-on entry is not trusted.".into());}
     if e.name.len()>80||e.description.len()>400||e.version.len()>20||e.author.len()>80{return Err("Add-on text is too long.".into());}
@@ -62,7 +62,7 @@ fn matches_hash(content:&str,expected:&str)->bool{crate::hashing::sha256_hex(con
 #[tauri::command]pub async fn addons_install(id:String)->Result<(),String>{
     // The page names only an id; the URL and hash come from the registry, never from the page.
     let entry=parse_registry(&fetch(REGISTRY,200_000).await?).into_iter().find(|e|e.id==id).ok_or("That add-on is not in the marketplace.")?;
-    if entry.kind!="theme"{return Err("Plugins cannot be installed yet.".into());}
+    if entry.kind!="theme"{return Err("Plugins and companion apps cannot be installed yet.".into());}
     let css=fetch(&entry.download_url,200_000).await?;
     if !matches_hash(&css,&entry.sha256){return Err("The download does not match the marketplace checksum, so it was not installed.".into());}
     save_theme(&crate::settings::local_dir(),&entry,&css)

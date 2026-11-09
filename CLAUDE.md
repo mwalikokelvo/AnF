@@ -34,6 +34,7 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 
 - Start here: read `docs/BUILDER-RUNBOOK.md` and `HANDOFF.md` before any work (shared build/test/delivery recipe and state); append your result to `HANDOFF.md` when done.
 - Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.
+- REA Policy (MANDATORY FOR ALL AGENTS): NEVER SKIP REA. For any feature, architecture, or app investigation (even when source code is available), run REA tools (`rea` CLI 6.8.0 / REA MCP) to inspect binary structures, Electron ASAR archives, symbol tables, IPC channels, and network protocols. Concrete extracted evidence must ground all architectural decisions and implementations. No agent is permitted to skip REA.
 
 ## Skills (all assistants)
 - Shared skills live in `.agents/skills/` (Superpowers, see `SOURCE.md`) and in each user's `~/.agents/skills/` (Antigravity reads it via `~/.gemini/config/skills.json`).

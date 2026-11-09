@@ -25,3 +25,69 @@
 .reader-overlay :is(input,textarea)::placeholder{color:color-mix(in srgb,var(--reader-ink) 75%,var(--reader-bg));opacity:1}
 .reader-overlay :is(button,select,textarea){transition:background-color var(--reader-theme-duration) var(--reader-theme-ease),color var(--reader-theme-duration) var(--reader-theme-ease),border-color var(--reader-theme-duration) var(--reader-theme-ease),outline-color var(--reader-theme-duration) var(--reader-theme-ease)}
 .reader-overlay[data-theme=amber]{--reader-bg:#100a03;--reader-ink:#d5a875;--reader-line:#9a7854}
+.reader-page b{font-weight:700;color:var(--reader-focus,#4aa793);}
+
+.reader-overlay.reader-zen .reader-controls,
+.reader-overlay.reader-zen .reader-nav-slot,
+.reader-overlay.reader-zen .reader-aside,
+.reader-overlay.reader-zen .reader-footnote,
+.reader-overlay.reader-zen .reader-header>:not(:is(h2, [aria-label="Zen"], [aria-label="Exit Zen"], [aria-label="Stats"], [aria-label="Close reader"])) {
+  display: none !important;
+}
+.reader-overlay.reader-zen .reader-body {
+  grid-template-columns: 1fr !important;
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+}
+.reader-overlay.reader-zen .reader-header {
+  padding: 8px 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+.reader-overlay.reader-zen .reader-header:hover {
+  opacity: 1;
+}
+
+.reader-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface, #1f2933);
+  border-bottom: 1px solid var(--line, #385052);
+  color: var(--ink, #edf4ef);
+}
+.reader-search-bar[hidden] {
+  display: none !important;
+}
+.reader-search-input {
+  flex: 1;
+  max-width: 260px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line, #385052);
+  color: var(--ink, #edf4ef);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+.reader-search-input:focus {
+  border-color: var(--accent, #79e4b4);
+}
+.reader-search-status {
+  font-size: 12px;
+  color: var(--muted, #8fa0a3);
+  white-space: nowrap;
+}
+.reader-search-bar button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--surface-hover, #2b3a42);
+  border: 1px solid var(--line, #385052);
+  color: var(--ink, #edf4ef);
+  cursor: pointer;
+}
+.reader-overlay.reader-zen .reader-search-bar {
+  display: none !important;
+}

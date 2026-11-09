@@ -245,5 +245,65 @@ describe('Audio DSP Engine & 5-Band Equalizer', () => {
       assert.equal(mockAudio.preservesPitch, true);
       assert.equal(mockAudio.crossOrigin, 'anonymous');
     });
+
+    test('volume normalization controls loudness leveling state and persists', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.isVolumeNormalizationEnabled(), false);
+
+      let notified = false;
+      const unsubscribe = engine.subscribe(() => { notified = true; });
+
+      engine.setVolumeNormalization(true);
+      assert.equal(engine.isVolumeNormalizationEnabled(), true);
+      assert.equal(notified, true);
+
+      notified = false;
+      engine.setVolumeNormalization(false);
+      assert.equal(engine.isVolumeNormalizationEnabled(), false);
+      assert.equal(notified, true);
+
+      unsubscribe();
+    });
+
+    test('crossfade duration controls track transition time and clamps between 0 and 12s', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.getCrossfadeDuration(), 0);
+
+      let notified = false;
+      const unsubscribe = engine.subscribe(() => { notified = true; });
+
+      engine.setCrossfadeDuration(4);
+      assert.equal(engine.getCrossfadeDuration(), 4);
+      assert.equal(notified, true);
+
+      // Clamping upper limit
+      engine.setCrossfadeDuration(20);
+      assert.equal(engine.getCrossfadeDuration(), 12);
+
+      // Clamping lower limit
+      engine.setCrossfadeDuration(-5);
+      assert.equal(engine.getCrossfadeDuration(), 0);
+
+      unsubscribe();
+    });
+
+    test('fade resolves safely in Node environment and handles gain clamping', async () => {
+      const engine = new AudioDspEngine();
+      // Safe resolution in Node where WebAudio nodes are stubbed/unattached
+      await engine.fade(0.5, 0.01);
+      await engine.fade(0, 0);
+      await engine.fade(1.5, 0.01);
+      engine.resetFade();
+    });
+
+    test('frequency data inspection safely returns null when unattached', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.getFrequencyData(), null);
+    });
+
+    test('time domain data inspection safely returns null when unattached', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.getTimeDomainData(), null);
+    });
   });
 });

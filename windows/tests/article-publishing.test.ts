@@ -8,6 +8,7 @@ import {
   addToReadingQueue,
   updateQueueProgress,
   removeFromReadingQueue,
+  auditSeo,
   type Article,
   type ReadingQueueItem
 } from '../src/workspace/article-publishing.js';
@@ -197,5 +198,68 @@ describe('Reading Queue Lifecycle', () => {
     queue = removeFromReadingQueue(queue, deleteId);
     assert.equal(queue.length, 1);
     assert.equal(queue[0].title, 'Keep Item');
+  });
+
+  test('exportArticleHtml includes Open Graph and Twitter Card metadata', () => {
+    const article: Article = {
+      id: 'art-seo-001',
+      metadata: {
+        title: 'Exploring Local-First Architecture',
+        subtitle: 'A guide to private computing and data ownership',
+        canonicalUrl: 'https://example.com/p/local-first',
+        coverImageUrl: 'https://example.com/cover.png',
+      },
+      markdown: '# Introduction\n\nDeep thoughts on local computing.',
+      updatedAt: 1700000000000,
+    };
+    const html = exportArticleHtml(article);
+    assert.ok(html.includes('<meta property="og:title" content="Exploring Local-First Architecture">'));
+    assert.ok(html.includes('<meta property="og:description" content="A guide to private computing and data ownership">'));
+    assert.ok(html.includes('<meta property="og:type" content="article">'));
+    assert.ok(html.includes('<meta property="og:url" content="https://example.com/p/local-first">'));
+    assert.ok(html.includes('<meta property="og:image" content="https://example.com/cover.png">'));
+    assert.ok(html.includes('<meta name="twitter:card" content="summary_large_image">'));
+  });
+
+  test('auditSeo computes SEO score and reports actionable suggestions', () => {
+    const draft = `---
+title: "The Comprehensive Guide to Private Offline-First Applications"
+subtitle: "How to build reliable desktop software without central server dependencies or cloud surveillance"
+tags: [privacy, local-first]
+---
+
+## Why Local-First Matters
+
+Modern users demand privacy and instant responsiveness that cloud-tethered apps cannot guarantee.
+Here is an illustration of architecture:
+![Architecture diagram](https://example.com/arch.png)
+
+## Core Architectural Principles
+
+When design decisions align with local databases like SQLite or IndexedDB, durability becomes trivial.
+Everything syncs over peer-to-peer protocols without trusted intermediaries.
+`;
+    const res = auditSeo(draft);
+    assert.ok(res.score >= 80, `Expected score >= 80, got ${res.score}`);
+    assert.equal(res.titleStatus, 'good');
+    assert.equal(res.descriptionStatus, 'good');
+    assert.equal(res.imagesTotal, 1);
+    assert.equal(res.imagesWithAlt, 1);
+    assert.equal(res.imagesStatus, 'good');
+  });
+
+  test('auditSeo flags missing title, missing description, and images without alt text', () => {
+    const draft = `Some text without frontmatter or heading.
+![ ](https://example.com/empty-alt.jpg)
+`;
+    const res = auditSeo(draft);
+    assert.ok(res.score < 50, `Expected score < 50 for poor draft, got ${res.score}`);
+    assert.equal(res.titleStatus, 'error');
+    assert.equal(res.descriptionStatus, 'warning');
+    assert.equal(res.imagesTotal, 1);
+    assert.equal(res.imagesWithAlt, 0);
+    assert.equal(res.imagesStatus, 'warning');
+    assert.ok(res.suggestions.some(s => s.includes('title')));
+    assert.ok(res.suggestions.some(s => s.includes('alt text')));
   });
 });

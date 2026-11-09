@@ -1,0 +1,8 @@
+{
+  "name": "YouTube Music Morphe",
+  "version": "21.30.216",
+  "publisher": "communitybuilds",
+  "projectUrl": "https://gitlab.com/communitybuilds/Community-builds",
+  "packageRegistryUrl": "https://gitlab.com/api/v4/projects/87288318/packages/generic/morphe-apks/latest/manifest.json",
+  "sourceSig": "MorpheApp/morphe-cli@v2.0.0;patches-2.0.0.mpp:sha256:f0f5cfd8;sha:0bb704a9a4ed"
+}

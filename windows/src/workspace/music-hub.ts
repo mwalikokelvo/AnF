@@ -1,4 +1,5 @@
 import {h,svg} from '../views/dom';
+import {AbLoopEngine} from './ab-loop';
 import {audioLibrary,type AudioTrack,type AudioPlaylist} from './audio-library';
 import {readAudioMetadata,formatBadge} from './audio-metadata';
 import {durationText} from './audio-data';
@@ -59,7 +60,11 @@ import {
   type EqPresetName
 } from './audio-dsp';
 import { askConfirm, askText } from './music-dialogs';
-import {loadSubsonicSettings,searchSubsonic,streamSubsonic,subsonicReady,type SubsonicTrack} from './subsonic';
+import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,searchSubsonic,streamSubsonic,subsonicReady,connectDemoSubsonic,clearSubsonicSettings,type SubsonicTrack} from './subsonic';
+import {parseM3u,serializeM3u} from './m3u';
+import {searchRadioStations,getTopRadioStations,getRadioStationsByTag,POPULAR_RADIO_TAGS,type RadioStation} from './radio';
+import {searchAudius,trendingAudius,type AudiusTrack} from './audius';
+import {listAvailableMixes,generateSmartMix,exportMixToM3u} from './smart-mix';
 import './music-hub.css';
 
 // Listening data helpers embedded for local offline tracking
@@ -116,9 +121,18 @@ export function matchPlaylist<T extends {id:string;title:string;artist:string;na
 
 export type PlaybackState = 'idle' | 'buffering' | 'ready' | 'playing' | 'paused' | 'ended' | 'error';
 
-export function trackBadge(t: AudioTrack | StreamTrackMetadata): { label: string; kind: 'youtube' | 'spotify' | 'audiobook' | 'local' | 'custom' } {
+export function trackBadge(t: AudioTrack | StreamTrackMetadata): { label: string; kind: 'youtube' | 'spotify' | 'audiobook' | 'local' | 'custom' | 'audius' | 'subsonic' } {
  const source = (t as StreamTrackMetadata).source;
  const id = t.id || '';
+ if ((source as unknown) === 'radio' || id.startsWith('radio:') || (t as AudioTrack).format === 'radio') {
+   return { label: 'Live Radio', kind: 'custom' };
+  }
+  if (source === 'audius' || id.startsWith('audius:') || id.startsWith('stream:audius:')) {
+  return { label: 'Audius', kind: 'audius' };
+ }
+ if (source === 'subsonic' || id.startsWith('subsonic:') || id.startsWith('stream:subsonic:')) {
+  return { label: 'Subsonic', kind: 'subsonic' };
+ }
  if (source === 'youtube' || id.startsWith('yt:') || id.startsWith('stream:yt:') || (t as AudioTrack).format?.includes('youtube')) {
   return { label: 'YouTube', kind: 'youtube' };
  }
@@ -145,8 +159,8 @@ export function createVisualizer(barCount = 12, className = 'music-visualizer'):
  return wrapper;
 }
 
-const icons={play:'m8 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',previous:'M5 5v14M19 5 8 12l11 7Z',next:'M19 5v14M5 5l11 7L5 19Z',heart:'M12 20 3 11C-2 3 8-1 12 6c4-7 14-3 9 5Z',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm5 12 6 6',music:'M9 18V5l12-2v13M9 7l12-2M9 18c0 4-7 4-7 0s7-4 7 0Zm12-2c0 4-7 4-7 0s7-4 7 0Z',queue:'M3 5h18M3 11h18M3 17h12',shuffle:'M3 5h3l12 14h3M18 16l3 3-3 3M3 19h3l4-5M14 9l4-4h3M18 2l3 3-3 3',repeat:'M20 8V5H7a4 4 0 0 0-4 4M4 16v3h13a4 4 0 0 0 4-4M17 5l3 3 3-3M7 19l-3-3-3 3',eq:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',chevronRight:'M9 18l6-6-6-6',chevronLeft:'M15 18l-6-6 6-6',mic:'M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zm-7 9a7 7 0 0 0 14 0h-2a5 5 0 0 1-10 0H5zm6 8v3H9v2h6v-2h-2v-3a7.002 7.002 0 0 0 6-6.9v-.1h-2v.1a5 5 0 0 1-5 5 5 5 0 0 1-5-5v-.1H7v.1c0 3.53 2.61 6.43 6 6.9z',sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'};
-type Preferences={current?:string;position:number;volume:number;speed:number;fade:number;recent:string[];favorites:string[];queue:string[];originalQueue:string[];shuffle:boolean;repeat:RepeatMode;sort:'newest'|'title'|'artist'|'longest'|'shortest'|'year'};
+const icons={play:'m8 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',previous:'M5 5v14M19 5 8 12l11 7Z',next:'M19 5v14M5 5l11 7L5 19Z',heart:'M12 20 3 11C-2 3 8-1 12 6c4-7 14-3 9 5Z',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm5 12 6 6',music:'M9 18V5l12-2v13M9 7l12-2M9 18c0 4-7 4-7 0s7-4 7 0Zm12-2c0 4-7 4-7 0s7-4 7 0Z',queue:'M3 5h18M3 11h18M3 17h12',shuffle:'M3 5h3l12 14h3M18 16l3 3-3 3M3 19h3l4-5M14 9l4-4h3M18 2l3 3-3 3',repeat:'M20 8V5H7a4 4 0 0 0-4 4M4 16v3h13a4 4 0 0 0 4-4M17 5l3 3 3-3M7 19l-3-3-3 3',eq:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',chevronRight:'M9 18l6-6-6-6',chevronLeft:'M15 18l-6-6 6-6',mic:'M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zm-7 9a7 7 0 0 0 14 0h-2a5 5 0 0 1-10 0H5zm6 8v3H9v2h6v-2h-2v-3a7.002 7.002 0 0 0 6-6.9v-.1h-2v.1a5 5 0 0 1-5 5 5 5 0 0 1-5-5v-.1H7v.1c0 3.53 2.61 6.43 6 6.9z',sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',expand:'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'};
+type Preferences={current?:string;position:number;volume:number;speed:number;fade:number;autoplay?:boolean;recent:string[];favorites:string[];queue:string[];originalQueue:string[];shuffle:boolean;repeat:RepeatMode;sort:'newest'|'title'|'artist'|'longest'|'shortest'|'year'};
 
 export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Promise<void>;notify:(text:string)=>void;beforePlay:()=>void|Promise<void>}){
  const library=audioLibrary(),audio=new Audio();audio.preload='metadata';
@@ -172,11 +186,13 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const folder=h('input',{type:'file',multiple:true,webkitdirectory:'','aria-label':'Import music folder',hidden:true});
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
- let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'youtube'|'spotify'|'audiobook'|'cached'='all',directUrlInput='';
+ let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='';
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
- let prefs:Preferences={position:0,volume:.7,speed:1,fade:0,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
- try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,fade:[0,2,4,6,8,12].includes(value.fade)?value.fade:0,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
+ let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false,audiusAttempted=false,audiusError='';
+ let radioResults:RadioStation[]=[],radioQuery='',radioBusy=false,radioAttempted=false,radioError='',radioTag='lofi';
+ let prefs:Preferences={position:0,volume:.7,speed:1,fade:0,autoplay:true,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
+ try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,fade:[0,2,4,6,8,12].includes(value.fade)?value.fade:0,autoplay:typeof value.autoplay==='boolean'?value.autoplay:true,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','title','artist','longest','shortest','year'].includes(value.sort)?value.sort:'newest'};}}catch{/* Start with a valid empty preference record. */}
  let listening=listeningState(null),mix='all',lastWall=0,lastMedia=0;
  try{const raw=localStorage.getItem('anf-listening');if(raw){listening=listeningState(JSON.parse(raw));prefs.speed=listening.rate;}}catch{}
  
@@ -216,19 +232,85 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const importKind=h('select',{'aria-label':'Import content as'},...['auto','music','podcast','audiobook'].map(value=>h('option',{value,text:value==='auto'?'Detect file type':value==='music'?'Music':value==='podcast'?'Podcast':'Audiobook'})));
  const mixes=h('select',{'aria-label':'Listening mix'},...['all','liked','fresh','recent'].map(value=>h('option',{value,text:value==='all'?'All items':value==='liked'?'Liked items':value==='fresh'?'Not recently played':'Recently played'})));
  mixes.addEventListener('change',()=>{mix=mixes.value;render();});
- const playlistFile=h('input',{type:'file',accept:'.json,application/json',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
- playlistFile.addEventListener('change',()=>void run(async()=>{try{const file=playlistFile.files?.[0];if(!file)return;if(file.size>2_000_000)throw Error('Playlist files must be smaller than 2 MB.');const recipe=playlistRecipe(JSON.parse(await file.text()));const match=matchPlaylist(recipe,tracks);if(!await askConfirm('Import '+recipe.name+' with '+match.order.length+' matched items? '+match.missing+' missing or ambiguous items will be skipped. Audio files are not included.'))return;await library.savePlaylist({id:crypto.randomUUID(),name:recipe.name,order:match.order});await refresh();report('Playlist imported. '+match.missing+' items skipped.');}finally{playlistFile.value='';}}));
+ const playlistFile=h('input',{type:'file',accept:'.json,application/json,.m3u,.m3u8,audio/x-mpegurl',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
+ playlistFile.addEventListener('change',()=>void run(async()=>{
+  try{
+   const file=playlistFile.files?.[0];if(!file)return;
+   if(file.size>5_000_000)throw Error('Playlist files must be smaller than 5 MB.');
+   const text=await file.text();
+   if(file.name.endsWith('.m3u')||file.name.endsWith('.m3u8')||text.startsWith('#EXTM3U')){
+    const entries=parseM3u(text);
+    if(!entries.length)throw Error('No tracks found in this M3U playlist.');
+    const playlistName=file.name.replace(/\.(m3u8?|json)$/i,'')||'Imported Playlist';
+    const matchedIds:string[]=[];
+    for(const entry of entries){
+     const matched=tracks.find(t=>(t.title&&t.title.toLowerCase()===entry.title.toLowerCase())||(entry.artist&&t.artist&&t.artist.toLowerCase()===entry.artist.toLowerCase()&&t.title.toLowerCase()===entry.title.toLowerCase()));
+     if(matched){
+      matchedIds.push(matched.id);
+     }else if(entry.isStream){
+      const streamId='stream:custom:'+crypto.randomUUID().slice(0,8);
+      const newTrack:AudioTrack={
+       id:streamId,
+       title:entry.title,
+       artist:entry.artist||'Stream',
+       name:entry.title,
+       album:entry.group||'M3U Stream',
+       kind:'music',
+       blob:new Blob([],{type:'audio/mpeg'}),
+       streamUrl:entry.uri,
+       coverUrl:entry.logoUrl,
+       format:'custom',
+       created:Date.now(),
+       duration:entry.duration||undefined
+      };
+      await library.put(newTrack);
+      tracks.push(newTrack);
+      matchedIds.push(streamId);
+     }
+    }
+    if(!matchedIds.length)throw Error('No playable tracks matched or imported from this M3U file.');
+    await library.savePlaylist({id:crypto.randomUUID(),name:playlistName,order:matchedIds});
+    await refresh();
+    report('Imported M3U playlist "'+playlistName+'" with '+matchedIds.length+' tracks.');
+   }else{
+    const recipe=playlistRecipe(JSON.parse(text));
+    const match=matchPlaylist(recipe,tracks);
+    if(!await askConfirm('Import '+recipe.name+' with '+match.order.length+' matched items? '+match.missing+' missing or ambiguous items will be skipped. Audio files are not included.'))return;
+    await library.savePlaylist({id:crypto.randomUUID(),name:recipe.name,order:match.order});
+    await refresh();
+    report('Playlist imported. '+match.missing+' items skipped.');
+   }
+  }finally{
+   playlistFile.value='';
+  }
+ }));
+ async function exportM3u(p:AudioPlaylist){
+  const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);
+  const m3uText=serializeM3u(selected.map(t=>({
+   title:t.title,
+   artist:t.artist,
+   duration:t.duration,
+   uri:t.streamUrl||(t.id.startsWith('stream:')?t.id:`anf-track://${t.id}`)
+  })));
+  const url=URL.createObjectURL(new Blob([m3uText],{type:'audio/x-mpegurl'}));
+  const link=h('a',{href:url,download:(p.name.replace(/[^a-zA-Z0-9_-]/g,'_')||'playlist')+'.m3u'});
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  report('Exported '+p.name+' as standard M3U.');
+ }
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Audiobooks','Podcasts','Archive','Subsonic','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase();b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const tabButtons=['Music','Streaming','Radio','Smart Mixes','Audius','Subsonic','Archive','History','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;if(tab==='audius'&&!audiusResults.length)audiusAttempted=false;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase().replace(/\s+/g,'-');b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
    const latest=(await library.playlists()).find(item=>item.id===p.id);
    if(!latest){dialog.close();report('This playlist no longer exists.');return;}
    const selected=latest.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);
-   dialog.replaceChildren(h('h3',{text:latest.name}),...selected.map(t=>h('div',{class:'music-recent-row'},button(t.title,()=>playTrack(t,selected)),button('Remove '+t.title+' from playlist',async()=>{const fresh=(await library.playlists()).find(item=>item.id===p.id);if(!fresh)return;await library.savePlaylist({...fresh,order:fresh.order.filter(id=>id!==t.id)});await paintPlaylist();await refresh();}))),...(!selected.length?[h('p',{text:'This playlist is empty.'})]:[]),button('Close playlist',()=>dialog.close()));
+   dialog.replaceChildren(h('h3',{text:latest.name}),...selected.map(t=>h('div',{class:'music-recent-row'},button(t.title,()=>playTrack(t,selected)),button('Remove '+t.title+' from playlist',async()=>{const fresh=(await library.playlists()).find(item=>item.id===p.id);if(!fresh)return;await library.savePlaylist({...fresh,order:fresh.order.filter(id=>id!==t.id)});await paintPlaylist();await refresh();}))),...(!selected.length?[h('p',{text:'This playlist is empty.'})]:[]),h('div',{class:'row',style:'gap:8px;margin-top:12px'},button('Export M3U',()=>exportM3u(latest)),button('Export JSON',()=>exportPlaylist(latest)),button('Close playlist',()=>dialog.close())));
   }
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();void paintPlaylist().catch(error=>{dialog.close();report(String(error));});
  }
@@ -295,6 +377,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
  const drawerActions=h('div',{class:'music-drawer-actions'});
  const drawerLikeBtn=h('button',{type:'button',class:'music-drawer-btn','aria-label':'Favorite',onclick:()=>{
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   prefs.favorites=prefs.favorites.includes(current.id)?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];
   save();paint();render();
@@ -312,9 +395,21 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  applyTheme();
 
  const fullPlayer=h('dialog',{class:'music-player music-full-player','aria-label':'Now playing'});
- const dock=h('aside',{class:'music-player',hidden:true,'aria-label':'Music player'}),dockArt=h('div',{class:'music-player-art'}),dockTitle=h('strong'),dockArtist=h('span'),dockLyric=h('span',{class:'music-now-lyric'});
+ const dock=h('aside',{class:'music-player',hidden:true,'aria-label':'Music player'}),dockArt=h('div',{class:'music-player-art'}),dockTitle=h('strong'),dockArtist=h('span'),dockLyric=h('span',{class:'music-now-lyric'}),dockBadge=h('span',{class:'music-badge-pill',hidden:true});
  const miniVis=createVisualizer(8,'music-visualizer-mini');
  const fullVis=createVisualizer(24,'music-visualizer-full');
+ let visMode:'spectrum'|'waveform'='spectrum';
+ try{visMode=(localStorage.getItem('anf-vis-mode') as any)||'spectrum';}catch{}
+ function toggleVisMode(){
+  visMode=visMode==='spectrum'?'waveform':'spectrum';
+  try{localStorage.setItem('anf-vis-mode',visMode);}catch{}
+  visModeBtn.textContent='Vis: '+(visMode==='spectrum'?'Spectrum':'Waveform');
+  report('Visualizer mode: '+(visMode==='spectrum'?'Frequency Spectrum':'Oscilloscope Waveform')+'.');
+ }
+ const visModeBtn=button('Vis: '+(visMode==='spectrum'?'Spectrum':'Waveform'),toggleVisMode);
+ fullVis.style.cursor='pointer';
+ fullVis.title='Click to switch between Spectrum and Oscilloscope Waveform';
+ fullVis.addEventListener('click',toggleVisMode);
  const toggle=button('Play',async()=>{if(!current)return;if(audio.paused)await resume();else pause();},'play');
  const stopBtn=button('Stop',()=>stop(),'pause');
  const like=button('Like track',()=>{if(!current)return;prefs.favorites=prefs.favorites.includes(current.id)?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];save();paint();render();},'heart');
@@ -323,9 +418,49 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const speed=h('select',{'aria-label':'Playback speed'},...[.75,1,1.25,1.5,1.75,2].map(n=>h('option',{value:String(n),text:n+'×'})));speed.value=String(prefs.speed);
  const sleep=h('select',{'aria-label':'Sleep timer'},...[['0','Off'],['15','15 min'],['30','30 min'],['45','45 min'],['60','60 min'],['end','End of track'],['chapter','End of chapter']].map(([value,text])=>h('option',{value,text})));
  let sleepTimer:ReturnType<typeof setTimeout>|undefined;
+ let sleepCountdownInterval:ReturnType<typeof setInterval>|undefined;
+ let sleepTargetTime:number|null=null;
+ const sleepCountdown=h('span',{class:'music-sleep-countdown',text:''});
+ function clearCountdown(){
+  if(sleepCountdownInterval){clearInterval(sleepCountdownInterval);sleepCountdownInterval=undefined;}
+  sleepTargetTime=null;
+  sleepCountdown.textContent='';
+ }
+ function updateCountdown(){
+  if(!sleepTargetTime){clearCountdown();return;}
+  const remSec=Math.max(0,Math.round((sleepTargetTime-Date.now())/1000));
+  if(remSec<=0){clearCountdown();return;}
+  const m=Math.floor(remSec/60),s=remSec%60;
+  sleepCountdown.textContent=`⏱ ${m}:${s.toString().padStart(2,'0')}`;
+ }
  let chapterStopAt:number|null=null;
- function clearChapterSleep(){chapterStopAt=null;}
- function armSleep(minutes:number){clearChapterSleep();if(sleepTimer)clearTimeout(sleepTimer);sleepTimer=undefined;if(!Number.isFinite(minutes)||minutes<=0){report('');return;}sleepTimer=setTimeout(()=>{pause();report('Sleep timer ended playback.');},minutes*60*1000);report('Sleep timer set for '+minutes+' minutes.');}
+ function clearChapterSleep(){chapterStopAt=null;clearCountdown();}
+ function armSleep(minutes:number){
+  clearChapterSleep();
+  clearCountdown();
+  if(sleepTimer)clearTimeout(sleepTimer);
+  sleepTimer=undefined;
+  audioDsp.resetFade();
+  if(!Number.isFinite(minutes)||minutes<=0){report('');return;}
+  const ms=minutes*60*1000;
+  sleepTargetTime=Date.now()+ms;
+  updateCountdown();
+  sleepCountdownInterval=setInterval(updateCountdown,1000);
+  const fadeSeconds=Math.min(10,Math.max(2,Math.floor(minutes*2)));
+  const fadeStartMs=Math.max(0,ms-fadeSeconds*1000);
+  sleepTimer=setTimeout(()=>{
+   audioDsp.fade(0,fadeSeconds);
+   setTimeout(()=>{
+    pause();
+    audioDsp.resetFade();
+    sleep.value='0';
+    clearCountdown();
+    updateChips();
+    report('Sleep timer gently ended playback.');
+   },fadeSeconds*1000);
+  },fadeStartMs);
+  report('Sleep timer set for '+minutes+' minutes.');
+ }
  function armChapterSleep(){
   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}
   const at=chapterEndAt(current?.chapters,audio.currentTime||0,duration());
@@ -370,6 +505,55 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   eqChips.append(b);
  }
 
+ const crossfadeChips=h('div',{class:'music-sleep-chips','aria-label':'Crossfade transition chips'});
+ for(const [sec, label] of [[0,'Off'],[2,'2s'],[4,'4s'],[6,'6s'],[8,'8s'],[12,'12s']] as const){
+  const b=h('button',{
+   type:'button',
+   class:'music-chip'+(audioDsp.getCrossfadeDuration()===sec?' active':''),
+   text:label,
+   title:sec===0?'Gapless playback without crossfade':`Smooth ${sec}s crossfade between tracks`,
+   onclick:()=>{
+    audioDsp.setCrossfadeDuration(sec);
+    prefs.fade=sec;
+    save();
+    updateChips();
+    report(sec===0?'Crossfade disabled (gapless playback).':`Crossfade set to ${sec} seconds.`);
+   }
+  });
+  b.dataset.crossfade=String(sec);
+  crossfadeChips.append(b);
+ }
+
+ const abLoop=new AbLoopEngine();
+ const loopStatusBtn=button(abLoop.formatStatus(),()=>{
+  abLoop.toggle();
+  updateLoopChips();
+  report(abLoop.getState().enabled?'A-B Loop enabled.':'A-B Loop paused.');
+ });
+ const loopChips=h('div',{class:'music-sleep-chips music-loop-chips','aria-label':'A-B Loop chips'});
+ function updateLoopChips(){
+  loopStatusBtn.textContent=abLoop.formatStatus();
+  loopStatusBtn.classList.toggle('active',abLoop.getState().enabled);
+ }
+ loopChips.append(
+  button('A',()=>{
+   abLoop.setPointA(audio.currentTime);
+   report('A set at '+durationText(audio.currentTime)+'.');
+   updateLoopChips();
+  }),
+  button('B',()=>{
+   abLoop.setPointB(audio.currentTime);
+   report('B set at '+durationText(audio.currentTime)+'.');
+   updateLoopChips();
+  }),
+  loopStatusBtn,
+  button('Clear',()=>{
+   abLoop.clear();
+   report('A-B Loop cleared.');
+   updateLoopChips();
+  })
+ );
+
  function openEqModal(){
   const dlg=createEqDialog(audioDsp);
   document.body.append(dlg);
@@ -381,6 +565,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   for(const el of root.querySelectorAll<HTMLElement>('.music-chip[data-sleep], .music-player .music-chip[data-sleep]'))el.classList.toggle('active',el.dataset.sleep===sleep.value);
   const curPreset=audioDsp.getCurrentPreset();
   for(const el of document.querySelectorAll<HTMLElement>('.music-chip[data-eq]'))el.classList.toggle('active',el.dataset.eq===curPreset);
+   const curFade=audioDsp.getCrossfadeDuration();
+   for(const el of document.querySelectorAll<HTMLElement>('.music-chip[data-crossfade]'))el.classList.toggle('active',Number(el.dataset.crossfade)===curFade);
  }
  audioDsp.subscribe(()=>updateChips());
  const shuffle=button('Shuffle queue',()=>{prefs.shuffle=!prefs.shuffle;if(prefs.shuffle){prefs.originalQueue=[...queue];queue=[...(current?[current.id]:[]),...shuffled(queue.filter(id=>id!==current?.id))];}else queue=reconcileQueue(prefs.originalQueue,tracks.map(t=>t.id),false);save();paint();renderQueue();},'shuffle');
@@ -392,6 +578,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let lyrics:Lyrics={synced:false,lines:[]},lyricRows:HTMLElement[]=[],lyricIndex=-2;
  
  async function lookupLyrics(){
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   if(!onlineLookupsEnabled()){report(ONLINE_LOOKUPS_OFF);return;}
   report('Searching LRCLIB for synced lyrics...');
@@ -637,9 +824,9 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  dock.append(
-  h('div',{class:'music-now'},dockArt,h('button',{class:'music-now-info',type:'button','aria-label':'Open full player',onclick:()=>openFullPlayer()},dockTitle,dockArtist,dockLyric),miniVis,like),
-  h('div',{class:'music-transport'},h('div',{class:'music-controls'},shuffle,button('Previous track',()=>step(-1),'previous'),toggle,stopBtn,button('Next track',()=>step(1),'next'),repeat,Object.assign(button('Equalizer',()=>openEqModal(),'eq'),{className:'music-eq-dock'})),h('div',{class:'music-progress'},elapsed,seek,total)),
-  h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 30s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+30);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('DNA',()=>{if(current)void showMusicDna(current);}),button('Flow',()=>openMusicFlow()),button('Find lyrics',lookupLyrics),button('EQ',()=>openEqModal(),'eq'),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep),h('label',{class:'music-volume'},'Volume',volume),mute),
+  h('div',{class:'music-now'},dockArt,h('button',{class:'music-now-info',type:'button','aria-label':'Open full player',onclick:()=>openFullPlayer()},h('div',{style:'display:flex;align-items:center;min-width:0'},dockTitle,dockBadge),dockArtist,dockLyric),miniVis,like),
+  h('div',{class:'music-transport'},h('div',{class:'music-controls'},shuffle,button('Previous track',()=>step(-1),'previous'),toggle,stopBtn,button('Next track',()=>step(1),'next'),repeat,Object.assign(button('Equalizer',()=>openEqModal(),'eq'),{className:'music-eq-dock'}),Object.assign(button('Expand player',()=>openFullPlayer(),'expand'),{className:'music-expand-dock'})),h('div',{class:'music-progress'},elapsed,seek,total)),
+  h('div',{class:'music-extras'},button('Back 15s',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);save();paint();}),button('Forward 30s',()=>{audio.currentTime=Math.min(duration(),audio.currentTime+30);save();paint();}),button('Show queue',()=>{queuePanel.hidden=!queuePanel.hidden;renderQueue();},'queue'),button('Clear queue',()=>{queue=current?[current.id]:[];save();renderQueue();report('Queue cleared.');}),button('Radio',()=>{if(current)void run(()=>startRadio(current!));}),button('DNA',()=>{if(current)void showMusicDna(current);}),button('Flow',()=>openMusicFlow()),button('Find lyrics',lookupLyrics),button('EQ',()=>openEqModal(),'eq'),button('Lock screen',()=>void run(playOnLockScreen)),h('label',{class:'music-speed'},'Speed',speed),h('label',{class:'music-sleep'},'Sleep',sleep,sleepCountdown),h('label',{class:'music-volume'},'Volume',volume),mute),
   queuePanel,
   lyricsPanel
  );
@@ -653,9 +840,25 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    fullVis,
    ...playerParts,
    h('div',{class:'music-full-chips'},
+    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Playback'}),
+     Object.assign(button(prefs.autoplay!==false?'Auto-play: On':'Auto-play: Off',()=>{
+      prefs.autoplay=prefs.autoplay===false?true:false;
+      save();
+      openFullPlayer();
+      report(prefs.autoplay?'Auto-play enabled: similar songs will continue playing.':'Auto-play disabled.');
+     }),{className:'music-chip'+(prefs.autoplay!==false?' active':''),title:'Spotify-style infinite autoplay of similar music'}),
+     Object.assign(button(audioDsp.isVolumeNormalizationEnabled()?'Loudness: Level':'Loudness: Off',()=>{
+      const next=!audioDsp.isVolumeNormalizationEnabled();
+      audioDsp.setVolumeNormalization(next);
+      openFullPlayer();
+      report(next?'Volume normalization on (Spotify loudness leveling).':'Volume normalization off.');
+     }),{className:'music-chip'+(audioDsp.isVolumeNormalizationEnabled()?' active':''),title:'Spotify-style volume normalization'})
+    ),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Speed'}),speedChips),
-    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips),
-    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'))
+    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips,sleepCountdown),
+    h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Crossfade'}),crossfadeChips),
+     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'A-B Loop'}),loopChips),
+     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'),visModeBtn)
    )
   );
   dock.hidden=true;
@@ -669,6 +872,75 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  function save(){saveListening();prefs.queue=[...queue];prefs.current=current?.id;prefs.position=audio.readyState?audio.currentTime:pending;try{localStorage.setItem('anf-music-player',JSON.stringify(prefs));}catch{report('Could not save your listening position. Check device storage.');}}
  function duration(){return Number.isFinite(audio.duration)?audio.duration:current?.duration||0;}
 
+ let visRaf:number|undefined;
+ function startVisLoop(){
+  if(visRaf!==undefined||typeof requestAnimationFrame==='undefined')return;
+  const tick=()=>{
+   if(audio.paused||playbackState!=='playing'){
+    miniVis.classList.remove('realtime');
+    fullVis.classList.remove('realtime');
+    visRaf=undefined;
+    return;
+   }
+   if(visMode==='waveform'){
+    const wave=audioDsp.getTimeDomainData();
+    if(wave&&wave.length>0){
+     let hasEnergy=false;
+     const fullBars=fullVis.children;
+     if(fullBars&&fullBars.length){
+      const step=Math.max(1,Math.floor(wave.length/fullBars.length));
+      for(let i=0;i<fullBars.length;i++){
+       const idx=Math.min(wave.length-1,i*step);
+       const v=wave[idx]||128;
+       const dev=Math.abs(v-128);
+       if(dev>3)hasEnergy=true;
+       const pct=Math.max(10,Math.min(100,Math.round((dev/128)*100)*2));
+       (fullBars[i] as HTMLElement).style?.setProperty?.('--bar-h',pct+'%');
+      }
+     }
+     fullVis.classList.toggle('realtime',hasEnergy);
+    }
+   }else{
+   const freq=audioDsp.getFrequencyData();
+   if(freq&&freq.length>0){
+    let hasEnergy=false;
+    const miniBars=miniVis.children;
+    if(miniBars&&miniBars.length){
+     const step=Math.floor(freq.length/miniBars.length);
+     for(let i=0;i<miniBars.length;i++){
+      const v=freq[i*step]||0;
+      if(v>10)hasEnergy=true;
+      const pct=Math.max(12,Math.round((v/255)*100));
+      (miniBars[i] as HTMLElement).style?.setProperty?.('--bar-h',pct+'%');
+     }
+    }
+    const fullBars=fullVis.children;
+    if(fullBars&&fullBars.length){
+     const step=Math.max(1,Math.floor(freq.length/fullBars.length));
+     for(let i=0;i<fullBars.length;i++){
+      const idx=Math.min(freq.length-1,i*step);
+      const v=freq[idx]||0;
+      if(v>10)hasEnergy=true;
+      const pct=Math.max(10,Math.round((v/255)*100));
+      (fullBars[i] as HTMLElement).style?.setProperty?.('--bar-h',pct+'%');
+     }
+    }
+    miniVis.classList.toggle('realtime',hasEnergy);
+    fullVis.classList.toggle('realtime',hasEnergy);
+   }
+   }
+   visRaf=requestAnimationFrame(tick);
+  };
+  visRaf=requestAnimationFrame(tick);
+ }
+ function stopVisLoop(){
+  if(visRaf!==undefined&&typeof cancelAnimationFrame!=='undefined'){
+   cancelAnimationFrame(visRaf);
+   visRaf=undefined;
+  }
+  miniVis.classList.remove('realtime');
+  fullVis.classList.remove('realtime');
+ }
  let paintedPlaying:boolean|undefined;
  function paint(){
   mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';
@@ -678,7 +950,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   repeat.title='Repeat '+prefs.repeat;
   const playing=!audio.paused&&playbackState==='playing';
   miniVis.classList.toggle('playing',playing);
-  fullVis.classList.toggle('playing',playing);
+  fullVis.classList.toggle('playing',playing);if(playing)startVisLoop();else stopVisLoop();
   updateChips();
   if(paintedPlaying!==playing){
    paintedPlaying=playing;
@@ -696,6 +968,14 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   seek.setAttribute('aria-valuetext',elapsed.textContent+' of '+total.textContent);
   like.setAttribute('aria-pressed',String(!!current&&prefs.favorites.includes(current.id)));
   dockTitle.textContent=current?.title||'';
+  if(current){
+   const badge=trackBadge(current);
+   dockBadge.textContent=badge.label;
+   dockBadge.className='music-badge-pill badge-'+badge.kind;
+   dockBadge.hidden=false;
+  }else{
+   dockBadge.hidden=true;
+  }
   const nextId=current?nextTrack(queue,current.id,prefs.repeat,false):undefined;
   const next=nextId?tracks.find(t=>t.id===nextId):undefined;
   const qIndex=current?queue.indexOf(current.id):-1;
@@ -740,6 +1020,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  async function resume(){
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   suspended=false;
   dock.hidden=false;
@@ -783,6 +1064,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   pending=0;
   setPlaybackState('idle');
   clearMediaSession();
+  stopVisLoop();
   save();
   paint();
  }
@@ -874,6 +1156,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  async function step(direction:number,automatic=false){
+  stopFade();fadeOutArmed=false;
   if(!current)return;
   if(direction<0&&audio.currentTime>3){audio.currentTime=0;paint();save();return;}
   const id=direction>0
@@ -889,6 +1172,49 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    }
   }else{
    if(direction>0&&automatic){
+    if(prefs.autoplay!==false&&current){
+     void run(async()=>{
+      const seed=current!;
+      let nextSeeds:AudioTrack[]=[];
+      if(onlineLookupsEnabled()){
+       try{
+        const q=seed.artist||seed.genre||seed.title||'trending';
+        const audiusItems=await searchAudius(q,6);
+        for(const item of audiusItems.filter(m=>('audius:'+m.id)!==seed.id).slice(0,3)){
+         nextSeeds.push(toAudiusTrack(item));
+        }
+       }catch{}
+      }
+      if(!nextSeeds.length){
+       nextSeeds=tracks.filter(t=>t.id!==seed.id&&(
+        (seed.artist&&t.artist&&t.artist.toLowerCase()===seed.artist.toLowerCase())||
+        (seed.genre&&t.genre&&t.genre.toLowerCase()===seed.genre.toLowerCase())
+       )).slice(0,3);
+      }
+      if(!nextSeeds.length&&tracks.length>1){
+       const randIds=shuffled(tracks.filter(t=>t.id!==seed.id).map(t=>t.id)).slice(0,3);
+       nextSeeds=randIds.map(id=>tracks.find(t=>t.id===id)!).filter(Boolean);
+      }
+      if(nextSeeds.length){
+       for(const st of nextSeeds){
+        if(!tracks.some(t=>t.id===st.id))tracks.push(st);
+       }
+       queue=[...queue,...nextSeeds.map(t=>t.id)];
+       save();
+       renderQueue();
+       report('Auto-playing similar music: '+nextSeeds[0].title);
+       await select(nextSeeds[0],true);
+       return;
+      }
+      sample();
+      audio.pause();
+      audio.currentTime=0;
+      setPlaybackState('ended');
+      if('mediaSession' in navigator)navigator.mediaSession.playbackState='none';
+      save();
+     });
+     return;
+    }
     sample();
     audio.pause();
     audio.currentTime=0;
@@ -930,9 +1256,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }
  }
  function coverImg(url:string|undefined){
-  const img=h('img',{alt:'',loading:'lazy'});
   const fallback=safeHttpsUrl(url)||'';
-  void resolveHubCover(url).then(src=>{const shown=src||fallback;if(!shown)return;img.src=shown;rememberArtBlob(shown);}).catch(()=>{if(fallback)img.src=fallback;});
+  const img=h('img',{alt:'',loading:'lazy'});
+  if(fallback)img.src=fallback;
+  void resolveHubCover(url).then(src=>{const shown=src||fallback;if(!shown||shown===img.src)return;img.src=shown;rememberArtBlob(shown);}).catch(()=>{if(fallback&&img.src!==fallback)img.src=fallback;});
   return img;
  }
 
@@ -944,6 +1271,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    if(tab==='music'&&kind!=='music')return false;
    if(tab==='podcasts'&&kind!=='podcast')return false;
    if(tab==='favorites'&&!prefs.favorites.includes(t.id))return false;
+   if(tab==='history'&&!prefs.recent.includes(t.id))return false;
    if(tab==='streaming'&&(!t.id.startsWith('stream:')&&!t.streamUrl))return false;
    return !term||[t.title,t.artist,t.album,t.genre,t.format].some(s=>s?.toLocaleLowerCase().includes(term));
   });
@@ -959,6 +1287,85 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  function enqueue(t:AudioTrack){queue=enqueueTrack(queue,t.id);save();renderQueue();report(t.title+' added to the queue.');}
  function playNext(t:AudioTrack){queue=playNextTrack(queue,current?.id,t.id);save();renderQueue();report(t.title+' will play next.');}
  function playPrevious(t:AudioTrack){queue=playPreviousTrack(queue,current?.id,t.id);save();renderQueue();report(t.title+' will play previous.');}
+
+ function toAudiusTrack(item:AudiusTrack):AudioTrack{
+  const track:AudioTrack={
+   id:'audius:'+item.id,
+   title:item.title,
+   artist:item.artist||'Audius',
+   name:item.title,
+   album:item.genre||'Audius',
+   kind:'music',
+   blob:new Blob([],{type:'audio/mpeg'}),
+   streamUrl:item.streamUrl,
+   coverUrl:item.artworkUrl,
+   format:'audio/mpeg',
+   created:Date.now(),
+   duration:item.duration||undefined
+  };
+  const at=tracks.findIndex(t=>t.id===track.id);
+  if(at>=0)tracks[at]=track;else tracks.push(track);
+  return track;
+ }
+
+ async function resolveStreamingTrack(item:StreamTrackMetadata):Promise<AudioTrack>{
+  const resolved=item.streamUrl?{streamUrl:item.streamUrl,duration:item.duration,mimeType:'audio/mpeg'}:await streamService.resolveStream(item);
+  if(!resolved?.streamUrl)throw unresolvedStreamError(item);
+  const track:AudioTrack={
+   id:'stream:'+item.id,
+   title:item.title,
+   artist:item.artist,
+   name:item.title,
+   album:item.album||(item.source==='audiobook'?'Audiobook':'Streaming'),
+   kind:item.source==='audiobook'?'audiobook':'music',
+   blob:new Blob([],{type:resolved.mimeType||'audio/mp4'}),
+   streamUrl:resolved.streamUrl,
+   coverUrl:item.coverUrl||item.artworkUrl,
+   duration:resolved.duration??item.duration,
+   format:resolved.mimeType||'audio/mp4',
+   created:Date.now(),
+   preview:!!resolved.preview,
+   chapters:item.chapters?.map(c=>({title:c.title,start:c.start}))
+  };
+  const at=tracks.findIndex(t=>t.id===track.id);
+  if(at>=0)tracks[at]=track;else tracks.push(track);
+  return track;
+ }
+
+ async function startRadio(seed:AudioTrack){
+  report('Starting Radio based on '+seed.title+'...');
+  let radioTracks:AudioTrack[]=[seed];
+  if(onlineLookupsEnabled()){
+   try{
+    const query=seed.artist||seed.genre||seed.title;
+    const audiusMatches=await searchAudius(query,10);
+    for(const item of audiusMatches){
+     if(('audius:'+item.id)===seed.id)continue;
+     radioTracks.push(toAudiusTrack(item));
+    }
+   }catch{}
+  }
+  if(radioTracks.length<5){
+   const localCandidates=tracks.filter(t=>t.id!==seed.id&&(
+    (seed.artist&&t.artist&&t.artist.toLowerCase()===seed.artist.toLowerCase())||
+    (seed.genre&&t.genre&&t.genre.toLowerCase()===seed.genre.toLowerCase())
+   ));
+   radioTracks.push(...localCandidates.slice(0,10));
+  }
+  if(radioTracks.length<5&&tracks.length>1){
+   const randIds=shuffled(tracks.filter(t=>t.id!==seed.id).map(t=>t.id)).slice(0,8);
+   radioTracks.push(...randIds.map(id=>tracks.find(t=>t.id===id)!).filter(Boolean));
+  }
+  for(const rt of radioTracks){
+   if(!tracks.some(t=>t.id===rt.id))tracks.push(rt);
+  }
+  prefs.originalQueue=radioTracks.map(t=>t.id);
+  queue=[...prefs.originalQueue];
+  save();
+  renderQueue();
+  report('Radio started for '+seed.title+': '+radioTracks.length+' similar tracks queued.');
+  await select(seed,true);
+ }
 
  function playAlbum(t:AudioTrack){if(!t.album)return;const albumTracks=tracks.filter(x=>x.album===t.album&&x.artist===t.artist).sort((a,b)=>(a.trackNo||0)-(b.trackNo||0));if(!albumTracks.length)return;prefs.originalQueue=albumTracks.map(x=>x.id);queue=prefs.shuffle?shuffled(prefs.originalQueue):[...prefs.originalQueue];void select(albumTracks[0]);report('Playing album '+t.album+'.');}
  function playArtist(t:AudioTrack){if(!t.artist)return;const artistTracks=tracks.filter(x=>x.artist===t.artist).sort((a,b)=>(a.album||'').localeCompare(b.album||'')||(a.trackNo||0)-(b.trackNo||0));if(!artistTracks.length)return;prefs.originalQueue=artistTracks.map(x=>x.id);queue=prefs.shuffle?shuffled(prefs.originalQueue):[...prefs.originalQueue];void select(artistTracks[0]);report('Playing artist '+t.artist+'.');}
@@ -982,20 +1389,56 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const liked=prefs.favorites.includes(t.id);
   const likeBtn=button(liked?'Unlike '+t.title:'Like '+t.title,()=>{prefs.favorites=liked?prefs.favorites.filter(id=>id!==t.id):[...prefs.favorites,t.id];save();render();},'heart');
   likeBtn.setAttribute('aria-pressed',String(liked));
-  const card=h('article',{class:'music-card'+(t.id===current?.id?' music-card-playing':''),'data-id':t.id},play,button('Play previous',()=>playPrevious(t)),button('Play next',()=>playNext(t)),t.album?button('Play album',()=>playAlbum(t)):null,t.artist?button('Play artist',()=>playArtist(t)):null,t.genre?button('Play genre',()=>playGenre(t)):null,t.year?button('Play year',()=>playYear(t)):null,t.year?button('Play decade',()=>playDecade(t)):null,button('Queue '+t.title,()=>enqueue(t)),likeBtn);
+  const card=h('article',{class:'music-card'+(t.id===current?.id?' music-card-playing':''),'data-id':t.id},play,button('Play previous',()=>playPrevious(t)),button('Play next',()=>playNext(t)),button('Track Radio',()=>void run(()=>startRadio(t))),t.album?button('Play album',()=>playAlbum(t)):null,t.artist?button('Play artist',()=>playArtist(t)):null,t.genre?button('Play genre',()=>playGenre(t)):null,t.year?button('Play year',()=>playYear(t)):null,t.year?button('Play decade',()=>playDecade(t)):null,button('Queue '+t.title,()=>enqueue(t)),likeBtn);
   card.append(h('details',{class:'music-item-actions'},h('summary',{text:'Track actions'}),button('Music DNA',()=>showMusicDna(t)),button('Details for '+t.title,()=>showDetails(t)),button('Add '+t.title+' to playlist',()=>choosePlaylist(t))));
   return card;
  }
 
  function showDetails(track:AudioTrack){
-  const dialog=h('dialog',{class:'music-dialog','aria-label':'Audio details'});
+  const dialog=h('dialog',{class:'music-dialog track-details-dialog','aria-label':'Audio details'});
+  const titleInput=h('input',{type:'text',value:track.title,'aria-label':'Track title',placeholder:'Title'}) as HTMLInputElement;
+  const artistInput=h('input',{type:'text',value:track.artist||'','aria-label':'Artist name',placeholder:'Artist'}) as HTMLInputElement;
+  const albumInput=h('input',{type:'text',value:track.album||'','aria-label':'Album name',placeholder:'Album'}) as HTMLInputElement;
+  const genreInput=h('input',{type:'text',value:track.genre||'','aria-label':'Genre',placeholder:'Genre'}) as HTMLInputElement;
+  const yearInput=h('input',{type:'number',min:1900,max:2100,value:track.year?String(track.year):'','aria-label':'Release year',placeholder:'Year'}) as HTMLInputElement;
   const kind=h('select',{'aria-label':'Item content type'},...['music','audiobook','podcast'].map(value=>h('option',{value,text:kindLabel(value as 'music'|'audiobook'|'podcast')})));
   kind.value=track.kind||'music';
   const close=()=>{dialog.close();dialog.remove();};
   async function update(changes:Partial<AudioTrack>){const latest=await library.get(track.id);if(!latest)throw Error('This audio item was removed.');const updated={...latest,...changes};await library.put(updated);if(current?.id===track.id){current=updated;renderLyrics();paint();}await refresh();close();}
   const lyricsFile=h('input',{type:'file',accept:'.lrc,.txt,text/plain','aria-label':'Import timed lyrics'});
   lyricsFile.addEventListener('change',()=>void run(async()=>{const file=lyricsFile.files?.[0];if(!file)return;if(file.size>200000)throw Error('Lyrics files must be under 200 KB.');const text=await file.text();if(!parseLyrics(text).lines.length)throw Error('Choose a nonempty lyrics file.');await update({lyrics:text});report('Lyrics saved locally.');}));
-  dialog.append(h('h3',{text:track.title}),h('p',{text:[track.name,track.artist,track.album,track.year,track.genre,formatBadge(track)].filter(Boolean).join(' · ')}),kind,button('Save content type',()=>update({kind:kind.value as 'music'|'audiobook'|'podcast'})),lyricsFile,button('Close details',close));
+
+  const saveMetadataBtn=button('Save metadata',()=>{
+   const nextTitle=titleInput.value.trim()||track.name;
+   const nextArtist=artistInput.value.trim()||undefined;
+   const nextAlbum=albumInput.value.trim()||undefined;
+   const nextGenre=genreInput.value.trim()||undefined;
+   const nextYear=yearInput.value.trim()?Number(yearInput.value):undefined;
+   void run(async()=>{
+    await update({
+     title:nextTitle,
+     artist:nextArtist,
+     album:nextAlbum,
+     genre:nextGenre,
+     year:nextYear&&Number.isFinite(nextYear)?nextYear:undefined,
+     kind:kind.value as 'music'|'audiobook'|'podcast',
+    });
+    report('Updated metadata for “'+nextTitle+'”.');
+   });
+  });
+
+  dialog.append(
+   h('h3',{text:'Edit Track Metadata'}),
+   h('p',{class:'hint',text:[track.name,formatBadge(track)].filter(Boolean).join(' · ')}),
+   h('label',{},'Title',titleInput),
+   h('label',{},'Artist',artistInput),
+   h('label',{},'Album',albumInput),
+   h('label',{},'Genre',genreInput),
+   h('label',{},'Year',yearInput),
+   h('label',{},'Content Type',kind),
+   h('label',{},'Timed Lyrics (.lrc)',lyricsFile),
+   h('div',{class:'row',style:'margin-top:12px;gap:8px;'},saveMetadataBtn,button('Cancel',close))
+  );
   dialog.addEventListener('cancel',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
  }
 
@@ -1100,17 +1543,58 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  function render(){
-  // The streaming tab was removed in the local-first rebuild. A stale tab value
-  // must never leave the hub on an empty panel.
-  if(tab==='streaming')tab='music';
+
+
+
   const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-options')?.open||false;
   for(const url of artUrls)URL.revokeObjectURL(url);
   artUrls=[];
   for(const [,b] of tabButtons.entries()){
-   const selected=b.id==='music-tab-'+tab;
+   const selected=b.id==='music-tab-'+tab.replace(/\s+/g,'-');
    b.setAttribute('aria-selected',String(selected));
    b.tabIndex=selected?0:-1;
    b.classList.toggle('active',selected);
+  }
+
+  // --- TAB: SMART MIXES (Spotify Smart Mixes & Mood Flow) ---
+  if(tab==='smart mixes'||tab==='smart-mixes'){
+   const summaries=listAvailableMixes(tracks);
+   const mixGrid=h('div',{class:'music-grid smart-mix-grid'});
+   for(const item of summaries){
+    const cardEl=h('article',{class:'music-card smart-mix-card'});
+    const playBtn=button('Play mix',()=>{
+     const fullMix=generateSmartMix(tracks,item.mood,40);
+     if(!fullMix.tracks.length){
+      report('No tracks match the '+item.title+' mix yet. Add music to your library.');
+      return;
+     }
+     playTrack(fullMix.tracks[0],fullMix.tracks);
+     report('Playing '+item.title+' ('+fullMix.tracks.length+' tracks).');
+    });
+    const exportBtn=button('Export .m3u',()=>{
+     const fullMix=generateSmartMix(tracks,item.mood,40);
+     const m3u=exportMixToM3u(fullMix);
+     const blob=new Blob([m3u],{type:'audio/x-mpegurl;charset=utf-8'});
+     const url=URL.createObjectURL(blob);
+     const link=h('a',{href:url,download:item.mood+'-mix.m3u'});
+     link.click();
+     setTimeout(()=>URL.revokeObjectURL(url),30000);
+     report('Exported '+item.title+' as standard M3U playlist');
+    });
+    cardEl.append(
+     h('h3',{text:item.title}),
+     h('p',{class:'smart-mix-desc',text:item.description}),
+     h('p',{class:'hint',text:item.trackCount+' available · '+durationText(item.totalDurationSeconds)}),
+     h('div',{class:'row'},playBtn,exportBtn)
+    );
+    mixGrid.append(cardEl);
+   }
+   content.replaceChildren(
+    h('h2',{text:'Spotify Smart Mixes & Mood Flow'}),
+    h('p',{class:'hint',text:'Auto-curated offline smart playlists partitioned by acoustic profile, tempo, and listening history.'}),
+    mixGrid
+   );
+   return;
   }
 
   // --- TAB: PODCASTS (Two-level navigation) ---
@@ -1200,22 +1684,242 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    }
   }
 
-  // --- TAB: SUBSONIC (the user's own Navidrome / Subsonic server) ---
+  // --- TAB: AUDIUS (free streaming independent music without accounts or DRM) ---
+  if(tab==='audius'){
+   const query=h('input',{type:'search','aria-label':'Search Audius music',placeholder:'Search songs, artists, or genres on Audius',value:audiusQuery}) as HTMLInputElement;
+   query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchStream);});
+   async function searchStream(){
+    const text=query.value.trim();
+    audiusQuery=text;
+    audiusError='';
+    if(!text){
+     audiusBusy=true;render();
+     try{
+      audiusResults=await trendingAudius(24);
+      report('Loaded trending tracks on Audius.');
+     }catch(error){
+      audiusResults=[];
+      audiusError=String(error).replace(/^Error:\s*/,'');
+      report('Could not load trending tracks: '+audiusError);
+     }finally{
+      audiusBusy=false;render();
+     }
+     return;
+    }
+    audiusBusy=true;render();
+    try{
+     audiusResults=await searchAudius(text,24);
+     report(audiusResults.length?'Found '+audiusResults.length+' tracks on Audius.':'No tracks matched on Audius.');
+    }catch(error){
+     audiusResults=[];
+     audiusError=String(error).replace(/^Error:\s*/,'');
+     report('Audius search failed: '+audiusError);
+    }finally{
+     audiusBusy=false;render();
+    }
+   }
+   async function playAudius(item:AudiusTrack){
+    try{
+     const track:AudioTrack={
+      id:'audius:'+item.id,
+      title:item.title,
+      artist:item.artist||'Audius',
+      name:item.title,
+      album:item.genre||'Audius',
+      kind:'music',
+      blob:new Blob([],{type:'audio/mpeg'}),
+      streamUrl:item.streamUrl,
+      coverUrl:item.artworkUrl,
+      format:'audio/mpeg',
+      created:Date.now(),
+      duration:item.duration||undefined
+     };
+     playTrack(track,[track]);
+     report('Streaming '+item.title+' via Audius.');
+    }catch(error){
+     report('Could not stream track: '+String(error).replace(/^Error:\s*/,''));
+    }
+   }
+   if(!audiusAttempted && !audiusQuery && !audiusResults.length && !audiusBusy){audiusAttempted=true;
+    audiusBusy=true;
+    trendingAudius(24).then(tracks=>{audiusResults=tracks;audiusBusy=false;audiusError='';render();}).catch(err=>{audiusBusy=false;audiusError=String(err).replace(/^Error:\s*/,'');report('Could not load Audius tracks: '+audiusError);render();});
+   }
+   const rows=audiusResults.map(item=>{
+    const t=toAudiusTrack(item);
+    const play=h('button',{type:'button','aria-label':'Play '+item.title,text:'Play',class:'music-archive-play',onclick:()=>void run(()=>playAudius(item))});
+    const playNextBtn=button('Play next',()=>playNext(t));
+    const queueBtn=button('Queue',()=>enqueue(t));
+    const radioBtn=button('Radio',()=>void run(()=>startRadio(t)));
+    return h('article',{class:'music-archive-row'},
+     h('div',{class:'music-archive-copy'},
+      h('strong',{text:item.title}),
+      h('span',{class:'music-archive-meta',text:[item.artist,item.genre,item.duration?durationText(item.duration):''].filter(Boolean).join(' · ')})
+     ),
+     play,
+     playNextBtn,
+     queueBtn,
+     radioBtn);
+   });
+   content.replaceChildren(
+    h('section',{class:'music-archive'},
+     h('h3',{text:'Audius · Free Music Streaming'}),
+     h('p',{class:'hint',text:'Decentralized, open-access music streaming with full tracks, official API, and no DRM.'}),
+     h('div',{class:'row'},query,button('Search',searchStream),button('Trending',()=>void run(()=>{query.value='';audiusAttempted=true;searchStream();}))),
+     audiusBusy?h('p',{class:'hint',text:'Loading tracks from Audius…'}):null,
+     ...(rows.length?rows:[h('p',{class:'music-empty',text:audiusBusy?'Loading…':audiusError?'Could not reach Audius: '+audiusError:'Search by song, artist, or genre, or tap Trending.'})]),
+     ...(audiusError&&!audiusBusy&&!rows.length?[button('Retry Trending',()=>void run(()=>{query.value='';audiusAttempted=true;searchStream();}))]:[])
+    )
+   );
+   return;
+  }
+
+
+  // --- TAB: RADIO (Free Live Internet Radio from Radio-Browser) ---
+  if(tab==='radio'){
+   const query=h('input',{type:'search','aria-label':'Search live radio stations',placeholder:'Search 40,000+ live stations by name, city, or keyword…',value:radioQuery}) as HTMLInputElement;
+   query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchRadio);});
+
+   async function searchRadio(){
+    const text=query.value.trim();
+    radioQuery=text;
+    radioError='';
+    if(!text){
+     radioBusy=true;render();
+     try{
+      radioResults=radioTag?await getRadioStationsByTag(radioTag,24):await getTopRadioStations(24);
+      report('Loaded top '+(radioTag||'voted')+' radio stations.');
+     }catch(error){
+      radioResults=[];
+      radioError=String(error).replace(/^Error:\s*/,'');
+      report('Could not load radio stations: '+radioError);
+     }finally{
+      radioBusy=false;render();
+     }
+     return;
+    }
+    radioBusy=true;render();
+    try{
+     radioResults=await searchRadioStations(text,24);
+     report(radioResults.length?'Found '+radioResults.length+' radio stations.':'No radio stations matched.');
+    }catch(error){
+     radioResults=[];
+     radioError=String(error).replace(/^Error:\s*/,'');
+     report('Radio search failed: '+radioError);
+    }finally{
+     radioBusy=false;render();
+    }
+   }
+
+   async function playRadio(item:RadioStation){
+    try{
+     const track:AudioTrack={
+      id:item.id,
+      title:item.name,
+      artist:(item.country?item.country+' • ':'')+(item.tags[0]?item.tags[0].toUpperCase()+' ':'')+(item.bitrate?item.bitrate+'kbps ':'')+'Live',
+      name:item.name,
+      album:item.tags.slice(0,3).join(', ')||'Live Internet Radio',
+      kind:'music',
+      blob:new Blob([],{type:'audio/mpeg'}),
+      streamUrl:item.streamUrl,
+      coverUrl:item.favicon,
+      format:'radio',
+      created:Date.now()
+     };
+     playTrack(track,[track]);
+     report('Streaming '+item.name+' live.');
+    }catch(error){
+     report('Could not stream radio station: '+String(error).replace(/^Error:\s*/,''));
+    }
+   }
+
+   if(!radioAttempted && !radioQuery && !radioResults.length && !radioBusy){
+    radioAttempted=true;
+    radioBusy=true;
+    getRadioStationsByTag(radioTag||'lofi',24).then(stations=>{
+     radioResults=stations;radioBusy=false;radioError='';render();
+    }).catch(err=>{
+     radioBusy=false;radioError=String(err).replace(/^Error:\s*/,'');
+     report('Could not load radio stations: '+radioError);render();
+    });
+   }
+
+   const genreChips=POPULAR_RADIO_TAGS.map(t=>{
+    const btn=h('button',{
+     type:'button',
+     class:'music-chip'+(radioTag===t&&!radioQuery?' active':''),
+     text:t.charAt(0).toUpperCase()+t.slice(1),
+     onclick:()=>void run(()=>{
+      radioTag=t;
+      radioQuery='';
+      query.value='';
+      searchRadio();
+     })
+    });
+    return btn;
+   });
+
+   const topBtn=h('button',{
+    type:'button',
+    class:'music-chip'+(!radioTag&&!radioQuery?' active':''),
+    text:'Top Voted',
+    onclick:()=>void run(()=>{
+     radioTag='';
+     radioQuery='';
+     query.value='';
+     searchRadio();
+    })
+   });
+
+   const rows=radioResults.map(item=>{
+    const play=h('button',{type:'button','aria-label':'Play '+item.name,text:'Play Live',class:'music-archive-play',onclick:()=>void run(()=>playRadio(item))});
+    const copyBtn=button('Copy link',async()=>{
+     try{
+      await navigator.clipboard.writeText(item.streamUrl);
+      report('Copied stream link for '+item.name);
+     }catch{
+      report('Stream URL: '+item.streamUrl);
+     }
+    });
+    return h('article',{class:'music-archive-row'},
+     h('div',{class:'music-archive-copy'},
+      h('strong',{text:item.name}),
+      h('span',{class:'music-archive-meta',text:[item.country,item.codec?(item.codec+(item.bitrate?' '+item.bitrate+'k':'')):'',item.tags.slice(0,3).join(', ')].filter(Boolean).join(' · ')})
+     ),
+     play,
+     copyBtn);
+   });
+
+   content.replaceChildren(
+    h('section',{class:'music-archive'},
+     h('h3',{text:'Live Internet Radio'}),
+     h('p',{class:'hint',text:'40,000+ free live global radio stations. Zero accounts, zero tracking, direct high-quality streaming.'}),
+     h('div',{class:'row',style:'gap:6px;flex-wrap:wrap;margin:12px 0 16px'},topBtn,...genreChips),
+     h('div',{class:'row'},query,button('Search stations',searchRadio),button('Refresh',searchRadio)),
+     radioBusy?h('p',{class:'hint',text:'Connecting to Radio Browser…'}):null,
+     ...(rows.length?rows:[h('p',{class:'music-empty',text:radioBusy?'Connecting…':radioError?'Could not reach Radio Browser: '+radioError:'Search stations or select a genre above.'})]),
+     ...(radioError&&!radioBusy&&!rows.length?[button('Retry',()=>void run(searchRadio))]:[])
+    )
+   );
+   return;
+  }
+
+  // --- TAB: SUBSONIC (the user's own Navidrome / Subsonic server or public demo) ---
   if(tab==='subsonic'){
    const settings=loadSubsonicSettings();
    const ready=subsonicReady(settings);
-   const query=h('input',{type:'search','aria-label':'Search your Subsonic server',placeholder:'Search your server',value:subsonicQuery}) as HTMLInputElement;
+   const isDemo=settings.server.includes('demo.navidrome.org');
+   const query=h('input',{type:'search','aria-label':'Search Subsonic server',placeholder:'Search your server by song, artist or album',value:subsonicQuery}) as HTMLInputElement;
    query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchServer);});
    async function searchServer(){
     const current=loadSubsonicSettings();
-    if(!subsonicReady(current)){report('Add your server, username and password in Settings → Subsonic / Navidrome.');return;}
+    if(!subsonicReady(current)){report('Connect your server below or tap "Use Public Demo".');return;}
     const text=query.value.trim();
     subsonicQuery=text;
-    if(!text){report('Type a song, artist or album to search your server.');return;}
+    if(!text){report('Type a song, artist or album to search.');return;}
     subsonicBusy=true;render();
     try{
      subsonicResults=await searchSubsonic(current.server,current.username,text);
-     report(subsonicResults.length?'Found '+subsonicResults.length+' tracks on your server.':'Nothing matched on your server.');
+     report(subsonicResults.length?'Found '+subsonicResults.length+' tracks on server.':'Nothing matched on server.');
     }catch(error){
      subsonicResults=[];
      report('Subsonic search failed: '+String(error).replace(/^Error:\s*/,''));
@@ -1225,12 +1929,12 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    }
    async function playServer(item:SubsonicTrack){
     const current=loadSubsonicSettings();
-    if(!subsonicReady(current)){report('Add your server in Settings first.');return;}
+    if(!subsonicReady(current)){report('Connect your server first.');return;}
     try{
      const blob=await streamSubsonic(current.server,current.username,item.id);
      const track:AudioTrack={id:'subsonic:'+item.id,title:item.title,artist:item.artist||'Subsonic',name:item.title,album:item.album||'Subsonic',kind:'music',blob,format:item.suffix||'audio/mpeg',created:Date.now(),duration:item.duration||undefined};
      playTrack(track,[track]);
-     report('Playing '+item.title+' from your server.');
+     report('Playing '+item.title+' from '+current.server);
     }catch(error){
      report('Could not play that track: '+String(error).replace(/^Error:\s*/,''));
     }
@@ -1241,11 +1945,59 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      h('div',{class:'music-archive-copy'},h('strong',{text:item.title}),h('span',{class:'music-archive-meta',text:[item.artist,item.album,item.duration?durationText(item.duration):''].filter(Boolean).join(' · ')})),
      play);
    });
+
+   const inServer=h('input',{type:'url','aria-label':'Subsonic server address',placeholder:'https://your-server.com (or tap Public Demo below)'}) as HTMLInputElement;
+   const inUser=h('input',{'aria-label':'Subsonic username',placeholder:'Username',maxlength:128}) as HTMLInputElement;
+   const inPass=h('input',{type:'password','aria-label':'Subsonic password',placeholder:'Password (stored in secure vault)',maxlength:512}) as HTMLInputElement;
+   const connectBtn=button('Connect & Save',()=>void run(async()=>{
+    const s=inServer.value.trim(), u=inUser.value.trim(), p=inPass.value;
+    if(!s||!u){report('Enter your server address and username, or tap Use Public Demo.');return;}
+    saveSubsonicSettings({server:s,username:u});
+    await saveSubsonicPassword(p).catch(()=>{});
+    report('Connecting to '+s+'…');
+    try{
+     const testRes=await testSubsonic(s,u);
+     report('Connected: '+testRes);
+    }catch(e){
+     report('Saved credentials. '+String(e).replace(/^Error:\s*/,''));
+    }
+    render();
+   }));
+   const demoBtn=button('Use Public Navidrome Demo (Instant Connect)',()=>void run(async()=>{
+    report('Connecting to official Navidrome public demo…');
+    await connectDemoSubsonic();
+    report('Connected to Navidrome public demo! Ready to search.');
+    render();
+   }));
+
+   const statusBar=ready?h('div',{class:'row',style:'align-items:center;justify-content:space-between;margin-bottom:12px'},
+    h('span',{class:'hint',text:(isDemo?'⚡ Public Demo Server: ':'Connected Server: ')+settings.server+' ('+settings.username+')'}),
+    button('Disconnect / Change',()=>void run(async()=>{
+     clearSubsonicSettings();
+     subsonicResults=[];
+     report('Subsonic server disconnected.');
+     render();
+    }))
+   ):null;
+
    content.replaceChildren(
     h('section',{class:'music-archive'},
      h('h3',{text:'Subsonic / Navidrome'}),
-     h('p',{class:'hint',text:'Your own music server. Search and playback run through Rust; the password stays in the system secret store.'}),
-     ...(ready?[h('div',{class:'row'},query,button('Search server',searchServer)),subsonicBusy?h('p',{class:'hint',text:'Searching your server…'}):null,...(rows.length?rows:[h('p',{class:'music-empty',text:subsonicQuery?'No results yet. Try another search.':'Search your server by song, artist or album.'})])]:[h('p',{class:'music-empty',text:'Add your server, username and password in Settings → Subsonic / Navidrome, then come back here.'})])
+     h('p',{class:'hint',text:'Stream music from your personal Subsonic or Navidrome server, or explore instantly with the official public demo server.'}),
+     statusBar,
+     ...(ready?[
+       h('div',{class:'row'},query,button('Search server',searchServer),button('Explore Library',()=>void run(async()=>{query.value='';subsonicQuery='';subsonicBusy=true;render();try{subsonicResults=await searchSubsonic(settings.server,settings.username,'');if(!subsonicResults.length)subsonicResults=await searchSubsonic(settings.server,settings.username,'a');report('Found '+subsonicResults.length+' tracks on server.');}catch(e){report('Could not browse: '+String(e).replace(/^Error:\s*/,''));}finally{subsonicBusy=false;render();}}))),
+       subsonicBusy?h('p',{class:'hint',text:'Searching server…'}):null,
+       ...(rows.length?rows:[h('p',{class:'music-empty',text:subsonicQuery?'No tracks matched that search.':'Search your server by song, artist or album, or tap Explore Library.'})])
+     ]:[
+       h('div',{class:'subsonic-setup-card',style:'display:flex;flex-direction:column;gap:8px;max-width:560px;margin:16px 0;padding:16px;background:var(--anf-surface);border:1px solid var(--anf-border);border-radius:12px'},
+        h('strong',{text:'Quick Connect or Try Public Demo'}),
+        h('p',{class:'hint',text:'Tap "Use Public Navidrome Demo" to explore an open music catalog instantly, or enter your personal server details:'}),
+        h('div',{class:'row'},inServer),
+        h('div',{class:'row'},inUser,inPass),
+        h('div',{class:'row'},connectBtn,demoBtn)
+       )
+     ])
     )
    );
    return;
@@ -1317,13 +2069,37 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    return;
   }
 
+  // --- TAB: HISTORY (Listening history) ---
+  if(tab==='history'){
+   const recentTracks=prefs.recent.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);
+   const grid=h('div',{class:'music-grid'});
+   for(const t of recentTracks){
+    grid.append(card(t,recentTracks));
+   }
+   content.replaceChildren(
+    h('div',{class:'music-section-header'},
+     h('h3',{text:'Listening History ('+recentTracks.length+')'}),
+     recentTracks.length?button('Clear history',()=>{
+      prefs.recent=[];
+      save();
+      render();
+      report('Listening history cleared.');
+     }):null
+    ),
+    recentTracks.length?grid:h('p',{class:'music-empty',text:'No listening history yet. Start playing tracks to see them here.'})
+   );
+   return;
+  }
+
   // --- TAB: STREAMING (Multi-service Spicetify streaming platform) ---
   if(tab==='streaming'){
    const switcher=h('div',{class:'music-stream-tabs',role:'tablist','aria-label':'Streaming services'});
-   const serviceDefs:{id:'all'|'youtube'|'spotify'|'audiobook'|'cached';label:string}[]=[
+   const serviceDefs:{id:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached';label:string}[]=[
     {id:'all',label:'All Services'},
+    {id:'audius',label:'Audius'},
     {id:'youtube',label:'YouTube'},
     {id:'spotify',label:'Spotify / Spotube'},
+    {id:'subsonic',label:'Subsonic'},
     {id:'audiobook',label:'Audiobooks'},
     {id:'cached',label:'Cached Offline'}
    ];
@@ -1549,7 +2325,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    const searchBox=h('div',{class:'music-stream-search'},
     h('input',{
      type:'search',
-     placeholder:streamingServiceTab==='cached'?'Filter cached streams...':`Search ${streamingServiceTab==='all'?'YouTube, Spotify & Audiobooks':streamingServiceTab}...`,
+     placeholder:streamingServiceTab==='cached'?'Filter cached streams...':`Search ${streamingServiceTab==='all'?'Audius, YouTube & Audiobooks':streamingServiceTab}...`,
      value:streamingQuery,
      oninput:(e:Event)=>{
       streamingQuery=(e.target as HTMLInputElement).value;
@@ -1628,9 +2404,23 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       h('span',{text:item.artist+(item.album?' · '+item.album:'')+(item.duration?' · '+durationText(item.duration):'')})
      );
 
-     const cardEl=h('article',{class:'music-card'},
-      playBtn,
-      button('Save offline',()=>void run(async()=>{
+     const actionsEl=h('div',{class:'music-card-actions'},
+      button('Next',()=>void run(async()=>{
+       report('Resolving stream for '+item.title+'...');
+       const track=await resolveStreamingTrack(item);
+       playNext(track);
+      })),
+      button('Queue',()=>void run(async()=>{
+       report('Resolving stream for '+item.title+'...');
+       const track=await resolveStreamingTrack(item);
+       enqueue(track);
+      })),
+      button('Radio',()=>void run(async()=>{
+       report('Starting Radio for '+item.title+'...');
+       const track=await resolveStreamingTrack(item);
+       await startRadio(track);
+      })),
+      button('Save',()=>void run(async()=>{
        report('Resolving stream for offline caching...');
        const resolved=item.streamUrl?{streamUrl:item.streamUrl}:await streamService.resolveStream(item);
        if(!resolved?.streamUrl){report('No stream URL available to download.');return;}
@@ -1640,6 +2430,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
        report('Track saved to local library.');
       }))
      );
+     const cardEl=h('article',{class:'music-card'},playBtn,actionsEl);
      resultsGrid.append(cardEl);
     }
    }
@@ -1657,7 +2448,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       )]
      :(streamingResults.length?[h('div',{},h('h3',{text:'Search results ('+streamingResults.length+')'}),resultsGrid)]:[])),
     ...(!streamingResults.length&&streamingServiceTab!=='cached'&&!streamingBusy
-     ?[h('p',{class:'music-empty',text:'Search across YouTube, Spotify, and Audiobooks, or paste any direct media link above.'})]
+     ?[h('p',{class:'music-empty',text:'Search across Audius, YouTube, and Audiobooks, or paste any direct media link above.'})]
      :[])
    );
 
@@ -1671,8 +2462,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     button('Import playlist file',()=>playlistFile.click()),
     h('p',{class:'music-muted',text:'Playlist files contain track names, not audio. Each device needs its own files.'}),
     h('div',{class:'music-playlists'},
-     button('New playlist',()=>void run(async()=>{const name=await askText('Playlist name');if(!name?.trim())return;await library.savePlaylist({id:crypto.randomUUID(),name:name.trim(),order:[]});await refresh();})),
-     ...playlists.map(p=>h('article',{class:'music-card'},h('strong',{text:p.name}),h('span',{text:p.order.length+' tracks'}),button('Play playlist',()=>{const list=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);if(!list.length){report('Empty playlist.');return;}prefs.originalQueue=list.map((item:AudioTrack)=>item.id);queue=[...prefs.originalQueue];void select(list[0]);}),button('View playlist',()=>showPlaylist(p)),button('Export playlist file',()=>exportPlaylist(p)),button('Delete playlist',()=>void run(async()=>{if(!await askConfirm('Delete '+p.name+'?'))return;await library.removePlaylist(p.id);await refresh();}))))
+     button('New playlist',()=>void run(async()=>{const name=await askText('Playlist name');if(!name?.trim())return;await library.savePlaylist({id:crypto.randomUUID(),name:name.trim(),order:[]});await refresh();})),button('Import Playlist (.m3u, .json)',()=>playlistFile.click()),
+     ...playlists.map(p=>h('article',{class:'music-card'},h('strong',{text:p.name}),h('span',{text:p.order.length+' tracks'}),button('Play playlist',()=>{const list=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);if(!list.length){report('Empty playlist.');return;}prefs.originalQueue=list.map((item:AudioTrack)=>item.id);queue=[...prefs.originalQueue];void select(list[0]);}),button('View playlist',()=>showPlaylist(p)),button('Export M3U',()=>exportM3u(p)),button('Export JSON',()=>exportPlaylist(p)),button('Delete playlist',()=>void run(async()=>{if(!await askConfirm('Delete '+p.name+'?'))return;await library.removePlaylist(p.id);await refresh();}))))
     )
    );
    return;
@@ -1709,6 +2500,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
        ...[0,2,4,6,8,12].map(seconds=>h('option',{value:String(seconds),text:seconds?seconds+' s':'Off',selected:prefs.fade===seconds}))
       )
      ),
+     h('label',{},h('input',{type:'checkbox',checked:prefs.autoplay!==false,onchange:(e)=>{prefs.autoplay=(e.target as HTMLInputElement).checked;save();report(prefs.autoplay?'Auto-play on: similar tracks continue playing when queue ends.':'Auto-play off.');}}),' Auto-play similar music'),
+     h('label',{},h('input',{type:'checkbox',checked:audioDsp.isVolumeNormalizationEnabled(),onchange:(e)=>{audioDsp.setVolumeNormalization((e.target as HTMLInputElement).checked);report(audioDsp.isVolumeNormalizationEnabled()?'Volume normalization on (Spotify-style loudness leveling).':'Volume normalization off.');}}),' Normalize volume'),
      button('Listening recap',showRecap)
     ),
     h('label',{class:'music-sort'},'Sort',
@@ -1793,7 +2586,24 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   grid.append(...list.map(t=>card(t,list)));
   content.append(grid);
   if(more)content.append(button('Show more',()=>{libraryLimit+=80;render();}));
-  if(!list.length)content.append(h('p',{class:'music-empty',text:tab==='favorites'?'No liked tracks yet. Heart a track to add it here.':'No tracks here. Import audio files or add a podcast feed.'}));
+  if(!list.length){
+   content.append(h('p',{class:'music-empty',text:tab==='favorites'?'No liked tracks yet. Heart a track to add it here.':'No tracks here. Import audio files or add a podcast feed.'}));
+   if(tab==='music'&&search.value.trim()){
+    const q=search.value.trim();
+    content.append(
+     button('Search online for "'+q+'" (Audius, YouTube, Global Catalogue)',()=>{
+      tab='streaming';
+      streamingQuery=q;
+      libraryLimit=80;
+      render();
+      try{
+       streamingBusy=true;render();
+       searchMultiSource(q,{service:streamingServiceTab==='cached'?'all':streamingServiceTab,limit:30}).then(res=>{streamingResults=res;streamingBusy=false;render();}).catch(()=>{streamingBusy=false;render();});
+      }catch{}
+     })
+    );
+   }
+  }
   markPlaying();
  }
 
@@ -1858,6 +2668,25 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
  files.addEventListener('change',()=>{const selected=Array.from(files.files||[]);files.value='';if(selected.length)void run(()=>importFiles(selected));});
  search.addEventListener('input',()=>{libraryLimit=80;render();});
+ search.addEventListener('keydown',(e:KeyboardEvent)=>{
+  if(e.key==='Enter'){
+   const q=search.value.trim();
+   if(!q)return;
+   if(tab==='music'){
+    const localMatches=tracks.filter(t=>t.title.toLowerCase().includes(q.toLowerCase())||t.artist.toLowerCase().includes(q.toLowerCase()));
+    if(localMatches.length===0){
+     tab='streaming';
+     streamingQuery=q;
+     libraryLimit=80;
+     render();
+     try{
+      streamingBusy=true;render();
+      searchMultiSource(q,{service:streamingServiceTab==='cached'?'all':streamingServiceTab,limit:30}).then(res=>{streamingResults=res;streamingBusy=false;render();}).catch(()=>{streamingBusy=false;render();});
+     }catch{}
+    }
+   }
+  }
+ });
  folder.addEventListener('change',()=>{const selected=Array.from(folder.files||[]);folder.value='';if(selected.length)void run(()=>importFiles(selected));});
  seek.addEventListener('input',()=>{audio.currentTime=Number(seek.value);paint();});
  volume.addEventListener('input',()=>{stopFade();audio.volume=prefs.volume=Number(volume.value);save();});
@@ -1929,9 +2758,14 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   paint();
  });
  audio.addEventListener('timeupdate',()=>{
+  const loopSeek=abLoop.checkLoop(audio.currentTime);
+  if(loopSeek!==null){
+   audio.currentTime=loopSeek;
+   return;
+  }
   if(prefs.fade>0&&!fadeOutArmed&&!audio.paused){
    const left=duration()-audio.currentTime;
-   if(left>0&&left<=prefs.fade){fadeOutArmed=true;fadeVolume(0,left*1000);}
+   if(left>0&&left<=prefs.fade){fadeOutArmed=true;fadeVolume(0,left*1000,()=>{if(!audio.paused&&fadeOutArmed){fadeOutArmed=false;void step(1,true);}});}
   }
   if(chapterStopAt!==null){
    const step=chapterSleepStep(chapterStopAt,current?.chapters,audio.currentTime||0,duration());
@@ -1971,13 +2805,14 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   stop,
   suspend:()=>{
    pause();
-   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';}
+   if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;sleep.value='0';clearCountdown();}
    clearChapterSleep();
    suspended=true;
    if(fullPlayer.open)fullPlayer.close();
    dock.hidden=true;
    document.body.classList.remove('has-music-player');
    clearMediaSession();
+  stopVisLoop();
   },
   refresh,
   ready,

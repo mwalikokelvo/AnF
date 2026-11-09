@@ -143,6 +143,7 @@ describe('Music Hub Player Engine & Audio Queue Controls', () => {
       assert.deepEqual(trackBadge({ id: 'yt:dQw4w9WgXcQ', title: 'T', artist: 'A', source: 'youtube' }), { label: 'YouTube', kind: 'youtube' });
       assert.deepEqual(trackBadge({ id: 'ia:moby_dick', title: 'T', artist: 'A', source: 'audiobook' }), { label: 'Audiobook', kind: 'audiobook' });
       assert.deepEqual(trackBadge({ id: 'stream:123', title: 'T', artist: 'A', source: 'spotify' }), { label: 'Spotify', kind: 'spotify' });
+      assert.deepEqual(trackBadge({ id: 'radio:somafm', title: 'T', artist: 'A', format: 'radio' }), { label: 'Live Radio', kind: 'custom' });
       assert.deepEqual(trackBadge({ id: 'custom:url1', title: 'T', artist: 'A', source: 'custom' }), { label: 'Direct', kind: 'custom' });
       assert.deepEqual(trackBadge({ id: 'local-1', title: 'T', artist: 'A', name: 'T', blob: new Blob([]), created: 0 }), { label: 'Local', kind: 'local' });
     });
