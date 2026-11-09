@@ -531,6 +531,17 @@ export class AudioDspEngine {
     }
   }
 
+  getTimeDomainData(): Uint8Array | null {
+    if (!this.analyserNode) return null;
+    try {
+      const data = new Uint8Array(this.analyserNode.fftSize);
+      this.analyserNode.getByteTimeDomainData(data);
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
   /** Spotify-style crossfade duration between tracks (0 to 12 seconds; 0 = off/gapless) */
   getCrossfadeDuration(): number {
     return this.crossfadeDuration;

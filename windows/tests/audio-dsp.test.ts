@@ -300,5 +300,10 @@ describe('Audio DSP Engine & 5-Band Equalizer', () => {
       const engine = new AudioDspEngine();
       assert.equal(engine.getFrequencyData(), null);
     });
+
+    test('time domain data inspection safely returns null when unattached', () => {
+      const engine = new AudioDspEngine();
+      assert.equal(engine.getTimeDomainData(), null);
+    });
   });
 });

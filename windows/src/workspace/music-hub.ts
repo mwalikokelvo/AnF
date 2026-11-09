@@ -389,6 +389,18 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const dock=h('aside',{class:'music-player',hidden:true,'aria-label':'Music player'}),dockArt=h('div',{class:'music-player-art'}),dockTitle=h('strong'),dockArtist=h('span'),dockLyric=h('span',{class:'music-now-lyric'}),dockBadge=h('span',{class:'music-badge-pill',hidden:true});
  const miniVis=createVisualizer(8,'music-visualizer-mini');
  const fullVis=createVisualizer(24,'music-visualizer-full');
+ let visMode:'spectrum'|'waveform'='spectrum';
+ try{visMode=(localStorage.getItem('anf-vis-mode') as any)||'spectrum';}catch{}
+ function toggleVisMode(){
+  visMode=visMode==='spectrum'?'waveform':'spectrum';
+  try{localStorage.setItem('anf-vis-mode',visMode);}catch{}
+  visModeBtn.textContent='Vis: '+(visMode==='spectrum'?'Spectrum':'Waveform');
+  report('Visualizer mode: '+(visMode==='spectrum'?'Frequency Spectrum':'Oscilloscope Waveform')+'.');
+ }
+ const visModeBtn=button('Vis: '+(visMode==='spectrum'?'Spectrum':'Waveform'),toggleVisMode);
+ fullVis.style.cursor='pointer';
+ fullVis.title='Click to switch between Spectrum and Oscilloscope Waveform';
+ fullVis.addEventListener('click',toggleVisMode);
  const toggle=button('Play',async()=>{if(!current)return;if(audio.paused)await resume();else pause();},'play');
  const stopBtn=button('Stop',()=>stop(),'pause');
  const like=button('Like track',()=>{if(!current)return;prefs.favorites=prefs.favorites.includes(current.id)?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];save();paint();render();},'heart');
@@ -837,7 +849,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Sleep'}),sleepChips,sleepCountdown),
     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'Crossfade'}),crossfadeChips),
      h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'A-B Loop'}),loopChips),
-     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'))
+     h('div',{class:'music-toolbar-group'},h('span',{class:'music-label',text:'EQ Presets'}),eqChips,button('EQ Sliders',()=>openEqModal(),'eq'),visModeBtn)
    )
   );
   dock.hidden=true;
@@ -861,6 +873,25 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     visRaf=undefined;
     return;
    }
+   if(visMode==='waveform'){
+    const wave=audioDsp.getTimeDomainData();
+    if(wave&&wave.length>0){
+     let hasEnergy=false;
+     const fullBars=fullVis.children;
+     if(fullBars&&fullBars.length){
+      const step=Math.max(1,Math.floor(wave.length/fullBars.length));
+      for(let i=0;i<fullBars.length;i++){
+       const idx=Math.min(wave.length-1,i*step);
+       const v=wave[idx]||128;
+       const dev=Math.abs(v-128);
+       if(dev>3)hasEnergy=true;
+       const pct=Math.max(10,Math.min(100,Math.round((dev/128)*100)*2));
+       (fullBars[i] as HTMLElement).style?.setProperty?.('--bar-h',pct+'%');
+      }
+     }
+     fullVis.classList.toggle('realtime',hasEnergy);
+    }
+   }else{
    const freq=audioDsp.getFrequencyData();
    if(freq&&freq.length>0){
     let hasEnergy=false;
@@ -887,6 +918,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     }
     miniVis.classList.toggle('realtime',hasEnergy);
     fullVis.classList.toggle('realtime',hasEnergy);
+   }
    }
    visRaf=requestAnimationFrame(tick);
   };
