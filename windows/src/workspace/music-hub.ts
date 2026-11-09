@@ -973,7 +973,11 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const badge=trackBadge(t); const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(badge.label?' · '+badge.label:'')+(t.duration?' · '+durationText(t.duration):'');
   const coverEl=art(t);
   coverEl.append(h('span',{class:`music-card-badge music-badge-${badge.kind}`,text:badge.label}));
-  play.replaceChildren(coverEl,h('strong',{text:t.title}),h('span',{text:meta}));
+  const pos=listening.positions[t.id]||0;
+  const dur=t.duration||0;
+  const pct=dur>0&&pos>0?Math.min(100,Math.round(100*pos/dur)):0;
+  const progress=pct>0&&pct<100?h('div',{class:'music-card-progress','aria-hidden':'true'},h('div',{class:'music-card-progress-bar',style:'width:'+pct+'%'})):null;
+  play.replaceChildren(coverEl,h('strong',{text:t.title}),h('span',{text:meta}),progress);
   const liked=prefs.favorites.includes(t.id);
   const likeBtn=button(liked?'Unlike '+t.title:'Like '+t.title,()=>{prefs.favorites=liked?prefs.favorites.filter(id=>id!==t.id):[...prefs.favorites,t.id];save();render();},'heart');
   likeBtn.setAttribute('aria-pressed',String(liked));

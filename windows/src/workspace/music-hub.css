@@ -1337,3 +1337,6 @@ body.music-view .save-alert{display:none!important}
 
 /* Keep transport labels on one line; "Find lyrics" and "Mute" used to wrap in the dock. */
 .music-player button,.music-player .music-extras button{white-space:nowrap}
+
+.music-card-progress{height:3px;background:rgba(255,255,255,0.12);border-radius:2px;margin:6px 0 2px;overflow:hidden}
+.music-card-progress-bar{height:100%;background:var(--music-accent,#1db954);border-radius:2px}
