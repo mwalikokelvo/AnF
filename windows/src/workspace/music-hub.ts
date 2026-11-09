@@ -970,9 +970,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const play=button('Play '+t.title,()=>playTrack(t,list));
   play.className='music-card-play';
   const trackLabel=t.trackNo?(t.trackOf?t.trackNo+'/'+t.trackOf:'#'+t.trackNo):''; const discLabel=t.discNo?(t.discOf?t.discNo+'/'+t.discOf:'Disc '+t.discNo):'';
-  const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(t.duration?' · '+durationText(t.duration):'');
+  const badge=trackBadge(t); const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(badge.label?' · '+badge.label:'')+(t.duration?' · '+durationText(t.duration):'');
   const coverEl=art(t);
-  const badge=trackBadge(t);
   coverEl.append(h('span',{class:`music-card-badge music-badge-${badge.kind}`,text:badge.label}));
   play.replaceChildren(coverEl,h('strong',{text:t.title}),h('span',{text:meta}));
   const liked=prefs.favorites.includes(t.id);
