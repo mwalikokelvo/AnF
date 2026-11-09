@@ -645,6 +645,38 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
     presetButtons.push(btn);
   }
 
+  // Interactive SVG frequency response curve visualization
+  const curveBox = document.createElement('div');
+  curveBox.className = 'music-eq-curve-box';
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNs, 'svg');
+  svg.setAttribute('viewBox', '0 0 320 70');
+  svg.setAttribute('class', 'music-eq-curve-svg');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const zeroLine = document.createElementNS(svgNs, 'line');
+  zeroLine.setAttribute('x1', '0');
+  zeroLine.setAttribute('y1', '35');
+  zeroLine.setAttribute('x2', '320');
+  zeroLine.setAttribute('y2', '35');
+  zeroLine.setAttribute('stroke', 'rgba(255, 255, 255, 0.12)');
+  zeroLine.setAttribute('stroke-dasharray', '3,3');
+
+  const curvePath = document.createElementNS(svgNs, 'path');
+  curvePath.setAttribute('class', 'music-eq-curve-line');
+  curvePath.setAttribute('fill', 'none');
+  curvePath.setAttribute('stroke', 'var(--music-accent, #79e4b4)');
+  curvePath.setAttribute('stroke-width', '2.5');
+  curvePath.setAttribute('stroke-linecap', 'round');
+
+  const areaPath = document.createElementNS(svgNs, 'path');
+  areaPath.setAttribute('class', 'music-eq-curve-area');
+  areaPath.setAttribute('fill', 'rgba(121, 228, 180, 0.15)');
+  areaPath.setAttribute('stroke', 'none');
+
+  svg.append(zeroLine, areaPath, curvePath);
+  curveBox.append(svg);
+
   // 5 Sliders Container
   const slidersBox = document.createElement('div');
   slidersBox.className = 'music-eq-sliders';
@@ -748,6 +780,33 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
       sliderInputs[i].value = String(g);
       gainLabels[i].textContent = (g > 0 ? '+' : '') + g.toFixed(1) + ' dB';
     }
+
+    // Dynamic frequency response curve plotting
+    if (enabled) {
+      const freqs = [25, 40, 60, 100, 160, 250, 400, 650, 1000, 1600, 2500, 4000, 6500, 9000, 12000, 16000, 20000];
+      const points: [number, number][] = freqs.map((f) => {
+        const db = compute5BandEqResponse(gains, f);
+        const logMin = Math.log10(25);
+        const logMax = Math.log10(20000);
+        const x = ((Math.log10(f) - logMin) / (logMax - logMin)) * 320;
+        const y = Math.max(4, Math.min(66, 35 - (db / 12) * 28));
+        return [x, y];
+      });
+
+      if (points.length) {
+        let d = `M ${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
+        for (let i = 1; i < points.length; i++) {
+          d += ` L ${points[i][0].toFixed(1)} ${points[i][1].toFixed(1)}`;
+        }
+        curvePath.setAttribute('d', d);
+        areaPath.setAttribute('d', `${d} L 320 35 L 0 35 Z`);
+      }
+      curveBox.style.opacity = '1';
+    } else {
+      curvePath.setAttribute('d', 'M 0 35 L 320 35');
+      areaPath.setAttribute('d', 'M 0 35 L 320 35 Z');
+      curveBox.style.opacity = '0.4';
+    }
   }
 
   const unsubscribe = dsp.subscribe(renderState);
@@ -757,6 +816,6 @@ export function createEqDialog(dsp: AudioDspEngine = audioDsp): HTMLDialogElemen
   });
 
   renderState();
-  dialog.append(header, presetRow, slidersBox, footer);
+  dialog.append(header, presetRow, curveBox, slidersBox, footer);
   return dialog;
 }
