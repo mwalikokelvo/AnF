@@ -71,7 +71,7 @@ pub fn validate(p: &Project) -> Result<(), String> {
         || p.name.len() > 160
         || p.title.len() > 300
         || p.question.len() > 10000
-        || p.draft.len() > 200_000
+        || p.draft.len() > 2_000_000
         || p.memory.len() > 12_000
         || !matches!(p.model.as_str(), "fast" | "balanced")
         || p.history.len() > 1000
@@ -85,7 +85,7 @@ pub fn validate(p: &Project) -> Result<(), String> {
     if p.history.iter().any(|t| {
         !matches!(t.role.as_str(), "user" | "assistant")
             || t.content.len() != 1
-            || t.content[0].text.len() > 200_000
+            || t.content[0].text.len() > 2_000_000
             || !matches!(t.label.as_deref(), None | Some("pc") | Some("browser"))
     }) || p.sources.iter().any(|s| {
         !crate::workspace::valid_reading(s) || s.text.len() > 2_000_000
@@ -267,6 +267,23 @@ pub fn retain_file(path: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn draft_allows_two_megabytes_but_not_more() {
+        let mut p = Project {
+            id: "a".repeat(64),
+            name: "Large draft".into(),
+            title: "Draft".into(),
+            question: String::new(),
+            draft: "x".repeat(2_000_000),
+            history: vec![],
+            sources: vec![],
+            memory: String::new(),
+            model: "fast".into(),
+        };
+        assert!(validate(&p).is_ok(), "a two-megabyte draft is accepted");
+        p.draft.push('x');
+        assert!(validate(&p).is_err(), "one byte over the limit is refused");
+    }
     #[test]
     fn sync_preserves_both_edits_and_stale_desktop_saves(){
         use crate::sync_data::revision;

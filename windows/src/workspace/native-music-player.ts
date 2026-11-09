@@ -50,9 +50,16 @@ export function createNativeMusicPlayer(options:{
     toggle.setAttribute('aria-label',playing ? 'Pause Spotube' : 'Play Spotube');
     toggle.title = playing ? 'Pause Spotube' : 'Play Spotube';
     toggle.replaceChildren(svg(icons[playing ? 'pause' : 'play'],22,{stroke:1.8}));
-    elapsed.textContent = durationText((state?.position || 0)/1000);
-    total.textContent = durationText((state?.duration || 0)/1000);
+    const remainingSec = Math.max(0, ((state?.duration || 0) - (state?.position || 0)) / 1000);
+    const remText = durationText(remainingSec);
+    const durText = durationText((state?.duration || 0)/1000);
+    const pct = state?.duration ? Math.round((state.position / state.duration) * 100) : 0;
+    elapsed.textContent = pct ? `${durationText((state?.position || 0)/1000)} · ${pct}%` : durationText((state?.position || 0)/1000);
+    total.textContent = pct ? `${durText} · ${remText} left` : durText;
+    total.title = pct ? `${remText} remaining of ${durText}` : '';
     progress.max = state?.duration || 1; progress.value = Math.min(state?.position || 0,progress.max);
+    progress.title = pct ? `${pct}% complete · ${remText} remaining` : '';
+    progress.setAttribute('aria-valuetext', pct ? `${pct}% complete, ${remText} remaining` : '');
     for (const button of [previous,toggle,next]) button.disabled = busy;
   }
   function cancelTimer() { if (timer !== undefined) clearTimeout(timer); timer = undefined; }

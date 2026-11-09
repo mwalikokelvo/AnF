@@ -40,6 +40,10 @@ jobs:
           if (!(Test-Path media/SOURCES.txt)) {
             'FFmpeg was not downloaded on this runner. Audio export features that need a bundled ffmpeg.exe may be unavailable in this development package.' | Set-Content media/SOURCES.txt
           }
+          if (!(Test-Path media/ffmpeg.exe)) {
+            # Placeholder so the Tauri resource path exists when the prepare step is skipped.
+            Set-Content -LiteralPath media/ffmpeg.exe -Value 'placeholder'
+          }
       - name: Build the hook relay
         run: cargo build --release -p coucou-hook
       - name: Build the base installer without offline AI assets
@@ -88,7 +92,7 @@ jobs:
           cache-dependency-path: |
             windows/package-lock.json
             android/package-lock.json
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: 21

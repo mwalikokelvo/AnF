@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fromWire, syncFailureKind, toWire, utf8Prefix } from '../../android/web/sync.ts';
+import { fromWire, restoreEitherHost, syncFailureKind, toWire, utf8Prefix } from '../../android/web/sync.ts';
 import { restoreInPlace, restoreProjects } from '../../android/web/project-data.ts';
 import { handOffLockScreen, lockScreenPlan, nativeBridgeId } from '../src/workspace/lock-screen.ts';
 import type { Project } from '../../android/web/project-data.ts';
@@ -90,6 +90,135 @@ test('file restore keeps OCR pages as a new copy, and snapshot restore keeps the
   assert.equal(restored.id, 'phone-id');
   assert.equal(restored.sync?.id, syncId);
   assert.equal(restored.sources[0].pages?.[0].ocr, true);
+});
+
+function windowsProject(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'c'.repeat(64),
+    name: 'Saved',
+    title: 'Draft title',
+    question: 'What happened?',
+    draft: 'Private writing',
+    history: [] as unknown[],
+    sources: [{ name: 'Book', text: 'Hello', pages: [{ number: 1, text: 'Page one', ocr: true }], path: 'C:\\secret\\book.pdf' }],
+    memory: 'remember this',
+    model: 'fast',
+    ...overrides,
+  };
+}
+
+test('Android backup restores as a new copy with OCR pages and no sync identity', () => {
+  const project = phoneProject([{ role: 'You', text: 'hello' }]);
+  const copies = restoreEitherHost({ kind: 'coucou-mobile-backup', version: 1, projects: [project] }, () => 'copy-id');
+  assert.equal(copies.length, 1);
+  assert.equal(copies[0].id, 'copy-id');
+  assert.equal(copies[0].sync, undefined);
+  assert.equal(copies[0].prompt, 'question');
+  assert.deepEqual(copies[0].notes, [{ role: 'You', text: 'hello' }]);
+  assert.equal(copies[0].sources[0].pages?.[0].text, 'Page one');
+  assert.equal(copies[0].sources[0].pages?.[0].ocr, true);
+});
+
+test('Windows backup history becomes phone notes and keeps pages on a new copy', () => {
+  const windowsId = 'c'.repeat(64);
+  const [project] = restoreEitherHost({
+    kind: 'coucou-windows-backup',
+    version: 1,
+    projects: [windowsProject({
+      id: windowsId,
+      question: 'What happened?',
+      history: [
+        { role: 'user', content: [{ text: 'hello' }] },
+        { role: 'assistant', content: [{ text: 'local' }], label: 'pc' },
+        { role: 'assistant', content: [{ text: 'pasted' }], label: 'browser' },
+        { role: 'assistant', content: [{ text: 'plain' }] },
+      ],
+    })],
+  }, () => 'phone-new');
+  assert.equal(project.id, 'phone-new');
+  assert.notEqual(project.id, windowsId);
+  assert.equal(project.name, 'Saved');
+  assert.equal(project.draft, 'Private writing');
+  assert.equal(project.prompt, 'What happened?');
+  assert.deepEqual(project.notes, [
+    { role: 'You', text: 'hello' },
+    { role: 'PC offline AI', text: 'local' },
+    { role: 'Browser reply', text: 'pasted' },
+    { role: 'Assistant', text: 'plain' },
+  ]);
+  assert.deepEqual(project.sync, { id: windowsId, title: 'Draft title', memory: 'remember this', model: 'fast' });
+  assert.deepEqual(project.sources[0].pages, [{ number: 1, text: 'Page one', ocr: true }]);
+  assert.equal(Object.hasOwn(project.sources[0], 'path'), false);
+});
+
+test('Windows backup with no history restores an empty notes array', () => {
+  const fields = {
+    id: 'c'.repeat(64),
+    name: 'Saved',
+    title: 'Draft title',
+    question: 'What happened?',
+    draft: 'Private writing',
+    sources: [],
+    memory: 'remember this',
+    model: 'fast',
+  };
+  const omitted = restoreEitherHost({ kind: 'coucou-windows-backup', version: 1, projects: [fields] }, () => 'phone-new');
+  assert.deepEqual(omitted[0].notes, []);
+  assert.equal(omitted[0].prompt, 'What happened?');
+  const cleared = restoreEitherHost({ kind: 'coucou-windows-backup', version: 1, projects: [{ ...fields, history: null }] }, () => 'phone-new');
+  assert.deepEqual(cleared[0].notes, []);
+});
+
+test('a Windows id that is not 64 hex characters is not stored on the phone project', () => {
+  const [project] = restoreEitherHost({
+    kind: 'coucou-windows-backup',
+    version: 1,
+    projects: [windowsProject({ id: 'old-id', history: [], sources: [] })],
+  }, () => 'phone-new');
+  assert.equal(project.id, 'phone-new');
+  assert.equal(project.sync, undefined);
+});
+
+test('a 64-hex Windows id is stored only when title, memory, and model are present', () => {
+  const id = 'd'.repeat(64);
+  const [project] = restoreEitherHost({
+    kind: 'coucou-windows-backup',
+    version: 1,
+    projects: [{ id, name: 'Saved', question: 'q', draft: 'd', history: [], sources: [] }],
+  }, () => 'phone-new');
+  assert.equal(project.id, 'phone-new');
+  assert.equal(project.sync, undefined);
+});
+
+test('Windows backup rejects an unknown speaker role', () => {
+  assert.throws(() => restoreEitherHost({
+    kind: 'coucou-windows-backup',
+    version: 1,
+    projects: [windowsProject({ history: [{ role: 'system', content: [{ text: 'nope' }] }] })],
+  }, () => 'phone-new'), Error);
+});
+
+test('Windows backup rejects an unknown speaker label', () => {
+  assert.throws(() => restoreEitherHost({
+    kind: 'coucou-windows-backup',
+    version: 1,
+    projects: [windowsProject({ history: [{ role: 'assistant', content: [{ text: 'nope' }], label: 'other' }] })],
+  }, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({
+    kind: 'coucou-windows-backup',
+    version: 1,
+    projects: [windowsProject({ history: [{ role: 'assistant', content: [{ text: 'nope' }], label: '' }] })],
+  }, () => 'phone-new'), Error);
+});
+
+test('restoreEitherHost rejects a backup that is not a phone or Windows export', () => {
+  assert.throws(() => restoreEitherHost(null, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({ hello: 'world' }, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({ kind: 'other-app', version: 1, projects: [] }, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({ kind: 'coucou-windows-backup', version: 1 }, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({ kind: 'coucou-windows-backup', version: 1, projects: 'nope' }, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({ kind: 'coucou-windows-backup', version: 2, projects: [] }, () => 'phone-new'), Error);
+  assert.throws(() => restoreEitherHost({ kind: 'coucou-mobile-backup', version: 1 }, () => 'phone-new'), Error);
 });
 
 test('lock-screen request ids fit the Android bridge', () => {

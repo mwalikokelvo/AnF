@@ -267,6 +267,8 @@ test('parseSyncedLyrics keeps unsynced plain text with no active line', () => {
 });
 
 test('parseSyncedLyrics keeps legal timestamp edges and drops invalid seconds', () => {
+  // Shared with lyrics.ts: [offset:+ms] shifts stamps, enhanced <mm:ss> word tags are stripped,
+  // seconds ≥ 60 are dropped, and a colon fraction ([00:01:50] → 1.5 s) is allowed.
   const parsed = parseSyncedLyrics([
     '\uFEFF[00:00.000]zero',
     '[00:59.999]under sixty',
@@ -287,21 +289,21 @@ test('parseSyncedLyrics keeps legal timestamp edges and drops invalid seconds', 
   assert.equal(parsed.offsetMs, 0);
   assert.deepEqual(parsed.lines.map(line => [line.time, line.text]), [
     [0, 'zero'],
-    [1.5, 'colon fraction'],
-    [2, 'after offset <00:02.20>word'],
-    [4, ''],
-    [7.5, 'one digit second'],
-    [59.999, 'under sixty'],
-    [3660, 'sixty-one minutes'],
-    [7200, 'two hours as minutes'],
+    [0, 'colon fraction'],
+    [0.5, 'after offset word'],
+    [2.5, ''],
+    [6, 'one digit second'],
+    [58.499, 'under sixty'],
+    [3658.5, 'sixty-one minutes'],
+    [7198.5, 'two hours as minutes'],
   ]);
-  assert.equal(activeLyricLine(parsed, 0)?.text, 'zero');
-  assert.equal(activeLyricLine(parsed, 59.998)?.text, 'one digit second');
-  assert.equal(activeLyricLine(parsed, 59.999)?.text, 'under sixty');
-  assert.equal(activeLyricLine(parsed, 60)?.text, 'under sixty');
-  assert.equal(activeLyricLine(parsed, 3659.9)?.text, 'under sixty');
-  assert.equal(activeLyricLine(parsed, 3660)?.text, 'sixty-one minutes');
-  assert.equal(activeLyricLine(parsed, 4)?.text, '');
+  assert.equal(activeLyricLine(parsed, 0)?.text, 'colon fraction');
+  assert.equal(activeLyricLine(parsed, 58.498)?.text, 'one digit second');
+  assert.equal(activeLyricLine(parsed, 58.499)?.text, 'under sixty');
+  assert.equal(activeLyricLine(parsed, 58.5)?.text, 'under sixty');
+  assert.equal(activeLyricLine(parsed, 3658.4)?.text, 'under sixty');
+  assert.equal(activeLyricLine(parsed, 3658.5)?.text, 'sixty-one minutes');
+  assert.equal(activeLyricLine(parsed, 2.5)?.text, '');
   assert.equal(activeLyricLine(parsed, Number.POSITIVE_INFINITY), null);
   assert.equal(activeLyricLine(parsed, Number.NEGATIVE_INFINITY), null);
 

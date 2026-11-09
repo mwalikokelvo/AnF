@@ -289,7 +289,33 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - The sharing session keeps the last 10,000 request nonces. A full window drops the oldest nonce instead of refusing every later request. A nonce that has fallen out of the window can be replayed. That is the trade for keeping a long sharing session alive.
 - Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 331 pass / 0 fail, `npm run test:e2e` 138 pass / 0 fail, `node scripts/check-release.mjs` 11 pass, `cargo test -p coucou --lib` 131 pass / 12 ignored, `cargo test -p anf-vault` 7 pass). `SafeHttps` refusal checks compiled and passed on this JDK (http, userinfo, non-443, loopback, LAN, CGNAT, documentation, 240/4, IPv6 loopback, IPv4-mapped loopback, `.local`, single-label). Android `main.ts` bundles with esbuild. NOT installed. Not a release. No phone, no Windows installer, no live LRCLIB, no live LAN sync.
 - Commit `edb6197` on `cursor/repair-sync-playback-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/91
+
+## 2026-11-03 Cursor: one backup opens on either host
+
+- Android Settings reads its version from `android/package.json` through `androidVersionLabel()`. The heading is no longer a separate literal.
+- `restoreEitherHost` accepts `coucou-mobile-backup` and `coucou-windows-backup`. A Windows export restored on the phone keeps speakers (`You`, `PC offline AI`, `Browser reply`, `Assistant`) and OCR pages, and uses a new phone id. A 64-hex Windows id is kept only as `sync.id`.
+- Windows `validated_restore` accepts `coucou-mobile-backup` version 1. Speakers map back to user and assistant turns with the `pc` and `browser` labels. The Windows id is always new, and source paths are dropped. A bad note rejects the whole batch.
+- KOReader progress, the OPDS client, and the neural voice cache still have no reachable control. Read-aloud stays on the system voice. Those modules were left in place.
+- Assistants now dispatch one subagent per independent problem. The controller reviews, tests, and commits. That rule is in `CLAUDE.md`.
+- Labels: tested on Linux (`npx tsc --noEmit` clean, `npm test` 340 pass / 0 fail, `npm run test:e2e` 138 pass / 0 fail, `node scripts/check-release.mjs` 11 pass, `cargo test -p coucou --lib` 137 pass / 12 ignored, `node scripts/build-android.mjs --assets-only` bundled `android/build/assets/web/main.js`). NOT installed. Not a release.
+- Commit `f27697f` on `cursor/either-host-backup-27de`. PR: https://github.com/mwalikokelvo/AnF/pull/92. The sync and lock-screen work landed on `main` as `a66437f` (PR #91).
 - Left in place on purpose: the phone SQL table and the Windows SQL table both say schema version 1 and are not the same shape; copying `coucou.db` between them still fails. Music, lyrics, and podcasts stay out of conversation backup and sync. The DNA button can still call its existing lookups. Reader scroll position and the character offset are still different coordinates. KOReader, OPDS, and the neural voice cache are still library modules with no screen calling them. The Android settings heading is the literal `0.1.48`. The pairing code is still the AES key; the screen already says to keep it private and to stop sharing on Windows to revoke it. Three Android players remain (HTML audio, Media3, optional Spotube).
+
+### 2026-11-04 — OPDS catalog UI (Windows Documents)
+
+- Wired `opds-client.ts` acquisition URLs into parsing; new `opds-panel.ts` in Documents (`OPDS catalogs` details): save catalog URLs, opt-in **Allow catalog requests**, browse up to 5 pages, **Open link** via `open_url` or HTML via `workspace_read_web`.
+- Labels: **tested on Linux** (`npx tsc --noEmit`, `npm test` 332 pass, `check-release.mjs` 11 pass). Not installed.
+- Branch `cursor/opds-catalog-ui-d2fe` (worktree `.worktrees/opds-ui`). No PR.
+
+### 2026-11-06 — DeepSeek: overnight stack integrated, main build repaired
+
+- **`main` was broken at `9e8d3c7`.** The library sort commits wrote a doubled escape into `windows/src/workspace/library.ts:11` (`/^https?:\\/\\//i`), which terminates the regex early. `tsc` reported 11 errors and `vite build` failed; Android bundles the same module. Fixed in PR #103 (`fix/library-regex-build`, commit `0c48663`) with a new `windows/tests/library-module.test.ts` that imports the module. **Why nobody saw it:** `build.yml` is the macOS Swift build, `windows.yml` only runs on `pull_request`/`windows-v*` tags, and no workflow runs `npm test`. The green Build check on `main` never typechecked `windows/`.
+- Integration branch `integration/buildup-2026-11-06` (worktree `AnF-buildup`, base `9e8d3c7`) merges the 2026-11-04 overnight stack in dependency order: **#101 → #99 → #100 → #98 → #102 → #97 → #96**. All conflicts were `HANDOFF.md` (append collisions) except `main.ts`/`opds-panel.ts` in #102, resolved by keeping #93's panel and #102's download code, and `lib.rs` command lists (union).
+- **#95 (neural TTS) was dropped.** `neural-speech.ts` never registers a provider, so `neuralSpeechEnabled()` is permanently false: the Settings toggle can never be enabled and 236 lines are unreachable. Revisit with Phase 5 when a real Piper/Kokoro provider exists.
+- **#100** is based on #99 (not main); the delta applies cleanly after #99. **#102** carries a commit identical to merged #93 and overlaps it; only the Document fetch + import commits are wanted. #96 is the docs/tracker PR.
+- **Fixes added on the integration branch** (`76ba604`, `2a694a0`): Flow card covers created `blob:` URLs that were never revoked (leak per card; now revoked on Close); `coverImg` falls back to the direct https URL when safe-fetch returns nothing instead of leaving an empty `<img>`; the OPDS panel called `workspace_read_web` with `webEnabled:true` even when **Search the web** was off (now refused, same as `addWebSource`); the KOReader bridge followed redirects to any public https host while re-sending the stored user key (now redirects must keep scheme, host and port, with a unit test).
+- Labels: **tested on Linux-style Node gates on Windows** (`npx tsc --noEmit` clean, `npm test` **356 pass / 0 fail**, `npm run test:e2e` **138 pass / 0 fail**, `node scripts/check-release.mjs` **11 pass**). NOT installed, not a release, no live OPDS/KOReader/cover hosts contacted.
+- Left for the owner: #95 is still open and should be closed; #100/#102 still target their stacked bases on GitHub; merge order above is the safe one. Adding a `windows` typecheck/test job on pushes to `main` is the durable fix for the missed breakage.
 
 ## 2026-11-04 Cursor: neural read-aloud wiring (Phase 5 prep)
 
@@ -299,3 +325,4 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - `docs/specs/neural-tts-wire.md`: Phase 5 checklist (Piper/Kokoro or Tauri command + disk registration).
 - Labels: tested on Linux (`tsc` clean, `npm test` 335 pass / 0 fail, `check-release.mjs` 11 pass). NOT installed. No live neural model.
 - Branch: `cursor/tts-cache-wire-d2fe`.
+

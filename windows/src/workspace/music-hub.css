@@ -9,11 +9,12 @@ body.has-music-player .panel-host{scroll-padding-bottom:140px}
 .music-player:not(.music-full-player) .music-eq-dock{display:none}
 .music-full-player .music-eq-dock{display:none!important}
 @media(max-width:1280px){.music-player:not(.music-full-player) .music-controls>.music-eq-dock{display:grid!important}}
+@media(max-width:760px){.music-player:not(.music-full-player) .music-controls>.music-eq-dock{display:grid!important}}
 /* At 1280 and narrower the extras column squeezed the title to ~70px; the extras stay in the full player. The pill keeps its left edge until 1200. */
 @media(max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player) .music-extras{display:none}}
 @media(min-width:1201px) and (max-width:1280px){.music-player:not(.music-full-player):not(.native-music-player){grid-template-columns:minmax(0,1fr) minmax(250px,1.2fr)!important}}
 @media(max-width:760px){.music-heading{flex-wrap:wrap;gap:14px}.music-heading>div{flex:1}.music-monogram{order:0}.music-search{order:1;flex-basis:100%}.music-hub{padding:20px 14px 115px;border-radius:0}.music-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}.music-tabs{justify-content:space-between}.music-tabs button{flex:1;padding:12px 4px}.music-section-title{flex-wrap:wrap}.music-recent{grid-template-columns:1fr}.music-player{left:190px;right:10px;bottom:10px;grid-template-columns:minmax(0,1fr) auto;padding:9px;gap:8px}.music-player-art{width:48px;height:48px}.music-now{gap:10px}.music-now>button:not(.music-now-info){display:none}.music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}.music-progress span{display:none}.music-progress input{height:4px!important;min-height:4px!important}.music-controls{gap:0}.music-controls>button:not(.music-play){display:none}.music-now strong{font-size:12px}.music-now span{font-size:10px}.music-playlist-create{flex-wrap:wrap}}
-#app~.music-player,body:has(#app)>.music-player{left:10px;right:10px;bottom:var(--mobile-player-bottom,88px);grid-template-columns:minmax(0,1fr) auto;gap:12px}body:has(#app) .music-player .music-extras{display:none}body:has(#app) .music-player-art{width:48px;height:48px}body:has(#app) .music-player .music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}body:has(#app) .music-player .music-progress span{display:none}body:has(#app) .music-player .music-controls>button:not(.music-play){display:none}body:has(#app) .music-player .music-now>button:not(.music-now-info){display:none}body:has(#app) .bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr))!important}body:has(#app) .bottom-nav button{font-size:9px}
+#app~.music-player,body:has(#app)>.music-player{left:10px;right:10px;bottom:var(--mobile-player-bottom,88px);grid-template-columns:minmax(0,1fr) auto;gap:12px}body:has(#app) .music-player .music-extras{display:none}body:has(#app) .music-player-art{width:48px;height:48px}body:has(#app) .music-player .music-progress{position:absolute;left:12px;right:12px;bottom:0;height:4px}body:has(#app) .music-player .music-progress span{display:none}body:has(#app) .music-player .music-controls>button:not(.music-play){display:none}body:has(#app) .music-player:not(.music-full-player) .music-controls>.music-eq-dock{display:grid!important}body:has(#app) .music-player .music-now>button:not(.music-now-info){display:none}body:has(#app) .bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr))!important}body:has(#app) .bottom-nav button{font-size:9px}
 
 /* Music mode retains the compact shell while inheriting workspace appearance. */
 body.music-view .history-sidebar>h2,body.music-view .history-sidebar>input,body.music-view .history-sidebar>button,body.music-view nav[aria-label="Conversation history"]{display:none}
@@ -1037,17 +1038,18 @@ body:has(#app) .native-music-source{display:flex}
   transform: scale(1.08) !important;
 }
 
-/* 3. Ultrawide 3-Column Studio Layout */
+/* 3. Studio layout: library stage + now-playing drawer. The duplicate left rail
+   was removed in the local-first rebuild; the tabs are the only navigation. */
 .music-studio-layout {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) 330px;
   gap: 24px;
   position: relative;
   z-index: 1;
 }
 
 .music-studio-layout.drawer-collapsed {
-  grid-template-columns: 210px minmax(0, 1fr) 48px;
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 /* Left: Slim Library Navigation Rail */
@@ -1291,9 +1293,6 @@ body:has(#app) .native-music-source{display:flex}
   .music-studio-layout {
     grid-template-columns: minmax(0, 1fr) 300px;
   }
-  .music-library-rail {
-    display: none;
-  }
 }
 @media(max-width: 960px) {
   .music-studio-layout {
@@ -1320,3 +1319,24 @@ body:has(#app) .native-music-source{display:flex}
     scroll-behavior: auto !important;
   }
 }
+
+/* A document autosave failure must never appear over the music player. */
+body.music-view .save-alert{display:none!important}
+
+/* Archive tab: public-domain audiobooks streamed from archive.org. */
+.music-archive{display:flex;flex-direction:column;gap:14px;max-width:920px}
+.music-archive h3{margin:0;font-size:20px}
+.music-archive .row{align-items:center}
+.music-archive .row input{flex:1 1 320px}
+.music-archive-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid var(--music-line);border-radius:14px;background:color-mix(in srgb,var(--music-surface) 72%,transparent)}
+.music-archive-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.music-archive-copy strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-archive-meta{font-size:12px;color:var(--music-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-archive-play{flex:0 0 auto;border-radius:999px;padding:8px 18px;border:1px solid color-mix(in srgb,var(--music-accent) 45%,transparent);background:color-mix(in srgb,var(--music-accent) 16%,transparent);color:var(--music-ink);font-weight:600}
+.music-archive-play:hover{background:color-mix(in srgb,var(--music-accent) 26%,transparent)}
+
+/* Keep transport labels on one line; "Find lyrics" and "Mute" used to wrap in the dock. */
+.music-player button,.music-player .music-extras button{white-space:nowrap}
+
+.music-card-progress{height:3px;background:rgba(255,255,255,0.12);border-radius:2px;margin:6px 0 2px;overflow:hidden}
+.music-card-progress-bar{height:100%;background:var(--music-accent,#1db954);border-radius:2px}

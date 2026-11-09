@@ -22,6 +22,8 @@ mod book;
 mod web_search;
 mod ocr_endpoint;
 mod safe_fetch;
+mod koreader_sync;
+mod subsonic;
 mod workspace_commands;
 use workspace_commands::*;
 mod files;
@@ -473,7 +475,9 @@ pub fn run() {
             model_download::local_ai_models,model_download::local_ai_download,model_download::local_ai_download_cancel,
             audio_native::audio_convert,audio_native::audio_conversion_cancel,
             music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
-            safe_fetch::command::safe_fetch_text,safe_fetch::command::safe_fetch_audio,
+            safe_fetch::command::safe_fetch_text,safe_fetch::command::safe_fetch_audio,safe_fetch::command::safe_fetch_image,safe_fetch::command::safe_fetch_document,
+            koreader_sync::koreader_sync_request,
+            subsonic::subsonic_search,subsonic::subsonic_stream,subsonic::subsonic_test,
             boot,
             save_settings,
             set_collapsed,

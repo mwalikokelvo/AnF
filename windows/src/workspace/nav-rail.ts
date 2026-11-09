@@ -4,7 +4,7 @@
 import {h} from '../views/dom';
 import './nav-rail.css';
 
-const IDLE_MS = 4000, PIN_KEY = 'anf-rail-pinned';
+const IDLE_MS = 2200, PIN_KEY = 'anf-rail-pinned';
 
 export function attachNavRail(rail:HTMLElement, layout:HTMLElement) {
   const wide = matchMedia('(min-width:768px)');

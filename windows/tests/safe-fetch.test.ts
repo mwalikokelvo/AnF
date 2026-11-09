@@ -1,7 +1,7 @@
 import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hasSafeFetch, safeFetchAudio, safeFetchText } from '../src/workspace/safe-fetch.js';
+import { hasSafeFetch, safeFetchAudio, safeFetchDocument, safeFetchImage, safeFetchText } from '../src/workspace/safe-fetch.js';
 import { fetchFeed, downloadPodcastEnclosure } from '../src/workspace/podcast-feeds.js';
 
 if (typeof globalThis.localStorage === 'undefined') {
@@ -62,6 +62,22 @@ describe('safe fetch bridge', () => {
     assert.equal(blob.type, 'audio/mpeg');
     installTauri(() => 'nonsense');
     await assert.rejects(() => safeFetchAudio('https://example.org/a.mp3'), /unexpected response/);
+  });
+
+  test('safeFetchImage wraps returned bytes in a typed Blob', async () => {
+    const calls = installTauri(() => new Uint8Array([9, 8, 7]).buffer);
+    const blob = await safeFetchImage('https://example.org/cover.png', 'image/png');
+    assert.equal(blob.size, 3);
+    assert.equal(blob.type, 'image/png');
+    assert.deepEqual(calls, [{ cmd: 'safe_fetch_image', args: { url: 'https://example.org/cover.png' } }]);
+  });
+
+  test('safeFetchDocument wraps returned bytes in a typed Blob', async () => {
+    const calls = installTauri(() => new Uint8Array([0x50, 0x4b]).buffer);
+    const blob = await safeFetchDocument('https://example.org/book.epub', 'application/epub+zip');
+    assert.equal(blob.size, 2);
+    assert.equal(blob.type, 'application/epub+zip');
+    assert.deepEqual(calls, [{ cmd: 'safe_fetch_document', args: { url: 'https://example.org/book.epub' } }]);
   });
 });
 
@@ -126,5 +142,7 @@ describe('CSP stays restrictive and the command is wired', () => {
     assert.match(lib, /mod safe_fetch;/);
     assert.match(lib, /safe_fetch::command::safe_fetch_text/);
     assert.match(lib, /safe_fetch::command::safe_fetch_audio/);
+    assert.match(lib, /safe_fetch::command::safe_fetch_image/);
+    assert.match(lib, /safe_fetch::command::safe_fetch_document/);
   });
 });

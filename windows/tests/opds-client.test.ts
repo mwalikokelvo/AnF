@@ -96,6 +96,40 @@ test('walks atom and json pages until rel=next disappears', async () => {
   assert.equal(result.books[1].thumbnailUrl, undefined);
 });
 
+test('captures https acquisition links and drops javascript and userinfo urls', () => {
+  const page = parseOpds(PAGE_1, ROOT);
+  assert.equal(page.books[0].acquisitionUrl, 'https://example.org/a.epub');
+  assert.equal(page.books[0].acquisitionType, 'application/epub+zip');
+
+  const hostile = parseOpds(
+    `<feed xmlns="http://www.w3.org/2005/Atom">
+      <entry>
+        <id>urn:book:bad</id>
+        <title>Bad links</title>
+        <link rel="http://opds-spec.org/acquisition/open-access" href="javascript:alert(1)"/>
+        <link rel="http://opds-spec.org/acquisition/open-access" href="https://user:secret@example.org/book.epub"/>
+        <link rel="http://opds-spec.org/acquisition/open-access" href="https://example.org/safe.epub" type="application/epub+zip"/>
+      </entry>
+    </feed>`,
+    ROOT,
+  );
+  assert.equal(hostile.books[0].acquisitionUrl, 'https://example.org/safe.epub');
+  assert.equal(hostile.books[0].acquisitionType, 'application/epub+zip');
+
+  const openAccess = parseOpds(
+    `<feed xmlns="http://www.w3.org/2005/Atom">
+      <entry>
+        <id>urn:book:pick</id>
+        <title>Pick open access</title>
+        <link rel="http://opds-spec.org/acquisition" href="https://example.org/paid.epub"/>
+        <link rel="http://opds-spec.org/acquisition/open-access" href="https://example.org/free.epub" type="application/epub+zip"/>
+      </entry>
+    </feed>`,
+    ROOT,
+  );
+  assert.equal(openAccess.books[0].acquisitionUrl, 'https://example.org/free.epub');
+});
+
 test('reads page, offset, and cursor from the next link, not the current page', () => {
   const page = parseOpds(
     `<feed xmlns="http://www.w3.org/2005/Atom"><link rel="next" href="?page=4&amp;offset=60&amp;cursor=shelf-9"/></feed>`,
