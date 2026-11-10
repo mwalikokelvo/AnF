@@ -1,0 +1,9 @@
+﻿---
+description: Auto-applies security checks, safe storage, and IPC boundary rules
+globs: "src-tauri/**/*.rs,windows/src/**/auth*,windows/src/**/storage*"
+alwaysApply: false
+---
+
+Follow `.cursor/skills/build-loop/build-loop/agents/security.md` and `.cursor/skills/build-loop/build-loop/references/security.md`.
+- Enforce strict validation across Tauri IPC channels.
+- Prevent cleartext credential storage and path traversal during local file access.

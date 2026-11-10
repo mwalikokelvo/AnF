@@ -36,5 +36,7 @@ node_modules/
 dist/
 **/dist/
 
-.agents/
 .worktrees/
+# Ephemeral cache & nested copies
+graphify-out/cache/
+anf/

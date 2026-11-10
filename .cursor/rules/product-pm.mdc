@@ -1,0 +1,9 @@
+﻿---
+description: Enforces lean scoping, atomic task slicing, and PR definition of done
+globs: "docs/**/*.md,HANDOFF.md,**/*ROADMAP*"
+alwaysApply: false
+---
+
+Follow `.cursor/skills/build-loop/build-loop/agents/product.md` and `.cursor/skills/build-loop/build-loop/agents/project-management.md`.
+- Break large feature requests into small, testable, parallel tasks.
+- Keep agent context lean and ensure clear success criteria before coding begins.

@@ -5,23 +5,37 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\Users\\mwali\\.gemini\\antigravity\\scratch\\AnF"
+        "."
       ]
     },
     "fetch": {
-      "command": "python",
+      "command": "npx",
       "args": [
-        "-m",
-        "mcp_server_fetch"
+        "-y",
+        "@modelcontextprotocol/server-fetch"
       ]
     },
     "git": {
-      "command": "python",
+      "command": "npx",
       "args": [
-        "-m",
-        "mcp_server_git",
+        "-y",
+        "mcp-server-git",
         "--repository",
-        "C:\\Users\\mwali\\.gemini\\antigravity\\scratch\\AnF"
+        "."
+      ]
+    },
+    "magic-ui": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@21st-dev/magic-mcp"
+      ]
+    },
+    "codebase-memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "codebase-memory-mcp"
       ]
     }
   }

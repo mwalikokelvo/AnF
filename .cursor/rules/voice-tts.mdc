@@ -1,0 +1,9 @@
+﻿---
+description: Auto-applies audio synthesis, neural TTS, and voice caching standards
+globs: "windows/src/**/voice*,windows/src/**/tts*,windows/src/**/audio*,src-tauri/**/audio*"
+alwaysApply: false
+---
+
+Follow `.cursor/skills/build-loop/build-loop/references/voice.md` and `.cursor/skills/build-loop/build-loop/vendor/fish-audio.md`.
+- Enforce resilient neural TTS chunking, buffer management, and disk cache integrity.
+- Gracefully handle audio stream dropouts and conversion failures.
