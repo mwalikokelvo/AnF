@@ -1337,6 +1337,13 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  function coverImg(url:string|undefined){
   const fallback=safeHttpsUrl(url)||'';
   const img=h('img',{alt:'',loading:'lazy'});
+  img.onerror=()=>{
+   img.style.display='none';
+   const p=img.parentElement;
+   if(p&&!p.querySelector('svg')){
+    p.prepend(svg(icons.music,40,{stroke:1.2}));
+   }
+  };
   if(fallback)img.src=fallback;
   void resolveHubCover(url).then(src=>{const shown=src||fallback;if(!shown||shown===img.src)return;img.src=shown;rememberArtBlob(shown);}).catch(()=>{if(fallback&&img.src!==fallback)img.src=fallback;});
   return img;
