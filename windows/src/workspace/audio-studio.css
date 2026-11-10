@@ -15,3 +15,13 @@
   [data-theme=system] .audio-queue-row button[aria-current=true]{color:#7a5a30;background:#7a5a3014}
   [data-theme=system] .audio-studio details{color:#566069}
 }
+
+/* Professional DAW Transport Bar and Waveform Finish */
+.audio-studio{background:var(--surface,#182a2d);border:1px solid var(--line,#385052);border-radius:var(--radius-lg,16px);padding:24px;box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,0.22))}
+.audio-studio canvas{border-radius:var(--radius-md,10px);border:1px solid var(--line,#385052);box-shadow:inset 0 2px 8px rgba(0,0,0,0.4)}
+.audio-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;background:var(--bg,#101e21);border:1px solid var(--line,#385052);border-radius:var(--radius-md,10px)}
+.audio-controls button{border-radius:var(--radius-sm,6px);padding:8px 14px;font-weight:600;min-height:38px}
+.audio-controls button.primary{background:#e05252;color:#fff;border-color:transparent}
+.audio-controls button.primary:hover:not(:disabled){background:#f06262}
+.audio-meter{background:var(--bg,#101e21);padding:4px 10px;border-radius:var(--radius-sm,6px);border:1px solid var(--line,#385052);letter-spacing:.05em}
+

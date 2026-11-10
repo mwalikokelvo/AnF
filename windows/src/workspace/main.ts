@@ -149,7 +149,13 @@ function renderHistory(){renderFollowups();
   for(const turn of history.slice(-shownMessages)){
     const text=turn.content.map(p=>p.text).join('\n');
     let tools:HTMLButtonElement[];
-    if(turn.role==='assistant')tools=replyDraft.actions(text);
+    if(turn.role==='assistant'){
+      const copyBtn=h('button',{text:'Copy',type:'button',title:'Copy answer to clipboard',onclick:async()=>{
+        try{await navigator.clipboard.writeText(text);status.textContent='Answer copied to clipboard.';}catch{status.textContent='Could not copy response.';}
+      }}) as HTMLButtonElement;
+      tools=replyDraft.actions(text);
+      tools.unshift(copyBtn);
+    }
     else{const reuse=h('button',{text:'Use this question'}) as HTMLButtonElement;reuse.addEventListener('click',()=>{if(busy)return;question.value=text;showView('chat');autosave();});tools=[reuse];}
     for(const b of tools)b.disabled=busy;
     conversation.append(h('article',{class:'message '+turn.role},h('h3',{text:turn.role==='user'?'You':'AnF · Offline'}),turn.role==='assistant'?paginatedResponse(text):h('pre',{text}),h('div',{class:'row'},...tools)));
@@ -280,13 +286,145 @@ const backups=backupTools({allowed:()=>!busy,collect:async all=>{await saveProje
 const vault=vaultPanel({platform:'windows',allowed:()=>!busy,status:()=>invoke<VaultStatus>('workspace_vault_status'),enable:async()=>{let result:VaultStatus|undefined;await run(async()=>{await saveProject();result=await invoke<VaultStatus>('workspace_vault_enable');await refreshProjects();},'Encrypting saved conversations');if(!result)throw Error('Migration did not complete. See the workspace status.');return result;},key:()=>invoke<string>('workspace_vault_recovery_key'),recover:key=>invoke<void>('workspace_vault_recover',{key}),export:async text=>'Saved: '+await invoke<string>('workspace_export_pack',{text})});
 let snapshotOwner='';
 const versions=snapshotPanel({allowed:()=>!busy,list:async()=>{snapshotOwner=projectId;return{title:name.value,versions:await invoke<SavedVersion[]>('workspace_vault_versions',{id:snapshotOwner})};},restore:async seq=>{await invoke('workspace_vault_restore',{id:snapshotOwner,seq});await refreshProjects();}});
-section('settings','Settings',h('h3',{text:'Appearance and reading'}),h('div',{class:'row'},appearance,textSize),h('label',{class:'check-row'},keepIsland,' Keep the island open while I use this workspace'),h('label',{class:'check-row'},showPreviews,' Show message previews in the history list'),koreaderPanel,subsonicPanel,h('details',{},h('summary',{text:'Neural read-aloud (experimental)'}),neuralReadAloudHint,h('label',{class:'check-row'},neuralReadAloud,' Use neural read-aloud in Reader')),h('h3',{text:'Conversations and AI'}),selector,button('Save project',async()=>{await saveProject();status.textContent='Conversation saved.';}),model,h('p',{class:'hint',text:'Answers come from the offline model files installed on this computer. Only the Qwen3 models can be downloaded and verified (see Offline models below); the other listed models are not available yet.'}),offlineModelsPanel(),h('details',{},h('summary',{text:'Conversation memory'}),memory,button('Summarize conversation into memory',async active=>{if(!history.length)throw Error('Start a conversation first.');const input=history.slice(-20).map(t=>`${t.role}: ${compact(t.content[0].text,700)}`).join('\n');const reply=await invoke<{text:string}>('workspace_ask',{job,query:'Summarize goals, preferences, decisions and unfinished tasks. Keep notes under 150 words. Do not invent facts.',sources:[{name:'Recent conversation',text:input,pages:[],path:null}],history:[],memory:memory.value,model:model.value});if(active!==operation)return;memory.value=reply.text.slice(0,12000);await saveProject();status.textContent='Memory updated. Review the notes above.';},'Summarizing conversation')),h('h3',{text:'Devices'}),linkPanel,h('details',{},h('summary',{text:'Desktop companion (Windows)'}),h('p',{class:'hint',text:'A small always-on-top helper with volume and media buttons. It never listens. It looks at your screen only when you press Screen, shows you the shot first, and sends it to your AI provider only after you press Send.'}),h('div',{class:'row'},button('Open companion',async()=>{await invoke('companion_open');status.textContent='Companion opened.';}),button('Close companion',async()=>{await invoke('companion_close');}))),h('h3',{text:'Themes'}),marketplacePanel(),h('h3',{text:'Apps'}),appCatalogPanel(url=>invoke('open_url',{url})),h('h3',{text:'Data, privacy and recovery'}),vault,versions,backups,h('h3',{text:'Files, websites and updates'}),h('details',{},h('summary',{text:'File and app actions'}),h('p',{class:'hint',text:'Preview each action before applying it. Organizing makes copies and preserves originals.'}),folder,folderName,button('Preview creating folder',()=>preview('folder')),openPath,button('Preview opening document',()=>preview('open')),button('Preview draft in Notepad',()=>preview('notepad')),actionFiles,button('Preview organization',()=>preview('organize')),actionDescription,apply),h('details',{},h('summary',{text:'Optional websites'}),h('p',{class:'hint',text:'These open separate browser accounts. Website limits apply; answers stay in your browser.'}),h('div',{class:'row'},...Object.values(BROWSER_APPS).map(app=>button(app.label,async()=>{await invoke('open_url',{url:app.url});status.textContent=`Opened ${app.label} in your browser.`;})))),updatesPanel(),h('details',{},h('summary',{text:'Installation details'}),button('Check installation',async()=>diagnostics()),diagnosticDetails));
+const settingsCatBtns=new Map<string,HTMLButtonElement>();
+const settingsPanels=new Map<string,HTMLElement>();
+function selectSettingsCategory(catId:string){
+  for(const [id,btn] of settingsCatBtns)btn.setAttribute('aria-selected',id===catId?'true':'false');
+  for(const [id,p] of settingsPanels)p.hidden=id!==catId;
+}
+
+const generalPanel=h('div',{class:'settings-panel-view'},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Appearance and reading'}),
+    h('div',{class:'row'},appearance,textSize),
+    h('label',{class:'check-row'},keepIsland,' Keep the island open while I use this workspace'),
+    h('label',{class:'check-row'},showPreviews,' Show message previews in the history list'),
+    h('h3',{text:'Desktop companion (Windows)'}),
+    h('p',{class:'hint',text:'A small always-on-top helper with volume and media buttons. It never listens. It looks at your screen only when you press Screen, shows you the shot first, and sends it to your AI provider only after you press Send.'}),
+    h('div',{class:'row'},button('Open companion',async()=>{await invoke('companion_open');status.textContent='Companion opened.';}),button('Close companion',async()=>{await invoke('companion_close');}))
+  )
+);
+settingsPanels.set('general',generalPanel);
+
+const aiPanel=h('div',{class:'settings-panel-view',hidden:true},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Conversations and AI'}),
+    selector,
+    button('Save project',async()=>{await saveProject();status.textContent='Conversation saved.';}),
+    model,
+    h('p',{class:'hint',text:'Answers come from the offline model files installed on this computer. Only the Qwen3 models can be downloaded and verified (see Offline models below); the other listed models are not available yet.'}),
+    offlineModelsPanel(),
+    h('details',{},
+      h('summary',{text:'Conversation memory'}),
+      memory,
+      button('Summarize conversation into memory',async active=>{
+        if(!history.length)throw Error('Start a conversation first.');
+        const input=history.slice(-20).map(t=>`${t.role}: ${compact(t.content[0].text,700)}`).join('\n');
+        const reply=await invoke<{text:string}>('workspace_ask',{job,query:'Summarize goals, preferences, decisions and unfinished tasks. Keep notes under 150 words. Do not invent facts.',sources:[{name:'Recent conversation',text:input,pages:[],path:null}],history:[],memory:memory.value,model:model.value});
+        if(active!==operation)return;
+        memory.value=reply.text.slice(0,12000);
+        await saveProject();
+        status.textContent='Memory updated. Review the notes above.';
+      },'Summarizing conversation')
+    )
+  )
+);
+settingsPanels.set('ai',aiPanel);
+
+const mediaPanel=h('div',{class:'settings-panel-view',hidden:true},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Music, Streaming & Speech'}),
+    subsonicPanel,
+    h('details',{},
+      h('summary',{text:'Neural read-aloud (experimental)'}),
+      neuralReadAloudHint,
+      h('label',{class:'check-row'},neuralReadAloud,' Use neural read-aloud in Reader')
+    )
+  )
+);
+settingsPanels.set('media',mediaPanel);
+
+const syncPanel=h('div',{class:'settings-panel-view',hidden:true},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Cross-Device Sync & Reading Position'}),
+    koreaderPanel,
+    linkPanel
+  )
+);
+settingsPanels.set('sync',syncPanel);
+
+const vaultPanelEl=h('div',{class:'settings-panel-view',hidden:true},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Data, Privacy and Vault Recovery'}),
+    vault,
+    versions,
+    backups
+  )
+);
+settingsPanels.set('vault',vaultPanelEl);
+
+const extPanel=h('div',{class:'settings-panel-view',hidden:true},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Appearance Themes'}),
+    marketplacePanel(),
+    h('h3',{text:'Verified Companion Apps'}),
+    appCatalogPanel(url=>invoke('open_url',{url}))
+  )
+);
+settingsPanels.set('extensions',extPanel);
+
+const sysPanel=h('div',{class:'settings-panel-view',hidden:true},
+  h('div',{class:'settings-card'},
+    h('h3',{text:'Files, Tools & System Diagnostics'}),
+    h('details',{},
+      h('summary',{text:'File and app actions'}),
+      h('p',{class:'hint',text:'Preview each action before applying it. Organizing makes copies and preserves originals.'}),
+      folder,folderName,button('Preview creating folder',()=>preview('folder')),
+      openPath,button('Preview opening document',()=>preview('open')),
+      button('Preview draft in Notepad',()=>preview('notepad')),
+      actionFiles,button('Preview organization',()=>preview('organize')),
+      actionDescription,apply
+    ),
+    h('details',{},
+      h('summary',{text:'Optional websites'}),
+      h('p',{class:'hint',text:'These open separate browser accounts. Website limits apply; answers stay in your browser.'}),
+      h('div',{class:'row'},...Object.values(BROWSER_APPS).map(app=>button(app.label,async()=>{await invoke('open_url',{url:app.url});status.textContent=`Opened ${app.label} in your browser.`;})))
+    ),
+    updatesPanel(),
+    h('details',{},
+      h('summary',{text:'Installation details'}),
+      button('Check installation',async()=>diagnostics()),
+      diagnosticDetails
+    )
+  )
+);
+settingsPanels.set('system',sysPanel);
+
+const settingsNav=h('nav',{class:'settings-nav','aria-label':'Settings Categories'});
+const categories=[
+  ['general','General'],
+  ['ai','AI Models'],
+  ['media','Audio & Media'],
+  ['sync','Devices & Sync'],
+  ['vault','Vault & Privacy'],
+  ['extensions','Themes & Apps'],
+  ['system','System & Health']
+] as const;
+
+for(const [id,label] of categories){
+  const btn=h('button',{type:'button',class:'settings-nav-btn',text:label,'aria-selected':id==='general'?'true':'false',onclick:()=>selectSettingsCategory(id)}) as HTMLButtonElement;
+  settingsCatBtns.set(id,btn);
+  settingsNav.append(btn);
+}
+
+const settingsHub=h('div',{class:'settings-hub'},settingsNav,h('div',{class:'settings-content'},...settingsPanels.values()));
+section('settings','Settings',settingsHub);
 const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{query:''}),load:id=>invoke<Project>('workspace_load_project',{id}),current:()=>snapshot(),allowed:()=>!busy,view:showView,
  open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value=p.model;lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
  append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
-const studioTools=h('div',{class:'studio-header-tools'},h('button',{text:'Quick note',onclick:()=>quickNote.open()}),h('button',{text:'Devices',class:'studio-status','aria-label':'Connect another device',onclick:()=>{showView('settings');linkPanel.open=true;}}),h('button',{text:'Search','aria-label':'Search and commands',onclick:()=>void studio.open()}),h('button',{text:'Keys',title:'Keyboard Shortcuts (?)',onclick:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())}),h('button',{text:'Settings',onclick:()=>showView('settings')}));
+const studioTools=h('div',{class:'studio-header-tools'},h('button',{text:'Quick note',onclick:()=>quickNote.open()}),h('button',{text:'Devices',class:'studio-status','aria-label':'Connect another device',onclick:()=>{showView('settings');selectSettingsCategory('sync');linkPanel.open=true;}}),h('button',{text:'Search (Ctrl+K)','aria-label':'Search and commands (Ctrl+K)',onclick:()=>void studio.open()}),h('button',{text:'Keys',title:'Keyboard Shortcuts (?)',onclick:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())}),h('button',{text:'Settings',onclick:()=>showView('settings')}));
 main.replaceChildren(h('header',{class:'workspace-header'},h('div',{},viewTitle,h('span',{class:'hint',text:'Private workspace · Saved on this computer'})),h('div',{class:'project-title'},name,saved),studioTools),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress,saveAlert.root,replyDraft.bar),cancel));
-window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();if(!busy)void run(ask,'Thinking locally');}if(event.ctrlKey&&event.key.toLowerCase()==='s'){event.preventDefault();if(!busy)void saveProject().catch(()=>{});}if(event.ctrlKey&&event.key.toLowerCase()==='f'){event.preventDefault();searchHistory.focus();}
+window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){const active=document.activeElement as HTMLElement|null;if(!active?.closest('input,textarea,select')&&!active?.isContentEditable){event.preventDefault();void studio.open();return;}}if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();if(!busy)void run(ask,'Thinking locally');}if(event.ctrlKey&&event.key.toLowerCase()==='s'){event.preventDefault();if(!busy)void saveProject().catch(()=>{});}if(event.ctrlKey&&event.key.toLowerCase()==='f'){event.preventDefault();searchHistory.focus();}
   if((event.key==='?'&&!((event.target as HTMLElement)?.closest('input,textarea,select')||(event.target as HTMLElement)?.isContentEditable))||(event.ctrlKey&&event.key==='/')){
     event.preventDefault();
     void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog());

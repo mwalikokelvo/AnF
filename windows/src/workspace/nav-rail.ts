@@ -11,7 +11,7 @@ export function attachNavRail(rail:HTMLElement, layout:HTMLElement) {
   let timer:ReturnType<typeof setTimeout>|undefined;
   let pinned = false;
   try { pinned = localStorage.getItem(PIN_KEY) === '1'; } catch { /* storage can be unavailable */ }
-  const pin = h('button',{type:'button',class:'rail-pin','aria-pressed':String(pinned),title:'Keep the sidebar open','aria-label':'Keep the sidebar open'},'Keep open') as HTMLButtonElement;
+  const pin = h('button',{type:'button',class:'rail-pin','aria-pressed':String(pinned),title:'Keep sidebar open (Ctrl+B)','aria-label':'Keep sidebar open (Ctrl+B)'},'Keep open') as HTMLButtonElement;
   rail.prepend(pin);
   rail.classList.add('glass-rail');
   layout.classList.add('has-glass-rail');
@@ -49,12 +49,22 @@ export function attachNavRail(rail:HTMLElement, layout:HTMLElement) {
     if (wide.matches && !pinned) { cancel(); set(true); }
   });
   wide.addEventListener('change', () => { set(false); arm(); });
-  pin.addEventListener('click', () => {
+  const togglePin = () => {
     pinned = !pinned;
     pin.setAttribute('aria-pressed', String(pinned));
     paintPinned();
     try { localStorage.setItem(PIN_KEY, pinned ? '1' : '0'); } catch { /* the choice lasts for this session */ }
     if (pinned) open(); else arm();
+  };
+  pin.addEventListener('click', togglePin);
+
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.closest('input,textarea,select') || active?.isContentEditable) return;
+      e.preventDefault();
+      togglePin();
+    }
   });
 
   set(false);

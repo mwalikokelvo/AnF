@@ -54,9 +54,9 @@ html:not([data-theme-pack]) .workspace-navigation button[data-view=audio] svg{co
 html:not([data-theme-pack]) .workspace-navigation button[data-view=settings] svg{color:var(--hue-keep)}
 html:not([data-theme-pack]) body:not(.music-view) .workspace-navigation button[aria-current=page]{background:var(--tint);border-color:var(--accent)}
 
-/* Content: a coloured edge on the header and cards, and a soft wash behind the page */
-html:not([data-theme-pack]) .workspace-header{border-bottom:2px solid var(--accent)}
-html:not([data-theme-pack]) body:not(.music-view) .panel-host{background:linear-gradient(180deg,var(--tint),transparent 260px)}
+/* Content: a refined accent edge and soft ambient radial wash behind the page */
+html:not([data-theme-pack]) .workspace-header{border-bottom:1px solid var(--line);box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 35%,transparent)}
+html:not([data-theme-pack]) body:not(.music-view) .panel-host{background:radial-gradient(1200px 320px at 50% 0%, color-mix(in srgb,var(--tint) 45%,transparent), transparent 100%)}
 html:not([data-theme-pack]) .resume-card,
 html:not([data-theme-pack]) .capture-card{box-shadow:inset 0 4px 0 var(--accent),var(--shadow);background:linear-gradient(180deg,var(--tint),var(--surface) 55%)}
 /* Home: the Writing card wears Writing's colour */

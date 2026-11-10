@@ -524,14 +524,25 @@ function playlistVideos(i: StreamInstance, data: any): InstanceVideo[] {
   return videosOf(i, i.kind === 'invidious' ? data?.videos : (Array.isArray(data?.relatedStreams) ? data.relatedStreams : data?.items));
 }
 function videoDetails(i: StreamInstance, data: any): { title?: string; uploader?: string; duration?: number; audio: InstanceAudio[] } {
-  const raw: any[] = i.kind === 'invidious' ? (data?.adaptiveFormats ?? []) : (data?.audioStreams ?? []);
   const audio: InstanceAudio[] = [];
-  for (const x of Array.isArray(raw) ? raw : []) {
+  const rawAudio: any[] = i.kind === 'invidious' ? (data?.adaptiveFormats ?? []) : (data?.audioStreams ?? []);
+  for (const x of Array.isArray(rawAudio) ? rawAudio : []) {
     const mimeType: string | undefined = i.kind === 'invidious' ? x?.type : x?.mimeType;
     const url = safeHttpsUrl(x?.url);
-    if (!url || (i.kind === 'invidious' ? !String(mimeType).startsWith('audio/') : mimeType && !String(mimeType).startsWith('audio/'))) continue;
+    if (!url || (mimeType && !String(mimeType).startsWith('audio/'))) continue;
     const bitrate = Number(x.bitrate) || (x.quality ? parseInt(x.quality, 10) * 1000 : 0) || 128000;
     audio.push({ url, mimeType, bitrate });
+  }
+  // Fallback: If no dedicated audio streams found, check progressive video streams (videoOnly === false)
+  if (audio.length === 0 && Array.isArray(data?.videoStreams)) {
+    for (const v of data.videoStreams) {
+      if (v?.videoOnly === true) continue;
+      const url = safeHttpsUrl(v?.url);
+      if (!url) continue;
+      const mimeType = v?.mimeType || 'video/mp4';
+      const bitrate = Number(v?.bitrate) || 128000;
+      audio.push({ url, mimeType, bitrate });
+    }
   }
   return { title: data?.title, uploader: i.kind === 'invidious' ? data?.author : data?.uploader, duration: positive(data?.duration) ?? positive(data?.lengthSeconds), audio };
 }
@@ -1297,6 +1308,17 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     ]);
 
     const audItems = audRes.status === 'fulfilled' ? audRes.value : [];
+    if (audItems.length < 3 && q.includes(' ')) {
+      const firstWord = q.split(/\s+/)[0];
+      if (firstWord.length > 2) {
+        try {
+          const moreAud = await this.searchAudius(firstWord, 8);
+          for (const t of moreAud) {
+            if (!audItems.some(x => x.id === t.id)) audItems.push(t);
+          }
+        } catch {}
+      }
+    }
     const ytItems = ytRes.status === 'fulfilled' ? ytRes.value : [];
     const spItems = spRes.status === 'fulfilled' ? spRes.value : [];
     const abItems = abRes.status === 'fulfilled' ? abRes.value : [];
@@ -1311,9 +1333,9 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     for (let i = 0; i < maxLen; i++) {
       add(subItems[i]);
       add(audItems[i]);
-      add(spItems[i]);
       add(ytItems[i]);
       add(abItems[i]);
+      add(spItems[i]);
     }
 
     return merged.slice(0, limit);

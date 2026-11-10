@@ -265,7 +265,7 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   void activateLive();
   let focused=false;
   const setFocus=(value:boolean)=>{focused=value;root.setAttribute('data-focus',String(value));focus.textContent=value?'Exit focus mode':'Focus mode';focus.setAttribute('aria-pressed',String(value));};
-  focus.addEventListener('click',()=>setFocus(!focused));root.addEventListener('keydown',e=>{if(e.key==='Escape'&&focused){e.preventDefault();setFocus(false);}});
+  focus.addEventListener('click',()=>setFocus(!focused));root.addEventListener('keydown',e=>{if((e.key==='Escape'&&focused)||(e.key==='F11')){e.preventDefault();setFocus(e.key==='F11'?!focused:false);}});
   return {root,refresh,setNoteProvider(provider:()=>Promise<{name:string}[]>){noteNames=provider;},reveal(offset:number){draft.focus();draft.setSelectionRange(offset,offset);live?.focusSelection();},setReadOnly(value:boolean){live?.setReadOnly(value);},offer(original:string,next:string,review:boolean){
     pending=review?undefined:{original,next};proposal.hidden=false;
     const close=h('button',{text:review?'Close review':'Keep original'});
