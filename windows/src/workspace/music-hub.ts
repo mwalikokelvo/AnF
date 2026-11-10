@@ -2878,6 +2878,11 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   paint();
   save();
  });
+ document.addEventListener('keydown',(e)=>{
+  if(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)return;
+  if(e.key==='+'||e.key==='='||e.key==='ArrowUp'&&e.ctrlKey){e.preventDefault();const v=Math.min(1,prefs.volume+0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
+  else if(e.key==='-'||e.key==='_'||e.key==='ArrowDown'&&e.ctrlKey){e.preventDefault();const v=Math.max(0,prefs.volume-0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
+ });
  volume.addEventListener('input',()=>{stopFade();audio.volume=prefs.volume=Number(volume.value);volumeLabel.textContent=Math.round(prefs.volume*100)+'%';save();});
  speed.addEventListener('change',()=>{sample();audio.playbackRate=prefs.speed=Number(speed.value);ensurePreservesPitch(audio, true);resetClock();save();});
  sleep.addEventListener('change',()=>{if(sleep.value==='chapter'){armChapterSleep();return;}if(sleep.value==='end'){clearChapterSleep();if(sleepTimer){clearTimeout(sleepTimer);sleepTimer=undefined;}report('Sleep timer will stop at end of track.');return;}armSleep(Number(sleep.value));});
