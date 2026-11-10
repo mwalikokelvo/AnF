@@ -1336,7 +1336,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
  function coverImg(url:string|undefined){
   const fallback=safeHttpsUrl(url)||'';
-  const img=h('img',{alt:'',loading:'lazy'});
+  const img=h('img',{alt:'Cover art',loading:'lazy',title:'Cover art'});
   img.onerror=()=>{
    img.style.display='none';
    const p=img.parentElement;
