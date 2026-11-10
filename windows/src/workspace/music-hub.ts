@@ -242,7 +242,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const tabs=h('div',{class:'music-tabs',role:'tablist','aria-label':'Music views'});
 
  const importKind=h('select',{'aria-label':'Import content as'},...['auto','music','podcast','audiobook'].map(value=>h('option',{value,text:value==='auto'?'Detect file type':value==='music'?'Music':value==='podcast'?'Podcast':'Audiobook'})));
- const mixes=h('select',{'aria-label':'Listening mix'},...['all','liked','fresh','recent','completed'].map(value=>h('option',{value,text:value==='all'?'All items':value==='liked'?'Liked items':value==='fresh'?'Not recently played':value==='recent'?'Recently played':'Completed'})));
+ const mixes=h('select',{'aria-label':'Listening mix'},...['all','liked','fresh','recent','completed','inprogress'].map(value=>h('option',{value,text:value==='all'?'All items':value==='liked'?'Liked items':value==='fresh'?'Not recently played':value==='recent'?'Recently played':value==='completed'?'Completed':'In progress'})));
  mixes.addEventListener('change',()=>{mix=mixes.value;render();});
  const playlistFile=h('input',{type:'file',accept:'.json,application/json,.m3u,.m3u8,audio/x-mpegurl',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
  playlistFile.addEventListener('change',()=>void run(async()=>{
@@ -1292,13 +1292,14 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
  function visible():AudioTrack[]{
   const term=search.value.trim().toLocaleLowerCase();
-  const base = localMix<AudioTrack>(tracks,mix === 'completed' ? 'all' : mix,prefs.favorites,prefs.recent);
+  const base = localMix<AudioTrack>(tracks,mix === 'completed' || mix === 'inprogress' ? 'all' : mix,prefs.favorites,prefs.recent);
   return base.filter((t:AudioTrack)=>{
-   if(mix==='completed'){
+   if(mix==='completed' || mix==='inprogress'){
     const pos=listening.positions[t.id]||0;
     const dur=t.duration||0;
     const pct=dur>0&&pos>0?Math.min(100,Math.round(100*pos/dur)):0;
-    if(pct!==100)return false;
+    if(mix==='completed' && pct!==100)return false;
+    if(mix==='inprogress' && (pct<=0 || pct>=100))return false;
    }
    const kind=t.kind||'music';
    if(tab==='audiobooks'&&kind!=='audiobook')return false;
