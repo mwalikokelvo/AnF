@@ -190,7 +190,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const folder=h('input',{type:'file',multiple:true,webkitdirectory:'','aria-label':'Import music folder',hidden:true});
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
- let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='',fullSongsOnly=false;
+ let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='',fullSongsOnly=true;
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
  let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false,audiusAttempted=false,audiusError='';
@@ -1120,6 +1120,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const token=++epoch;
   track=await ensurePlayable(track);
   if(token!==epoch)return;
+  if(track.preview&&fullSongsOnly){
+   report('"'+track.title+'" is only a 30-second preview clip and was skipped ("Full songs only" is enabled).');
+   return;
+  }
   if(track.blob&&track.blob.size>0&&!isAudioContentType(track.blob.type)){
    report('"'+track.title+'" is stored as '+(track.blob.type||'unknown data')+', not audio, so it cannot be played. Remove it from your library.');
    return;
@@ -1363,6 +1367,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function resolveStreamingTrack(item:StreamTrackMetadata):Promise<AudioTrack>{
   const resolved=item.streamUrl?{streamUrl:item.streamUrl,duration:item.duration,mimeType:'audio/mpeg'}:await streamService.resolveStream(item);
   if(!resolved?.streamUrl)throw unresolvedStreamError(item);
+  if(fullSongsOnly&&resolved.preview)throw Error(`"${item.title}" only has a 30-second preview clip. Full song stream was not found.`);
   const track:AudioTrack={
    id:'stream:'+item.id,
    title:item.title,
@@ -2386,7 +2391,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       render();
      }
     }),
-    ' Full songs only'
+    ' Full songs only (no 30s clips)'
    );
 
    const searchBox=h('div',{class:'music-stream-search'},
@@ -2414,17 +2419,26 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      resultsGrid.append(card(t,visibleCached));
     }
    }else{
+    const isFullSong=(item:StreamTrackMetadata):boolean=>{
+     if(item.source==='audius'||item.source==='subsonic'||item.source==='audiobook'||item.source==='youtube')return true;
+     if(item.streamUrl&&!item.previewUrl)return true;
+     return false;
+    };
     const itemsToDisplay=fullSongsOnly
-     ?streamingResults.filter(item=>(item.streamUrl||item.source==='audius'||item.source==='subsonic'||item.source==='audiobook'||!item.previewUrl||(item.duration&&item.duration>30)))
+     ?streamingResults.filter(isFullSong)
      :streamingResults;
     if(itemsToDisplay.length===0&&streamingResults.length>0){
-     resultsGrid.append(h('p',{class:'music-notice',style:'grid-column: 1 / -1; padding: 12px; margin: 12px 0;',text:`Showing 0 full songs (${streamingResults.length} preview clips hidden). Uncheck "Full songs only" to view 30-second clips.`}));
+     resultsGrid.append(h('p',{class:'music-notice',style:'grid-column: 1 / -1; padding: 12px; margin: 12px 0;',text:`Removed ${streamingResults.length} 30-second preview clips ("Full songs only" active). Switch to the Audius or Radio tab, or paste direct audio URLs for full songs.`}));
     }
     for(const item of itemsToDisplay){
      const playBtn=button('Stream '+item.title,async()=>{
       report('Resolving stream for '+item.title+'...');
       const resolved=await streamService.resolveStream(item);
       if(!resolved?.streamUrl)throw unresolvedStreamError(item);
+      if(fullSongsOnly&&resolved.preview){
+       report('Full song stream not found for "'+item.title+'". 30-second preview was skipped.');
+       return;
+      }
       const track:AudioTrack={
        id:'stream:'+item.id,
        title:item.title,
