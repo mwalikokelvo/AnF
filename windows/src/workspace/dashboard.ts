@@ -6,6 +6,8 @@ import {PomodoroSession, playChime} from './pomodoro';
 import {auditVaultHealth, vaultHealthToMarkdown, type VaultHealthReport} from './vault-health';
 import {SECURITY_CARDS_DECK, evaluateCardAnswer} from './security-cards';
 import {ChatwootInboxManager, type ConversationStatus} from './chatwoot-inbox';
+import {AppFlowyManager, createAppFlowyBoard} from './appflowy-workspace';
+import {CalDeskManager, createCalDeskPanel} from './cal-desk';
 import './dashboard.css';
 
 type Source=import('./reader-data').ReadingSource;
@@ -378,7 +380,44 @@ export function createDashboard(a:Adapter){
     dialog.showModal();
   }
 
+  // --- AppFlowy Workspace Modal ---
+  function openAppFlowyModal() {
+    const dialog = h('dialog', {class:'music-dialog appflowy-dialog', 'aria-label':'AppFlowy Workspace'});
+    const mgr = new AppFlowyManager();
+    const board = createAppFlowyBoard(mgr, a.notify);
+    const closeDialog = button('Close', () => { dialog.close(); dialog.remove(); });
+    dialog.append(
+      board,
+      h('div', {class:'row', style:'margin-top: 16px;'}, closeDialog)
+    );
+    dialog.addEventListener('cancel', () => dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
+  // --- Cal.com Scheduling Desk Modal ---
+  function openCalDeskModal() {
+    const dialog = h('dialog', {class:'music-dialog caldesk-dialog', 'aria-label':'Cal.com Scheduling Desk'});
+    const mgr = new CalDeskManager();
+    const desk = createCalDeskPanel(mgr, a.notify);
+    const closeDialog = button('Close', () => { dialog.close(); dialog.remove(); });
+    dialog.append(
+      desk,
+      h('div', {class:'row', style:'margin-top: 16px;'}, closeDialog)
+    );
+    dialog.addEventListener('cancel', () => dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
+  document.addEventListener('anf-open-appflowy', () => openAppFlowyModal());
+  document.addEventListener('anf-open-calcom', () => openCalDeskModal());
+  document.addEventListener('anf-open-chatwoot', () => openChatwootModal());
+  document.addEventListener('anf-open-security', () => openSecurityModal());
+
   // --- Productivity & Companion Studio Card ---
+  const launchAppFlowy = button('AppFlowy Board', () => openAppFlowyModal());
+  const launchCalDesk = button('Cal.com Schedule', () => openCalDeskModal());
   const launchSecurity = button('Security Challenge', () => openSecurityModal());
   const launchChatwoot = button('Community Support', () => openChatwootModal());
   const launchSwarm = button('Swarm Review', async () => {
@@ -405,6 +444,8 @@ export function createDashboard(a:Adapter){
       vaultHealthCard
     ),
     h('div',{class:'row companion-actions'},
+      launchAppFlowy,
+      launchCalDesk,
       toggleView,
       launchSwarm,
       launchSecurity,

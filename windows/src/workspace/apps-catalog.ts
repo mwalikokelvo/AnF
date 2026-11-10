@@ -52,6 +52,143 @@ export const CATALOG:CatalogApp[] = [
 
 const CATEGORIES:Category[] = ['Reading','Listening','Notes and study','Privacy and sync','Local AI'];
 
+export interface BuiltinAction {
+  label: string;
+  badge: string;
+  action: () => void;
+}
+
+export const BUILTIN_ACTIONS: Record<string, BuiltinAction> = {
+  cap: {
+    label: 'Open Screen Recorder',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'audio' }));
+      document.dispatchEvent(new CustomEvent('anf-open-cap'));
+    },
+  },
+  supoclip: {
+    label: 'Open Video Clipper',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'audio' }));
+      document.dispatchEvent(new CustomEvent('anf-open-supoclip'));
+    },
+  },
+  appflowy: {
+    label: 'Open Kanban & Database',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-open-appflowy'));
+    },
+  },
+  'cal-diy': {
+    label: 'Open Scheduling Desk',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-open-calcom'));
+    },
+  },
+  chatwoot: {
+    label: 'Open Support Inbox',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-open-chatwoot'));
+    },
+  },
+  'clouds-against-humanity': {
+    label: 'Open Security Challenge',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-open-security'));
+    },
+  },
+  mirofish: {
+    label: 'Run Swarm Review',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-open-swarm'));
+    },
+  },
+  spotube: {
+    label: 'Open Music Hub',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'music' }));
+    },
+  },
+  innertune: {
+    label: 'Open Music Hub',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'music' }));
+    },
+  },
+  rimusic: {
+    label: 'Open Music Hub',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'music' }));
+    },
+  },
+  'echo-music': {
+    label: 'Open Music Hub',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'music' }));
+    },
+  },
+  openwhispr: {
+    label: 'Open Whisper Transcriber',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'audio' }));
+    },
+  },
+  buzz: {
+    label: 'Open Whisper Transcriber',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'audio' }));
+    },
+  },
+  audacity: {
+    label: 'Open Audio Studio',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'audio' }));
+    },
+  },
+  voicestudio: {
+    label: 'Open Voice Workstation',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'audio' }));
+    },
+  },
+  koreader: {
+    label: 'Open Documents & Reader',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'documents' }));
+    },
+  },
+  'kiwix-desktop': {
+    label: 'Open ZIM Reader',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'documents' }));
+    },
+  },
+  joplin: {
+    label: 'Open Writing Desk',
+    badge: 'Built into AnF',
+    action: () => {
+      document.dispatchEvent(new CustomEvent('anf-switch-view', { detail: 'writing' }));
+    },
+  },
+};
+
 export function appCatalogPanel(open:(url:string)=>Promise<unknown>, here:Platform = 'Windows') {
   let category:Category|'All' = 'All', platform:Platform|'All' = here, query = '';
   const notice = h('p',{role:'status',class:'hint status'});
@@ -75,19 +212,33 @@ export function appCatalogPanel(open:(url:string)=>Promise<unknown>, here:Platfo
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const shown = CATALOG.filter(a=>(category==='All'||a.category===category)&&(platform==='All'||a.platforms.includes(platform))&&
       words.every(w=>`${a.name} ${a.author} ${a.description} ${a.category}`.toLowerCase().includes(w)));
-    list.replaceChildren(...shown.map(a=>h('article',{class:'addon'},
-      h('div',{class:'head'},h('strong',{text:a.name}),h('span',{class:'ver',text:`${a.author} · ${a.license}`}),h('span',{class:'badge quiet',text:a.category})),
-      h('p',{class:'hint',text:a.description}),
-      h('p',{class:'platforms',text:a.platforms.join(' · ')}),
-      h('div',{class:'actions'},
-        h('button',{type:'button',class:'primary',text:'Get it',title:`Open the ${a.name} releases page`,onclick:()=>go(a,`https://github.com/${a.repo}/releases/latest`,'releases page')}),
-        h('button',{type:'button',text:'Source code',onclick:()=>go(a,`https://github.com/${a.repo}`,'source code')})))));
+    list.replaceChildren(...shown.map(a=>{
+      const builtin = BUILTIN_ACTIONS[a.id];
+      const primaryBtn = builtin
+        ? h('button',{type:'button',class:'primary',text:builtin.label,title:`Launch ${a.name} inside AnF`,onclick:()=>{notice.textContent=`Launched ${a.name} in AnF.`;builtin.action();}})
+        : h('button',{type:'button',class:'primary',text:'Get it',title:`Open the ${a.name} releases page`,onclick:()=>go(a,`https://github.com/${a.repo}/releases/latest`,'releases page')});
+
+      return h('article',{class:'addon'},
+        h('div',{class:'head'},
+          h('strong',{text:a.name}),
+          h('span',{class:'ver',text:`${a.author} · ${a.license}`}),
+          builtin ? h('span',{class:'badge badge-builtin',text:'✓ Built into AnF'}) : null,
+          h('span',{class:'badge quiet',text:a.category})
+        ),
+        h('p',{class:'hint',text:a.description}),
+        h('p',{class:'platforms',text:a.platforms.join(' · ')}),
+        h('div',{class:'actions'},
+          primaryBtn,
+          h('button',{type:'button',text:'Source code',onclick:()=>go(a,`https://github.com/${a.repo}`,'source code')})
+        )
+      );
+    }));
     if (!shown.length) list.append(h('p',{class:'hint',text:'No apps match. Try another category or Every platform.'}));
   }
   search.addEventListener('input',()=>{query=search.value;draw();});
   draw();
-  return h('details',{class:'addons app-catalog'},h('summary',{text:'Open-source apps'}),
-    h('p',{class:'hint',text:'Free, open-source apps that go well with AnF. This list is built in: AnF downloads and installs nothing. Get it opens the author’s own releases page in your browser.'}),
+  return h('details',{class:'addons app-catalog'},h('summary',{text:'Open-source apps & native workspace tools'}),
+    h('p',{class:'hint',text:'Open-source companion applications and built-in workspace tools. Click the action buttons to launch incorporated capabilities (Screen recording, 9:16 Video clipping, Kanban & Databases, Scheduling, Support Inbox, and Music streaming) directly within AnF.'}),
     search,h('div',{class:'chips',role:'group','aria-label':'Category'},...chips.map(c=>c.b)),
     h('div',{class:'chips',role:'group','aria-label':'Platform'},...platformChips.map(c=>c.b)),notice,list);
 }

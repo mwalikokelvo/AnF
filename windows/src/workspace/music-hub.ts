@@ -50,6 +50,8 @@ import {
   verifyAudioUrl,
   isAudioContentType,
   shouldResolveCatalogueTrack,
+  parseYouTubeVideoId,
+  type ResolvedAudioStream,
   type StreamTrackMetadata
 } from './streaming-provider';
 import {
@@ -1050,6 +1052,19 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    setPlaybackState('playing');
    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
   }catch(err){
+   if(audio.crossOrigin){
+    try{
+     audio.removeAttribute('crossOrigin');
+     audio.load();
+     await audio.play();
+     setPlaybackState('playing');
+     if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
+     prefs.recent=[current.id,...prefs.recent.filter(id=>id!==current!.id)].slice(0,40);
+     save();
+     markPlaying();
+     return;
+    }catch{}
+   }
    if(current.streamUrl&&!source.startsWith('blob:')){
     try{
      report('Connecting audio stream...');
@@ -1140,7 +1155,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   if(track.blob&&track.blob.size>0){
    source=URL.createObjectURL(track.blob);
   }else if(track.streamUrl){
-   const safe=safeHttpsUrl(track.streamUrl)||'';
+   let safe=safeHttpsUrl(track.streamUrl)||'';
+   if(safe.includes('audius.co')&&safe.includes('/stream')){
+    try{const probeRes=await fetch(safe,{method:'HEAD',redirect:'follow'});if(probeRes.ok&&probeRes.url&&probeRes.url!==safe){safe=probeRes.url;}}catch{}
+   }
    if(safe&&(needsRustFetch(safe)||safe.includes('audio-ssl.itunes.apple.com')||safe.includes('googlevideo.com'))){
     try{
      report('Loading audio stream...');
@@ -2197,6 +2215,31 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     value:directUrlInput,
     oninput:(e:Event)=>{directUrlInput=(e.target as HTMLInputElement).value;}
    });
+   async function resolveDirectUrlWithFallback(rawInput:string){
+    try{return await resolveDirectUrl(rawInput);}
+    catch(err:any){
+     const vId=parseYouTubeVideoId(rawInput);
+     if(vId&&onlineLookupsEnabled()){
+      try{
+       const oe=await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vId}&format=json`).then(r=>r.ok?r.json():null);
+       if(oe){
+        const title=oe.title||'YouTube Audio';
+        const artist=oe.author_name||'YouTube';
+        let streamUrl=`https://www.youtube-nocookie.com/embed/${vId}?autoplay=1`;
+        try{
+         const hits=await searchAudius(`${title} ${artist}`,3);
+         if(hits.length>0&&hits[0].streamUrl)streamUrl=hits[0].streamUrl;
+        }catch{}
+        const track:StreamTrackMetadata={id:`yt:${vId}`,title,artist,album:'YouTube Audio',artworkUrl:`https://i.ytimg.com/vi/${vId}/hqdefault.jpg`,coverUrl:`https://i.ytimg.com/vi/${vId}/hqdefault.jpg`,streamUrl,source:'youtube'};
+        const stream:ResolvedAudioStream={streamUrl,mimeType:streamUrl.includes('audius')?'audio/mpeg':'video/mp4',cached:false};
+        return {track,stream};
+       }
+      }catch{}
+     }
+     throw err;
+    }
+   }
+
    const playDirect=async()=>{
     const raw=directUrlInput.trim();
     if(!raw){report('Please paste a stream URL first.');return;}
@@ -2227,7 +2270,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       return;
      }
 
-     const res=await resolveDirectUrl(raw);
+     const res=await resolveDirectUrlWithFallback(raw);
      if(!res)throw Error('Could not resolve stream URL.');
      if(res.track.source==='custom')await verifyAudioUrl(res.stream.streamUrl);
      const track:AudioTrack={
@@ -2374,6 +2417,18 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
      render();
      report(streamingResults.length?`Found ${streamingResults.length} tracks.`:onlineLookupsEnabled()?'No streaming tracks found.':ONLINE_LOOKUPS_OFF);
     }catch(err){
+     const vId=parseYouTubeVideoId(streamingQuery.trim());
+     if(vId&&onlineLookupsEnabled()){
+      try{
+       const fb=await resolveDirectUrlWithFallback(streamingQuery.trim());
+       if(fb){
+        streamingResults=[fb.track];
+        render();
+        report(`Resolved YouTube stream: ${fb.track.title}`);
+        return;
+       }
+      }catch{}
+     }
      streamingResults=[];
      report(describeStreamError(err));
     }finally{

@@ -11,6 +11,8 @@ import {readAudioMetadata,formatBadge} from './audio-metadata';
 import {spectralClean} from './audio-denoise';
 import {transcribeAudio,transcriptionToMarkdownNote} from './transcription';
 import {serializeM3u,parseM3u} from './m3u';
+import {createCapRecorderPanel} from './screen-recorder';
+import {createSupoclipPanel} from './video-clipper';
 
 import './audio-studio.css';
 
@@ -175,7 +177,63 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
 
  }
 
- dock.append(dockTitle,action('Previous',previous),dockPlay,action('Next',()=>advance()),dockTime);document.body.append(dock);
+  // --- Native Cap Screen Recording & Supoclip 9:16 Video Clipper ---
+  let supoclipDetails: HTMLDetailsElement;
+  const capPanel = createCapRecorderPanel({
+    notify: report,
+    onTranscribeAudio: async (clip) => {
+      report('Transcribing screen recording audio with Whisper…');
+      try {
+        const res = await transcribeAudio({ audio: clip.blob, filename: clip.id + '.webm' });
+        if (!res.text) throw Error('No speech detected in this recording.');
+        const note = transcriptionToMarkdownNote(res, clip.title);
+        const noteName = clip.id + '-transcript.md';
+        if (saveNote) {
+          await saveNote(noteName, note);
+        } else {
+          const url = URL.createObjectURL(new Blob([note], { type: 'text/markdown;charset=utf-8' }));
+          h('a', { href: url, download: noteName }).click();
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+        report('Transcribed screen recording: ' + res.text.slice(0, 50) + '…');
+      } catch (err: any) {
+        report('Transcription failed: ' + (err?.message || String(err)));
+      }
+    },
+    onSendToSupoclip: (_clip) => {
+      supoclipDetails.open = true;
+      supoclipDetails.scrollIntoView({ behavior: 'smooth' });
+      report('Loaded Cap recording into Supoclip 9:16 Video Clipper.');
+    }
+  });
+
+  const supoclipPanel = createSupoclipPanel({
+    notify: report
+  });
+
+  const capDetails = h('details', { class: 'audio-processing cap-studio-details' },
+    h('summary', { text: 'Cap Screen & Audio Recording Studio' }),
+    capPanel
+  ) as HTMLDetailsElement;
+
+  supoclipDetails = h('details', { class: 'audio-processing supoclip-studio-details' },
+    h('summary', { text: 'Supoclip AI Video Clipper & 9:16 Shorts' }),
+    supoclipPanel
+  ) as HTMLDetailsElement;
+
+  root.append(capDetails, supoclipDetails);
+
+  document.addEventListener('anf-open-cap', () => {
+    capDetails.open = true;
+    capDetails.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  document.addEventListener('anf-open-supoclip', () => {
+    supoclipDetails.open = true;
+    supoclipDetails.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  dock.append(dockTitle,action('Previous',previous),dockPlay,action('Next',()=>advance()),dockTime);document.body.append(dock);
 
  audio.addEventListener('play',()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(tick);if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';paint();});audio.addEventListener('pause',()=>{cancelAnimationFrame(frame);if('mediaSession' in navigator)navigator.mediaSession.playbackState='paused';paint();});audio.addEventListener('ended',()=>void perform(()=>advance(true)));audio.addEventListener('error',()=>report('This device cannot play this file. Try WAV, MP3 or AAC; native universal decoding is still pending.'));audio.addEventListener('loadedmetadata',()=>{audio.currentTime=Math.min(pendingPosition,duration());pendingPosition=0;if(resumeAfterLoad){resumeAfterLoad=false;void resume().catch(e=>report(String(e)));}saveState();paint();if(track&&Number.isFinite(audio.duration)&&mode.value==='original'){track={...track,duration:audio.duration};void library.put(track).catch(e=>report(String(e)));}});audio.addEventListener('timeupdate',()=>{paint();if(Date.now()-lastSave>5000){lastSave=Date.now();saveState();}});
 
