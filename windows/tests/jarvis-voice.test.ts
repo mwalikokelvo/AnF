@@ -59,6 +59,37 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     assert.strictEqual(capturedNote, 'Buy new microphone tomorrow');
   });
 
+  it('handles voice music search and play command', async () => {
+    let queriedSong = '';
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      searchMusic: async (q) => {
+        queriedSong = q;
+        return true;
+      },
+    });
+    const res = await agent.processVoiceInput('play Wimbo wangu');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'search_play_music');
+    assert.strictEqual(queriedSong, 'Wimbo wangu');
+    assert.ok(res.speechReply.includes('Wimbo wangu'));
+  });
+
+  it('handles explicit search song command', async () => {
+    let queriedSong = '';
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      searchMusic: async (q) => {
+        queriedSong = q;
+        return false;
+      },
+    });
+    const res = await agent.processVoiceInput('search song Wimbo wangu');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'search_music');
+    assert.strictEqual(queriedSong, 'Wimbo wangu');
+  });
+
   it('delegates open questions to AI conversational intelligence', async () => {
     const agent = new JarvisVoiceAgent({
       switchView: () => {},

@@ -9,6 +9,7 @@ export interface JarvisActionContext {
   playMusic?: () => void;
   pauseMusic?: () => void;
   nextTrack?: () => void;
+  searchMusic?: (query: string) => Promise<boolean>;
   saveQuickNote?: (text: string) => Promise<void>;
   askAI?: (query: string) => Promise<string>;
   triageSupport?: () => number;
@@ -63,12 +64,43 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'pause_music', speechReply: 'Music paused, sir.' };
     }
 
-    if (lower.includes('play music') || lower.includes('resume music') || lower.includes('start music')) {
+    if (lower === 'play music' || lower === 'resume music' || lower === 'start music' || lower === 'resume playback') {
       this.context.playMusic?.();
       return { handled: true, actionName: 'play_music', speechReply: 'Resuming your music, sir.' };
     }
 
-    if (lower.includes('next song') || lower.includes('next track') || lower.includes('skip song')) {
+    // Play specific song / search by voice: e.g. "play Wimbo wangu" or "play Queen"
+    if ((lower.startsWith('play ') || lower.startsWith('stream ')) && !lower.includes('game') && !lower.includes('video')) {
+      const songQuery = text.replace(/^(play|stream)\s+/i, '').trim();
+      if (songQuery) {
+        if (this.context.searchMusic) {
+          const found = await this.context.searchMusic(songQuery);
+          return {
+            handled: true,
+            actionName: 'search_play_music',
+            speechReply: found ? `Playing "${songQuery}" for you now, sir.` : `Searched Music Hub for "${songQuery}", sir.`,
+          };
+        } else {
+          this.context.playMusic?.();
+          return { handled: true, actionName: 'play_music', speechReply: `Playing "${songQuery}", sir.` };
+        }
+      }
+    }
+
+    // Search song by voice: e.g. "search song Wimbo wangu" or "find music Nirvana"
+    if (lower.startsWith('search song ') || lower.startsWith('search music ') || lower.startsWith('find song ')) {
+      const songQuery = text.replace(/^(search song|search music|find song)\s+/i, '').trim();
+      if (songQuery && this.context.searchMusic) {
+        await this.context.searchMusic(songQuery);
+        return {
+          handled: true,
+          actionName: 'search_music',
+          speechReply: `Searching Music Hub for "${songQuery}", sir.`,
+        };
+      }
+    }
+
+    if (lower.includes('next song') || lower.includes('next track') || lower.includes('skip song') || lower.includes('skip track')) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }

@@ -239,13 +239,21 @@ sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored
 attachNavRail(sidebar,shell);
 const attach=h('button',{text:'Attach documents',type:'button'});attach.addEventListener('click',()=>file.click());
 section('chat','Chat',workflowButtons(()=>({sources,draft:draft.value}),(text,scope)=>{question.value=text;contextScope.value=scope;updateQuestionCount();autosave();},text=>status.textContent=text,()=>!busy),h('div',{class:'section-heading'},h('h2',{text:'Chat'}),h('p',{class:'hint',text:'Ask, explore your documents, or start a draft. This workspace runs on your computer.'})),conversation,h('div',{class:'quick-tasks'},button('Summarize PDF',a=>task(a,'Summarize the loaded document excerpts. List main points and cite sources. Say that this covers selected excerpts.',1)),button('Write a letter',a=>task(a,`Write a clear letter about: ${question.value.trim()||'my request'}. Use placeholders for unknown names or dates.`)),button('Compare documents',a=>task(a,'Compare the loaded documents. Cite evidence from each and identify gaps.',2))),followupHost,h('div',{class:'composer'},contextScope,question,questionCount,replyLength,h('p',{class:'hint',text:'Questions: up to 10,000 UTF-8 bytes. Long responses aim for 1,700 words; actual length varies. Long mode uses more memory and can take several minutes. Continue appends the next part to your draft.'}),h('div',{class:'row'},attach,button('Ask local AI',ask,'Thinking locally'),button('Continue to next part',async a=>{if(!history.length)throw Error('Start a conversation first.');question.value='Continue the previous answer with the next part. Pick up from its ending without repeating earlier material.';await ask(a,true);},'Continuing locally'),button('Export chat',async()=>{if(!history.length)throw Error('Start a conversation first.');const {serializeChatToMarkdown}=await import('./chat-export');const md=serializeChatToMarkdown(name.value||'Conversation',history,sources);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(name.value.trim()||'Conversation').replace(/[\\/:*?"<>|]/g,'_')}-notes.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);status.textContent='Exported conversation as Markdown note.';}))),h('p',{class:'hint',text:'Ctrl+Enter to send · Sources and citations appear below each answer.'}),evidenceList);
+let nativeMusic:Awaited<ReturnType<typeof attachDesktopSpotube>>;
+let audioStudio:ReturnType<typeof createAudioStudio>;
+const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=message;},beforePlay:async()=>{audioStudio?.stop();audioStudio?.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
+
 const jarvisCommandDesk=createJarvisCommandDesk({
   onNotify:msg=>{status.textContent=msg;},
   voiceActionContext:{
     switchView:view=>showView(view),
-    pauseMusic:()=>{musicHub.suspend();audioStudio.stop();void nativeMusic?.suspend();void invoke('music_pause');},
-    playMusic:()=>{void invoke('music_control',{action:'play'});},
-    nextTrack:()=>{void invoke('music_control',{action:'next'});},
+    pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},
+    playMusic:()=>{void musicHub.play();},
+    nextTrack:()=>{void musicHub.step(1);},
+    searchMusic:async (query:string)=>{
+      showView('music');
+      return await musicHub.searchAndPlay(query);
+    },
     saveQuickNote:async text=>captureDaily(`\n\n[JARVIS Note] ${text}`),
     askAI:async query=>{
       try {
@@ -260,12 +268,42 @@ const jarvisCommandDesk=createJarvisCommandDesk({
 section('jarvis','JARVIS',jarvisCommandDesk.root);
 section('documents','Documents',h('h2',{text:'Your source material'}),h('p',{class:'hint',text:'Add PDFs, EPUB books, Word documents, text, or images. Up to four sources. PDFs support 600 pages, 50 MB per file, and 2 MB of extracted text. Saved web pages keep the article and leave out menus, banners, and footers. Answers use selected excerpts; scanned text may contain OCR errors.'}),file,webResearch,h('div',{class:'row'},url,button('Read webpage',async active=>{await addWebSource(url.value,active);})),opds.root,libraryControls(sourceList),sourceList);
 section('writing','Writing',h('h2',{text:'Writing'}),title,writing.root,h('div',{class:'row'},button('Improve clarity and flow',a=>task(a,'Edit the current draft for clarity and natural flow. Preserve facts, meaning, and the writer’s voice.')),button('Review writing style',a=>task(a,'Review the current draft. Identify vague, repetitive, impersonal, or unsupported language. Suggest specific improvements.'))),h('p',{class:'hint',text:'For long drafts, select a section of up to about 500 words. Suggestions never replace your draft until you accept them.'}),h('div',{class:'export-tools'},exportFormat,button('Export writing',async()=>{if(!draft.value.trim()){status.textContent='Write or generate text first.';return;}if(exportFormat.value==='pdf'){printDraftPdf();return;}if(exportFormat.value==='article-html'){const {parseFrontmatter,exportArticleHtml}=await import('./article-publishing');const {metadata,body}=parseFrontmatter(draft.value);if(!metadata.title||metadata.title==='Untitled Draft')metadata.title=title.value||'Untitled Draft';const html=exportArticleHtml({id:projectId||'draft',metadata,markdown:body,updatedAt:Date.now()});status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:(metadata.title||title.value)+'-article',text:html,format:'html'})}`;return;}if(exportFormat.value==='article-rss'){const {parseFrontmatter,exportArticleRss}=await import('./article-publishing');const {metadata,body}=parseFrontmatter(draft.value);if(!metadata.title||metadata.title==='Untitled Draft')metadata.title=title.value||'Untitled Draft';const rss=exportArticleRss({title:name.value||'My Publication',link:'https://localhost/publications',description:'Published from AnF Workspace',author:metadata.author},[{id:projectId||'draft',metadata,markdown:body,updatedAt:Date.now()}]);status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:(name.value||'publication')+'-feed',text:rss,format:'xml'})}`;return;}status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:title.value,text:draft.value,format:exportFormat.value})}`;}),button('Open saved documents',async()=>{await invoke('workspace_launch',{app:'documents'});})),h('details',{},h('summary',{text:'Read this draft aloud'}),speechVoice,button('Read aloud',async()=>readAloud()),button('Stop reading',async()=>stopReading())));
-let nativeMusic:Awaited<ReturnType<typeof attachDesktopSpotube>>;
-const musicHub=createMusicHub({notify:message=>{status.textContent=message;},beforePlay:async()=>{audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
-const audioStudio=createAudioStudio(message=>{status.textContent=message;},undefined,{convert:async(id,blob,format,preset)=>{if(blob.size>16_000_000)throw Error('Native conversion accepts files up to 16 MB.');return invoke<string>('audio_convert',{id,bytes:Array.from(new Uint8Array(await blob.arrayBuffer())),format,preset});},cancel:async id=>{await invoke('audio_conversion_cancel',{id});}},async()=>{musicHub.suspend();await nativeMusic?.suspend();await invoke('music_pause');},async(name,content)=>{try{const savedPath=await invoke<string>('workspace_save',{title:name.replace(/\.md$/,''),text:content,format:'md'});status.textContent=`Transcript saved to documents: ${savedPath}`;}catch{await captureDaily(`\n\n${content}`);status.textContent=`Transcript appended to daily note (${name}).`;}});
+audioStudio=createAudioStudio(message=>{status.textContent=message;},undefined,{convert:async(id,blob,format,preset)=>{if(blob.size>16_000_000)throw Error('Native conversion accepts files up to 16 MB.');return invoke<string>('audio_convert',{id,bytes:Array.from(new Uint8Array(await blob.arrayBuffer())),format,preset});},cancel:async id=>{await invoke('audio_conversion_cancel',{id});}},async()=>{musicHub.suspend();await nativeMusic?.suspend();await invoke('music_pause');},async(name,content)=>{try{const savedPath=await invoke<string>('workspace_save',{title:name.replace(/\.md$/,''),text:content,format:'md'});status.textContent=`Transcript saved to documents: ${savedPath}`;}catch{await captureDaily(`\n\n${content}`);status.textContent=`Transcript appended to daily note (${name}).`;}});
 void attachDesktopSpotube(musicHub.root,()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();},text=>{status.textContent=text;},()=>showView('music')).then(player=>{nativeMusic=player;}).catch(e=>{status.textContent=String(e);});
 section('music','Music Hub',musicHub.root);
 section('audio','Audio Studio',audioStudio.root);
+
+// Global floating JARVIS Voice Companion pill
+const globalJarvisPill=document.createElement('div');
+globalJarvisPill.className='jarvis-global-pill';
+globalJarvisPill.title='JARVIS Autonomous Voice Companion (Click to toggle voice, or say "Hey Jarvis")';
+const pillMic=document.createElement('button');
+pillMic.className='jarvis-global-pill-mic';
+pillMic.innerHTML='🎙️';
+pillMic.setAttribute('aria-label','Toggle JARVIS Voice Companion');
+const pillStatus=document.createElement('span');
+pillStatus.className='jarvis-global-pill-status';
+pillStatus.textContent='JARVIS';
+globalJarvisPill.append(pillMic,pillStatus);
+shell.append(globalJarvisPill);
+
+function updateGlobalPill(listening:boolean){
+ globalJarvisPill.classList.toggle('active',listening);
+ pillMic.classList.toggle('active',listening);
+ pillStatus.textContent=listening?'Listening…':'JARVIS';
+}
+
+jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
+ updateGlobalPill(listening);
+});
+
+pillMic.addEventListener('click',()=>{
+ if(jarvisCommandDesk.listener.getListeningState()){
+  jarvisCommandDesk.listener.stop();
+ }else{
+  jarvisCommandDesk.listener.start();
+ }
+});
 const appearance=h('select',{'aria-label':'Appearance'},h('option',{value:'dark',text:'Dark'}),h('option',{value:'light',text:'Light'}),h('option',{value:'system',text:'Follow Windows'})) as HTMLSelectElement;
 const textSize=h('select',{'aria-label':'Text size'},h('option',{value:'normal',text:'Standard text'}),h('option',{value:'large',text:'Larger text'})) as HTMLSelectElement;
 function applyAppearance(){root.setAttribute('data-theme',appearance.value);root.setAttribute('data-text-size',textSize.value);try{window.localStorage.setItem('coucou-appearance',JSON.stringify({theme:appearance.value,size:textSize.value}));}catch{}}

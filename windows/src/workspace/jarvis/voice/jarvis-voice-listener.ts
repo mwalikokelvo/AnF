@@ -20,6 +20,7 @@ export class JarvisVoiceListener {
   private wakeWords: string[];
   private continuous: boolean;
   private onListeningStateChange?: (listening: boolean) => void;
+  private stateListeners: ((listening: boolean) => void)[] = [];
   private onInterimSpeech?: (transcript: string) => void;
   private onFinalSpeech?: (transcript: string) => void;
   private onError?: (err: string) => void;
@@ -54,6 +55,7 @@ export class JarvisVoiceListener {
       this.recognition.onstart = () => {
         this.isListening = true;
         this.onListeningStateChange?.(true);
+        this.notifyStateListeners(true);
       };
 
       this.recognition.onresult = (event: any) => {
@@ -88,6 +90,7 @@ export class JarvisVoiceListener {
       this.recognition.onend = () => {
         this.isListening = false;
         this.onListeningStateChange?.(false);
+        this.notifyStateListeners(false);
         // Automatically restart if user hasn't explicitly stopped it
         if (this.isRunning) {
           try {
@@ -133,6 +136,19 @@ export class JarvisVoiceListener {
     if (clean) {
       this.onFinalSpeech?.(clean);
     }
+  }
+
+  private notifyStateListeners(state: boolean): void {
+    for (const listener of this.stateListeners) {
+      try { listener(state); } catch {}
+    }
+  }
+
+  addStateListener(fn: (listening: boolean) => void): () => void {
+    this.stateListeners.push(fn);
+    return () => {
+      this.stateListeners = this.stateListeners.filter(l => l !== fn);
+    };
   }
 
   getListeningState(): boolean {

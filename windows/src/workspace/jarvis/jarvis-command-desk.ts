@@ -36,6 +36,9 @@ export interface JarvisCommandDeskOptions {
 export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root: HTMLElement;
   destroy: () => void;
+  listener: JarvisVoiceListener;
+  speaker: JarvisSpeaker;
+  agent: JarvisVoiceAgent;
 } {
   const notify = options?.onNotify ?? ((msg: string) => { console.log('[JARVIS]', msg); });
 
@@ -280,7 +283,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     hud.destroy();
   }
 
-  return { root, destroy };
+  return { root, destroy, listener, speaker, agent: voiceAgent };
 }
 
 function makeBtn(label: string, extraClass: string, onClick: () => void | Promise<void>): HTMLButtonElement {
