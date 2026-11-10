@@ -2880,7 +2880,8 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
  });
  document.addEventListener('keydown',(e)=>{
   if(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)return;
-  if(e.key==='+'||e.key==='='||e.key==='ArrowUp'&&e.ctrlKey){e.preventDefault();const v=Math.min(1,prefs.volume+0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
+  if(e.key===' '||e.code==='Space'){e.preventDefault();if(audio.paused)void resume();else pause();}
+  else if(e.key==='+'||e.key==='='||e.key==='ArrowUp'&&e.ctrlKey){e.preventDefault();const v=Math.min(1,prefs.volume+0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
   else if(e.key==='-'||e.key==='_'||e.key==='ArrowDown'&&e.ctrlKey){e.preventDefault();const v=Math.max(0,prefs.volume-0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
  });
  volume.addEventListener('input',()=>{stopFade();audio.volume=prefs.volume=Number(volume.value);volumeLabel.textContent=Math.round(prefs.volume*100)+'%';save();});
