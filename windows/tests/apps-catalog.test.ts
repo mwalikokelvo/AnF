@@ -46,6 +46,9 @@ test('Open-source Companion Apps Catalog', async (t) => {
     assert.ok(ids.has('spotube'), 'Must include Spotube');
     assert.ok(ids.has('newpipe'), 'Must include NewPipe');
     assert.ok(ids.has('echo-music'), 'Must include Echo Music');
+    assert.ok(ids.has('orion-store'), 'Must include Orion Store');
+    assert.ok(ids.has('innertune'), 'Must include InnerTune');
+    assert.ok(ids.has('rimusic'), 'Must include RiMusic');
     assert.ok(ids.has('koreader'), 'Must include KOReader');
     assert.ok(ids.has('kiwix-desktop'), 'Must include Kiwix');
   });

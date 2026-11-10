@@ -45,6 +45,9 @@ export const CATALOG:CatalogApp[] = [
   {id:'spotube',name:'Spotube',author:'KRTirtho',repo:'KRTirtho/spotube',category:'Listening',platforms:['Windows','Android','macOS','Linux'],license:'BSD-4-Clause',description:'Open-source Spotify & YouTube music streaming client with zero telemetry and no account needed.'},
   {id:'newpipe',name:'NewPipe',author:'TeamNewPipe',repo:'TeamNewPipe/NewPipe',category:'Listening',platforms:['Android'],license:'GPL-3.0',description:'Lightweight open-source media player and YouTube frontend with background audio and offline downloads.'},
   {id:'echo-music',name:'Echo Music',author:'EchoMusicApp',repo:'EchoMusicApp/Echo-Music',category:'Listening',platforms:['Android'],license:'GPL-3.0',description:'Open-source music streaming application with canvas artwork, synchronized multi-provider lyrics, and smart mixes.'},
+  {id:'orion-store',name:'Orion Store',author:'RookieZ',repo:'RookieEnough/Orion-Store',category:'Privacy and sync',platforms:['Android'],license:'GPL-3.0',description:'Serverless open-source Android app manager with zero tracking, direct GitHub/GitLab release tracking, and silent updates.'},
+  {id:'innertune',name:'InnerTune',author:'Zhuang',repo:'z-huang/InnerTune',category:'Listening',platforms:['Android'],license:'GPL-3.0',description:'Material 3 YouTube Music client with direct client-side stream playback, offline caching, and synchronized lyrics.'},
+  {id:'rimusic',name:'RiMusic',author:'Fast4x',repo:'fast4x/RiMusic',category:'Listening',platforms:['Android'],license:'GPL-3.0',description:'Feature-packed open-source music streaming and offline player powered by direct YouTube Music playback.'},
 ];
 
 const CATEGORIES:Category[] = ['Reading','Listening','Notes and study','Privacy and sync','Local AI'];
