@@ -242,7 +242,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const tabs=h('div',{class:'music-tabs',role:'tablist','aria-label':'Music views'});
 
  const importKind=h('select',{'aria-label':'Import content as'},...['auto','music','podcast','audiobook'].map(value=>h('option',{value,text:value==='auto'?'Detect file type':value==='music'?'Music':value==='podcast'?'Podcast':'Audiobook'})));
- const mixes=h('select',{'aria-label':'Listening mix',title:'Filter library by listening status'},...['all','liked','fresh','recent','completed','inprogress'].map(value=>h('option',{value,text:value==='all'?'All items':value==='liked'?'Liked items':value==='fresh'?'Not recently played':value==='recent'?'Recently played':value==='completed'?'Completed':'In progress'})));
+ const mixes=h('select',{'aria-label':'Listening mix',title:'Filter your library by listening status: All, Liked, Not recently played, Recently played, Completed, or In progress'},...['all','liked','fresh','recent','completed','inprogress'].map(value=>h('option',{value,text:value==='all'?'All items':value==='liked'?'Liked items':value==='fresh'?'Not recently played':value==='recent'?'Recently played':value==='completed'?'Completed':'In progress'})));
  mixes.addEventListener('change',()=>{mix=mixes.value;render();});
  const playlistFile=h('input',{type:'file',accept:'.json,application/json,.m3u,.m3u8,audio/x-mpegurl',hidden:true,'aria-label':'Import playlist file'});root.append(playlistFile);
  playlistFile.addEventListener('change',()=>void run(async()=>{
