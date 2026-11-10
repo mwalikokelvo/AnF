@@ -317,7 +317,18 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
- const tabButtons=['Music','Streaming','Radio','Smart Mixes','Audius','Subsonic','Archive','History','Audiobooks','Podcasts','Favorites','Playlists'].map(label=>{const b=button(label,()=>{tab=label.toLowerCase();libraryLimit=80;selectedFeed=null;if(tab==='audius'&&!audiusResults.length)audiusAttempted=false;render();});b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase().replace(/\s+/g,'-');b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
+ const TAB_LABELS=['Music','Streaming','Radio','Smart Mixes','Audiobooks','Podcasts','Favorites','Playlists','History'];
+ function switchTab(label:string){
+  const clean=label.toLowerCase();
+  if(clean==='audius'){tab='streaming';streamingServiceTab='audius';}
+  else if(clean==='subsonic'){tab='streaming';streamingServiceTab='subsonic';}
+  else if(clean==='archive'){tab='streaming';streamingServiceTab='all';}
+  else{tab=clean;}
+  libraryLimit=80;selectedFeed=null;
+  if(tab==='audius'&&!audiusResults.length)audiusAttempted=false;
+  render();
+ }
+ const tabButtons=TAB_LABELS.map(label=>{const b=button(label,()=>switchTab(label));b.setAttribute('role','tab');b.id='music-tab-'+label.toLowerCase().replace(/\s+/g,'-');b.setAttribute('aria-controls','music-content');tabs.append(b);return b;});
  function showPlaylist(p:AudioPlaylist){
   const dialog=h('dialog',{class:'music-dialog','aria-label':'Playlist '+p.name});
   async function paintPlaylist(){
@@ -355,14 +366,15 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   return `hsl(${hue}, 80%, 46%)`;
  }
 
- const header=h('header',{class:'music-heading'},h('div',{},h('h2',{text:'Music Hub'}),subtitle),h('label',{class:'music-search'},svg(icons.search,20,{stroke:1.5}),search),flowBtn,onlineToggle,theme);
+ const searchLabel=h('label',{class:'music-search'},svg(icons.search,20,{stroke:1.5}),search);
+ const header=h('header',{class:'music-heading'},h('div',{},h('h2',{text:'Music Hub'}),subtitle),searchLabel,flowBtn,onlineToggle,theme);
 
  // Center Main Stage
  const mainStage=h('div',{class:'music-main-stage'},header,tabs,notice,content);
 
  // Right Collapsible Now Playing Canvas Drawer
  const drawer=h('aside',{class:'music-now-playing-drawer','aria-label':'Now playing drawer'});
- const isDrawerCollapsed=localStorage.getItem('anf_music_drawer_collapsed')==='1';
+ const isDrawerCollapsed=localStorage.getItem('anf_music_drawer_collapsed')==='1'||!current;
  const drawerHeader=h('div',{class:'music-drawer-header'},
   h('span',{class:'music-drawer-heading-text',text:'Now Playing'}),
   h('button',{type:'button',class:'music-drawer-toggle','aria-label':'Toggle Now Playing drawer',title:'Toggle Now Playing drawer',onclick:()=>{
@@ -1215,6 +1227,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   suspended=false;
   dock.hidden=false;
   document.body.classList.add('has-music-player');
+  if(localStorage.getItem('anf_music_drawer_collapsed')!=='1')studioLayout.classList.remove('drawer-collapsed');
   paint();
   save();
   renderQueue();
@@ -1621,10 +1634,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
 
  function render(){
-
-
-
-  const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-options')?.open||false;
+   searchLabel.style.display=tab==='streaming'?'none':'';
+const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-options')?.open||false;
   for(const url of artUrls)URL.revokeObjectURL(url);
   artUrls=[];
   for(const [,b] of tabButtons.entries()){
@@ -2207,14 +2218,40 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     switcher.append(pill);
    }
 
-   const directBox=h('div',{class:'music-direct-url-box'});
-   const directInput=h('input',{
-    type:'url',
-    placeholder:'Paste YouTube link or direct audio stream URL (MP3, M4A, Opus, WebM)...',
-    'aria-label':'Direct stream link',
-    value:directUrlInput,
-    oninput:(e:Event)=>{directUrlInput=(e.target as HTMLInputElement).value;}
-   });
+   const isLink=(val:string)=>/^(https?:\/\/|www\.|youtu\.be|youtube\.com)/i.test(val.trim());
+   const smartSearchInput=h('input',{
+    type:'search',
+    class:'music-smart-search-input',
+    placeholder:streamingServiceTab==='cached'?'Filter cached offline streams...':'Search songs, artists, or paste a link (YouTube, audio stream)...',
+    value:streamingQuery||directUrlInput,
+    oninput:(e:Event)=>{
+     const val=(e.target as HTMLInputElement).value;
+     streamingQuery=val;
+     directUrlInput=val;
+     urlActionBar.style.display=isLink(val)?'flex':'none';
+     if(streamingServiceTab==='cached')render();
+    },
+    onkeydown:(e:Event)=>{
+     if((e as KeyboardEvent).key==='Enter'){
+      if(isLink(streamingQuery))void run(playDirect);
+      else void run(doSearch);
+     }
+    }
+   }) as HTMLInputElement;
+
+   const searchSubmitBtn=button('Search',()=>void run(isLink(streamingQuery)?playDirect:doSearch));
+   searchSubmitBtn.className='music-search-submit-btn';
+
+   const urlActionBar=h('div',{
+    class:'music-url-action-bar',
+    style:isLink(streamingQuery||directUrlInput)?'display:flex':'display:none'
+   },
+    h('span',{class:'music-url-hint',text:'Stream link detected:'}),
+    button('▶ Play Link',()=>void run(playDirect)),
+    button('+ Add to Queue',()=>void run(queueAllDirect)),
+    button('⬇ Save Offline',()=>void run(downloadAllDirect))
+   );
+
    async function resolveDirectUrlWithFallback(rawInput:string){
     try{return await resolveDirectUrl(rawInput);}
     catch(err:any){
@@ -2395,16 +2432,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     }
    };
 
-   const saveDirect=async()=>{
-    return downloadAllDirect();
-   };
-   directBox.append(
-    directInput,
-    button('Play URL',()=>void run(playDirect)),
-    button('Queue All',()=>void run(queueAllDirect)),
-    button('Download All Offline',()=>void run(downloadAllDirect)),
-    button('Save Offline',()=>void run(saveDirect))
-   );
+   // Direct URL actions are handled inside smartSearchBox and urlActionBar
 
    const doSearch=async()=>{
     if(!streamingQuery.trim())return;
@@ -2437,7 +2465,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     }
    };
 
-   const fullOnlyToggle=h('label',{class:'music-full-songs-toggle'},
+   const fullOnlyToggle=h('label',{class:'music-full-songs-chip'},
     h('input',{
      type:'checkbox',
      checked:fullSongsOnly,
@@ -2446,22 +2474,20 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
       render();
      }
     }),
-    ' Full songs only (no 30s clips)'
+    ' Full songs only'
    );
 
-   const searchBox=h('div',{class:'music-stream-search'},
-    h('input',{
-     type:'search',
-     placeholder:streamingServiceTab==='cached'?'Filter cached streams...':`Search ${streamingServiceTab==='all'?'Audius, YouTube & Audiobooks':streamingServiceTab}...`,
-     value:streamingQuery,
-     oninput:(e:Event)=>{
-      streamingQuery=(e.target as HTMLInputElement).value;
-      if(streamingServiceTab==='cached')render();
-     },
-     onkeydown:(e:Event)=>{if((e as KeyboardEvent).key==='Enter')void doSearch();}
-    }),
-    button('Search',()=>void run(doSearch)),
-    fullOnlyToggle
+   const smartSearchBox=h('div',{class:'music-smart-search-container'},
+    h('div',{class:'music-smart-search-bar'},
+     svg(icons.search,18,{stroke:1.8}),
+     smartSearchInput,
+     searchSubmitBtn
+    ),
+    urlActionBar,
+    h('div',{class:'music-stream-controls-row'},
+     switcher,
+     fullOnlyToggle
+    )
    );
 
    const cachedStreamTracks=tracks.filter(t=>t.id.startsWith('stream:'));
@@ -2580,9 +2606,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
 
    const streamPanel=h('div',{class:'music-stream-panel'});
    streamPanel.append(
-    switcher,
-    directBox,
-    searchBox,
+    smartSearchBox,
     ...(streamingBusy?[h('p',{class:'music-notice',text:'Searching streaming providers...'})]:[]),
     ...(streamingServiceTab==='cached'
      ?[h('div',{},
