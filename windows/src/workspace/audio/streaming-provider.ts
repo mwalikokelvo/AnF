@@ -14,7 +14,7 @@ export interface StreamTrackMetadata {
   coverUrl?: string;
   artworkUrl?: string;
   streamUrl?: string;
-  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius';
+  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius' | 'subsonic' | 'archive';
   bitrate?: number;
   isrc?: string;
   year?: number;

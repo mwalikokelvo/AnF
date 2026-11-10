@@ -1,4 +1,5 @@
 import { searchAudius, audiusStreamUrl } from './audius';
+import { cleanTitle, primaryArtist } from './lyrics-provider';
 /**
  * Decoupled streaming audio provider supporting YouTube / Piped, Spotify / Spotube,
  * LibriVox / Internet Archive Audiobooks, and Direct Audio Streams.
@@ -235,7 +236,7 @@ export interface StreamTrackMetadata {
   streamUrl?: string;
   /** A catalogue's 30 s clip (iTunes / Spotify embed). It is not the song: it is only played, labelled, when no full source is found. */
   previewUrl?: string;
-  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius' | 'subsonic';
+  source?: 'youtube' | 'spotify' | 'spotube' | 'audiobook' | 'public' | 'custom' | 'audius' | 'subsonic' | 'archive';
   bitrate?: number;
   isrc?: string;
   year?: number;
@@ -787,33 +788,88 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
       // YouTube fallback failed
     }
 
-    // Try finding the full-length song on Audius before falling back to a 30 s preview
+    // Try finding the full-length song on Audius or Internet Archive before falling back to a 30 s preview
     try {
-      const q = [track.artist, track.title].filter(Boolean).join(' ');
-      const audiusMatches = await this.searchAudius(q, 5);
-      if (audiusMatches.length > 0) {
-        const best = audiusMatches.find(m => (m.duration ?? 0) > PREVIEW_CLIP_MAX_SEC) || audiusMatches[0];
-        if (best && best.streamUrl) {
-          track.bitrate = 320;
-          if (best.duration) track.duration = best.duration;
+      const cTitle = cleanTitle(track.title);
+      const pArtist = primaryArtist(track.artist);
+      const queries = [
+        [pArtist, cTitle].filter(Boolean).join(' '),
+        cTitle,
+        [track.artist, track.title].filter(Boolean).join(' ')
+      ].filter((s, idx, arr) => s.trim().length > 0 && arr.indexOf(s) === idx);
+
+      for (const q of queries) {
+        const audiusMatches = await this.searchAudius(q, 5);
+        if (audiusMatches.length > 0) {
+          const best = audiusMatches.find(m => (m.duration ?? 0) > PREVIEW_CLIP_MAX_SEC) || audiusMatches[0];
+          if (best && best.streamUrl) {
+            track.bitrate = 320;
+            if (best.duration) track.duration = best.duration;
+            this.registerMetadata(track);
+            return {
+              streamUrl: best.streamUrl,
+              mimeType: 'audio/mpeg',
+              bitrate: 320,
+              cached: false,
+              duration: best.duration,
+            };
+          }
+        }
+      }
+
+      // Try Internet Archive music recordings
+      const iaMatches = await this.searchArchiveMusic(queries[0], 5);
+      for (const candidate of iaMatches) {
+        const resolved = await this.resolveInternetArchiveStream(candidate.id);
+        if (resolved?.streamUrl) {
+          track.bitrate = 192;
+          if (candidate.duration) track.duration = candidate.duration;
           this.registerMetadata(track);
-          return {
-            streamUrl: best.streamUrl,
-            mimeType: 'audio/mpeg',
-            bitrate: 320,
-            cached: false,
-            duration: best.duration,
-          };
+          return resolved;
         }
       }
     } catch {
-      // Audius fallback failed, proceed to preview clip
+      // Audius / Archive fallback failed, proceed to preview clip
     }
 
     // No full source: the catalogue's 30 s clip, flagged so the UI can label it and never save it as the song.
     const preview = safeHttpsUrl(track.previewUrl);
     if (preview) return { streamUrl: preview, mimeType: 'audio/mp4', cached: false, preview: true };
     return null;
+  }
+
+  /** Search free full-length music recordings on the Internet Archive */
+  async searchArchiveMusic(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+    const q = query.trim();
+    if (!q) return [];
+    const results: StreamTrackMetadata[] = [];
+    try {
+      const archiveUrl = `https://archive.org/advancedsearch.php?q=mediatype:audio+AND+(${encodeURIComponent(q)})&fl[]=identifier,title,creator,description,year,downloads&sort[]=downloads+desc&output=json&rows=${Math.min(limit, 25)}`;
+      const res = await gatedFetch(archiveUrl, { signal: getTimeoutSignal(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        const docs = data?.response?.docs || [];
+        for (const doc of docs) {
+          const id = doc.identifier;
+          const track: StreamTrackMetadata = {
+            id: `ia:${id}`,
+            title: doc.title || id,
+            artist: Array.isArray(doc.creator) ? doc.creator.join(', ') : (doc.creator || 'Internet Archive'),
+            album: 'Internet Archive',
+            source: 'archive',
+            coverUrl: `https://archive.org/services/img/${id}`,
+            artworkUrl: `https://archive.org/services/img/${id}`,
+            year: doc.year ? parseInt(doc.year, 10) : undefined,
+            description: doc.description || undefined,
+          };
+          this.registerMetadata(track);
+          results.push(track);
+        }
+      }
+    } catch {
+      // Internet Archive music search error
+    }
+    return results.slice(0, limit);
   }
 
   /** Internet Archive & LibriVox Audiobooks Search */
@@ -1269,7 +1325,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
   /** Unified Multi-Source Search Across YouTube, Spotify, and Audiobooks */
   async searchMultiSource(
     query: string,
-    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic'; limit?: number }
+    options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic' | 'archive'; limit?: number }
   ): Promise<StreamTrackMetadata[]> {
     const q = query.trim();
     if (!q) return [];
@@ -1297,10 +1353,14 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     if (service === 'audius') {
       return this.searchAudius(q, limit);
     }
+    if (service === 'archive') {
+      return this.searchArchiveMusic(q, limit);
+    }
 
-    // Service 'all': query Audius, YouTube, Spotify, and Audiobooks concurrently
-    const [audRes, ytRes, spRes, abRes, subRes] = await Promise.allSettled([
+    // Service 'all': query Audius, Archive, YouTube, Spotify, and Audiobooks concurrently
+    const [audRes, iaRes, ytRes, spRes, abRes, subRes] = await Promise.allSettled([
       this.searchAudius(q, Math.ceil(limit / 2)),
+      this.searchArchiveMusic(q, Math.ceil(limit / 3)),
       this.searchYouTube(q, Math.ceil(limit / 2)),
       this.searchTracks(q, { limit: Math.ceil(limit / 2) }),
       this.searchAudiobooks(q, Math.ceil(limit / 3)),
@@ -1308,6 +1368,7 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     ]);
 
     const audItems = audRes.status === 'fulfilled' ? audRes.value : [];
+    const iaItems = iaRes.status === 'fulfilled' ? iaRes.value : [];
     if (audItems.length < 3 && q.includes(' ')) {
       const firstWord = q.split(/\s+/)[0];
       if (firstWord.length > 2) {
@@ -1329,10 +1390,11 @@ export class SpotubeStreamService implements StreamingMetadataProvider, StreamRe
     const add = (t: StreamTrackMetadata | undefined) => {
       if (t && merged.length < limit && !seenIds.has(t.id)) { seenIds.add(t.id); merged.push(t); }
     };
-    const maxLen = Math.max(audItems.length, subItems.length, ytItems.length, spItems.length, abItems.length);
+    const maxLen = Math.max(audItems.length, iaItems.length, subItems.length, ytItems.length, spItems.length, abItems.length);
     for (let i = 0; i < maxLen; i++) {
       add(subItems[i]);
       add(audItems[i]);
+      add(iaItems[i]);
       add(ytItems[i]);
       add(abItems[i]);
       add(spItems[i]);
@@ -1543,9 +1605,13 @@ export const streamService = new SpotubeStreamService();
 
 export async function searchMultiSource(
   query: string,
-  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic'; limit?: number }
+  options?: { service?: 'all' | 'youtube' | 'spotify' | 'audiobook' | 'audius' | 'subsonic' | 'archive'; limit?: number }
 ): Promise<StreamTrackMetadata[]> {
   return streamService.searchMultiSource(query, options);
+}
+
+export async function searchArchiveMusic(query: string, limit = 20): Promise<StreamTrackMetadata[]> {
+  return streamService.searchArchiveMusic(query, limit);
 }
 
 export async function resolveYouTubeStream(videoId: string): Promise<ResolvedAudioStream | null> {
