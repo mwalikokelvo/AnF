@@ -190,7 +190,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const folder=h('input',{type:'file',multiple:true,webkitdirectory:'','aria-label':'Import music folder',hidden:true});
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
- let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='',fullSongsOnly=true;
+ let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='',fullSongsOnly=false;
  let archiveResults:StreamTrackMetadata[]=[],archiveQuery='',archiveBusy=false;
  let subsonicResults:SubsonicTrack[]=[],subsonicQuery='',subsonicBusy=false;
  let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false,audiusAttempted=false,audiusError='';
@@ -1050,6 +1050,23 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    setPlaybackState('playing');
    if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
   }catch(err){
+   if(current.streamUrl&&!source.startsWith('blob:')){
+    try{
+     report('Connecting audio stream...');
+     const fetchedBlob=await loadRemoteAudio(current.streamUrl,current.format||'audio/mp4');
+     source=URL.createObjectURL(fetchedBlob);
+     audio.src=source;
+     audio.load();
+     await audio.play();
+     setPlaybackState('playing');
+     if('mediaSession' in navigator)navigator.mediaSession.playbackState='playing';
+     prefs.recent=[current.id,...prefs.recent.filter(id=>id!==current!.id)].slice(0,40);
+     save();
+     markPlaying();
+     report('Playing '+current.title);
+     return;
+    }catch{}
+   }
    stopFade();
    audio.volume=prefs.volume;
    setPlaybackState('paused');
@@ -1120,10 +1137,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    source=URL.createObjectURL(track.blob);
   }else if(track.streamUrl){
    const safe=safeHttpsUrl(track.streamUrl)||'';
-   if(safe&&needsRustFetch(safe)){
+   if(safe&&(needsRustFetch(safe)||safe.includes('audio-ssl.itunes.apple.com')||safe.includes('googlevideo.com'))){
     try{
      report('Loading audio stream...');
-     const fetchedBlob=await loadRemoteAudio(safe,track.format||'audio/mpeg');
+     const fetchedBlob=await loadRemoteAudio(safe,track.format||'audio/mp4');
      source=URL.createObjectURL(fetchedBlob);
      report('Playing '+track.title);
     }catch{
@@ -2398,7 +2415,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
     }
    }else{
     const itemsToDisplay=fullSongsOnly
-     ?streamingResults.filter(item=>!item.previewUrl||item.streamUrl||item.source==='audius'||item.source==='subsonic'||item.source==='audiobook')
+     ?streamingResults.filter(item=>(item.streamUrl||item.source==='audius'||item.source==='subsonic'||item.source==='audiobook'||!item.previewUrl||(item.duration&&item.duration>30)))
      :streamingResults;
     if(itemsToDisplay.length===0&&streamingResults.length>0){
      resultsGrid.append(h('p',{class:'music-notice',style:'grid-column: 1 / -1; padding: 12px; margin: 12px 0;',text:`Showing 0 full songs (${streamingResults.length} preview clips hidden). Uncheck "Full songs only" to view 30-second clips.`}));

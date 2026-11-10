@@ -84,6 +84,9 @@ pub fn host_allowed(host: &str, first_hop: bool) -> bool {
         if let Some(sub) = prefix.strip_suffix(".xethub") {
             return label_ok(sub);
         }
+        if let Some(sub) = prefix.strip_suffix(".cdn") {
+            return !sub.is_empty() && sub.split('.').all(label_ok);
+        }
     }
     false
 }
@@ -238,7 +241,7 @@ mod tests {
         assert!(host_allowed("huggingface.co", true));
         assert!(!host_allowed("cdn-lfs.huggingface.co", true));
         assert!(!host_allowed("cas-bridge.xethub.hf.co", true));
-        for h in ["huggingface.co", "cdn-lfs.huggingface.co", "cdn-lfs-us-1.hf.co", "cdn-lfs-eu-1.hf.co", "cas-bridge.xethub.hf.co", "transfer.xethub.hf.co", "HUGGINGFACE.CO."] {
+        for h in ["huggingface.co", "cdn-lfs.huggingface.co", "cdn-lfs-us-1.hf.co", "cdn-lfs-eu-1.hf.co", "cas-bridge.xethub.hf.co", "transfer.xethub.hf.co", "us.aws.cdn.hf.co", "HUGGINGFACE.CO."] {
             assert!(host_allowed(h, false), "{h}");
         }
         for h in [
