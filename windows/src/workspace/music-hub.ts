@@ -384,7 +384,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   }},svg(icons.chevronRight,16,{stroke:2}))
  );
  const drawerArt=h('div',{class:'music-drawer-art'});
- const drawerArtImg=h('img',{alt:'',class:'music-drawer-art-img',hidden:true});
+ const drawerArtImg=h('img',{alt:'Cover art',class:'music-drawer-art-img',hidden:true,decoding:'async'});
  const drawerArtFallback=svg(icons.music,48,{stroke:1.2});
  const drawerPlayingBadge=h('span',{class:'music-drawer-status-badge',text:'READY'});
  drawerArt.append(drawerArtFallback,drawerArtImg,drawerPlayingBadge);
@@ -1336,7 +1336,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  }
  function coverImg(url:string|undefined){
   const fallback=safeHttpsUrl(url)||'';
-  const img=h('img',{alt:'Cover art',loading:'lazy',title:'Cover art'});
+  const img=h('img',{alt:'Cover art',loading:'lazy',decoding:'async',title:'Cover art'});
   img.onerror=()=>{
    img.style.display='none';
    const p=img.parentElement;
