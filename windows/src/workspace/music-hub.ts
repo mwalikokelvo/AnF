@@ -2960,6 +2960,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   else if(e.key==='-'||e.key==='_'||e.key==='ArrowDown'&&e.ctrlKey){e.preventDefault();const v=Math.max(0,prefs.volume-0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
   else if(e.key==='ArrowRight'&&e.ctrlKey){e.preventDefault();void step(1);}
   else if(e.key==='ArrowLeft'&&e.ctrlKey){e.preventDefault();void step(-1);}
+  else if(e.key==='r'||e.key==='R'){e.preventDefault();prefs.repeat=({off:'all',all:'track',track:'off'} as const)[prefs.repeat];save();paint();}
  });
  volume.addEventListener('input',()=>{stopFade();audio.volume=prefs.volume=Number(volume.value);volumeLabel.textContent=Math.round(prefs.volume*100)+'%';save();});
  speed.addEventListener('change',()=>{sample();audio.playbackRate=prefs.speed=Number(speed.value);ensurePreservesPitch(audio, true);resetClock();save();});
