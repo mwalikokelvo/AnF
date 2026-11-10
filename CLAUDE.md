@@ -36,10 +36,15 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.
 - REA Policy (MANDATORY FOR ALL AGENTS): NEVER SKIP REA. For any feature, architecture, or app investigation (even when source code is available), run REA tools (`rea` CLI 6.8.0 / REA MCP) to inspect binary structures, Electron ASAR archives, symbol tables, IPC channels, and network protocols. Concrete extracted evidence must ground all architectural decisions and implementations. No agent is permitted to skip REA.
 
-## Skills (all assistants)
-- Shared skills live in `.agents/skills/` (Superpowers, see `SOURCE.md`) and in each user's `~/.agents/skills/` (Antigravity reads it via `~/.gemini/config/skills.json`).
-- Before specialized work (a framework, external service, design system, code review), check installed skills first. If none fits, use `find-skills` (or `skills find <query>`) to search skills.sh, and suggest or install the match.
-- Skip the search for routine edits and tasks that installed skills already cover.
-- Default working style is Ponytail: the smallest complete change. Reuse first, no speculative abstractions, never skip validation, security or tests for non-trivial logic.
-- Solve issues by dispatching one subagent per independent problem. The controller reviews the result, runs the tests, and makes the commit. Do not start the app over.
-- Keep skills current with `skills update -g`. After a release is built, report the final release (links, platforms, exact version) back to the primary AnF conversation.
+## Skills, Connectors & Agency Roles (MANDATORY FOR ALL BUILDERS)
+- **Active Skills**: All assistants must actively apply installed skills in `.agents/skills/` and `.cursor/skills/`:
+  - **Anthropic Suite**: `mcp-builder`, `claude-api`, `pdf`, `docx`, `xlsx`, `pptx`, `web-artifacts-builder`, `theme-factory`, `webapp-testing`.
+  - **Engineering Lifecycle**: `spec-driven-development`, `api-and-interface-design`, `test-driven-development`, `code-review-and-quality`, `browser-testing-with-devtools`.
+  - **UI/UX & Motion**: `frontend-ui-engineering`, `design-taste-frontend`, `animate`, `gestures`.
+  - **Superpowers**: `brainstorming`, `systematic-debugging`, `verification-before-completion`, `dispatching-parallel-agents`.
+- **MCP Connectors**: Use registered MCP servers in `.agents/mcp_config.json` (`codebase-memory`, `fetch`, `filesystem`, `git`, `magic-ui`). Query `codebase-memory` for persistent symbol/dependency context.
+- **Agency Specialists**: Adopt domain specialist personas in `.cursor/skills/agency-agents/` and `.agents/agency-agents/` (e.g. `systems-architect`, `ui-designer`, `security-auditor`, `qa-engineer`) when tackling relevant work.
+- **Before specialized work**: check installed skills first. If none fits, search with `skills find <query>`.
+- **Working style**: Ponytail mode — the smallest complete change. Reuse first, no speculative abstractions, never skip validation, security, or tests.
+- **Subagents**: Solve complex issues by dispatching one subagent per independent problem. The controller reviews the result, runs the tests, and makes the commit. Do not start the app over.
+- Keep skills current with `skills update -g`. After a release is built, report the final release back to the primary AnF conversation.

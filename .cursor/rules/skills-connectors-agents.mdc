@@ -1,0 +1,41 @@
+---
+description: Mandatory usage of repository skills, MCP connectors, and agency specialists
+alwaysApply: true
+---
+
+# MANDATORY: Repository Skills, MCP Connectors & Agency Personas
+
+All developers and AI assistants working on AnF MUST follow these standards:
+
+## 1. Skill Execution (Do Not Wait for Manual Prompting)
+Automatically check `.cursor/skills/` and `.agents/skills/` before and during task execution:
+- **Anthropic Suite**:
+  - `mcp-builder`: Creating and authoring MCP servers.
+  - `claude-api`: Claude SDK, prompt caching, model parameters.
+  - `pdf`, `docx`, `xlsx`, `pptx`: Reading, editing, and generating documents & spreadsheets.
+  - `web-artifacts-builder` & `theme-factory`: Interactive React/Tailwind preview components.
+  - `webapp-testing`: End-to-end browser and UI testing.
+- **Engineering Lifecycle (Addy Osmani)**:
+  - `spec-driven-development` & `api-and-interface-design`: Design contracts first.
+  - `test-driven-development`: Red-Green-Refactor implementation.
+  - `code-review-and-quality`: Verification before committing.
+- **UI & Motion (Emil Kowalski)**:
+  - `frontend-ui-engineering`, `design-taste-frontend`, `animate`, `gestures`.
+- **Superpowers**:
+  - `brainstorming`: Planning non-trivial features.
+  - `systematic-debugging`: Isolating root causes before modifying code.
+  - `verification-before-completion`: Evidence-first proof of functionality.
+
+## 2. Active MCP Connectors
+Leverage the configured MCP servers in `.cursor/mcp.json`:
+- `codebase-memory`: Query symbol dependencies, call hierarchies, and AST relationships.
+- `fetch`: Fetch live schema and API documentation.
+- `filesystem` & `git`: Safe scoped workspace manipulation and atomic commits.
+- `magic-ui`: Modern UI component library patterns.
+
+## 3. Agency Specialists & Personas
+Adopt matching personas from `.cursor/skills/agency-agents/` for specialized tasks:
+- Architecture -> `systems-architect.md`, `backend-architect.md`
+- Frontend -> `ui-designer.md`, `frontend-specialist.md`
+- Security -> `security-auditor.md`
+- QA / Verification -> `qa-engineer.md`

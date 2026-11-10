@@ -1,31 +1,58 @@
 # AnF Multi-Agent Development Standards
 
-This document establishes operating standards for all autonomous AI coding agents (Antigravity, Cursor, Claude Code, Codex, DeepSeek Harness, OpenCode, Gemini CLI, Aider) working on the AnF codebase.
+This document establishes mandatory operating standards for all developers and autonomous AI coding agents (Antigravity, Cursor, Claude Code, Codex, DeepSeek Harness, OpenCode, Gemini CLI, Aider) building on the AnF codebase.
 
-This repository (`AnF`) is configured with shared team agent skills, agency roles, and knowledge graphs in `.agents/` and `.cursor/skills/`. All AI coding assistants operating on this project MUST follow these instructions autonomously.
+This repository (`AnF`) is fully outfitted with shared team agent skills, agency roles, knowledge graphs, and MCP connectors in `.agents/` and `.cursor/`. **Anyone and any agent building our apps MUST actively utilize these skills, connectors, and agent roles.**
 
 ---
 
-## 1. Autonomous Skill & Agent Execution (No Manual Callout)
+## 1. Mandatory Skills, Connectors & Agency Personas
 
-**Do NOT wait for the developer to call out specific skills or slash commands.** The agent must automatically identify and apply matching skills and agents from `.agents/` and `.cursor/skills/`:
+**Do NOT wait for the developer to call out specific skills, slash commands, or roles.** Agents and developers must autonomously identify, adopt, and apply matching resources from `.agents/` and `.cursor/`:
 
-1. **Architecture & Code Navigation (Graphify)**:
-   - For any question regarding code relationships, component structure, call flow, or data pathways, consult the knowledge graph:
-     - Run `graphify query "<question>"` (or BFS search) before reading raw files.
-     - Run `graphify path "<Source>" "<Target>"` for component relationships.
-     - Run `graphify explain "<Node>"` for deep dives on classes/structs.
-   - If `graphify-out/wiki/index.md` exists, navigate it before reading raw files.
-   - After modifying code files in any session, run `graphify update .` to keep the AST graph current with zero token cost.
-2. **Specialized Tasks**:
-   - Check `.agents/skills/` and `.agents/agency-agents/` first before starting work on any task:
-     - Code review / PR prep → `.agents/skills/code-review-and-quality`
-     - Bug fixing / diagnostics → `.agents/skills/systematic-debugging`
-     - New features / non-trivial changes → `.agents/skills/test-driven-development` and `.agents/skills/brainstorming`
-     - Pre-merge checks → `.agents/skills/verification-before-completion`
-     - Frontend / UI changes → `.agents/skills/frontend-ui-engineering`
-     - Security / auth / secrets → `.agents/skills/security-and-hardening`
-   - If a task matches a skill in `.agents/skills/` or `.cursor/skills/`, execute its procedures immediately without waiting for a prompt like `/skill-name`.
+### A. Core Skill Suites (In `.agents/skills/` and `.cursor/skills/`)
+1. **Official Anthropic Suite**:
+   - `mcp-builder`: Creating, authoring, and structuring custom Python/TypeScript MCP servers.
+   - `claude-api`: Official prompt patterns, model capabilities, token budgeting, and tool use.
+   - `pdf`, `docx`, `xlsx`, `pptx`: Complete extraction, generation, formula calculation, and document formatting.
+   - `web-artifacts-builder`, `theme-factory`: Multi-component interactive React/Tailwind/shadcn HTML artifacts.
+   - `algorithmic-art`, `canvas-design`: Generative visual workflows, SVG, and canvas rendering.
+   - `webapp-testing`: Browser interaction, accessibility, and end-to-end verification.
+   - `doc-coauthoring`, `internal-comms`: Technical specs, RFCs, change documentation, and status updates.
+2. **Engineering Lifecycle Suite (Addy Osmani)**:
+   - `spec-driven-development` & `api-and-interface-design`: Specifying interfaces, contracts, and types before writing implementation.
+   - `test-driven-development`: Red-Green-Refactor cycle for non-trivial logic.
+   - `browser-testing-with-devtools`: Automated real-browser assertions and console verification.
+   - `code-review-and-quality`: Pre-commit/pre-PR automated quality audits.
+   - `ci-cd-and-automation` & `shipping-and-launch`: Release workflows and pipelines.
+3. **UI, Motion & Interaction Suite (Emil Kowalski)**:
+   - `frontend-ui-engineering`, `design-taste-frontend`, `animate`, `gestures`, `animation-performance`: Smooth 60/120fps interactions, layout-shift-free UI, and native feel.
+4. **Superpowers & Resilient Execution**:
+   - `brainstorming`: Structured ideation before tackling complex feature work.
+   - `systematic-debugging`: Root-cause tracing with reproducible test cases before proposing fixes.
+   - `verification-before-completion`: Evidence-first verification before claiming any fix or feature is complete.
+   - `dispatching-parallel-agents`: Delegating independent tasks to parallel subagents.
+
+### B. Core MCP Connectors (In `.agents/mcp_config.json` and `.cursor/mcp.json`)
+All agents must leverage the registered MCP tools:
+- **`codebase-memory`**: Persistent AST dependency graph (`.codebase-memory/graph.db.zst`). Query symbols, relationships, and caller hierarchies across sessions.
+- **`fetch`**: Live lookup of official third-party APIs, crates, packages, and RFC documentation.
+- **`filesystem`**: Scoped workspace reads/writes with boundary safety.
+- **`git`**: Checking status, diffs, branch isolation, and staging clean atomic increments.
+- **`magic-ui`**: Component patterns and Tailwind styling catalog for rapid UI development.
+
+### C. Agency Specialists & Department Personas (In `.cursor/skills/agency-agents/` and `.agents/agency-agents/`)
+The repository contains 232 specialized domain personas. Whenever an agent or developer tackles a specific domain, they must adopt the corresponding persona:
+- **Architecture**: `systems-architect.md`, `backend-architect.md`, `cloud-architect.md`
+- **Frontend & UI/UX**: `ui-designer.md`, `frontend-specialist.md`, `accessibility-auditor.md`
+- **Security & Infrastructure**: `security-auditor.md`, `devops-engineer.md`, `penetration-tester.md`
+- **Quality & Delivery**: `qa-engineer.md`, `test-automator.md`, `release-manager.md`
+
+### D. Codebase Navigation (Graphify)
+- Run `graphify query "<question>"` before reading raw files.
+- Run `graphify path "<Source>" "<Target>"` for component dependencies.
+- Run `graphify explain "<Node>"` for symbol analysis.
+- After code changes, run `graphify update .` to keep the graph current.
 
 ---
 
