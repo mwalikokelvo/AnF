@@ -46,7 +46,7 @@ if (providers.gradleProperty("mkrReviewPublication").orNull == "true") {
         }
     }
     tasks.withType<Jar>().configureEach {
-        if (name == "releaseSourcesJar") {
+        if (name == "sourceReleaseJar") {
             from("../engine/vendor/mkr/LICENSE") { into("META-INF/licenses/mkr") }
             from("../engine/PRIMARY-LICENSE.txt") { into("META-INF/licenses/primary") }
             from("../README.md") { into("META-INF"); rename { "MKR-REVIEW-NOTICE.md" } }
