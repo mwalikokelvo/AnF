@@ -548,3 +548,10 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 ## 2026-11-10 (America/Chicago) — merge #120 + rebase #121 for merge
 - **#120** (`cursor/wire-jev-cloud-backup-d2fe`) merged to `main` (merge commit).
 - **#121** (`cursor/jarvis-complete-d2fe`): rebased onto post-#120 `main`; kept vault search + quick-capture; refreshed `Cargo.lock` for 0.1.51 (`--locked` CI); force-pushed `e05df37`. Local: `tsc` + `npm test` 573 pass. Waiting CI then plain merge.
+
+## 2026-11-10 (America/Chicago) overnight — #121 merged + JARVIS pipeline harness
+- **Merged #121** (`cursor/jarvis-complete-d2fe`) → `main` as plain merge `a7fba5a` after full CI green (Windows/Linux/Android/gates/CodeQL/Approval/Security).
+- Local cloud gates (label: **tested on Linux**): `tsc`, `npm test` 578 pass (includes new overnight pipeline), `test:e2e` 138 pass, `check-release.mjs`, `npm run build` (Vite). Voice-pack plugin reports no MP3s yet (Phase 3 on PC).
+- Added `windows/tests/jarvis-overnight-pipeline.test.ts`: wake-word strip → agent intents → memory/askAI → telemetry stop.
+- **Blocked human-only**: native Windows `npm run pack` / live mic+TTS on device; drop 13 MP3s into `windows/voice-pack/` then pack on PC. REA CLI not installed in this cloud image.
+- Jarvis code path is functionally ready for talk-testing once the Windows build with voice samples is on the PC.
