@@ -256,8 +256,13 @@ class MkrPlaybackService : Service() {
             }}} catch(error: Exception) {
                 // Covers cancellation before Main starts and cancelled delivery
                 // after a fully prepared lease was queued to the caller.
-                prepared?.close()
-                withContext(NonCancellable+Dispatchers.Main.immediate) {
+                val obtained=prepared
+                if(obtained!=null) {
+                    // The service already owns this controller. Closing its
+                    // native lease schedules detach on Main; no second dispatcher
+                    // round trip is needed just to check the accepted request.
+                    obtained.close()
+                } else withContext(NonCancellable+Dispatchers.Main.immediate) {
                     if(!next.claimed){if(pending===next)pending=null;controller.close()}
                 }
                 throw error
