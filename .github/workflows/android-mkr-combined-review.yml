@@ -59,8 +59,9 @@ jobs:
         run: |
           set -euo pipefail
           gradle -p android --no-daemon mkrReviewRuntimeInventory ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
-          gradle -p android --no-daemon mkrReviewRuntimeInventory assembleReview assembleReviewAndroidTest -PmkrReviewRuntime=true -PmusicPreviewAbi=x86_64 ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
+          gradle -p android --no-daemon mkrReviewRuntimeInventory -PmkrReviewRuntime=true -PmusicPreviewAbi=x86_64 ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
           python3 -B scripts/audit-mkr-combined-review.py
+          gradle -p android --no-daemon assembleReview assembleReviewAndroidTest -PmkrReviewRuntime=true -PmusicPreviewAbi=x86_64 ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
       - name: Allow this ephemeral runner user to use its emulator
         run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d

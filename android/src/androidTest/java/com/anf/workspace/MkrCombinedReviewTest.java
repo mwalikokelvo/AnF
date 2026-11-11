@@ -62,7 +62,7 @@ public class MkrCombinedReviewTest {
     Class.forName("com.anf.mkr.android.MkrPageLifecycle",false,context.getClassLoader());
     ServiceInfo registered=context.getPackageManager().getServiceInfo(new ComponentName(context,SERVICE),0);
     assertFalse("Native service must not be exported",registered.exported);
-    assertTrue((registered.foregroundServiceType&ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)!=0);
+    assertTrue((registered.getForegroundServiceType()&ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)!=0);
     File sentinel=File.createTempFile("combined-mkr-qa-",".txt",context.getFilesDir());
     byte[] saved="Generated combined review marker".getBytes(StandardCharsets.UTF_8);Files.write(sentinel.toPath(),saved);
     Activity activity=instrumentation.startActivitySync(new Intent().setClassName(context,"com.anf.workspace.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
