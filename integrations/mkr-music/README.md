@@ -19,6 +19,26 @@ AnF and legacy Coucou origins. Closing the page detaches browsing without stoppi
 ongoing service playback. A missing renderer still cannot approve a new audio
 handoff. The production MainActivity does not instantiate this host yet.
 
+The experimental prepared connection now implements that page contract. Native
+selection validation and a fresh positive other-audio acknowledgement precede
+foreground promotion; resolving media and constructing a decoder follow the
+actual foreground-service start. Cold browsing does not create a notification
+or decoder. Ordinary OS/Binder play remains denied until promotion. A cancelled
+resolution with no accepted playback releases the last detached owner and its
+notification; accepted playback retains service ownership across page detach.
+
+[Native run43054426348](https://github.com/mwalikokelvo/AnF/actions/runs/43054426348)
+at `22d719a` passed43 host tests and21 Android15 component tests, retaining the
+previous19 cases. The actual TS client/WebView/Binder/Media3 controls case now
+starts cold and waits for audio acknowledgement before native promotion.
+Separate cases cover invalid selection, denied acknowledgement and cancellation
+during resolution after promotion. System notification publication/removal is
+observed with bounded waits; foreground state is checked before resolution.
+The controls case finishes paused and reconnects to the same service token;
+it does not prove ongoing audible playback after Activity destruction. This
+remains generated-media engineering evidence, with no production Activity
+bootstrap, enabled source, real-provider or installed-update acceptance.
+
 [Native run42211028416](https://github.com/mwalikokelvo/AnF/actions/runs/42211028416)
 at `69731c4` passed43 host tests and15 Android15 component tests, including real
 WebView/Binder navigation, delayed connection delivery, destruction and legacy
