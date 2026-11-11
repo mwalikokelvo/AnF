@@ -264,6 +264,16 @@ class MkrPlaybackService : Service() {
         // Accessed only on Main. No persisted controllers, URLs or credentials.
         private var pending: Request?=null
         private var running: MkrPlaybackService?=null
+        internal suspend fun reconnectPrepared(context: Context, token: MediaSession.Token): AndroidMkrPreparedConnection? {
+            // Inspect only on Main; do not start an empty service to probe a stale token.
+            val reusable=withContext(Dispatchers.Main.immediate) {
+                running?.let{!it.closing && it.request?.preparedOnly==true && it.owner?.token==token}==true
+            }
+            if(!reusable)return null
+            // No outer dispatcher return hop: connect already closes a lease if
+            // its caller's dispatcher is cancelled during successful delivery.
+            return AndroidMkrPreparedConnection(AndroidMkrConnection.connect(context.applicationContext,token))
+        }
         internal suspend fun prepare(context: Context, controller: AndroidPlaybackController): AndroidMkrPreparedConnection {
             val next=Request(controller,preparedOnly=true)
             var prepared: AndroidMkrPreparedConnection?=null

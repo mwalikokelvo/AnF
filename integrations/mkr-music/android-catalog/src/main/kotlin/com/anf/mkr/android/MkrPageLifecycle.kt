@@ -2,6 +2,7 @@
 package com.anf.mkr.android
 
 import android.content.Context
+import android.media.session.MediaSession
 import android.webkit.WebView
 import com.anf.mkr.MkrCatalog
 import com.anf.mkr.UpstreamCatalogBackend
@@ -36,7 +37,10 @@ class MkrPageLifecycle private constructor(private val page: AndroidMkrPageHost)
 internal class AndroidMkrOwner(private val factory: suspend (Context, AndroidAudioHandoff) -> AndroidPlaybackController) {
     val handoff=AndroidAudioHandoff()
     private val gate=Mutex()
+    private var token: MediaSession.Token?=null
     suspend fun connect(context: Context): AndroidMkrPageConnection = gate.withLock {
-        MkrPlaybackService.prepare(context.applicationContext,factory(context.applicationContext,handoff))
+        val app=context.applicationContext
+        token?.let {prior -> MkrPlaybackService.reconnectPrepared(app,prior)?.let{return@withLock it}}
+        MkrPlaybackService.prepare(app,factory(app,handoff)).also{token=it.token}
     }
 }
