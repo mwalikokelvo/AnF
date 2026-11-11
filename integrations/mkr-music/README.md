@@ -39,6 +39,23 @@ it does not prove ongoing audible playback after Activity destruction. This
 remains generated-media engineering evidence, with no production Activity
 bootstrap, enabled source, real-provider or installed-update acceptance.
 
+`MkrPageLifecycle` now provides Java-callable main-frame navigation and
+close-before-destroy callbacks for an optional native host. Its lazy owner holds
+application context and the handoff coordinator, retaining the accepted session
+token across recreated pages. Reconnection validates the live prepared service
+before acquiring a new lease; it does not create a replacement controller for an
+already owned service or share ownership with an unrelated session.
+
+[Native run43072264007](https://github.com/mwalikokelvo/AnF/actions/runs/43072264007)
+at `a509af6` passed43 host tests and22 Android15 cases, preserving all prior21.
+The new case uses actual Java WebViewClient callbacks, separate QA Activities,
+modern/legacy-origin pages, the real TS client and muted generated-media Media3.
+It verifies one catalog/controller factory, one decoder and the same session
+token, with new audio acknowledgements after the first page is destroyed.
+This is an isolated lifecycle fixture, **not AnF's MainActivity**. Forwarding
+these callbacks and packaging an optional reviewed runtime in the real AnF app
+remain unfinished; the production app still does not register this service.
+
 [Native run42211028416](https://github.com/mwalikokelvo/AnF/actions/runs/42211028416)
 at `69731c4` passed43 host tests and15 Android15 component tests, including real
 WebView/Binder navigation, delayed connection delivery, destruction and legacy
