@@ -90,6 +90,22 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     assert.strictEqual(queriedSong, 'Wimbo wangu');
   });
 
+  it('handles vault note search command', async () => {
+    let vaultQuery = '';
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      searchVault: async (q) => {
+        vaultQuery = q;
+        return `Found 1 note: DSP Notes.`;
+      },
+    });
+    const res = await agent.processVoiceInput('search notes for audio equalizer');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'search_vault');
+    assert.strictEqual(vaultQuery, 'audio equalizer');
+    assert.match(res.speechReply, /DSP Notes/);
+  });
+
   it('delegates open questions to AI conversational intelligence', async () => {
     const agent = new JarvisVoiceAgent({
       switchView: () => {},

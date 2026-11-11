@@ -37,6 +37,7 @@ import {createOpdsPanel} from './opds-panel';
 import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
+import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
 type Source={reading?:ReadingState|null;name:string;text:string;pages:{number:number;text:string;ocr:boolean}[];path:string|null};
@@ -254,6 +255,23 @@ const jarvisCommandDesk=createJarvisCommandDesk({
       showView('music');
       return await musicHub.searchAndPlay(query);
     },
+    searchVault:async (query:string)=>{
+      const {summarizeVaultSearch}=await import('./vault-search');
+      const list=await invoke<Entry[]>('workspace_list_projects',{query:''});
+      const notes:{id:string;name:string;draft:string;sources:{name:string;text:string;reading?:{offset:number}|null}[]}[]=[];
+      let chars=0;
+      for(const entry of list.slice(0,200)){
+        const p=entry.id===projectId
+          ?{id:projectId,name:name.value,draft:draft.value,sources}
+          :await invoke<Project>('workspace_load_project',{id:entry.id});
+        notes.push({id:p.id,name:p.name,draft:p.draft,sources:(p.sources||[]).map(s=>({name:s.name,text:s.text||'',reading:s.reading||null}))});
+        chars+=p.draft.length;
+        if(chars>4_000_000)break;
+      }
+      showView('home');
+      void studio.open();
+      return summarizeVaultSearch(notes,query,5);
+    },
     saveQuickNote:async text=>captureDaily(`\n\n[JARVIS Note] ${text}`),
     askAI:async query=>{
       try {
@@ -411,12 +429,32 @@ const syncPanel=h('div',{class:'settings-panel-view',hidden:true},
 );
 settingsPanels.set('sync',syncPanel);
 
+const cloudBackup=createCloudBackupPanel({
+  notify:msg=>{status.textContent=msg;},
+  listVaultFiles:async()=>{
+    const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});
+    const files:{path:string;size:number;mtime:number}[]=[];
+    for(const entry of entries.slice(0,200)){
+      const p=entry.id===projectId
+        ?{id:projectId,name:name.value,draft:draft.value,updated:Date.now()}
+        :await invoke<Project&{updated?:number}>('workspace_load_project',{id:entry.id});
+      const bytes=new TextEncoder().encode(p.draft||'').length;
+      files.push({
+        path:`notes/${(p.name||entry.name||entry.id).replace(/[\\/:*?"<>|]/g,'_')}.md`,
+        size:bytes,
+        mtime:typeof (p as {updated?:number}).updated==='number'?(p as {updated:number}).updated:entry.updated||Date.now(),
+      });
+    }
+    return files;
+  },
+});
 const vaultPanelEl=h('div',{class:'settings-panel-view',hidden:true},
   h('div',{class:'settings-card'},
     h('h3',{text:'Data, Privacy and Vault Recovery'}),
     vault,
     versions,
-    backups
+    backups,
+    cloudBackup.root
   )
 );
 settingsPanels.set('vault',vaultPanelEl);

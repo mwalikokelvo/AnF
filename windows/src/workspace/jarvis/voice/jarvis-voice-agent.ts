@@ -10,6 +10,7 @@ export interface JarvisActionContext {
   pauseMusic?: () => void;
   nextTrack?: () => void;
   searchMusic?: (query: string) => Promise<boolean>;
+  searchVault?: (query: string) => Promise<string>;
   saveQuickNote?: (text: string) => Promise<void>;
   askAI?: (query: string) => Promise<string>;
   triageSupport?: () => number;
@@ -96,6 +97,28 @@ export class JarvisVoiceAgent {
           handled: true,
           actionName: 'search_music',
           speechReply: `Searching Music Hub for "${songQuery}", sir.`,
+        };
+      }
+    }
+
+    // Vault / notes BM25 search: "search notes for equalizer", "find in vault Spaces"
+    if (
+      lower.startsWith('search notes ') ||
+      lower.startsWith('search note ') ||
+      lower.startsWith('search vault ') ||
+      lower.startsWith('find in vault ') ||
+      lower.startsWith('search my notes ') ||
+      lower.startsWith('find notes ')
+    ) {
+      const vaultQuery = text
+        .replace(/^(search notes for|search note for|search notes|search note|search vault for|search vault|find in vault|search my notes for|search my notes|find notes for|find notes)\s+/i, '')
+        .trim();
+      if (vaultQuery && this.context.searchVault) {
+        const summary = await this.context.searchVault(vaultQuery);
+        return {
+          handled: true,
+          actionName: 'search_vault',
+          speechReply: summary,
         };
       }
     }
