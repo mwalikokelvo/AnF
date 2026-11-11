@@ -60,6 +60,13 @@ internal class Media3Playback private constructor(private val player: ExoPlayer)
     }
     private suspend fun <T> onMain(action: () -> T): T = withContext(Dispatchers.Main.immediate) { action() }
     companion object {
+        /** Prepared owners can inspect/listen without allocating an ExoPlayer.
+         * The approved controller still enforces audio handoff before prepare.
+         */
+        suspend fun createDeferred(context: Context, muted: Boolean=false): NativePlayback {
+            val app=context.applicationContext
+            return DeferredNativePlayback.create{create(app,muted)}
+        }
         suspend fun create(context: Context, muted: Boolean=false): Media3Playback = withContext(Dispatchers.Main.immediate) {
             val player=ExoPlayer.Builder(context.applicationContext)
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),true)
