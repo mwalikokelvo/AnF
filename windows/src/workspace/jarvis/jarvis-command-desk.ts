@@ -181,6 +181,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     playMusic: options?.voiceActionContext?.playMusic,
     pauseMusic: options?.voiceActionContext?.pauseMusic,
     nextTrack: options?.voiceActionContext?.nextTrack,
+    searchMusic: options?.voiceActionContext?.searchMusic,
+    searchVault: options?.voiceActionContext?.searchVault,
     saveQuickNote: options?.voiceActionContext?.saveQuickNote,
     askAI: options?.voiceActionContext?.askAI,
     triageSupport: () => support.autoTriage(),

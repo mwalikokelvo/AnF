@@ -523,3 +523,11 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `npm run test:e2e`: **138/138 passed** across 24 suites.
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 5.82s.
+
+### 2026-11-10 — Cursor: continue Antigravity unfinished engines (BM25 + Spaces backup + JARVIS vault)
+- Branch: `cursor/wire-jev-cloud-backup-d2fe` (base `main` @ `0961587`).
+- **Wired `jev-index` into Ctrl+K studio search** via `vault-search.ts`: plain-text queries use BM25 ranking; `tag:` / `type:` / `has:` / `read:>` keep `matchesNote` filters. Dashboard gains a Vault Search launcher.
+- **Wired `cloud-backup` into Settings → Vault & Privacy** via `cloud-backup-panel.ts`: validate S3/Spaces target, export `rclone.conf` / `.s3cfg`, preview local vault manifest diff. Access keys stay session-only (not localStorage).
+- **JARVIS voice**: `search notes for…` / `find in vault…` runs BM25 vault search; also fixed `searchMusic` not being forwarded from the command desk context.
+- **Verification** (this session): `npx tsc --noEmit`; `npm test` (see commit). Label: tested on Linux.
+- **Still open from Antigravity next priorities**: remove duplicate/legacy scrape path in dual `streaming-provider.ts` trees; refresh `docs/BUILDUP-STATUS.md` HEAD pointer; stop `music-hub.ts` placeholder clobber.

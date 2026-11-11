@@ -433,17 +433,22 @@ export function createDashboard(a:Adapter){
     });
   });
 
+  const openVaultSearch = button('Vault Search (Ctrl+K)', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+  });
+
   const companionStudioCard = h('article',{class:'companion-hub-card'},
     h('div',{class:'companion-hub-header'},
       h('p',{class:'eyebrow',text:'PRODUCTIVITY & COMPANION STUDIO'}),
       h('h3',{text:'Focus, Vault Health & Developer Hub'}),
-      h('p',{class:'hint',text:'Local Pomodoro focus timer, vault wikilink diagnostics, security challenges, and community support triage.'})
+      h('p',{class:'hint',text:'Local Pomodoro focus timer, BM25 vault search, vault wikilink diagnostics, security challenges, and community support triage.'})
     ),
     h('div',{class:'companion-grid'},
       pomodoroCard,
       vaultHealthCard
     ),
     h('div',{class:'row companion-actions'},
+      openVaultSearch,
       launchAppFlowy,
       launchCalDesk,
       toggleView,
