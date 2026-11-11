@@ -544,3 +544,7 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - **JARVIS voice**: `search notes for…` / `find in vault…` runs BM25 vault search; also fixed `searchMusic` not being forwarded from the command desk context.
 - **Verification** (this session): `npx tsc --noEmit`; `npm test` (see commit). Label: tested on Linux.
 - **Still open from Antigravity next priorities**: remove duplicate/legacy scrape path in dual `streaming-provider.ts` trees; refresh `docs/BUILDUP-STATUS.md` HEAD pointer; stop `music-hub.ts` placeholder clobber.
+
+## 2026-11-10 (America/Chicago) — merge #120 + rebase #121 for merge
+- **#120** (`cursor/wire-jev-cloud-backup-d2fe`) merged to `main` (merge commit).
+- **#121** (`cursor/jarvis-complete-d2fe`): rebased onto post-#120 `main`; kept vault search + quick-capture; refreshed `Cargo.lock` for 0.1.51 (`--locked` CI); force-pushed `e05df37`. Local: `tsc` + `npm test` 573 pass. Waiting CI then plain merge.
