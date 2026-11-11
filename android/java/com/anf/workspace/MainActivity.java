@@ -53,6 +53,12 @@ public class MainActivity extends Activity {
     s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     web.addJavascriptInterface(new LocalActions(),"AnFAndroid");
     web.setWebViewClient(new WebViewClient(){
+      @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap favicon){
+        if(!closing && view==web && embeddedMusic!=null)embeddedMusic.onPageStarted();
+      }
+      @Override public void onPageFinished(WebView view,String url){
+        if(!closing && view==web && embeddedMusic!=null)embeddedMusic.onPageFinished(url);
+      }
       @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){
         if(!closing && view==web)showRendererRecovery();
         return true;
@@ -217,7 +223,12 @@ public class MainActivity extends Activity {
     if(request==2){byte[] bytes=exportBytes;exportBytes=null;if(result==RESULT_OK&&data!=null&&bytes!=null){new Thread(()->{try(OutputStream out=getContentResolver().openOutputStream(data.getData())){if(out==null)throw new IOException();out.write(bytes);notice("Export saved.");}catch(Exception e){notice("Could not save this export.");}}).start();}else notice("Export cancelled.");}
   }
   private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
+  private void closeEmbeddedMusic(){
+    EmbeddedMusicPage page=embeddedMusic;embeddedMusic=null;
+    if(page!=null)try{page.close();}catch(RuntimeException|LinkageError ignored){/* Keep workspace recovery usable. */}
+  }
   private void showRendererRecovery(){
+    closeEmbeddedMusic();
     android.widget.ScrollView recovery=new android.widget.ScrollView(this);recovery.setFillViewport(true);
     android.content.res.TypedArray colors=obtainStyledAttributes(new int[]{android.R.attr.colorBackground});
     int background;try{background=colors.getColor(0,android.graphics.Color.WHITE);}finally{colors.recycle();}
@@ -256,6 +267,7 @@ public class MainActivity extends Activity {
   }
   private void closeWorkspace(){
     if(closing)return;closing=true;
+    closeEmbeddedMusic();
     if(media!=null)media.close();if(addons!=null)addons.close();vaultWorker.shutdown();
     if(picker!=null){ValueCallback<Uri[]> pending=picker;picker=null;pending.onReceiveValue(null);}
     exportBytes=null;speechPartId=null;speechPartLength=0;

@@ -91,7 +91,7 @@ try:
         'originalSignerVerified': False, 'installedUpgradeVerified': False,
         'providerPlaybackVerified': False, 'readyForPublication': False,
     }, indent=2)+'\n', encoding='utf-8')
-    print('PASS native entry points and real renderer termination/recovery/reopen with generated saved-file preservation. Fresh emulator/throwaway signer only.')
+    print('PASS native entry points, real renderer recovery and actual AnF embedded-music lifecycle callbacks with generated saved-file preservation. Fresh emulator/throwaway signer only; combined MKR runtime is not included.')
 finally:
     try:
         diagnostic = subprocess.run([str(adb), 'logcat', '-d', '-v', 'brief'], capture_output=True, text=True, timeout=30)

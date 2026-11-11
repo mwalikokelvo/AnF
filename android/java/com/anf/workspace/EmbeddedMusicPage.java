@@ -15,6 +15,7 @@ public interface EmbeddedMusicPage extends AutoCloseable {
       Class<?> type=Class.forName("com.anf.mkr.android.MkrPageLifecycle",true,MainActivity.class.getClassLoader());
       Method start=type.getMethod("onPageStarted"),finish=type.getMethod("onPageFinished",String.class),close=type.getMethod("close");
       Object owner=type.getMethod("attach",WebView.class,String.class).invoke(null,web,origin);
+      if(owner==null)return NONE;
       return new EmbeddedMusicPage() {
         private boolean closed;
         private void invoke(Method method,Object... args) {
