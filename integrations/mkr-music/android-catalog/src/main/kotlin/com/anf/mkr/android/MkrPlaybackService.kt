@@ -4,6 +4,8 @@ package com.anf.mkr.android
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
+import android.content.ComponentName
 import android.content.pm.ServiceInfo
 import android.media.MediaMetadata
 import android.media.session.MediaController
@@ -24,6 +26,7 @@ class MkrPlaybackService : Service() {
     private var owner: AndroidMediaSession?=null
     private var remote: MediaController?=null
     private var closing=false
+    private var foreground=false
     private var destroyed=false
     private var cleaned=false
     private var clients=0
@@ -35,11 +38,19 @@ class MkrPlaybackService : Service() {
     }
     @Suppress("DEPRECATION")
     override fun onBind(intent: Intent?): IBinder? {
+        if(!closing && intent?.action==PREPARE) {
+            val next=pending
+            if(request==null && next!=null && next.preparedOnly && intent.getStringExtra(NONCE)==next.nonce) {
+                initialize(next,startForeground=false)
+                return NativeBinder(next.nonce)
+            }
+            return null
+        }
         if(closing || intent?.action!=BIND || owner==null ||
             intent.getParcelableExtra<MediaSession.Token>(TOKEN)!=owner!!.token)return null
         return NativeBinder(request!!.nonce)
     }
-    override fun onUnbind(intent: Intent?): Boolean = true
+    override fun onUnbind(intent: Intent?): Boolean {if(!foreground)finish();return true}
     /** Same-process native API; no raw controller, source URL, player or credentials. */
     internal inner class NativeBinder(private val nonce: String) : Binder() {
         // Android may reuse a cached Binder without calling onBind again.
@@ -49,7 +60,16 @@ class MkrPlaybackService : Service() {
             if(!matches(token))return false
             clients++;return true
         }
-        fun release() {check(Looper.myLooper()==Looper.getMainLooper());check(clients>0);clients--}
+        fun release() {
+            check(Looper.myLooper()==Looper.getMainLooper());check(clients>0);clients--
+            if(clients==0 && request?.preparedOnly==true && !foreground)finish()
+        }
+        suspend fun preparedToken(approval: String): MediaSession.Token = withContext(Dispatchers.Main.immediate) {
+            check(!closing && request?.nonce==nonce && approval==nonce && request?.preparedOnly==true){"Music preparation unavailable."}
+            val token=request!!.ready.await()
+            check(!closing && request?.nonce==nonce && owner?.token==token){"Music preparation unavailable."}
+            token
+        }
         private fun current(): AndroidMediaSession {
             check(!closing && request?.nonce==nonce && owner!=null){"Music service unavailable."}
             return owner!!
@@ -67,36 +87,8 @@ class MkrPlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if(intent?.action==START) {
             val next=pending
-            if(!closing && request==null && next!=null && intent.getStringExtra(NONCE)==next.nonce) {
-                pending=null;request=next;running=this
-                try {
-                    val manager=getSystemService(NotificationManager::class.java)
-                    manager.createNotificationChannel(NotificationChannel(CHANNEL,"AnF Music",NotificationManager.IMPORTANCE_LOW).apply {
-                        setSound(null,null);setShowBadge(false)
-                    })
-                    val notification=notification()
-                    if(Build.VERSION.SDK_INT>=29) startForeground(NOTIFICATION,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-                    else startForeground(NOTIFICATION,notification)
-                    initialization=scope.launch {
-                        try {
-                            withTimeout(8000) {
-                                // Assignment happens on Main before another suspension, so destroy owns cleanup.
-                                owner=AndroidMediaSession.create(this@MkrPlaybackService,next.controller)
-                                owner!!.activate()
-                                remote=MediaController(this@MkrPlaybackService,owner!!.token).also {
-                                    it.registerCallback(observer,Handler(Looper.getMainLooper()))
-                                }
-                                updateNotification();next.ready.complete(owner!!.token)
-                            }
-                        } catch(error: CancellationException) {
-                            next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
-                        } catch(error: Exception) {
-                            next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
-                        }
-                    }
-                } catch(error: Exception) {
-                    next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
-                }
+            if(!closing && request==null && next!=null && !next.preparedOnly && intent.getStringExtra(NONCE)==next.nonce) {
+                initialize(next,startForeground=true)
             } else if(request==null) stopSelf(startId)
         } else if(!closing && request!=null && intent?.getStringExtra(NONCE)==request!!.nonce) {
             when(intent.action) {
@@ -108,6 +100,39 @@ class MkrPlaybackService : Service() {
             }
         } else if(request==null) stopSelf(startId)
         return START_NOT_STICKY
+    }
+    private fun initialize(next: Request, startForeground: Boolean) {
+        pending=null;request=next;next.claimed=true;running=this
+        try {
+            if(startForeground) {
+                val manager=getSystemService(NotificationManager::class.java)
+                manager.createNotificationChannel(NotificationChannel(CHANNEL,"AnF Music",NotificationManager.IMPORTANCE_LOW).apply {
+                    setSound(null,null);setShowBadge(false)
+                })
+                val notification=notification()
+                if(Build.VERSION.SDK_INT>=29) startForeground(NOTIFICATION,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                else startForeground(NOTIFICATION,notification)
+                foreground=true
+            }
+            initialization=scope.launch {
+                try {
+                    withTimeout(8000) {
+                        owner=AndroidMediaSession.create(this@MkrPlaybackService,next.controller,playbackAllowed={foreground})
+                        owner!!.activate()
+                        remote=MediaController(this@MkrPlaybackService,owner!!.token).also {
+                            it.registerCallback(observer,Handler(Looper.getMainLooper()))
+                        }
+                        updateNotification();next.ready.complete(owner!!.token)
+                    }
+                } catch(error: CancellationException) {
+                    next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
+                } catch(error: Exception) {
+                    next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
+                }
+            }
+        } catch(error: Exception) {
+            next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
+        }
     }
     private fun action(action: String): PendingIntent {
         val intent=Intent(this,MkrPlaybackService::class.java).setAction(action)
@@ -139,7 +164,7 @@ class MkrPlaybackService : Service() {
         return builder.build()
     }
     private fun updateNotification() {
-        if(!closing && request!=null) getSystemService(NotificationManager::class.java).notify(NOTIFICATION,notification())
+        if(!closing && foreground && request!=null) getSystemService(NotificationManager::class.java).notify(NOTIFICATION,notification())
     }
     private fun finish() {
         if(closing)return
@@ -154,7 +179,8 @@ class MkrPlaybackService : Service() {
                 request?.ready?.completeExceptionally(IllegalStateException("Music service stopped."))
                 owner=null;request=null
                 cleaned=true;clearDestroyedOwner()
-                stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();scope.cancel()
+                if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false}
+                stopSelf();scope.cancel()
             }
         }}
     }
@@ -171,13 +197,15 @@ class MkrPlaybackService : Service() {
         private const val NONCE="owner"
         private const val START="com.anf.mkr.START"
         internal const val BIND="com.anf.mkr.BIND"
+        private const val PREPARE="com.anf.mkr.PREPARE"
         internal const val TOKEN="session"
         private const val STOP="com.anf.mkr.STOP"
         private const val PLAY="com.anf.mkr.PLAY"
         private const val PAUSE="com.anf.mkr.PAUSE"
         private const val NEXT="com.anf.mkr.NEXT"
         private const val PREVIOUS="com.anf.mkr.PREVIOUS"
-        private class Request(val controller: AndroidPlaybackController) {
+        private class Request(val controller: AndroidPlaybackController, val preparedOnly: Boolean=false) {
+            var claimed=false // Main only: accepted controller belongs to the service.
             val nonce=UUID.randomUUID().toString()
             val ready=CompletableDeferred<MediaSession.Token>()
         }
@@ -185,8 +213,54 @@ class MkrPlaybackService : Service() {
         private var pending: Request?=null
         private var running: MkrPlaybackService?=null
         internal suspend fun prepare(context: Context, controller: AndroidPlaybackController): AndroidMkrPreparedConnection {
-            val token=start(context,controller)
-            return AndroidMkrPreparedConnection(AndroidMkrConnection.connect(context,token))
+            val next=Request(controller,preparedOnly=true)
+            var prepared: AndroidMkrPreparedConnection?=null
+            try {return withContext(Dispatchers.Main.immediate) {coroutineScope {
+                awaitVacant();pending=next
+                val app=context.applicationContext
+                val ready=CompletableDeferred<MediaSession.Token>()
+                var validating: Job?=null
+                var active=true
+                var registered=false
+                fun unavailable(){ready.completeExceptionally(IllegalStateException("Music preparation unavailable."))}
+                val connection=object : ServiceConnection {
+                    override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                        if(!active)return
+                        val local=service as? NativeBinder
+                        if(local==null){unavailable();return}
+                        validating=launch {
+                            try {ready.complete(local.preparedToken(next.nonce))}
+                            catch(error: Exception){unavailable()}
+                        }
+                    }
+                    override fun onServiceDisconnected(name: ComponentName?)=unavailable()
+                    override fun onBindingDied(name: ComponentName?)=unavailable()
+                    override fun onNullBinding(name: ComponentName?)=unavailable()
+                }
+                try {
+                    registered=app.bindService(Intent(app,MkrPlaybackService::class.java).setAction(PREPARE)
+                        .putExtra(NONCE,next.nonce),connection,Context.BIND_AUTO_CREATE)
+                    check(registered){"Music preparation unavailable."}
+                    val token=withTimeout(5000){ready.await()}
+                    val result=AndroidMkrPreparedConnection(AndroidMkrConnection.connect(app,token))
+                    prepared=result;result
+                } finally {
+                    active=false;validating?.cancel();ready.cancel()
+                    if(registered)app.unbindService(connection)
+                }
+            }}} catch(error: Exception) {
+                // Covers cancellation before Main starts and cancelled delivery
+                // after a fully prepared lease was queued to the caller.
+                prepared?.close()
+                withContext(NonCancellable+Dispatchers.Main.immediate) {
+                    if(!next.claimed){if(pending===next)pending=null;controller.close()}
+                }
+                throw error
+            }
+        }
+        private suspend fun awaitVacant() {
+            running?.takeIf{it.closing && it.clients==0}?.let {prior ->withTimeout(8000){prior.terminated.await()}}
+            check(pending==null && running==null){"Music service already owned."}
         }
         internal suspend fun start(context: Context, controller: AndroidPlaybackController): MediaSession.Token =
             withContext(Dispatchers.Main.immediate) {
@@ -199,10 +273,7 @@ class MkrPlaybackService : Service() {
                     // onUnbind can lag both the caller's unbindService and AMS's
                     // service-list removal. Count native handles synchronously;
                     // a genuinely retained stopped owner must still reject start.
-                    running?.takeIf{it.closing && it.clients==0}?.let {prior ->
-                        withTimeout(8000){prior.terminated.await()}
-                    }
-                    check(pending==null && running==null){"Music service already owned."}
+                    awaitVacant()
                     pending=next;submitted=true
                     context.applicationContext.startForegroundService(Intent(context,MkrPlaybackService::class.java)
                         .setAction(START).putExtra(NONCE,next.nonce))
