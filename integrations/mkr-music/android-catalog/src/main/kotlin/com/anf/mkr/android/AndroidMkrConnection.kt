@@ -27,6 +27,9 @@ internal class AndroidMkrConnection private constructor(
         checkOpen();return binder.control(command,id,positionMs).also{checkOpen()}
     }
     override fun close() {if(closed.compareAndSet(false,true))detach()}
+    internal suspend fun playPrepared(id: String?): AndroidPlaybackState {
+        checkOpen();return binder.playPrepared(id).also{checkOpen()}
+    }
     companion object {
         suspend fun connect(context: Context, token: MediaSession.Token): AndroidMkrConnection {
             var prepared: AndroidMkrConnection?=null

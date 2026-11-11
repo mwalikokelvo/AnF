@@ -74,6 +74,11 @@ internal class AndroidMediaSession private constructor(context: Context,
             else -> throw IllegalArgumentException("Unsupported music command.")
         }
     }
+    /** Native prepared-page entry; controller selection and audio acknowledgement still apply. */
+    internal suspend fun playPrepared(id: String?): AndroidPlaybackState = execute {
+        require(id==null || id.isNotEmpty() && id.length<=256)
+        controller.play(id)
+    }
     private fun changed() {
         if(closed.get()) return
         scope.launch {

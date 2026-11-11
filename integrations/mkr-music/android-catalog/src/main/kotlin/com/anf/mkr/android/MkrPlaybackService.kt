@@ -32,6 +32,7 @@ class MkrPlaybackService : Service() {
     private var clients=0
     private val terminated=CompletableDeferred<Unit>()
     private var initialization: Job?=null
+    private var promotion: CompletableDeferred<Unit>?=null
     private val observer=object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?)=updateNotification()
         override fun onPlaybackStateChanged(state: PlaybackState?)=updateNotification()
@@ -53,7 +54,8 @@ class MkrPlaybackService : Service() {
     override fun onUnbind(intent: Intent?): Boolean {
         // PREPARE and BIND publish separate interfaces. Dropping the bootstrap
         // interface must not close an already retained native browsing lease.
-        if(!foreground && clients==0)finish()
+        if(request?.preparedOnly==true)queueIdleCleanup()
+        else if(!foreground && clients==0)finish()
         return true
     }
     /** Same-process native API; no raw controller, source URL, player or credentials. */
@@ -67,7 +69,7 @@ class MkrPlaybackService : Service() {
         }
         fun release() {
             check(Looper.myLooper()==Looper.getMainLooper());check(clients>0);clients--
-            if(clients==0 && request?.preparedOnly==true && !foreground)finish()
+            if(clients==0 && request?.preparedOnly==true)queueIdleCleanup()
         }
         suspend fun preparedToken(approval: String): MediaSession.Token = withContext(Dispatchers.Main.immediate) {
             check(!closing && request?.nonce==nonce && approval==nonce && request?.preparedOnly==true){"Music preparation unavailable."}
@@ -88,6 +90,12 @@ class MkrPlaybackService : Service() {
             val session=current();val state=session.control(command,id,positionMs)
             check(current()===session){"Music service unavailable."};state
         }
+        suspend fun playPrepared(id: String?)=withContext(Dispatchers.Main.immediate) {
+            val session=current()
+            check(request?.preparedOnly==true){"Music preparation unavailable."}
+            val state=session.playPrepared(id)
+            check(current()===session){"Music service unavailable."};state
+        }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if(intent?.action==START) {
@@ -97,6 +105,15 @@ class MkrPlaybackService : Service() {
             } else if(request==null) stopSelf(startId)
         } else if(!closing && request!=null && intent?.getStringExtra(NONCE)==request!!.nonce) {
             when(intent.action) {
+                PROMOTE -> if(request!!.preparedOnly && owner!=null) {
+                    try {
+                        enterForeground();promotion?.complete(Unit)
+                        scope.launch {owner?.refresh()}
+                        queueIdleCleanup()
+                    } catch(error: Exception) {
+                        promotion?.completeExceptionally(IllegalStateException("Music playback unavailable."));finish()
+                    }
+                }
                 STOP -> finish()
                 PLAY -> remote?.transportControls?.play()
                 PAUSE -> remote?.transportControls?.pause()
@@ -109,19 +126,11 @@ class MkrPlaybackService : Service() {
     private fun initialize(next: Request, foregroundOnStart: Boolean) {
         pending=null;request=next;next.claimed=true;running=this
         try {
-            if(foregroundOnStart) {
-                val manager=getSystemService(NotificationManager::class.java)
-                manager.createNotificationChannel(NotificationChannel(CHANNEL,"AnF Music",NotificationManager.IMPORTANCE_LOW).apply {
-                    setSound(null,null);setShowBadge(false)
-                })
-                val notification=notification()
-                if(Build.VERSION.SDK_INT>=29) startForeground(NOTIFICATION,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-                else startForeground(NOTIFICATION,notification)
-                foreground=true
-            }
+            if(foregroundOnStart)enterForeground()
             initialization=scope.launch {
                 try {
                     withTimeout(8000) {
+                        if(next.preparedOnly)next.controller.installStartGate({promote()},{queueIdleCleanup()})
                         owner=AndroidMediaSession.create(this@MkrPlaybackService,next.controller,playbackAllowed={foreground})
                         owner!!.activate()
                         remote=MediaController(this@MkrPlaybackService,owner!!.token).also {
@@ -137,6 +146,42 @@ class MkrPlaybackService : Service() {
             }
         } catch(error: Exception) {
             next.ready.completeExceptionally(IllegalStateException("Music service unavailable."));finish()
+        }
+    }
+    private fun enterForeground() {
+        if(foreground)return
+        val manager=getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL,"AnF Music",NotificationManager.IMPORTANCE_LOW).apply {
+            setSound(null,null);setShowBadge(false)
+        })
+        val notification=notification()
+        if(Build.VERSION.SDK_INT>=29)startForeground(NOTIFICATION,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        else startForeground(NOTIFICATION,notification)
+        foreground=true
+    }
+    /** Invoked only after controller selection validation and a positive audio handoff. */
+    private suspend fun promote()=withContext(Dispatchers.Main.immediate) {
+        check(!closing && request?.preparedOnly==true && owner!=null){"Music preparation unavailable."}
+        if(!foreground) {
+            val receipt=promotion ?: CompletableDeferred<Unit>().also {
+                promotion=it
+                try {
+                    applicationContext.startForegroundService(Intent(this@MkrPlaybackService,MkrPlaybackService::class.java)
+                        .setAction(PROMOTE).putExtra(NONCE,request!!.nonce))
+                } catch(error: Exception) {
+                    it.completeExceptionally(IllegalStateException("Music playback unavailable."));finish()
+                }
+            }
+            withTimeout(4000){receipt.await()}
+        }
+        check(!closing && foreground){"Music playback unavailable."}
+    }
+    private fun queueIdleCleanup() {
+        scope.launch {
+            val next=request
+            if(!closing && next?.preparedOnly==true && clients==0 &&
+                !next.controller.hasActivePlayback && !next.controller.hasStartedPlayback &&
+                promotion?.isCompleted!=false)finish()
         }
     }
     private fun action(action: String): PendingIntent {
@@ -174,6 +219,7 @@ class MkrPlaybackService : Service() {
     private fun finish() {
         if(closing)return
         closing=true;initialization?.cancel()
+        promotion?.completeExceptionally(IllegalStateException("Music service stopped."))
         // The service scope stays active until this child completes cleanup.
         // Protect cleanup itself, retaining the child's structured parent.
         scope.launch { withContext(NonCancellable) {
@@ -203,6 +249,7 @@ class MkrPlaybackService : Service() {
         private const val START="com.anf.mkr.START"
         internal const val BIND="com.anf.mkr.BIND"
         private const val PREPARE="com.anf.mkr.PREPARE"
+        private const val PROMOTE="com.anf.mkr.PROMOTE"
         internal const val TOKEN="session"
         private const val STOP="com.anf.mkr.STOP"
         private const val PLAY="com.anf.mkr.PLAY"

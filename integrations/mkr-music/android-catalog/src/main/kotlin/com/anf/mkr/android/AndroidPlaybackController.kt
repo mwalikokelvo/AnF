@@ -3,6 +3,7 @@ package com.anf.mkr.android
 
 import com.anf.mkr.*
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.*
@@ -37,6 +38,13 @@ internal class AndroidPlaybackController(
     private val closed = AtomicBoolean()
     private val scope = CoroutineScope(SupervisorJob()+Dispatchers.IO)
     private val preparing = AtomicReference<Deferred<MkrStream>?>()
+    private val activePlays = AtomicInteger()
+    private val nativeStarted = AtomicBoolean()
+    private var startGateInstalled = false
+    private var beforeNativeStart: suspend () -> Unit = {}
+    private var becameIdle: () -> Unit = {}
+    internal val hasActivePlayback get()=activePlays.get()>0
+    internal val hasStartedPlayback get()=nativeStarted.get()
     @Volatile private var lease: AndroidMediaLease? = null
     private var results = emptyList<MkrTrack>()
     private var current: MkrTrack? = null
@@ -44,6 +52,13 @@ internal class AndroidPlaybackController(
     private fun valid(ticket: Long) = !closed.get() && generation.get()==ticket
     private fun check(ticket: Long) { if(!valid(ticket)) throw PlaybackCommandFailure("SUPERSEDED") }
     private fun checkOpen() { if(closed.get()) throw PlaybackCommandFailure("CLOSED") }
+
+    /** Installed once by the native service before exposing its prepared lease. */
+    internal suspend fun installStartGate(before: suspend () -> Unit, idle: () -> Unit) = gate.withLock {
+        checkOpen()
+        check(!startGateInstalled && !hasActivePlayback && current==null && lease==null && preparing.get()==null)
+        startGateInstalled=true;beforeNativeStart=before;becameIdle=idle
+    }
 
     suspend fun search(query: String): List<MkrTrack> {
         checkOpen()
@@ -67,11 +82,15 @@ internal class AndroidPlaybackController(
             results.firstOrNull { it.id==selected } ?: current?.takeIf { it.id==selected }
                 ?: throw PlaybackCommandFailure("CHOOSE_TRACK")
         }
+        activePlays.incrementAndGet()
+        try {
         val ticket=generation.incrementAndGet()
         preparing.getAndSet(null)?.cancel()
         val acknowledged=withTimeoutOrNull(4000) { pauseOtherAudio() } ?: false
         check(ticket)
         if(!acknowledged) throw PlaybackCommandFailure("AUDIO_HANDOFF")
+        beforeNativeStart()
+        currentCoroutineContext().ensureActive();check(ticket)
         val resumeAt=gate.withLock {
             check(ticket)
             val previous=if(lease!=null) audio.pauseAndRelease() else paused
@@ -94,6 +113,7 @@ internal class AndroidPlaybackController(
                     audio.prepare(target,resolved,resumeAt)
                     check(ticket)
                     if(!audio.playIfCurrent { valid(ticket) }) throw PlaybackCommandFailure("SUPERSEDED")
+                    nativeStarted.set(true)
                     lease=resolved; owned=null; current=target; paused=NativePlaybackState()
                 } catch(error: Exception) {
                     audio.pauseAndRelease()
@@ -110,6 +130,9 @@ internal class AndroidPlaybackController(
         } finally {
             preparing.compareAndSet(request,null)
             request.cancel(); owned?.close()
+        }
+        } finally {
+            activePlays.decrementAndGet();becameIdle()
         }
     }
     suspend fun pause(): AndroidPlaybackState {
