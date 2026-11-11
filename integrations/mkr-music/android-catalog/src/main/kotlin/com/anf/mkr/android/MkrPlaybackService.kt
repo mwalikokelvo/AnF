@@ -184,6 +184,10 @@ class MkrPlaybackService : Service() {
         // Accessed only on Main. No persisted controllers, URLs or credentials.
         private var pending: Request?=null
         private var running: MkrPlaybackService?=null
+        internal suspend fun prepare(context: Context, controller: AndroidPlaybackController): AndroidMkrPreparedConnection {
+            val token=start(context,controller)
+            return AndroidMkrPreparedConnection(AndroidMkrConnection.connect(context,token))
+        }
         internal suspend fun start(context: Context, controller: AndroidPlaybackController): MediaSession.Token =
             withContext(Dispatchers.Main.immediate) {
                 val next=Request(controller)
