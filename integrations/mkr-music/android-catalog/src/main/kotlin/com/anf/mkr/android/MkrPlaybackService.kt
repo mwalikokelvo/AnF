@@ -41,7 +41,7 @@ class MkrPlaybackService : Service() {
         if(!closing && intent?.action==PREPARE) {
             val next=pending
             if(request==null && next!=null && next.preparedOnly && intent.getStringExtra(NONCE)==next.nonce) {
-                initialize(next,startForeground=false)
+                initialize(next,foregroundOnStart=false)
                 return NativeBinder(next.nonce)
             }
             return null
@@ -50,7 +50,12 @@ class MkrPlaybackService : Service() {
             intent.getParcelableExtra<MediaSession.Token>(TOKEN)!=owner!!.token)return null
         return NativeBinder(request!!.nonce)
     }
-    override fun onUnbind(intent: Intent?): Boolean {if(!foreground)finish();return true}
+    override fun onUnbind(intent: Intent?): Boolean {
+        // PREPARE and BIND publish separate interfaces. Dropping the bootstrap
+        // interface must not close an already retained native browsing lease.
+        if(!foreground && clients==0)finish()
+        return true
+    }
     /** Same-process native API; no raw controller, source URL, player or credentials. */
     internal inner class NativeBinder(private val nonce: String) : Binder() {
         // Android may reuse a cached Binder without calling onBind again.
@@ -88,7 +93,7 @@ class MkrPlaybackService : Service() {
         if(intent?.action==START) {
             val next=pending
             if(!closing && request==null && next!=null && !next.preparedOnly && intent.getStringExtra(NONCE)==next.nonce) {
-                initialize(next,startForeground=true)
+                initialize(next,foregroundOnStart=true)
             } else if(request==null) stopSelf(startId)
         } else if(!closing && request!=null && intent?.getStringExtra(NONCE)==request!!.nonce) {
             when(intent.action) {
@@ -101,10 +106,10 @@ class MkrPlaybackService : Service() {
         } else if(request==null) stopSelf(startId)
         return START_NOT_STICKY
     }
-    private fun initialize(next: Request, startForeground: Boolean) {
+    private fun initialize(next: Request, foregroundOnStart: Boolean) {
         pending=null;request=next;next.claimed=true;running=this
         try {
-            if(startForeground) {
+            if(foregroundOnStart) {
                 val manager=getSystemService(NotificationManager::class.java)
                 manager.createNotificationChannel(NotificationChannel(CHANNEL,"AnF Music",NotificationManager.IMPORTANCE_LOW).apply {
                     setSound(null,null);setShowBadge(false)
