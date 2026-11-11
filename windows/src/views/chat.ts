@@ -49,7 +49,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     spellcheck: "false",
     'aria-label':'Your question',
   }) as HTMLTextAreaElement;
-  const send = h("button", { class: "send-btn", title: "Send" }, svg(ICONS.arrowUp, 11));
+  const send = h("button", { class: "send-btn", title: "Send", "aria-label": "Send" }, svg(ICONS.arrowUp, 11));
   const chooseFile = h("input", { type: "file", accept: ATTACHMENT_ACCEPT, "aria-label": "Choose an attachment" }) as HTMLInputElement;
   chooseFile.style.display = "none";
   const attach = h("button", { class: "attach-btn", title: "Attach a file", "aria-label": "Attach a file" }, "＋");
@@ -180,7 +180,11 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       const provider = State.settings.chatMode === "browser" ? State.settings.browserProvider : State.settings.chatProvider;
       input.placeholder = State.settings.chatMode === "browser" ? `Copy question & open ${AI_LABELS[provider]}…`
         : State.chatHistory.length === 0 ? `Ask ${AI_LABELS[provider]}…` : "Continue…";
-      send.title = State.settings.chatMode === "browser" ? "Copy question and open browser" : "Send";
+
+      const sendLabel = State.settings.chatMode === "browser" ? "Copy question and open browser" : "Send";
+      send.title = sendLabel;
+      send.setAttribute("aria-label", sendLabel);
+
       input.disabled = sending;
     },
     focus() {
