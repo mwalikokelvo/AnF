@@ -7,6 +7,8 @@ import { resolve, join, extname } from "node:path";
 // The 28 WAVs live in the macOS app and are NOT duplicated in the repo; when they
 // move to `shared/sounds/`, change this single line.
 export const SOUNDS_DIR = resolve(__dirname, "../NotchBuddy/Resources/sounds");
+/** JARVIS voice-pack MP3s live in-repo under windows/voice-pack/ (see SOURCES.txt). */
+export const VOICE_PACK_DIR = resolve(__dirname, "voice-pack");
 // ───────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -42,8 +44,48 @@ function sharedSounds(): Plugin {
   };
 }
 
+/**
+ * Serves VOICE_PACK_DIR at /voice-pack/*.mp3 in dev and copies into dist/voice-pack on build.
+ * Missing samples are non-fatal — JARVIS falls back to Web Speech + Web Audio chirp.
+ */
+function voicePack(): Plugin {
+  const prefix = "/voice-pack/";
+  return {
+    name: "anf-voice-pack",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith(prefix)) return next();
+        const name = decodeURIComponent(req.url.slice(prefix.length).split("?")[0]);
+        if (name.includes("/") || name.includes("\\") || !name.toLowerCase().endsWith(".mp3")) return next();
+        const file = join(VOICE_PACK_DIR, name);
+        if (!existsSync(file)) return next();
+        res.setHeader("Content-Type", "audio/mpeg");
+        createReadStream(file).pipe(res);
+      });
+    },
+    closeBundle() {
+      const out = resolve(__dirname, "dist/voice-pack");
+      if (!existsSync(VOICE_PACK_DIR)) {
+        this.warn(`voice-pack not found at ${VOICE_PACK_DIR} — JARVIS ships without MP3 identity cues`);
+        return;
+      }
+      mkdirSync(out, { recursive: true });
+      let copied = 0;
+      for (const f of readdirSync(VOICE_PACK_DIR)) {
+        if (extname(f).toLowerCase() === ".mp3") {
+          copyFileSync(join(VOICE_PACK_DIR, f), join(out, f));
+          copied++;
+        }
+      }
+      if (copied === 0) {
+        this.warn(`voice-pack has no .mp3 files yet — drop samples into ${VOICE_PACK_DIR}`);
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [sharedSounds()],
+  plugins: [sharedSounds(), voicePack()],
   clearScreen: false,
   server: {
     port: 1420,

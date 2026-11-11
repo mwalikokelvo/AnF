@@ -128,20 +128,75 @@ export function setAudioEngineStatus(status: SystemTelemetry['audioEngineStatus'
   (globalThis as any).__anfAudioEngineStatus = status;
 }
 
-/** Start a polling interval, calling onUpdate every intervalMs. Returns a stop fn. */
+/**
+ * Event-gated telemetry updates. Pauses while the document is hidden or the
+ * optional visibility target is off-screen — avoids forever polling (Gemini audit).
+ */
 export function startTelemetryPolling(
   onUpdate: (t: SystemTelemetry) => void,
   intervalMs = 2000,
+  visibilityTarget?: HTMLElement | null,
 ): () => void {
   let active = true;
-  const poll = async () => {
-    if (!active) return;
+  let visible = typeof document === 'undefined' ? true : !document.hidden;
+  let intersecting = true;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let observer: IntersectionObserver | null = null;
+
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (!active || !visible || !intersecting) return;
+    timer = setTimeout(tick, intervalMs);
+  };
+
+  const tick = async () => {
+    if (!active || !visible || !intersecting) return;
     try {
       const t = await fetchSystemTelemetry();
-      onUpdate(t);
-    } catch { /* swallow */ }
-    if (active) setTimeout(poll, intervalMs);
+      if (active && visible && intersecting) onUpdate(t);
+    } catch {
+      /* swallow */
+    }
+    schedule();
   };
-  void poll();
-  return () => { active = false; };
+
+  const onVisibility = () => {
+    visible = !document.hidden;
+    if (visible) void tick();
+    else if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibility);
+  }
+
+  if (typeof IntersectionObserver !== 'undefined' && visibilityTarget) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        intersecting = entries.some((e) => e.isIntersecting);
+        if (intersecting) void tick();
+        else if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      { threshold: 0.05 }
+    );
+    observer.observe(visibilityTarget);
+  }
+
+  void tick();
+
+  return () => {
+    active = false;
+    if (timer) clearTimeout(timer);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibility);
+    }
+    observer?.disconnect();
+  };
 }

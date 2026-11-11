@@ -183,6 +183,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     nextTrack: options?.voiceActionContext?.nextTrack,
     searchMusic: options?.voiceActionContext?.searchMusic,
     searchVault: options?.voiceActionContext?.searchVault,
+    openQuickCapture: options?.voiceActionContext?.openQuickCapture,
     saveQuickNote: options?.voiceActionContext?.saveQuickNote,
     askAI: options?.voiceActionContext?.askAI,
     triageSupport: () => support.autoTriage(),
@@ -221,6 +222,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
     hud.pulseMessage(`Voice pack profile set to: ${prof?.name || voiceSelect.value}`);
     notify(`JARVIS voice set to: ${prof?.name}`);
+    // Identity cue on profile change (MP3 snippet or Web Audio chirp)
+    void speaker.playIdentityCue(prof?.filename);
   });
 
   const speechStatusEl = document.createElement('div');
@@ -237,6 +240,12 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     onInterimSpeech: (transcript) => {
       speechStatusEl.textContent = `Hearing: "${transcript}"...`;
+    },
+    onWakeWord: (wake) => {
+      hud.setWakeActive(true);
+      hud.pulseMessage(`Wake word: "${wake}"`);
+      speechStatusEl.textContent = 'At your service, sir.';
+      void speaker.playIdentityCue();
     },
     onFinalSpeech: async (finalTranscript) => {
       speechStatusEl.textContent = `Processing: "${finalTranscript}"`;
@@ -270,10 +279,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   mainLayout.append(hudCol, rightCol);
   root.append(header, mainLayout);
 
-  // ── Start telemetry polling and wire to HUD
+  // ── Event-gated telemetry (pauses when tab hidden or HUD off-screen)
   const stopPolling = startTelemetryPolling(stats => {
     hud.updateTelemetry(stats);
-  }, 2000);
+  }, 2000, hud.root);
 
   // Initial pulse
   hud.pulseMessage('JARVIS Command Center online. Good morning, sir.');

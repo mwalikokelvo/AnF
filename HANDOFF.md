@@ -506,6 +506,19 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
   - `node scripts/check-release.mjs`: **11/11 passed**.
   - `npm run build`: Production Vite build completed cleanly in 4.49s.
 
+### 2026-11-10 — Cursor: JARVIS completion plan v0.1.51
+- Branch: `cursor/jarvis-complete-d2fe` (Antigravity `jarvis_completion_plan.md` + Gemini audit).
+- **1A Release OOM:** `windows/Cargo.toml` `codegen-units = 4` (was 1).
+- **1B Voice pack pipeline:** Vite `voicePack()` plugin serves/copies `windows/voice-pack/*.mp3` → `/voice-pack/` / `dist/voice-pack/`. `SOURCES.txt` lists required filenames. Missing MP3s are non-fatal.
+- **2D Identity cue:** `JarvisSpeaker.playIdentityCue` plays ~1s MP3 snippet or Web Audio chirp; fires on wake word and voice-profile change (no V2 speaker).
+- **2C Wake HUD:** `setWakeActive` speeds orbital core pulse on wake-word events (event-driven).
+- **2A Memory:** `jarvis-memory.ts` keeps last 20 turns for `askAI` context.
+- **2B Intents:** time/date, “open my notes” → quick capture; forwards `searchMusic` / `openQuickCapture`.
+- **Gemini audit:** telemetry `startTelemetryPolling` pauses on `visibilitychange` + IntersectionObserver; HUD anim pauses when document hidden.
+- Version bump **0.1.51** (`package.json`, workspace Cargo, `tauri.conf.json`).
+- **Verification:** `tsc` clean; **567/567** unit; e2e + release checks this session. Label: tested on Linux.
+- **Still on your PC:** drop the 13 Voice pack MP3s into `windows/voice-pack/`, then `npm run pack` (Phase 3). Cloud cannot ship the installer.
+
 ### 2026-11-08: Complete UI Integration & Fresh Native Releases for Windows and Android
 - **Front-and-Center Dashboard Productivity Studio**: Integrated uncollapsed, prominent companion tools directly into `dashboard.ts`:
   - **Pomodoro Focus Timer**: Live 25:00 countdown display, phase badge (`FOCUS`, `SHORT BREAK`, `LONG BREAK`), Start/Pause/Reset controls, mode chips, harmonic Web Audio bell chime, and 1-click "Log Session to Daily Note" capturing `- [x] Pomodoro focus session (25m) #focus` directly into the day's markdown note.
@@ -531,3 +544,7 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - **JARVIS voice**: `search notes for…` / `find in vault…` runs BM25 vault search; also fixed `searchMusic` not being forwarded from the command desk context.
 - **Verification** (this session): `npx tsc --noEmit`; `npm test` (see commit). Label: tested on Linux.
 - **Still open from Antigravity next priorities**: remove duplicate/legacy scrape path in dual `streaming-provider.ts` trees; refresh `docs/BUILDUP-STATUS.md` HEAD pointer; stop `music-hub.ts` placeholder clobber.
+
+## 2026-11-10 (America/Chicago) — merge #120 + rebase #121 for merge
+- **#120** (`cursor/wire-jev-cloud-backup-d2fe`) merged to `main` (merge commit).
+- **#121** (`cursor/jarvis-complete-d2fe`): rebased onto post-#120 `main`; kept vault search + quick-capture; refreshed `Cargo.lock` for 0.1.51 (`--locked` CI); force-pushed `e05df37`. Local: `tsc` + `npm test` 573 pass. Waiting CI then plain merge.

@@ -137,6 +137,17 @@ function injectHudStyles(): void {
       font-size: 18px;
       color: white;
     }
+    .jarvis-hud.wake-active .orbital-core {
+      animation: core-pulse 0.45s ease-in-out infinite;
+      box-shadow: 0 0 40px rgba(0,255,200,1), 0 0 80px rgba(0,170,255,0.7);
+    }
+    .jarvis-hud.wake-active .orbital-ring {
+      animation-duration: 0.8s;
+      border-color: rgba(0,255,200,0.85);
+    }
+    .jarvis-hud.wake-active .orbital-ring-2 {
+      animation-duration: 1.2s;
+    }
     @keyframes orbit-spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -229,6 +240,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   root: HTMLElement;
   updateTelemetry: (stats: SystemTelemetry) => void;
   pulseMessage: (msg: string) => void;
+  setWakeActive: (active: boolean) => void;
   destroy: () => void;
 } {
   const opts = {
@@ -356,11 +368,17 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   ];
 
   let animTimer: ReturnType<typeof setTimeout> | null = null;
+  let animPaused = typeof document !== 'undefined' && document.hidden;
   let logIdx = 0;
   let netHistory: number[] = new Array(20).fill(20);
   let spectrumPhase = 0;
+  let wakeTimer: ReturnType<typeof setTimeout> | null = null;
 
   const animate = () => {
+    if (animPaused) {
+      animTimer = setTimeout(animate, opts.animIntervalMs);
+      return;
+    }
     spectrumPhase += 0.07;
     // Spectrum: sine wave with harmonics for realism
     for (let i = 0; i < spectrumBarsEls.length; i++) {
@@ -407,8 +425,13 @@ export function createJarvisHud(options?: JarvisHudOptions): {
     animTimer = setTimeout(animate, opts.animIntervalMs);
   };
 
-  // Start animation only in browser environment
+  const onDocVisibility = () => {
+    animPaused = document.hidden;
+  };
+
+  // Start animation only in browser environment; pause when tab/window hidden.
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onDocVisibility);
     animTimer = setTimeout(animate, 100);
   }
 
@@ -445,11 +468,24 @@ export function createJarvisHud(options?: JarvisHudOptions): {
     pulseTimer = setTimeout(() => pulseEl.classList.remove('visible'), 5000);
   }
 
+  function setWakeActive(active: boolean): void {
+    root.classList.toggle('wake-active', active);
+    if (wakeTimer) clearTimeout(wakeTimer);
+    wakeTimer = null;
+    if (active) {
+      wakeTimer = setTimeout(() => root.classList.remove('wake-active'), 2500);
+    }
+  }
+
   function destroy(): void {
     if (animTimer) clearTimeout(animTimer);
     if (pulseTimer) clearTimeout(pulseTimer);
+    if (wakeTimer) clearTimeout(wakeTimer);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onDocVisibility);
+    }
     root.remove();
   }
 
-  return { root, updateTelemetry, pulseMessage, destroy };
+  return { root, updateTelemetry, pulseMessage, setWakeActive, destroy };
 }

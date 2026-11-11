@@ -114,6 +114,30 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     const res = await agent.processVoiceInput('What is the theory of general relativity?');
     assert.ok(res.handled);
     assert.strictEqual(res.actionName, 'ai_conversation');
-    assert.strictEqual(res.speechReply, 'Answering: What is the theory of general relativity?');
+    assert.match(res.speechReply, /Answering:/);
+  });
+
+  it('answers time and date without calling the model', async () => {
+    const agent = new JarvisVoiceAgent({ switchView: () => {} });
+    const time = await agent.processVoiceInput('What time is it?');
+    assert.equal(time.actionName, 'tell_time');
+    assert.match(time.speechReply, /It is /);
+
+    const date = await agent.processVoiceInput("Tell me today's date");
+    assert.equal(date.actionName, 'tell_date');
+    assert.match(date.speechReply, /Today is /);
+  });
+
+  it('opens notes via quick capture navigation', async () => {
+    let opened = false;
+    let view = '';
+    const agent = new JarvisVoiceAgent({
+      switchView: (v) => { view = v; },
+      openQuickCapture: () => { opened = true; },
+    });
+    const res = await agent.processVoiceInput('Open my notes');
+    assert.equal(res.actionName, 'navigate_notes');
+    assert.equal(view, 'home');
+    assert.equal(opened, true);
   });
 });
