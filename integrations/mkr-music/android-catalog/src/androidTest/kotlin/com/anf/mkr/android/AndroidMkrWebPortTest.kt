@@ -34,13 +34,13 @@ class AndroidMkrWebPortTest {
             }
         }
         val cdn=MkrNativePlaybackTest.GeneratedCdn(data)
-        val audio=Media3Playback.create(context,muted=true)
+        val audio=Media3Playback.createDeferred(context,muted=true)
         val controller=AndroidPlaybackController(MkrCatalog(backend),audio,{requested.complete(Unit);handoff.requestPause()},
             {closed.incrementAndGet()},leaseFactory={stream -> AndroidMediaLease(MkrStream(stream.url,stream.mimeType,stream.headers,
                 true,true,65536,data.size.toLong(),System.currentTimeMillis()+120000),connect=cdn::connect)})
         val web=withContext(Dispatchers.Main.immediate){WebView(activity)}
         var host: AndroidMkrPageHost?=null
-        var connection: AndroidMkrConnection?=null
+        var connection: AndroidMkrPageConnection?=null
         var loaded=CompletableDeferred<Unit>()
         suspend fun report(): JSONObject=withContext(Dispatchers.Main.immediate) {
             suspendCancellableCoroutine { continuation ->
@@ -63,8 +63,8 @@ class AndroidMkrWebPortTest {
                 web.loadDataWithBaseURL("https://anf.local/",context.assets.open("native-web-port.html").bufferedReader().use{it.readText()}.replace("<script>","<script>"+context.assets.open("native-web-client.js").bufferedReader().use{it.readText()}+"</script><script>"),"text/html","UTF-8","https://anf.local/")
             }
             withTimeout(8000){loaded.await()}
-            val token=MkrPlaybackService.start(activity,controller)
-            val client=AndroidMkrConnection.connect(activity,token);connection=client
+            val client=MkrPlaybackService.prepare(activity,controller);connection=client
+            val token=client.token
             withContext(Dispatchers.Main.immediate){
                 assertEquals("https://anf.local/",web.url)
                 host=AndroidMkrPageHost(web,"https://anf.local",handoff){client}
@@ -73,6 +73,7 @@ class AndroidMkrWebPortTest {
             withTimeout(8000){requested.await()}
             withTimeout(8000){while(report().optString("phase")!="audio-handoff")delay(20)}
             assertEquals(0,requests.get());assertTrue(cdn.requests.isEmpty())
+            assertTrue(context.getSystemService(android.app.NotificationManager::class.java).activeNotifications.none{it.id==MkrPlaybackService.NOTIFICATION})
             withContext(Dispatchers.Main.immediate){web.evaluateJavascript("window.releaseOtherAudio()",null)}
             val result=withTimeout(8000){var value=report();while(!value.optBoolean("done")){delay(25);value=report()};value}
             assertFalse(result.toString(),result.has("error"));assertTrue(result.getInt("audioPauseRequests")>=2)
@@ -81,6 +82,7 @@ class AndroidMkrWebPortTest {
             assertFalse(result.getJSONObject("paused").getBoolean("playing"))
             assertEquals(500L,result.getJSONObject("sought").getLong("positionMs"))
             assertFalse(result.toString().contains("googlevideo"));assertTrue(cdn.requests.isNotEmpty())
+            assertTrue(context.getSystemService(android.app.NotificationManager::class.java).activeNotifications.any{it.id==MkrPlaybackService.NOTIFICATION})
             withContext(Dispatchers.Main.immediate){web.evaluateJavascript("window.sendDeeplyNested()",null)}
             withTimeout(8000) {
                 var detached=false
