@@ -15,6 +15,7 @@ import java.util.*;
 /** Local assets only. External AI accounts always open in the user's browser. */
 public class MainActivity extends Activity {
   private WebView web;
+  private EmbeddedMusicPage embeddedMusic;
   private VaultRepository vault;
   private MediaBridge media;
   private AddonsBridge addons;
@@ -41,6 +42,7 @@ public class MainActivity extends Activity {
     if ("com.coucou.workspace".equals(getPackageName())) origin="https://coucou.local/";
     WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
     web=new WebView(this);setContentView(web);
+    embeddedMusic=EmbeddedMusicPage.attach(web,origin);
     media=new MediaBridge(this,this::mediaResult);
     addons=new AddonsBridge(new java.io.File(getFilesDir(),"addons/themes"),this::addonResult);
     web.setOnApplyWindowInsetsListener((v,insets)->{

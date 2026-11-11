@@ -77,15 +77,16 @@ try:
     for apk in signed:
         run([adb, 'install', '-t', apk])
     result = run([adb, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
-                  'com.anf.workspace.EntryPointsTest,com.anf.workspace.RendererRecoveryTest', test_id+'/androidx.test.runner.AndroidJUnitRunner'])
+                  'com.anf.workspace.EntryPointsTest,com.anf.workspace.RendererRecoveryTest,com.anf.workspace.EmbeddedMusicActivityTest', test_id+'/androidx.test.runner.AndroidJUnitRunner'])
     (reports/'instrumentation.txt').write_text(result, encoding='utf-8')
-    if not re.search(r'OK\s*\(2 tests\)', result) or 'FAILURES!!!' in result or 'INSTRUMENTATION_FAILED' in result:
+    if not re.search(r'OK\s*\(3 tests\)', result) or 'FAILURES!!!' in result or 'INSTRUMENTATION_FAILED' in result:
         raise RuntimeError('Native entry-point assertions did not pass: ' + result)
     run([adb,'pull',f'/sdcard/Android/data/{identity}/files/qa/renderer-recovery.png',reports/'renderer-recovery.png'])
     (reports/'scope.json').write_text(json.dumps({
         'sourceCommit': os.environ.get('GITHUB_SHA'), 'applicationId': identity,
         'androidApi': 35, 'nativePackageManager': True, 'nativeShortcutManager': True,
         'nativeRendererRecovery': True, 'actualRendererTerminatedOnce': True,
+        'actualAnFMusicLifecycleCallbacks': True, 'combinedMkrRuntimePackaged': False,
         'freshInstallOnly': True, 'throwawaySigner': True,
         'originalSignerVerified': False, 'installedUpgradeVerified': False,
         'providerPlaybackVerified': False, 'readyForPublication': False,
