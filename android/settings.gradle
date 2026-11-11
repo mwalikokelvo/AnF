@@ -1,4 +1,7 @@
 pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+
+def mkrReview=providers.gradleProperty('mkrReviewRuntime').getOrElse('false')
+if (!(mkrReview in ['true','false'])) throw new GradleException('mkrReviewRuntime must be true or false.')
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -6,8 +9,21 @@ dependencyResolutionManagement {
             maven { url uri(providers.gradleProperty('spotubeRepository').get()) }
             def engine = maven { url 'https://storage.googleapis.com/download.flutter.io' }
             exclusiveContent { forRepositories(engine); filter { includeGroup('io.flutter') } }
-            def newpipe = maven { url 'https://jitpack.io' }
-            exclusiveContent { forRepositories(newpipe); filter { includeGroup('com.github.teamnewpipe'); includeGroup('com.github.TeamNewPipe') } }
+        }
+        if (mkrReview=='true') {
+            def repo=file('../integrations/mkr-music/android-catalog/build/review-repository')
+            if (!new File(repo,'com/anf/mkr/anf-mkr-android-catalog/0.1.0-prototype/anf-mkr-android-catalog-0.1.0-prototype.aar').isFile()) {
+                throw new GradleException('Build the strictly verified local MKR review publication first.')
+            }
+            def nativeReview=maven { url uri(repo) }
+            exclusiveContent { forRepositories(nativeReview); filter { includeGroup('com.anf.mkr') } }
+        }
+        if (providers.gradleProperty('spotubeRepository').isPresent() || mkrReview=='true') {
+            def nativeExtractors=maven { url 'https://jitpack.io' }
+            exclusiveContent { forRepositories(nativeExtractors); filter {
+                includeGroup('com.github.teamnewpipe'); includeGroup('com.github.TeamNewPipe')
+                if(mkrReview=='true')includeGroup('com.github.MetrolistGroup.innertubex')
+            } }
         }
         google(); mavenCentral()
     }

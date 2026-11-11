@@ -4,6 +4,9 @@ import java.security.MessageDigest
 import java.util.HexFormat
 import java.util.zip.ZipFile
 import groovy.json.JsonOutput
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.jvm.tasks.Jar
 
 // AnF build adapter is MIT. Prepared MKR and InnerTubeX retain their own GPL
 // licenses. This engineering library is not linked into the release application.
@@ -15,6 +18,41 @@ plugins {
 group = "com.anf.mkr"
 version = "0.1.0-prototype"
 dependencyLocking { lockAllConfigurations() }
+
+// Separate strict build, not a composite build: an enclosing build would ignore
+// this library's verification metadata. Publish only to this generated local repo.
+if (providers.gradleProperty("mkrReviewPublication").orNull == "true") {
+    apply(plugin = "maven-publish")
+    android { publishing { singleVariant("release") { withSourcesJar() } } }
+    val reviewPublishing = extensions.getByType<PublishingExtension>()
+    reviewPublishing.repositories.maven {
+        name = "Review"
+        url = uri(layout.buildDirectory.dir("review-repository"))
+    }
+    afterEvaluate {
+        reviewPublishing.publications.create<MavenPublication>("review") {
+            from(components["release"])
+            groupId = project.group.toString()
+            artifactId = project.name
+            version = project.version.toString()
+            pom {
+                name.set("AnF MKR isolated review runtime")
+                description.set("Private review only. MKR-derived catalog retains GPL-3.0; AnF adapters retain MIT. Full dependency/JNI corresponding-source review remains pending.")
+                licenses { license {
+                    name.set("GPL-3.0 catalog and separately licensed MIT adapters; see bundled notices")
+                    url.set("https://www.gnu.org/licenses/gpl-3.0.html")
+                } }
+            }
+        }
+    }
+    tasks.withType<Jar>().configureEach {
+        if (name == "releaseSourcesJar") {
+            from("../engine/vendor/mkr/LICENSE") { into("META-INF/licenses/mkr") }
+            from("../engine/PRIMARY-LICENSE.txt") { into("META-INF/licenses/primary") }
+            from("../README.md") { into("META-INF"); rename { "MKR-REVIEW-NOTICE.md" } }
+        }
+    }
+}
 
 val sourceGate by tasks.registering(Exec::class) {
     workingDir(projectDir)

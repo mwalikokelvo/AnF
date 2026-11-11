@@ -1,0 +1,92 @@
+name: AnF combined native music review QA
+on:
+  push:
+    branches: ['qa/android-mkr-**']
+    paths: ['android/**', 'integrations/mkr-music/**', 'scripts/**', '.github/workflows/android-mkr-combined-review.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-combined-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  combined-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        lineage: [modern, legacy]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare exact source and review assets
+        run: |
+          set -euo pipefail
+          npm ci --prefix windows
+          npm ci --prefix android
+          node scripts/check-branding-test.mjs
+          node scripts/check-branding.mjs
+          python3 -B scripts/test-mkr-combined-review.py
+          node scripts/prepare-android-sdk.mjs
+          cli="$(node scripts/prepare-android-sdk.mjs --print-cli)"
+          "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64
+          git init "$RUNNER_TEMP/mkr-upstream"
+          git -C "$RUNNER_TEMP/mkr-upstream" remote add origin https://github.com/mkr-infinity/mkr-music.git
+          git -C "$RUNNER_TEMP/mkr-upstream" fetch --depth=1 origin 78ac80c5101c293a5591a4cd5a1ebc90ccbc3138
+          node integrations/mkr-music/prepare-catalog.mjs --source "$RUNNER_TEMP/mkr-upstream"
+          node scripts/build-android.mjs --assets-only --review ${{ matrix.lineage == 'legacy' && '--legacy' || '' }}
+      - name: Strict native publication to generated local repository only
+        working-directory: integrations/mkr-music/android-catalog
+        run: gradle --no-daemon --no-configuration-cache --dependency-verification strict testDebugUnitTest auditAndroidCatalogRuntime publishReviewPublicationToReviewRepository -PmkrReviewPublication=true
+      - name: Compare baseline and combined graph before installing anything
+        run: |
+          set -euo pipefail
+          gradle -p android --no-daemon mkrReviewRuntimeInventory ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
+          gradle -p android --no-daemon mkrReviewRuntimeInventory assembleReview assembleReviewAndroidTest -PmkrReviewRuntime=true -PmusicPreviewAbi=x86_64 ${{ matrix.lineage == 'legacy' && '-PlegacyApplicationId=true' || '' }}
+          python3 -B scripts/audit-mkr-combined-review.py
+      - name: Allow this ephemeral runner user to use its emulator
+        run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          ANF_MKR_REVIEW_LINEAGE: ${{ matrix.lineage }}
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          avd-name: anf-mkr-combined-qa
+          force-avd-creation: true
+          ram-size: 1536M
+          cores: 2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim
+          script: python3 scripts/app-qa/run-mkr-combined-review.py
+      - name: Keep reports only, never review APKs or signing material
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: AnF-MKR-combined-${{ matrix.lineage }}-evidence
+          path: |
+            ${{ runner.temp }}/anf-mkr-combined-qa/reports/*.txt
+            ${{ runner.temp }}/anf-mkr-combined-qa/reports/*.json
+            android/gradle-build/mkr-*.json
+            integrations/mkr-music/android-catalog/build/reports/android-runtime.json
+            integrations/mkr-music/android-catalog/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: ignore
+          retention-days: 7

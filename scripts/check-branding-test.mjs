@@ -30,6 +30,7 @@ for(const [name,quote,suffix=''] of [
  ...['AndroidMkrPageHost','AndroidMkrWebPort'].map(file=>[`integrations/mkr-music/android-catalog/src/main/kotlin/com/anf/mkr/android/${file}.kt`,'"']),
  ...['AndroidMkrPageHostTest','AndroidMkrWebPortTest'].map(file=>[`integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/${file}.kt`,'"']),
  ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/MkrPageLifecycleTest.kt','"','/'],
+ ['android/src/androidTest/java/com/anf/workspace/MkrCombinedReviewTest.java','"'],
 ]){
  const origin=quote+'https://coucou.local'+suffix+quote;
  good(name,'origin='+origin);
@@ -38,6 +39,8 @@ for(const [name,quote,suffix=''] of [
  bad(name,'origin='+quote+'https://coucou.local'+suffix+'extra'+quote);
 }
 bad('windows/src/workspace/unreviewed.ts',"origin='https://coucou.local'");
+good('android/src/androidTest/java/com/anf/workspace/MkrCombinedReviewTest.java','identity="com.coucou.workspace.musicdev"');
+bad('android/src/androidTest/java/com/anf/workspace/MkrCombinedReviewTest.java','identity="com.coucou.workspace.musicdev.evil"');
 for(const name of ['integrations/mkr-music/README.md','integrations/mkr-music/android-catalog/README.md']){
  good(name,'# MKR integration\nLegacy Coucou origins include `https://coucou.local`.');
  bad(name,'# Coucou\nLegacy origin `https://coucou.local`.');

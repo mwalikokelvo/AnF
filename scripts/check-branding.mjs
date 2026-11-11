@@ -73,6 +73,8 @@ const compatibility=new Map([
  ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/AndroidMkrPageHostTest.kt',['"https://coucou.local"']],
  ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/AndroidMkrWebPortTest.kt',['"https://coucou.local"']],
  ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/MkrPageLifecycleTest.kt',['"https://coucou.local/"']],
+ ['android/src/androidTest/java/com/anf/workspace/MkrCombinedReviewTest.java',['"com.coucou.workspace.musicdev"','"https://coucou.local"']],
+ ['scripts/app-qa/run-mkr-combined-review.py',["'com.coucou.workspace'"]],
 ]);
 const upstreamUrl=/https:\/\/github\.com\/Louis-CFM\/coucou(?=[/"'\s)>]|$)/g;
 const referenceDocs=new Set(['integrations/mkr-music/README.md','integrations/mkr-music/android-catalog/README.md']);

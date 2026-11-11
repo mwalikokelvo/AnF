@@ -44,7 +44,7 @@ android {
             assets.srcDirs = ['src/androidTest/assets', '../windows/src-tauri/tests/data']
         }
     }
-    testBuildType 'release'
+    testBuildType(project.hasProperty('mkrReviewRuntime') && project.property('mkrReviewRuntime')=='true' ? 'review' : 'release')
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -86,6 +86,9 @@ android {
 }
 apply from: 'identity-resources.gradle'
 dependencies {
+    if (providers.gradleProperty('mkrReviewRuntime').getOrElse('false')=='true') {
+        reviewImplementation 'com.anf.mkr:anf-mkr-android-catalog:0.1.0-prototype'
+    }
     if (project.hasProperty('spotubeRepository')) {
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
         releaseImplementation 'com.anf.spotube:flutter_release:1.0'
@@ -98,6 +101,29 @@ dependencies {
     implementation 'androidx.sqlite:sqlite:2.7.0'
     implementation 'androidx.media3:media3-exoplayer:1.6.1'
     implementation 'androidx.media3:media3-session:1.6.1'
+}
+
+// Review evidence only. Release dependencies remain independent of the flag.
+tasks.register('mkrReviewRuntimeInventory') {
+    doLast {
+        def combined=providers.gradleProperty('mkrReviewRuntime').getOrElse('false')=='true'
+        def inventories=[:]
+        ['releaseRuntimeClasspath','reviewRuntimeClasspath'].each { configuration ->
+            inventories[configuration]=configurations.getByName(configuration).resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+                def digest=java.security.MessageDigest.getInstance('SHA-256')
+                artifact.file.withInputStream { input ->
+                    byte[] buffer=new byte[65536];int count
+                    while((count=input.read(buffer))!=-1)digest.update(buffer,0,count)
+                }
+                [coordinate:artifact.moduleVersion.id.toString(),sha256:digest.digest().encodeHex().toString()]
+            }.sort { a,b -> a.coordinate <=> b.coordinate }
+        }
+        def out=file('gradle-build/'+(combined?'mkr-combined-runtime.json':'mkr-baseline-runtime.json'))
+        out.parentFile.mkdirs()
+        out.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+            sourceCommit:System.getenv('GITHUB_SHA'),combined:combined,inventories:inventories,readyForPublication:false
+        ])),'UTF-8')
+    }
 }
 tasks.register('prepareAnFManifest') {
     inputs.file 'AndroidManifest.xml'
