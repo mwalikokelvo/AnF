@@ -60,11 +60,16 @@ class AndroidPreparedPromotionTest {
                 val pending=async{client.control("play","abcdefghijk")}
                 try {
                     withTimeout(8000){entered.await()}
+                    assertTrue("Resolution must follow native foreground promotion",context.getSystemService(ActivityManager::class.java).getRunningServices(Int.MAX_VALUE).any{it.service.className==MkrPlaybackService::class.java.name&&it.foreground})
+                    // NotificationManager enqueues publication after startForeground returns.
+                    // Keep resolution suspended while observing the actual system notification.
+                    withTimeout(8000){while(context.getSystemService(NotificationManager::class.java).activeNotifications.none{it.id==MkrPlaybackService.NOTIFICATION})delay(20)}
                     assertTrue(context.getSystemService(NotificationManager::class.java).activeNotifications.any{it.id==MkrPlaybackService.NOTIFICATION})
                     assertEquals(0,decoders.get())
                     pending.cancel();client.close();withTimeout(8000){pending.join()}
                     withTimeout(8000){while(closed.get()!=1||context.getSystemService(ActivityManager::class.java).getRunningServices(Int.MAX_VALUE).any{it.service.className==MkrPlaybackService::class.java.name})delay(20)}
                     assertTrue(pending.isCancelled);assertEquals(0,decoders.get())
+                    withTimeout(8000){while(context.getSystemService(NotificationManager::class.java).activeNotifications.any{it.id==MkrPlaybackService.NOTIFICATION})delay(20)}
                     assertTrue(context.getSystemService(NotificationManager::class.java).activeNotifications.none{it.id==MkrPlaybackService.NOTIFICATION})
                 } finally {pending.cancelAndJoin()}
             }
