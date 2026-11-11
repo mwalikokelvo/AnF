@@ -25,15 +25,17 @@ bad('android/java/com/coucou/workspace/PlaybackService.java','package com.coucou
 bad('windows/src/workspace/reader.ts',"const key='coucou-scroll-';title='Coucou';");
 bad('scripts/app-qa/fixture.mjs',"indexedDB.open('coucou-audio');title='Coucou';");
 
-for(const [name,quote] of [
+for(const [name,quote,suffix=''] of [
  ['windows/src/workspace/mkr-web-port.ts',"'"],['scripts/check-mkr-web-port.mjs',"'"],
  ...['AndroidMkrPageHost','AndroidMkrWebPort'].map(file=>[`integrations/mkr-music/android-catalog/src/main/kotlin/com/anf/mkr/android/${file}.kt`,'"']),
  ...['AndroidMkrPageHostTest','AndroidMkrWebPortTest'].map(file=>[`integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/${file}.kt`,'"']),
+ ['integrations/mkr-music/android-catalog/src/androidTest/kotlin/com/anf/mkr/android/MkrPageLifecycleTest.kt','"','/'],
 ]){
- const origin=quote+'https://coucou.local'+quote;
+ const origin=quote+'https://coucou.local'+suffix+quote;
  good(name,'origin='+origin);
  bad(name,'origin='+origin+'; title="Coucou music"');
- bad(name,'origin='+quote+'https://coucou.local.evil'+quote);
+ bad(name,'origin='+quote+'https://coucou.local.evil'+suffix+quote);
+ bad(name,'origin='+quote+'https://coucou.local'+suffix+'extra'+quote);
 }
 bad('windows/src/workspace/unreviewed.ts',"origin='https://coucou.local'");
 for(const name of ['integrations/mkr-music/README.md','integrations/mkr-music/android-catalog/README.md']){
