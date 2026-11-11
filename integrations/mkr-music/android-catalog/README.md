@@ -420,3 +420,28 @@ published; it uses the disposable test identity. This adds ZIP evidence to the
 previous ELF-header inspection, not16KB-device execution or production AnF APK/
 original signer/installed-upgrade acceptance. Check the final production APK
 again after real host integration; publication remains gated.
+
+## Bound browsing preparation (engineering only)
+
+`MkrPlaybackService.prepare(context, freshController)` consumes a fresh native
+controller and returns a browsing-only lease with search, status and close.
+The service owns an accepted controller; failed/unaccepted preparation releases
+it. Never share that controller with another owner or reuse it after transfer.
+The bootstrap binding stays alive until a normal token-validated native binding
+is retained. Closing the final cold lease releases the unstarted service;
+closing a started foreground connection retains the existing playback behavior.
+
+Preparation creates no foreground notification. With deferred native playback,
+it also creates no decoder. Unpromoted sessions reject system/Binder play and
+queue controls before handoff, source resolution or decoding. The prepared lease
+intentionally does not implement the playable page contract: explicit selected
+play/promotion and actual AnF Activity integration are still pending. Do not use
+this browsing API as an available/playable-source flag.
+
+[Run43044615871](https://github.com/mwalikokelvo/AnF/actions/runs/43044615871)
+at `fd3c1a1` passed43 host and19 Android15 component cases, retaining the previous17.
+New real-service cases cover cold browsing, denied system play, final detach,
+fresh successor token and cancelled result delivery. Runtime62 artifact hashes
+and ELF/APK alignment remained unchanged. This uses generated catalog data and
+disposable test identity, not provider, physical-device, original-signer,
+installed-upgrade or production-runtime acceptance.
