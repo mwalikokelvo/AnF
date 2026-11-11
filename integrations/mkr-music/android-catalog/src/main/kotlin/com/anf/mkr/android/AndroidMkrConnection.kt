@@ -16,14 +16,14 @@ internal class AndroidMkrConnection private constructor(
     val token: MediaSession.Token,
     private val binder: MkrPlaybackService.NativeBinder,
     private val detach: () -> Unit,
-) : AutoCloseable {
+) : AndroidMkrPageConnection {
     private val closed=AtomicBoolean()
     private fun checkOpen() {check(!closed.get()){"Music connection closed."}}
-    suspend fun search(query: String): List<MkrTrack> {
+    override suspend fun search(query: String): List<MkrTrack> {
         checkOpen();val result=binder.search(query);checkOpen();return result
     }
-    suspend fun status(): AndroidPlaybackState {checkOpen();return binder.status().also{checkOpen()}}
-    suspend fun control(command: String, id: String?=null, positionMs: Long?=null): AndroidPlaybackState {
+    override suspend fun status(): AndroidPlaybackState {checkOpen();return binder.status().also{checkOpen()}}
+    override suspend fun control(command: String, id: String?, positionMs: Long?): AndroidPlaybackState {
         checkOpen();return binder.control(command,id,positionMs).also{checkOpen()}
     }
     override fun close() {if(closed.compareAndSet(false,true))detach()}

@@ -17,7 +17,7 @@ import org.json.JSONObject
 internal class AndroidMkrWebPort private constructor(
     private val web: WebView,
     private val origin: String,
-    private val connection: AndroidMkrConnection,
+    private val connection: AndroidMkrPageConnection,
     private val handoff: AndroidAudioHandoff,
 ) : AutoCloseable {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
@@ -123,7 +123,7 @@ internal class AndroidMkrWebPort private constructor(
             .put("positionMs",state.audio.positionMs.coerceAtLeast(0)).put("durationMs",state.audio.durationMs.coerceAtLeast(0))
             .put("track",state.track?.let{track(it)}?:JSONObject.NULL)
         /** Owns connection only after successful attachment; caller closes on failure. */
-        fun attach(web: WebView, origin: String, connection: AndroidMkrConnection, handoff: AndroidAudioHandoff): AndroidMkrWebPort {
+        fun attach(web: WebView, origin: String, connection: AndroidMkrPageConnection, handoff: AndroidAudioHandoff): AndroidMkrWebPort {
             check(Looper.myLooper()==Looper.getMainLooper())
             require(origin in setOf("https://anf.local","https://coucou.local") && sameOrigin(web.url,origin))
             val host=AndroidMkrWebPort(web,origin,connection,handoff)

@@ -15,7 +15,7 @@ internal class AndroidMkrPageHost(
     private val web: WebView,
     private val origin: String,
     private val handoff: AndroidAudioHandoff,
-    private val connect: suspend () -> AndroidMkrConnection,
+    private val connect: suspend () -> AndroidMkrPageConnection,
 ) : AutoCloseable {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private var generation=0L
@@ -40,7 +40,7 @@ internal class AndroidMkrPageHost(
         if(closed || port!=null || attaching?.isActive==true || !trusted(url))return
         val ticket=generation
         attaching=scope.launch {
-            var candidate: AndroidMkrConnection?=null
+            var candidate: AndroidMkrPageConnection?=null
             try {
                 // Assign ownership before cancellation can discard a returned
                 // bind result. The standard connector is bounded and cancellable;
