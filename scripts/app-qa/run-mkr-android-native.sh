@@ -15,8 +15,8 @@ trap 'adb -s "$serial" logcat -d -s TestRunner:I AndroidRuntime:E ExoPlayerImplI
 # This fresh emulator has no AnF library/data or production signing identity.
 adb -s "$serial" install -t "$apk"
 adb -s "$serial" shell am instrument -w -r \
-  -e class com.anf.mkr.android.MkrNativePlaybackTest,com.anf.mkr.android.AndroidMediaSessionTest,com.anf.mkr.android.AndroidForegroundPlaybackTest,com.anf.mkr.android.AndroidMkrWebPortTest,com.anf.mkr.android.AndroidAudioHandoffTest,com.anf.mkr.android.AndroidQuickJsTest,com.anf.mkr.android.AndroidServiceFailureTest,com.anf.mkr.android.AndroidMkrPageHostTest,com.anf.mkr.android.DeferredNativePlaybackTest,com.anf.mkr.android.AndroidPreparedServiceTest,com.anf.mkr.android.AndroidPreparedPromotionTest \
+  -e class com.anf.mkr.android.MkrNativePlaybackTest,com.anf.mkr.android.AndroidMediaSessionTest,com.anf.mkr.android.AndroidForegroundPlaybackTest,com.anf.mkr.android.AndroidMkrWebPortTest,com.anf.mkr.android.AndroidAudioHandoffTest,com.anf.mkr.android.AndroidQuickJsTest,com.anf.mkr.android.AndroidServiceFailureTest,com.anf.mkr.android.AndroidMkrPageHostTest,com.anf.mkr.android.DeferredNativePlaybackTest,com.anf.mkr.android.AndroidPreparedServiceTest,com.anf.mkr.android.AndroidPreparedPromotionTest,com.anf.mkr.android.MkrPageLifecycleTest \
   "$package/androidx.test.runner.AndroidJUnitRunner" | tee "$qa_dir/instrumentation.txt"
-grep -Fq 'OK (21 tests)' "$qa_dir/instrumentation.txt"
+grep -Fq 'OK (22 tests)' "$qa_dir/instrumentation.txt"
 ! grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|Process crashed' "$qa_dir/instrumentation.txt"
 printf '%s\n' 'Generated transport/AAC and JavaScript only; fake catalog plus fake and actual Media3 audio. Actual Android QuickJS JNI, media session, isolated foreground service/notification and WebView handoff tests; no provider, other ABI or production app/upgrade verification.' > "$qa_dir/scope.txt"
