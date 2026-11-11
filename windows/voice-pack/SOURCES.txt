@@ -1,0 +1,23 @@
+JARVIS Voice Pack samples
+=========================
+
+Place the 13 reference MP3s here (filenames must match jarvis-voice-pack.ts).
+
+Vite serves them at /voice-pack/*.mp3 in dev and copies them into dist/voice-pack/
+on build. If a file is missing, JARVIS still speaks via Web Speech and synthesizes
+a short Web Audio identity chirp instead of the MP3 cue.
+
+Expected filenames:
+  Nath - engaging, british and calm.mp3
+  Burt - deep, smooth and clear.mp3
+  Kelvin mwamburi mwaliko.mp3
+  Dav - movie trailer narrator.mp3
+  Cart - rich, smooth and rugged.mp3
+  Bria - deep, resonant and comforting.mp3
+  Jean - audiobook narrator.mp3
+  Aust - deep, raspy and authentic.mp3
+  Bra - romantic & gentle.mp3
+  Lil - velvety actress.mp3
+  Seraf - sensual temptress.mp3
+  Husky, engaging and bold.mp3
+  grandpa.mp3

@@ -110,13 +110,14 @@ One page every builder should read before touching AnF. Keep it current; append,
 
 ## Next priorities
 
-1. Continuous UI polish and automated live testing across Windows and Android devices.
-2. Remove now-unreachable legacy scraping layer in `streaming-provider.ts` once all callers rely on the unified Audius/YouTube/Subsonic providers.
-3. Stop accidental `music-hub.ts` PLACEHOLDER overwrites (dozens of restore commits on main).
-4. Deepen JARVIS agents beyond early command-desk / voice pill (true multi-agent ops).
+1. Drop Voice pack MP3s into `windows/voice-pack/` and run Windows `npm run pack` for **0.1.51**.
+2. Continuous UI polish and automated live testing across Windows and Android devices.
+3. Remove now-unreachable legacy scraping layer in `streaming-provider.ts` once all callers rely on the unified Audius/YouTube/Subsonic providers.
+4. Stop accidental `music-hub.ts` PLACEHOLDER overwrites.
 
 ### 2026-11-10 continuation (Cursor)
-- Wired orphan Antigravity engines: BM25 vault search (`jev-index` → Ctrl+K studio + JARVIS “search notes…”) and Spaces/S3 backup panel (`cloud-backup` → Settings → Vault). Unit gates: **569/569**.
+- Wired orphan Antigravity engines: BM25 vault search (`jev-index` → Ctrl+K studio + JARVIS “search notes…”) and Spaces/S3 backup panel (`cloud-backup` → Settings → Vault).
+- JARVIS completion Phases 1–2 (voice pack pipeline, wake HUD, memory, codegen-units=4) on `cursor/jarvis-complete-d2fe`.
 
 ## Partner protocol
 

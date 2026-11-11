@@ -3,7 +3,7 @@ members = ["src-tauri", "hook"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.50"
+version = "0.1.51"
 edition = "2021"
 license = "MIT"
 
@@ -12,6 +12,7 @@ license = "MIT"
 [profile.release]
 opt-level = "s"
 lto = false
-codegen-units = 1
+# 4 units keep peak RSS ~1GB each on low-RAM Windows boxes; codegen-units=1 OOMs near 4.7GB.
+codegen-units = 4
 panic = "abort"
 strip = true

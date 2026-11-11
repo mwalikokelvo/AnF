@@ -1,8 +1,10 @@
 /**
  * JARVIS Autonomous Action & Intent Dispatcher
  * Parses natural spoken voice instructions and executes corresponding actions across the entire workspace.
- * When a voice instruction isn't an explicit command, it routes seamlessly to the local AI conversational intelligence.
+ * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
+
+import { appendJarvisTurn, formatJarvisHistoryForPrompt } from './jarvis-memory';
 
 export interface JarvisActionContext {
   switchView: (view: string) => void;
@@ -11,6 +13,7 @@ export interface JarvisActionContext {
   nextTrack?: () => void;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
+  openQuickCapture?: () => void;
   saveQuickNote?: (text: string) => Promise<void>;
   askAI?: (query: string) => Promise<string>;
   triageSupport?: () => number;
@@ -25,6 +28,23 @@ export interface ActionResult {
   speechReply: string;
 }
 
+function speakClock(): string {
+  const now = new Date();
+  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `It is ${time}, sir.`;
+}
+
+function speakDate(): string {
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  return `Today is ${date}, sir.`;
+}
+
 export class JarvisVoiceAgent {
   private context: JarvisActionContext;
 
@@ -36,9 +56,6 @@ export class JarvisVoiceAgent {
     this.context = context;
   }
 
-  /**
-   * Process a spoken voice query and execute the corresponding action.
-   */
   async processVoiceInput(spokenText: string): Promise<ActionResult> {
     const text = spokenText.trim();
     if (!text) {
@@ -46,6 +63,28 @@ export class JarvisVoiceAgent {
     }
 
     const lower = text.toLowerCase();
+
+    // Clock / calendar (Phase 2B)
+    if (
+      lower.includes('what time') ||
+      lower === 'time' ||
+      lower.includes('current time') ||
+      lower.includes("what's the time") ||
+      lower.includes('whats the time')
+    ) {
+      return { handled: true, actionName: 'tell_time', speechReply: speakClock() };
+    }
+    if (
+      lower.includes("today's date") ||
+      lower.includes('todays date') ||
+      lower.includes('what day is') ||
+      lower.includes('what is the date') ||
+      lower.includes("what's the date") ||
+      lower.includes('tell me the date') ||
+      lower.includes("tell me today's date")
+    ) {
+      return { handled: true, actionName: 'tell_date', speechReply: speakDate() };
+    }
 
     // 1. Briefing command
     if (lower.includes('briefing') || lower.includes('morning update') || lower.includes('status report')) {
@@ -60,7 +99,12 @@ export class JarvisVoiceAgent {
     }
 
     // 2. Music & Media Commands
-    if (lower.includes('pause music') || lower.includes('stop music') || lower.includes('pause playback') || (lower.includes('pause') && lower.includes('music'))) {
+    if (
+      lower.includes('pause music') ||
+      lower.includes('stop music') ||
+      lower.includes('pause playback') ||
+      (lower.includes('pause') && lower.includes('music'))
+    ) {
       this.context.pauseMusic?.();
       return { handled: true, actionName: 'pause_music', speechReply: 'Music paused, sir.' };
     }
@@ -70,7 +114,6 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'play_music', speechReply: 'Resuming your music, sir.' };
     }
 
-    // Play specific song / search by voice: e.g. "play Wimbo wangu" or "play Queen"
     if ((lower.startsWith('play ') || lower.startsWith('stream ')) && !lower.includes('game') && !lower.includes('video')) {
       const songQuery = text.replace(/^(play|stream)\s+/i, '').trim();
       if (songQuery) {
@@ -79,16 +122,16 @@ export class JarvisVoiceAgent {
           return {
             handled: true,
             actionName: 'search_play_music',
-            speechReply: found ? `Playing "${songQuery}" for you now, sir.` : `Searched Music Hub for "${songQuery}", sir.`,
+            speechReply: found
+              ? `Playing "${songQuery}" for you now, sir.`
+              : `Searched Music Hub for "${songQuery}", sir.`,
           };
-        } else {
-          this.context.playMusic?.();
-          return { handled: true, actionName: 'play_music', speechReply: `Playing "${songQuery}", sir.` };
         }
+        this.context.playMusic?.();
+        return { handled: true, actionName: 'play_music', speechReply: `Playing "${songQuery}", sir.` };
       }
     }
 
-    // Search song by voice: e.g. "search song Wimbo wangu" or "find music Nirvana"
     if (lower.startsWith('search song ') || lower.startsWith('search music ') || lower.startsWith('find song ')) {
       const songQuery = text.replace(/^(search song|search music|find song)\s+/i, '').trim();
       if (songQuery && this.context.searchMusic) {
@@ -111,15 +154,14 @@ export class JarvisVoiceAgent {
       lower.startsWith('find notes ')
     ) {
       const vaultQuery = text
-        .replace(/^(search notes for|search note for|search notes|search note|search vault for|search vault|find in vault|search my notes for|search my notes|find notes for|find notes)\s+/i, '')
+        .replace(
+          /^(search notes for|search note for|search notes|search note|search vault for|search vault|find in vault|search my notes for|search my notes|find notes for|find notes)\s+/i,
+          ''
+        )
         .trim();
       if (vaultQuery && this.context.searchVault) {
         const summary = await this.context.searchVault(vaultQuery);
-        return {
-          handled: true,
-          actionName: 'search_vault',
-          speechReply: summary,
-        };
+        return { handled: true, actionName: 'search_vault', speechReply: summary };
       }
     }
 
@@ -131,6 +173,11 @@ export class JarvisVoiceAgent {
     // 3. Navigation Commands
     if (lower.startsWith('open ') || lower.startsWith('go to ') || lower.startsWith('show ')) {
       const dest = lower.replace(/^(open|go to|show)\s+/, '').trim();
+      if (dest.includes('my notes') || dest === 'notes' || dest.includes('quick capture') || dest.includes('quick note')) {
+        this.context.switchView('home');
+        this.context.openQuickCapture?.();
+        return { handled: true, actionName: 'navigate_notes', speechReply: 'Opening your notes, sir.' };
+      }
       if (dest.includes('music') || dest.includes('hub')) {
         this.context.switchView('music');
         return { handled: true, actionName: 'navigate_music', speechReply: 'Opening Music Hub.' };
@@ -155,6 +202,10 @@ export class JarvisVoiceAgent {
         this.context.switchView('jarvis');
         return { handled: true, actionName: 'navigate_jarvis', speechReply: 'Opening JARVIS Command Center.' };
       }
+      if (dest.includes('home') || dest.includes('dashboard')) {
+        this.context.switchView('home');
+        return { handled: true, actionName: 'navigate_home', speechReply: 'Opening Home.' };
+      }
       if (dest.includes('setting')) {
         this.context.switchView('settings');
         return { handled: true, actionName: 'navigate_settings', speechReply: 'Opening Settings.' };
@@ -162,8 +213,15 @@ export class JarvisVoiceAgent {
     }
 
     // 4. Note taking & Quick Capture Commands
-    if (lower.startsWith('take a note') || lower.startsWith('note that') || lower.startsWith('remember that') || lower.startsWith('write this down')) {
-      const noteContent = text.replace(/^(take a note(:|\s+that)?|note that|remember that|write this down(:|\s+that)?)\s*/i, '').trim();
+    if (
+      lower.startsWith('take a note') ||
+      lower.startsWith('note that') ||
+      lower.startsWith('remember that') ||
+      lower.startsWith('write this down')
+    ) {
+      const noteContent = text
+        .replace(/^(take a note(:|\s+that)?|note that|remember that|write this down(:|\s+that)?)\s*/i, '')
+        .trim();
       if (noteContent && this.context.saveQuickNote) {
         await this.context.saveQuickNote(noteContent);
         return {
@@ -175,7 +233,7 @@ export class JarvisVoiceAgent {
     }
 
     // 5. Code Health / Tom Agent Commands
-    if (lower.includes('code health') || lower.includes('run tests') || lower.includes('check build') || lower.includes('tom')) {
+    if (lower.includes('code health') || lower.includes('run tests') || lower.includes('check build') || /\btom\b/.test(lower)) {
       if (this.context.runDevHealth) {
         const devStatus = await this.context.runDevHealth();
         return {
@@ -198,11 +256,16 @@ export class JarvisVoiceAgent {
       }
     }
 
-    // 7. General AI Conversational Intelligence
-    // If not matched to a hardcoded command, delegate directly to the AI engine for autonomous dialogue!
+    // 7. General AI Conversational Intelligence + memory
     if (this.context.askAI) {
       try {
-        const aiAnswer = await this.context.askAI(text);
+        appendJarvisTurn('user', text);
+        const history = formatJarvisHistoryForPrompt(20);
+        const prompt = history
+          ? `Prior JARVIS conversation (most recent last):\n${history}\n\nRespond as JARVIS to the latest user message.`
+          : text;
+        const aiAnswer = await this.context.askAI(prompt);
+        appendJarvisTurn('assistant', aiAnswer);
         return {
           handled: true,
           actionName: 'ai_conversation',

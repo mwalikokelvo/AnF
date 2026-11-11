@@ -144,3 +144,8 @@ export function getSelectedVoiceProfile(): VoiceProfile {
   const id = getSelectedVoiceId();
   return JARVIS_VOICE_PACK.find(v => v.id === id) || JARVIS_VOICE_PACK[0];
 }
+
+/** Dev/build URL for a voice-pack MP3 (Vite serves /voice-pack/*). */
+export function voicePackUrl(filename: string): string {
+  return `/voice-pack/${encodeURIComponent(filename)}`;
+}

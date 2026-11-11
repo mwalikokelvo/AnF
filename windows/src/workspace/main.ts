@@ -272,6 +272,10 @@ const jarvisCommandDesk=createJarvisCommandDesk({
       void studio.open();
       return summarizeVaultSearch(notes,query,5);
     },
+    openQuickCapture:()=>{
+      showView('home');
+      quickNote.open();
+    },
     saveQuickNote:async text=>captureDaily(`\n\n[JARVIS Note] ${text}`),
     askAI:async query=>{
       try {

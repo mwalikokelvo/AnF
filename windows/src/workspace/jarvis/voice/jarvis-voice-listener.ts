@@ -10,6 +10,8 @@ export interface VoiceListenerOptions {
   onListeningStateChange?: (listening: boolean) => void;
   onInterimSpeech?: (transcript: string) => void;
   onFinalSpeech?: (transcript: string) => void;
+  /** Fired when a wake word is detected (even if no follow-up command). */
+  onWakeWord?: (wakeWord: string) => void;
   onError?: (err: string) => void;
 }
 
@@ -23,6 +25,7 @@ export class JarvisVoiceListener {
   private stateListeners: ((listening: boolean) => void)[] = [];
   private onInterimSpeech?: (transcript: string) => void;
   private onFinalSpeech?: (transcript: string) => void;
+  private onWakeWord?: (wakeWord: string) => void;
   private onError?: (err: string) => void;
 
   constructor(options?: VoiceListenerOptions) {
@@ -31,6 +34,7 @@ export class JarvisVoiceListener {
     this.onListeningStateChange = options?.onListeningStateChange;
     this.onInterimSpeech = options?.onInterimSpeech;
     this.onFinalSpeech = options?.onFinalSpeech;
+    this.onWakeWord = options?.onWakeWord;
     this.onError = options?.onError;
   }
 
@@ -124,13 +128,20 @@ export class JarvisVoiceListener {
 
   private handleFinalTranscript(rawText: string): void {
     let clean = rawText.trim();
-    // Check if wake word prefixed, or strip wake word for natural commands
     const lower = clean.toLowerCase();
-    for (const wake of this.wakeWords) {
-      if (lower.startsWith(wake)) {
+    let matchedWake: string | null = null;
+    // Prefer longer wake phrases first ("hey jarvis" before "jarvis").
+    const ordered = [...this.wakeWords].sort((a, b) => b.length - a.length);
+    for (const wake of ordered) {
+      if (lower === wake || lower.startsWith(wake + ' ') || lower.startsWith(wake + ',') || lower.startsWith(wake + '.')) {
+        matchedWake = wake;
         clean = clean.slice(wake.length).replace(/^[,.:;\s]+/, '').trim();
         break;
       }
+    }
+
+    if (matchedWake) {
+      this.onWakeWord?.(matchedWake);
     }
 
     if (clean) {
