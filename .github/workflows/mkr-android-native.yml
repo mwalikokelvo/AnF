@@ -52,6 +52,7 @@ jobs:
           npm ci --prefix windows
           npm ci --prefix android
           node windows/node_modules/typescript/bin/tsc --noEmit --project windows/tsconfig.json
+          node scripts/check-workflows.mjs
           node scripts/check-mkr-player.mjs
           node scripts/check-mkr-web-port.mjs
           node scripts/build-android.mjs --assets-only
