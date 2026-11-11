@@ -17,7 +17,8 @@ service session. It revokes the old page before navigation, discards connections
 that arrive after cancellation, prevents duplicate attachment and supports both
 AnF and legacy Coucou origins. Closing the page detaches browsing without stopping
 ongoing service playback. A missing renderer still cannot approve a new audio
-handoff. The production MainActivity does not instantiate this host yet.
+handoff. AnF's Activity now forwards optional lifecycle callbacks, but its ordinary
+build does not include this native runtime or register the service.
 
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
@@ -52,9 +53,25 @@ The new case uses actual Java WebViewClient callbacks, separate QA Activities,
 modern/legacy-origin pages, the real TS client and muted generated-media Media3.
 It verifies one catalog/controller factory, one decoder and the same session
 token, with new audio acknowledgements after the first page is destroyed.
-This is an isolated lifecycle fixture, **not AnF's MainActivity**. Forwarding
-these callbacks and packaging an optional reviewed runtime in the real AnF app
-remain unfinished; the production app still does not register this service.
+This is an isolated lifecycle fixture, **not AnF's MainActivity**. Packaging an
+optional reviewed runtime in the real AnF app remains unfinished; its ordinary
+build still does not register this service.
+
+The real AnF Activity's optional `EmbeddedMusicPage` adapter now forwards main
+frame starts/finishes and revokes the channel before renderer recovery detaches
+the WebView. Destruction also closes it once; queued callbacks from the old
+display cannot reconnect. Missing/unusable packaged native classes remain a
+no-op without advertising a player or loading downloaded code.
+
+[Installed run43082316090](https://github.com/mwalikokelvo/AnF/actions/runs/43082316090)
+at `ae73f42` passed three cases for each modern/legacy identity in fresh Android15
+emulators. Existing entry-point and actual renderer termination/reload checks
+remain. The new actual MainActivity case injects a native-boundary probe through
+same-UID instrumentation, verifying callback forwarding, close-before-detach,
+stale callback rejection and generated saved-file preservation. It does **not**
+bundle or exercise the MKR runtime in AnF. Disposable signing establishes no
+production signer or installed-upgrade compatibility. Combined runtime packaging,
+end-to-end playback/provider checks and release clearance remain separate gates.
 
 [Native run42211028416](https://github.com/mwalikokelvo/AnF/actions/runs/42211028416)
 at `69731c4` passed43 host tests and15 Android15 component tests, including real
