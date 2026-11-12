@@ -477,6 +477,20 @@ pinned native artifact hashes are retained in the combined67-artifact graph.
 Both jobs also retain43 host tests. The preceding `2b9ae49` build failed exactly
 at missing private-service registration after successful assembly/graph checks.
 
+The initial panel checks above observed DOM state and did not establish that the
+screen had drawn the panel. Visual review exposed that gap, then found unreadable
+text inherited from Music Hub themes. The current visible-UI evidence is
+[run43266746326](https://github.com/mwalikokelvo/AnF/actions/runs/43266746326)
+at `a0137fa`: both installed lineages navigate through Music, require visible
+ancestors, readable heading/button contrast and the correctly sized Back button,
+then fence the native WebView draw before collecting screenshots. All four cold
+and reconnected captures were inspected and show the readable MKR panel inside
+AnF. Actual renderer termination/reload, native teardown and generated-file
+preservation remain covered. The renderer fixture separately checks five parent
+music themes in both workspace palettes, including Android's actual light panel.
+Screenshots use bounded instrumentation results, without granting `run-as`
+access or making the release-derived application debuggable.
+
 This is cold UI/channel proof, not combined decoded playback, real-provider
 access, physical-device, original-signer, installed-upgrade or release clearance.
 The optional flag registers the service and notice assets only in `review`;

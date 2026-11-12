@@ -31,6 +31,15 @@ signers, installed upgrades and full source/license clearance remain unverified.
 Production availability and Windows packaging are still held. See the
 [Android engineering evidence](android-catalog/README.md) for exact run scopes.
 
+Visible native UI acceptance now uses `a0137fa` / run43266746326, superseding
+the earlier DOM-only panel observation. Both Android review lineages have
+inspected cold/reconnected screenshots of the readable MKR panel. Local palette
+tokens prevent Music Hub themes from producing white text on a light panel;
+the scoped header keeps the Back button at a normal control size. Search has
+initial/no-results guidance, busy feedback and a full-width field on small phones.
+This does not establish real-provider or combined decoded playback, and does not
+enable the derived catalog in production builds or clear release publication.
+
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
 foreground promotion; resolving media and constructing a decoder follow the
