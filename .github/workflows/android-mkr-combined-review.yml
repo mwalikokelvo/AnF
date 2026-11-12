@@ -44,6 +44,7 @@ jobs:
           node scripts/check-branding-test.mjs
           node scripts/check-branding.mjs
           python3 -B scripts/test-mkr-combined-review.py
+          python3 -B scripts/test-instrumentation-screenshots.py
           node scripts/prepare-android-sdk.mjs
           cli="$(node scripts/prepare-android-sdk.mjs --print-cli)"
           "$cli" --no-metrics --sdk "$ANDROID_HOME" sdk install emulator system-images/android-35/default/x86_64

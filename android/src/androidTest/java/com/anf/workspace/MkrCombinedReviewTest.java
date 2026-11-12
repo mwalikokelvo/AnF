@@ -27,8 +27,14 @@ public class MkrCombinedReviewTest {
     instrumentation.waitForIdleSync();
     android.graphics.Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();
     assertNotNull("Actual combined UI screenshot missing",bitmap);
-    try(java.io.FileOutputStream out=new java.io.FileOutputStream(new File(context.getFilesDir(),name))){
+    try(java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()){
       assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));
+      assertTrue("Review screenshot exceeds the instrumentation result limit",out.size()<512000);
+      android.os.Bundle result=new android.os.Bundle();
+      result.putString(name,android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP));
+      // Instrumentation owns these generated emulator screenshots. Export via
+      // its result channel, without making the release-derived app debuggable.
+      instrumentation.addResults(result);
     }finally{bitmap.recycle();}
   }
   private static JSONObject state(Instrumentation instrumentation,Activity activity) throws Exception {

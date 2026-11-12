@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import zipfile
+from instrumentation_screenshots import extract_screenshots
 
 root=Path(__file__).resolve().parents[2]
 sdk=Path(os.environ['ANDROID_HOME']);tools=sdk/'build-tools/36.0.0';adb=sdk/'platform-tools/adb'
@@ -50,10 +51,8 @@ try:
     result=run([adb,'shell','am','instrument','-w','-r','-e','class','com.anf.workspace.MkrCombinedReviewTest',test_id+'/androidx.test.runner.AndroidJUnitRunner'])
     (reports/'instrumentation.txt').write_text(result)
     assert 'OK (1 test)' in result and 'FAILURES' not in result and 'INSTRUMENTATION_FAILED' not in result,result
-    for name in ('mkr-combined-cold.png','mkr-combined-reconnected.png'):
-        image=subprocess.run([str(adb),'exec-out','run-as',identity,'cat','files/'+name],capture_output=True,timeout=30)
-        assert image.returncode==0 and image.stdout.startswith(b'\x89PNG\r\n\x1a\n'),name
-        (reports/name).write_bytes(image.stdout)
+    for name,image in extract_screenshots(result,('mkr-combined-cold.png','mkr-combined-reconnected.png')).items():
+        (reports/name).write_bytes(image)
     (reports/'scope.json').write_text(json.dumps({'sourceCommit':os.environ.get('GITHUB_SHA'),'applicationId':identity,'androidApi':35,
         'actualAnFActivity':True,'combinedNativeRuntime':True,'coldChannelAndRendererRecovery':True,
         'providerSearched':False,'nativeDecodedPlaybackVerified':False,'originalSignerVerified':False,
