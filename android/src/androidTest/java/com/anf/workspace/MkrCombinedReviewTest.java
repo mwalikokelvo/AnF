@@ -23,7 +23,20 @@ import static org.junit.Assert.*;
 /** Real optional review APK and native cold channel. No search/provider/decoder. */
 public class MkrCombinedReviewTest {
   private static final String SERVICE="com.anf.mkr.android.MkrPlaybackService";
-  private static void capture(Instrumentation instrumentation,Context context,String name) throws Exception {
+  private static void capture(Instrumentation instrumentation,Activity activity,String name) throws Exception {
+    java.util.concurrent.atomic.AtomicBoolean drawn=new java.util.concurrent.atomic.AtomicBoolean();
+    instrumentation.runOnMainSync(()->{
+      WebView web=RendererRecoveryTest.web(activity.getWindow().getDecorView());assertNotNull(web);
+      // Browser animation callbacks do not fence Android's compositor. Require
+      // the updated WebView visual state and a subsequent native draw frame.
+      web.postVisualStateCallback(1,new WebView.VisualStateCallback(){
+        @Override public void onComplete(long requestId){
+          web.postInvalidateOnAnimation();
+          web.postOnAnimation(()->web.postOnAnimation(()->drawn.set(true)));
+        }
+      });
+    });
+    RendererRecoveryTest.until(instrumentation,drawn::get);
     instrumentation.waitForIdleSync();
     android.graphics.Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();
     assertNotNull("Actual combined UI screenshot missing",bitmap);
@@ -111,7 +124,7 @@ public class MkrCombinedReviewTest {
       assertEquals(origin,state(instrumentation,activity).getString("origin"));
       openVisibleMusic(instrumentation,activity);
       assertFalse(activity.isFinishing());cold(context);
-      capture(instrumentation,context,"mkr-combined-cold.png");
+      capture(instrumentation,activity,"mkr-combined-cold.png");
       instrumentation.runOnMainSync(()->assertTrue(RendererRecoveryTest.web(activity.getWindow().getDecorView()).getWebViewRenderProcess().terminate()));
       RendererRecoveryTest.until(instrumentation,()->RendererRecoveryTest.reload(activity.getWindow().getDecorView())!=null&&!service(context));
       Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);
@@ -123,7 +136,7 @@ public class MkrCombinedReviewTest {
       assertNotNull(reopened);current.set(reopened);ready(instrumentation,reopened);cold(context);
       assertEquals(origin,state(instrumentation,reopened).getString("origin"));
       openVisibleMusic(instrumentation,reopened);
-      capture(instrumentation,context,"mkr-combined-reconnected.png");
+      capture(instrumentation,reopened,"mkr-combined-reconnected.png");
       assertArrayEquals(saved,Files.readAllBytes(sentinel.toPath()));
     }finally{
       instrumentation.runOnMainSync(()->current.get().finish());
