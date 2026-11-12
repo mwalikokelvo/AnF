@@ -50,6 +50,30 @@ public class MkrCombinedReviewTest {
       instrumentation.addResults(result);
     }finally{bitmap.recycle();}
   }
+  /** Compare actual web controls in screen pixels with Android's system-bar safe
+   * bounds. DOM visibility alone does not catch controls drawn under navigation. */
+  private static void navigationInsideSystemBars(Instrumentation instrumentation,Activity activity,String phase) throws Exception {
+    AtomicReference<String> raw=new AtomicReference<>();
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript(
+      "(()=>{const controls=[...document.querySelectorAll('.bottom-nav button')].filter(b=>!b.closest('[hidden]')&&b.getClientRects().length);return JSON.stringify({width:innerWidth,bottom:Math.max(...controls.map(b=>b.getBoundingClientRect().bottom)),count:controls.length});})()",raw::set));
+    RendererRecoveryTest.until(instrumentation,()->raw.get()!=null);
+    JSONObject controls=new JSONObject((String)new JSONTokener(raw.get()).nextValue());
+    assertTrue("Workspace navigation must exist",controls.getInt("count")>0);
+    AtomicReference<String> geometry=new AtomicReference<>();
+    instrumentation.runOnMainSync(()->{
+      WebView web=RendererRecoveryTest.web(activity.getWindow().getDecorView());int[] position=new int[2];web.getLocationOnScreen(position);
+      android.view.WindowMetrics metrics=activity.getWindowManager().getCurrentWindowMetrics();
+      android.graphics.Insets bars=metrics.getWindowInsets().getInsetsIgnoringVisibility(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+      try{
+        double scale=(web.getWidth()-web.getPaddingLeft()-web.getPaddingRight())/controls.getDouble("width");
+        double controlBottom=position[1]+web.getPaddingTop()+controls.getDouble("bottom")*scale;
+        int safeBottom=metrics.getBounds().bottom-bars.bottom;
+        geometry.set("phase="+phase+",controlBottom="+controlBottom+",safeBottom="+safeBottom+",webTop="+position[1]+",webHeight="+web.getHeight()+",paddingTop="+web.getPaddingTop()+",paddingBottom="+web.getPaddingBottom());
+        android.os.Bundle report=new android.os.Bundle();report.putString("anf-navigation-geometry-"+phase,geometry.get());instrumentation.addResults(report);
+        assertTrue("Workspace navigation overlaps Android system controls: "+geometry.get(),controlBottom<=safeBottom+1);
+      }catch(org.json.JSONException error){throw new AssertionError(error);}
+    });
+  }
   private static JSONObject state(Instrumentation instrumentation,Activity activity) throws Exception {
     AtomicReference<String> value=new AtomicReference<>();
     instrumentation.runOnMainSync(()->{
@@ -216,6 +240,7 @@ public class MkrCombinedReviewTest {
       openVisibleMusic(instrumentation,activity);
       assertFalse(activity.isFinishing());cold(context);
       capture(instrumentation,activity,"mkr-combined-cold.png");
+      navigationInsideSystemBars(instrumentation,activity,"cold");
       instrumentation.runOnMainSync(()->assertTrue(RendererRecoveryTest.web(activity.getWindow().getDecorView()).getWebViewRenderProcess().terminate()));
       RendererRecoveryTest.until(instrumentation,()->RendererRecoveryTest.reload(activity.getWindow().getDecorView())!=null&&!service(context));
       Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);
@@ -228,6 +253,7 @@ public class MkrCombinedReviewTest {
       assertEquals(origin,state(instrumentation,reopened).getString("origin"));
       openVisibleMusic(instrumentation,reopened);
       capture(instrumentation,reopened,"mkr-combined-reconnected.png");
+      navigationInsideSystemBars(instrumentation,reopened,"reconnected");
       assertArrayEquals(saved,Files.readAllBytes(sentinel.toPath()));
     }finally{
       instrumentation.runOnMainSync(()->current.get().finish());
