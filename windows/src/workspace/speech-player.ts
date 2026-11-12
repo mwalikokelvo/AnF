@@ -2,7 +2,7 @@ import {h} from '../views/dom';
 export function sentences(text:string){return(text.match(/[^.!?]+(?:[.!?]+["”’']*|$)/gu)||[text]).flatMap(s=>{const parts:string[]=[];for(let start=0;start<s.length;){let end=Math.min(s.length,start+1800);if(end<s.length&&/[\uD800-\uDBFF]/.test(s[end-1]))end--;parts.push(s.slice(start,end));start=end;}return parts;}).filter(s=>s.trim());}
 export interface SpeechVoiceProvider {id:string;label:string;available:()=>boolean;unavailableReason?:string;speak:(text:string,rate:number,callbacks:{onBoundary:(start:number,end:number)=>void;onEnd:()=>void;onError:(reason:string)=>void})=>{stop:()=>void;pause?:()=>void;resume?:()=>void}}
 export function createSpeechPlayer(onPosition?:(start:number,end:number,word?:{start:number;end:number})=>void,beforeRead?:()=>Promise<void>){
- let parts:string[]=[],offsets:number[]=[],index=0,state:'stopped'|'preparing'|'playing'|'paused'='stopped',token=0,startEpoch=0,providers:SpeechVoiceProvider[]=[],session:ReturnType<SpeechVoiceProvider['speak']>|undefined,nativeUnconfirmed=false;
+ let parts:string[]=[],offsets:number[]=[],index=0,state:'stopped'|'preparing'|'playing'|'paused'='stopped',token=0,startEpoch=0,providers:SpeechVoiceProvider[]=[],session:ReturnType<SpeechVoiceProvider['speak']>|undefined;
  const bridge=window as unknown as {AnFAndroid?:{speakPart?:(text:string,rate:number,id:string)=>void;stopSpeaking?:()=>void;stopSpeakingConfirmed?:(id:string)=>void};AnFSpeechPauseResult?:((id:string,paused:boolean)=>void)};
  const native=bridge.AnFAndroid;
  let pauseReceipt:Promise<void>|undefined;
@@ -33,7 +33,7 @@ export function createSpeechPlayer(onPosition?:(start:number,end:number,word?:{s
  const done=()=>{if(request!==token||state!=='playing')return;if(index+1<parts.length){index++;speak();}else{stop();info.textContent='Reading complete.';}};
  const boundary=(start:number,end:number)=>{if(request!==token||state!=='playing')return;const text=parts[index];if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<=start||end>text.length)return;onPosition?.(offsets[index],offsets[index]+text.length,{start:offsets[index]+start,end:offsets[index]+end});};
  if(voice.value.startsWith('provider:')){const provider=providers.find(v=>v.id===voice.value.slice(9));if(!provider?.available()){fail(provider?.unavailableReason||'This local voice is unavailable. Choose an installed voice explicitly.');return;}try{session=provider.speak(parts[index],Number(rate.value),{onBoundary:boundary,onEnd:done,onError:fail});}catch(e){fail(String(e));}}
- else if(native?.speakPart){(window as unknown as {AnFSpeechError:(id:string)=>void}).AnFSpeechError=id=>{if(id===String(request))fail('Voice unavailable. Check installed speech data.');};(window as unknown as {AnFSpeechDone:(id:string)=>void}).AnFSpeechDone=id=>{if(id===String(request))done();};(window as unknown as {AnFSpeechBoundary:(id:string,start:number,end:number)=>void}).AnFSpeechBoundary=(id,start,end)=>{if(id===String(request))boundary(start,end);};nativeUnconfirmed=true;native.speakPart(parts[index],Number(rate.value),String(request));}
+ else if(native?.speakPart){(window as unknown as {AnFSpeechError:(id:string)=>void}).AnFSpeechError=id=>{if(id===String(request))fail('Voice unavailable. Check installed speech data.');};(window as unknown as {AnFSpeechDone:(id:string)=>void}).AnFSpeechDone=id=>{if(id===String(request))done();};(window as unknown as {AnFSpeechBoundary:(id:string,start:number,end:number)=>void}).AnFSpeechBoundary=(id,start,end)=>{if(id===String(request))boundary(start,end);};native.speakPart(parts[index],Number(rate.value),String(request));}
  else if(window.speechSynthesis){const available=voices[Number(voice.value.slice(7))];if(!available){fail('No offline voice is installed. Install device speech data or configure a local voice.');return;}const utterance=new SpeechSynthesisUtterance(parts[index]);utterance.voice=available;utterance.lang=available.lang;utterance.rate=Number(rate.value);utterance.onend=done;utterance.onerror=()=>fail('Voice unavailable. Check installed speech data.');utterance.onboundary=e=>{if(e.name!=='word')return;const tail=parts[index].slice(e.charIndex),length=e.charLength||tail.match(/^\S+/u)?.[0].length||0;boundary(e.charIndex,e.charIndex+length);};window.speechSynthesis.speak(utterance);}
  else fail('Read-aloud is unavailable on this device.');}
  function pause(){if(state==='preparing'){cancel();state='paused';}else if(state!=='playing')return;else if(session?.pause&&session.resume){session.pause();state='paused';}else if(!native?.speakPart&& !session &&window.speechSynthesis?.pause){window.speechSynthesis.pause();state='paused';}else{cancel();state='paused';}paint();info.textContent='Paused · resume from this sentence.';}
@@ -47,12 +47,22 @@ export function createSpeechPlayer(onPosition?:(start:number,end:number,word?:{s
   }catch{if(request===startEpoch){stop();info.textContent='Other audio could not be paused. Retry read aloud when the player responds.';}}
  }
  async function pauseForOtherAudio(){
-  pause();const request=token;
-  if(nativeUnconfirmed){await confirmNativePause();if(request!==token)throw Error('Read-aloud changed while audio was switching. Try again.');nativeUnconfirmed=false;}
-  else if(voice.value.startsWith('system:')&&window.speechSynthesis?.speaking&&!window.speechSynthesis.paused)throw Error('Read-aloud did not pause. Switching audio was stopped.');
+  startEpoch++;pause();
+  // Writing and the reader share the system speech queue. Revoke old callbacks
+  // before clearing it, so a delayed cancellation cannot stop a new writer.
+  const synth=window.speechSynthesis;
+  if(synth&&(synth.speaking||synth.paused||synth.pending)){const keepPaused=state==='paused';cancel();if(keepPaused){state='paused';paint();}if(synth.speaking||synth.pending)throw Error('Read-aloud did not stop. Switching audio was stopped.');}
+  const request=token;
+  if(native?.speakPart){await confirmNativePause();if(request!==token)throw Error('Read-aloud changed while audio was switching. Try again.');}
+ }
+ async function readExternal(read:()=>void){
+  stop();const request=++startEpoch;
+  try{await beforeRead?.();}catch{throw Error('Other audio could not be paused. Retry read aloud when the player responds.');}
+  if(request!==startEpoch)return false;
+  read();return true;
  }
  const play=button('Start',()=>state==='playing'||state==='preparing'?pause():void resume());
  const root=h('div',{class:'speech-player',hidden:true,'aria-label':'Document read aloud'},info,button('Previous sentence',()=>{index=Math.max(0,index-1);if(state==='playing')speak();else{cancel();state='stopped';update();paint();}}),play,button('Stop',stop),button('Next sentence',()=>{index=Math.min(parts.length-1,index+1);if(state==='playing')speak();else{cancel();state='stopped';update();paint();}}),progress,rate,voice,button('Close audio',()=>{stop();root.hidden=true;}));
  progress.addEventListener('input',()=>{index=Number(progress.value);if(state==='playing')speak();else{cancel();state='stopped';update();paint();}});for(const control of[rate,voice])control.addEventListener('change',()=>{if(state==='playing')speak();else if(state==='paused'){cancel();state='stopped';paint();}});
- return{root,stop,pause,pauseForOtherAudio,configureVoices(value:SpeechVoiceProvider[]){stop();providers=value;loadVoices();},load(text:string,start=0,autoplay=true){stop();parts=sentences(text);let cursor=0;offsets=parts.map(part=>{const offset=text.indexOf(part,cursor);cursor=offset+part.length;return offset;});index=Math.max(0,offsets.findIndex((n,i)=>n+parts[i].length>start));progress.max=String(Math.max(0,parts.length-1));root.hidden=false;update();if(parts.length&&autoplay)void resume();}};
+ return{root,stop,pause,pauseForOtherAudio,readExternal,configureVoices(value:SpeechVoiceProvider[]){stop();providers=value;loadVoices();},load(text:string,start=0,autoplay=true){stop();parts=sentences(text);let cursor=0;offsets=parts.map(part=>{const offset=text.indexOf(part,cursor);cursor=offset+part.length;return offset;});index=Math.max(0,offsets.findIndex((n,i)=>n+parts[i].length>start));progress.max=String(Math.max(0,parts.length-1));root.hidden=false;update();if(parts.length&&autoplay)void resume();}};
 }

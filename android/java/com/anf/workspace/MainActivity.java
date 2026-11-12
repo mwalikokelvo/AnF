@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
   private byte[] exportBytes;
   private TextToSpeech speech;
   private boolean speechReady;
+  private boolean speechRequested;
   // Read and updated only on the activity UI thread, including queued callbacks.
   private String speechPartId;
   private int speechPartLength;
@@ -205,8 +206,8 @@ public class MainActivity extends Activity {
       });
     }
     private void feedResult(String id,String text,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.coucouFeedResult && window.coucouFeedResult("+JSONObject.quote(id)+","+JSONObject.quote(text)+","+JSONObject.quote(error)+")",null);});}
-    @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(!speechReady){notice("Android read-aloud is not ready. Check installed voice data.");return;}speechPartId=null;speech.stop();int max=TextToSpeech.getMaxSpeechInputLength()-100;for(int start=0;start<text.length();){int end=Math.min(text.length(),start+max);if(end<text.length()){int stop=text.lastIndexOf('.',end);if(stop>start+max/2)end=stop+1;}speech.speak(text.substring(start,end),TextToSpeech.QUEUE_ADD,null,"anf-"+start);start=end;}notice("Reading with your Android voice.");});}
-    @JavascriptInterface public void speakPart(String text,float rate,String id){if(text==null||id==null||text.length()>2000||id.length()>30)return;runOnUiThread(()->{speechPartId=null;speech.stop();speechPartId=id;speechPartLength=text.length();if(!speechReady){speechError(id);return;}speech.setSpeechRate(Math.max(.75f,Math.min(2.5f,rate)));if(speech.speak(text,TextToSpeech.QUEUE_FLUSH,null,id)==TextToSpeech.ERROR)speechError(id);});}
+    @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(!speechReady){notice("Android read-aloud is not ready. Check installed voice data.");return;}speechPartId=null;speechRequested=true;speech.stop();int max=TextToSpeech.getMaxSpeechInputLength()-100;for(int start=0;start<text.length();){int end=Math.min(text.length(),start+max);if(end<text.length()){int stop=text.lastIndexOf('.',end);if(stop>start+max/2)end=stop+1;}speech.speak(text.substring(start,end),TextToSpeech.QUEUE_ADD,null,"anf-"+start);start=end;}notice("Reading with your Android voice.");});}
+    @JavascriptInterface public void speakPart(String text,float rate,String id){if(text==null||id==null||text.length()>2000||id.length()>30)return;runOnUiThread(()->{speechPartId=null;speech.stop();speechPartId=id;speechPartLength=text.length();if(!speechReady){speechError(id);return;}speechRequested=true;speech.setSpeechRate(Math.max(.75f,Math.min(2.5f,rate)));if(speech.speak(text,TextToSpeech.QUEUE_FLUSH,null,id)==TextToSpeech.ERROR)speechError(id);});}
     @JavascriptInterface public void haptic(){runOnUiThread(()->web.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK));}
     @JavascriptInterface public void stopSpeaking(){runOnUiThread(()->{speechPartId=null;speech.stop();});}
     @JavascriptInterface public void stopSpeakingConfirmed(String id){
@@ -214,12 +215,13 @@ public class MainActivity extends Activity {
       runOnUiThread(()->{
         if(closing)return;
         speechPartId=null;
-        final int stopped=speech==null?TextToSpeech.ERROR:speech.stop();
+        final int stopped=!speechRequested?TextToSpeech.SUCCESS:speech==null?TextToSpeech.ERROR:speech.stop();
         final long deadline=android.os.SystemClock.elapsedRealtime()+1800;
         new Runnable(){public void run(){
           if(closing)return;
-          boolean acknowledged=stopped==TextToSpeech.SUCCESS&&speech!=null&&!speech.isSpeaking();
+          boolean acknowledged=stopped==TextToSpeech.SUCCESS&&(!speechRequested||(speech!=null&&!speech.isSpeaking()));
           if(acknowledged||stopped!=TextToSpeech.SUCCESS||android.os.SystemClock.elapsedRealtime()>=deadline){
+            if(acknowledged)speechRequested=false;
             web.evaluateJavascript("window.AnFSpeechPauseResult && window.AnFSpeechPauseResult("+JSONObject.quote(id)+","+acknowledged+")",null);
           }else web.postDelayed(this,30);
         }}.run();

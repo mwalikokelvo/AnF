@@ -30,13 +30,21 @@ await build({plugins,stdin:{resolveDir:root,loader:'ts',contents:`
 import {createSpeechPlayer} from './windows/src/workspace/speech-player';
 import {createMkrPlayer} from './windows/src/workspace/mkr-player';
 import './windows/src/workspace/workspace.css';import './windows/src/workspace/anf-design.css';
+const actualSynth=window.speechSynthesis,ActualUtterance=window.SpeechSynthesisUtterance;
 window.make=async(mode,hold=false)=>{
  window.player?.stop();window.player?.root.remove();
  window.speechStarts=0;window.speechPlaying=false;window.musicPlaying=true;window.handoffs=0;window.calls=[];
  window.hold=hold;window.deny=false;window.receiptId=undefined;window.finishSpeech=undefined;
  const native={speakPart(text,rate,id){window.calls.push('speech-play');window.speechStarts++;window.speechPlaying=true;window.finishSpeech=()=>window.AnFSpeechDone(id);},stopSpeaking(){window.speechPlaying=false;},stopSpeakingConfirmed(id){window.receiptId=id;window.calls.push('speech-stop-receipt');}};
  if(mode==='old-native')delete native.stopSpeakingConfirmed;
- window.AnFAndroid=mode==='provider'?undefined:native;
+ window.AnFAndroid=mode==='provider'||mode==='system'?undefined:native;
+ if(mode==='system'){
+  let utterance;
+  const synth={speaking:false,paused:false,pending:false,getVoices:()=>[{localService:true,name:'System fixture',lang:'en-US'}],addEventListener(){},
+   speak(value){utterance=value;synth.speaking=true;synth.paused=false;window.speechPlaying=true;window.speechStarts++;window.finishSpeech=()=>{synth.speaking=false;value.onend?.();};},
+   pause(){synth.paused=true;},resume(){synth.paused=false;window.speechPlaying=true;},cancel(){const old=utterance;utterance=undefined;synth.speaking=false;synth.paused=false;window.speechPlaying=false;if(old)setTimeout(()=>old.onerror?.(),0);}};
+  Object.defineProperty(window,'speechSynthesis',{configurable:true,value:synth});window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
+ }else{Object.defineProperty(window,'speechSynthesis',{configurable:true,value:actualSynth});window.SpeechSynthesisUtterance=ActualUtterance;}
  const player=createSpeechPlayer(undefined,async()=>{window.handoffs++;if(window.hold)await new Promise(resolve=>window.release=resolve);if(window.deny)throw Error('private.invalid/handoff');await window.music.pause();});
  window.player=player;document.querySelector('#workspace-root').append(player.root);
  window.music=createMkrPlayer(async(command)=>{
@@ -78,6 +86,27 @@ try{
  await page.evaluate(()=>window.music.play('fixture'));
  assert.equal(await page.getByRole('slider',{name:'Read-aloud sentence'}).inputValue(),'1');
  await page.screenshot({path:path.join(out,'reader-paused-for-music.png')});
+ await page.evaluate(async()=>{await window.make('provider',true);window.externalStarts=0;window.externalRead=window.player.readExternal(()=>window.externalStarts++);});
+ await page.evaluate(()=>window.music.play('fixture'));await page.evaluate(()=>window.release());
+ assert.equal(await page.evaluate(()=>window.externalRead),false,'A music request must revoke a pending Writing read-aloud');
+ assert.equal(await page.evaluate(()=>window.externalStarts),0);
+ await page.evaluate(async()=>{await window.make('provider',true);window.externalStarts=0;window.externalRead=window.player.readExternal(()=>window.externalStarts++);});
+ await page.getByRole('button',{name:'Stop',exact:true}).click();await page.evaluate(()=>window.release());
+ assert.equal(await page.evaluate(()=>window.externalRead),false,'Stop must cancel a pending Writing read-aloud without locking the workspace');
+ assert.equal(await page.evaluate(()=>window.externalStarts),0);
+ await page.evaluate(async()=>{await window.make('system');window.player.load('System queue fixture.');});
+ await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
+ await page.evaluate(()=>window.music.play('fixture'));
+ assert.equal(await page.evaluate(()=>window.speechSynthesis.speaking),false);
+ await page.evaluate(()=>window.player.readExternal(()=>window.speechSynthesis.speak(new SpeechSynthesisUtterance('Writing fixture.'))));
+ await page.waitForTimeout(40);
+ assert.equal(await page.evaluate(()=>window.speechSynthesis.speaking),true,'Old reader cancellation callbacks must not cancel new Writing speech');
+ await page.evaluate(()=>window.music.play('fixture'));
+ assert.equal(await page.evaluate(()=>window.speechSynthesis.speaking),false,'Music must stop shared Writing speech even with the reader paused');
+ await page.evaluate(async()=>{await window.make('native');window.switchDone=false;window.switchResult=window.music.play('fixture').then(()=>window.switchDone=true);});
+ await page.waitForFunction(()=>!!window.receiptId);
+ assert.equal(await page.evaluate(()=>window.switchDone),false,'Even an idle reader must ask native about shared Writing speech');
+ await page.evaluate(()=>window.AnFSpeechPauseResult(window.receiptId,true));await page.evaluate(()=>window.switchResult);
  await page.evaluate(async()=>{await window.make('native');window.player.load('Native fixture sentence.');});
  await page.waitForFunction(()=>window.speechStarts===1);
  await page.evaluate(()=>{window.switchDone=false;window.switchResult=window.music.play('fixture').then(()=>window.switchDone=true,e=>{window.switchError=e.message;});});
