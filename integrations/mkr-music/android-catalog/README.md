@@ -434,9 +434,11 @@ closing a started foreground connection retains the existing playback behavior.
 Preparation creates no foreground notification. With deferred native playback,
 it also creates no decoder. Unpromoted sessions reject system/Binder play and
 queue controls before handoff, source resolution or decoding. The prepared lease
-intentionally does not implement the playable page contract: explicit selected
-play/promotion and actual AnF Activity integration are still pending. Do not use
-this browsing API as an available/playable-source flag.
+now implements the playable page contract through validated selected-play and
+fresh audio acknowledgement before foreground promotion. The Java lifecycle
+facade and optional AnF Activity callbacks have separate native/app QA evidence
+in the parent README. Combined native packaging/provider/installed-upgrade
+acceptance is still pending; do not use a browsing token as a source flag.
 
 [Run43044615871](https://github.com/mwalikokelvo/AnF/actions/runs/43044615871)
 at `fd3c1a1` passed43 host and19 Android15 component cases, retaining the previous17.
@@ -445,3 +447,15 @@ fresh successor token and cancelled result delivery. Runtime62 artifact hashes
 and ELF/APK alignment remained unchanged. This uses generated catalog data and
 disposable test identity, not provider, physical-device, original-signer,
 installed-upgrade or production-runtime acceptance.
+
+The review publication now targets the app's existing AndroidX Core1.9.0 minimum.
+The library constraint, lock and exact Google Maven checksums are aligned together;
+this replaces the incompatible1.8.0 component, rather than downgrading the app or
+relaxing the combined graph audit. A changed native runtime requires the complete
+native lifecycle/decoder tests again. Review consumption must preserve every
+pinned native artifact and leave the ordinary release graph unchanged.
+
+`mkrReviewPublication=true` writes only the generated local Maven repository.
+The source JAR includes the module's catalog/adapter sources and upstream notices.
+It does not establish full dependency/JNI corresponding-source clearance or
+permission to publish AnF packages. Native verification and locks remain enabled.
