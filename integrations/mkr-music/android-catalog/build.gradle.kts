@@ -115,6 +115,9 @@ androidComponents.onVariants { variant ->
 }
 
 dependencies {
+    // Match the already shipped AnF app requirement rather than downgrading it
+    // or relaxing the combined runtime checksum gate.
+    constraints { implementation("androidx.core:core:1.9.0") }
     implementation("androidx.media3:media3-datasource:1.6.1")
     implementation("androidx.media3:media3-exoplayer:1.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
