@@ -59,6 +59,15 @@ device. Engine queue acknowledgement is not microphone verification or a claim
 about the final audio-mixer buffer. Provider playback, original signers, installed
 upgrades and release clearance remain separate gates.
 
+Run43309962431 at `071eddf` additionally passes two actual AnF instrumentation
+cases in each Android review lineage. Its requested-speech STOP policy case
+replaces only the TTS engine with a controlled Android test double: successful
+STOP waits for observed idle, denied STOP refuses the switch, and a still-busy
+engine refuses after the native deadline. The real Activity bridge and matching
+JavaScript receipt are exercised. No utterance is synthesized; this is policy
+coverage, not physical-device or audible interruption proof. The existing idle
+receipt, cold view, renderer recovery and saved-file checks remain intact.
+
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
 foreground promotion; resolving media and constructing a decoder follow the
