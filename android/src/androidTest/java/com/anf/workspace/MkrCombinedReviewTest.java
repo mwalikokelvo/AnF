@@ -241,8 +241,13 @@ public class MkrCombinedReviewTest {
       assertFalse(activity.isFinishing());cold(context);
       capture(instrumentation,activity,"mkr-combined-cold.png");
       navigationInsideSystemBars(instrumentation,activity,"cold");
-      instrumentation.runOnMainSync(()->assertTrue(RendererRecoveryTest.web(activity.getWindow().getDecorView()).getWebViewRenderProcess().terminate()));
+      AtomicReference<WebView> originalDisplay=new AtomicReference<>();
+      instrumentation.runOnMainSync(()->{
+        originalDisplay.set(RendererRecoveryTest.web(activity.getWindow().getDecorView()));
+        assertTrue(originalDisplay.get().getWebViewRenderProcess().terminate());
+      });
       RendererRecoveryTest.until(instrumentation,()->RendererRecoveryTest.reload(activity.getWindow().getDecorView())!=null&&!service(context));
+      instrumentation.runOnMainSync(()->assertNull("Recovery must detach the destroyed browser from its safe-area container",originalDisplay.get().getParent()));
       Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);
       instrumentation.addMonitor(monitor);Activity reopened;
       try {

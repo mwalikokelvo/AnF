@@ -297,7 +297,12 @@ public class MainActivity extends Activity {
     if(media!=null)media.close();if(addons!=null)addons.close();vaultWorker.shutdown();
     if(picker!=null){ValueCallback<Uri[]> pending=picker;picker=null;pending.onReceiveValue(null);}
     exportBytes=null;speechPartId=null;speechPartLength=0;
-    if(speech!=null){speech.stop();speech.shutdown();}if(web!=null)web.destroy();
+    if(speech!=null){speech.stop();speech.shutdown();}if(web!=null){
+      // A safe-area container may still own the dead WebView after the root is
+      // replaced. Detach it before destroy so recovery never retains that view.
+      if(web.getParent() instanceof android.view.ViewGroup)((android.view.ViewGroup)web.getParent()).removeView(web);
+      web.destroy();
+    }
   }
   @Override protected void onDestroy(){closeWorkspace();super.onDestroy();}
 }
