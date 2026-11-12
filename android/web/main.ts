@@ -73,7 +73,7 @@ async function projectSummaries(query=''){await saveQueue;return repository.list
 async function getProject(id:string){await saveQueue;return repository.get(id);}
 let searchEpoch=0;
 async function refreshHistory(){const epoch=++searchEpoch,query=search.value.trim().toLocaleLowerCase();const list=await projectSummaries(query);if(epoch!==searchEpoch)return;historyList.replaceChildren(...list.map(p=>button(p.name+'\n'+new Date(p.updated).toLocaleDateString(),()=>void run(async()=>{await save();const latest=await getProject(p.id);if(!latest)throw Error('Conversation could not be found.');project=latest;load();drawer.hidden=true;show('chat');}),'history-item')));if(!list.length)historyList.append(h('p',{text:'No saved conversations match.'}));}
-const reader=createReader(()=>{autosave();refreshLibrary(sourceList);},(text,source)=>{draft.value=clipText(draft.value,text,source);editor.refresh(project.id);autosave();},notify,(text,source)=>{prompt.value='Explain this excerpt from '+source+':\n\n'+text;show('chat');autosave();notify('Question prepared. Choose Ask my Windows PC when ready.');});
+const reader=createReader(()=>{autosave();refreshLibrary(sourceList);},(text,source)=>{draft.value=clipText(draft.value,text,source);editor.refresh(project.id);autosave();},notify,(text,source)=>{prompt.value='Explain this excerpt from '+source+':\n\n'+text;show('chat');autosave();notify('Question prepared. Choose Ask my Windows PC when ready.');},undefined,undefined,pauseForReading);
 async function refreshReadingAssets(){const [fonts,voices]=await Promise.all([localFonts(),localVoices()]);reader.configureAssets({fonts,voices});voiceAssetStatus.textContent=voices.every(v=>v.available())?'Five private custom voices are ready for local synthesis. Select a voice in Documents.':voices[0]?.unavailableReason||'Custom voices are unavailable. Choose an installed local voice.';}
 const readingAssets=fontSettings(refreshReadingAssets,notify);
 const voiceAssetStatus=document.createElement('p');voiceAssetStatus.setAttribute('role','status');readingAssets.append(voiceAssetStatus);
@@ -126,7 +126,7 @@ const mkrPort=createMkrPortClient(window,connected=>{
  const epoch=++mkrEpoch;if(mkrSource)mkrSource.hidden=true;
  if(connected&&mkrBrowser)void mkrBrowser.available().then(available=>{if(epoch===mkrEpoch&&mkrSource)mkrSource.hidden=!available;}).catch(()=>{});
 },()=>pauseForMkr());
-async function pauseMkrForOtherAudio(){await mkrBrowser?.suspend();await mkrPort.pauseForOtherAudio();}
+async function pauseMkrForOtherAudio(){await reader.pauseReadAloud();await mkrBrowser?.suspend();await mkrPort.pauseForOtherAudio();}
 
 const musicHub=createMusicHub({exportPlaylist:text=>exportText('AnF-playlist.json',text,'application/json'),notify,beforePlay:async()=>{await pauseMkrForOtherAudio();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();}});
 const audioStudio=createAudioStudio(notify,async(name,blob)=>{if(!native?.exportAudio)throw Error('Audio export requires the updated Android app.');const bytes=new Uint8Array(await blob.arrayBuffer());let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));native.exportAudio(name,btoa(text));},undefined,async()=>{await pauseMkrForOtherAudio();musicHub.suspend();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();});
@@ -136,7 +136,8 @@ if(spotubeAvailable()){
  musicHub.root.querySelector('.music-heading')!.append(button('Open Spotube',()=>void nativeMusic!.open()));
 }
 if(!spotubeAvailable()){musicHub.root.prepend(h('p',{class:'muted',text:'Spotube music is not available in this build. Local Audio Studio tracks still work when the Android media bridge is present.'}));}
-const pauseForMkr=async()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();};
+async function pauseForReading(){musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await mkrBrowser?.suspend();await mkrPort.pauseForOtherAudio();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();}
+const pauseForMkr=async()=>{await reader.pauseReadAloud();musicHub.suspend();audioStudio.stop();audioStudio.hideDock();await nativeMusic?.suspend();await spotubeRequest('pause');await nativeMedia?.suspend();};
 mkrBrowser=createMkrBrowser({transport:mkrPort.transport,beforePlay:pauseForMkr,notify});
 musicHub.root.append(mkrBrowser.root);document.body.append(mkrBrowser.dock);
 mkrSource=button('MKR Music',()=>{show('music');void mkrBrowser!.open().catch(error=>notify(String(error)));});mkrSource.hidden=true;

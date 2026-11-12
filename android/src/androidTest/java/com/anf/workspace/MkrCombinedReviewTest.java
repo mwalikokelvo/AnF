@@ -66,6 +66,28 @@ public class MkrCombinedReviewTest {
     while(android.os.SystemClock.elapsedRealtime()<until){if(state(instrumentation,activity).optBoolean("ready"))return;Thread.sleep(30);}
     throw new AssertionError("Actual AnF never received a live packaged MKR channel");
   }
+  private static void speechStopReceipt(Instrumentation instrumentation,Activity activity) throws Exception {
+    String id=java.util.UUID.randomUUID().toString();
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript(
+      "window.anfQaSpeechPause=null;window.anfQaPreviousSpeechPause=window.AnFSpeechPauseResult;window.AnFSpeechPauseResult=(id,paused)=>{if(id==="+JSONObject.quote(id)+")window.anfQaSpeechPause=paused;};window.AnFAndroid.stopSpeakingConfirmed("+JSONObject.quote(id)+")",null));
+    AtomicReference<String> value=new AtomicReference<>();
+    long until=android.os.SystemClock.elapsedRealtime()+3500;
+    do{
+      value.set(null);
+      instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("window.anfQaSpeechPause",value::set));
+      RendererRecoveryTest.until(instrumentation,()->value.get()!=null);
+      if("true".equals(value.get())||"false".equals(value.get()))break;
+      Thread.sleep(30);
+    }while(android.os.SystemClock.elapsedRealtime()<until);
+    assertTrue("Actual native speech stop must return a matching boolean receipt", "true".equals(value.get())||"false".equals(value.get()));
+    if("true".equals(value.get())){
+      java.lang.reflect.Field field=MainActivity.class.getDeclaredField("speech");field.setAccessible(true);
+      android.speech.tts.TextToSpeech engine=(android.speech.tts.TextToSpeech)field.get(activity);
+      assertNotNull(engine);assertFalse("An accepted stop receipt must observe an idle TTS engine",engine.isSpeaking());
+    }
+    android.os.Bundle receipt=new android.os.Bundle();receipt.putString("anf-speech-stop-accepted",value.get());instrumentation.addResults(receipt);
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("window.AnFSpeechPauseResult=window.anfQaPreviousSpeechPause;delete window.anfQaPreviousSpeechPause;delete window.anfQaSpeechPause",null));
+  }
   private static void openVisibleMusic(Instrumentation instrumentation,Activity activity) throws Exception {
     ready(instrumentation,activity);
     instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("document.querySelector('button[role=tab][data-mode=listen]').click()",null));
@@ -120,6 +142,7 @@ public class MkrCombinedReviewTest {
     AtomicReference<Activity> current=new AtomicReference<>(activity);
     try {
       ready(instrumentation,activity);cold(context);
+      speechStopReceipt(instrumentation,activity);
       String origin=context.getPackageName().equals("com.coucou.workspace.musicdev")?"https://coucou.local":"https://anf.local";
       assertEquals(origin,state(instrumentation,activity).getString("origin"));
       openVisibleMusic(instrumentation,activity);

@@ -1,0 +1,59 @@
+name: Read-aloud and music handoff QA
+on:
+  push:
+    branches: ['qa/speech-handoff-**']
+    paths: ['windows/src/**', 'android/**', 'scripts/app-qa/speech-handoff.mjs', '.github/workflows/speech-handoff-qa.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: speech-handoff-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  renderer:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Prepare fixture tools
+        shell: pwsh
+        run: |
+          npm ci --prefix windows
+          if($LASTEXITCODE){throw 'Windows frontend dependencies failed'}
+          npm ci --prefix android
+          if($LASTEXITCODE){throw 'Android frontend dependencies failed'}
+          npm install --no-save --package-lock=false --prefix scripts playwright-core@1.56.1
+          if($LASTEXITCODE){throw 'Browser client failed'}
+      - name: Prove the previous speech player starts before handoff
+        shell: pwsh
+        run: |
+          git fetch --depth=1 origin 271420520533ebc268bd9ace456e660c17dada9a
+          if($LASTEXITCODE){throw 'Baseline source unavailable'}
+          node scripts/app-qa/speech-handoff.mjs --prove-baseline=271420520533ebc268bd9ace456e660c17dada9a
+          if($LASTEXITCODE){throw 'Expected behavioral baseline failure not observed'}
+      - name: Check both shipped frontends and speech switching
+        shell: pwsh
+        run: |
+          node windows/node_modules/typescript/bin/tsc --noEmit --project windows/tsconfig.json
+          if($LASTEXITCODE){throw 'Frontend typecheck failed'}
+          node scripts/build-android.mjs --assets-only
+          if($LASTEXITCODE){throw 'Android frontend build failed'}
+          node scripts/app-qa/speech-handoff.mjs 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/speech-handoff.txt"
+          if($LASTEXITCODE){throw 'Speech handoff assertions failed'}
+      - name: Keep generated fixture evidence only
+        if: always()
+        timeout-minutes: 3
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Speech-handoff-renderer-evidence
+          path: |
+            ${{ runner.temp }}/speech-baseline.txt
+            ${{ runner.temp }}/speech-handoff.txt
+            windows/target/speech-handoff-current/*.png
+          retention-days: 7
+          if-no-files-found: ignore

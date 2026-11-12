@@ -51,10 +51,13 @@ try:
     result=run([adb,'shell','am','instrument','-w','-r','-e','class','com.anf.workspace.MkrCombinedReviewTest',test_id+'/androidx.test.runner.AndroidJUnitRunner'])
     (reports/'instrumentation.txt').write_text(result)
     assert 'OK (1 test)' in result and 'FAILURES' not in result and 'INSTRUMENTATION_FAILED' not in result,result
+    speech_receipt=re.findall(r'^INSTRUMENTATION_RESULT: anf-speech-stop-accepted=(true|false)$',result,re.M)
+    assert len(speech_receipt)==1,'Native speech-stop receipt observation missing'
     for name,image in extract_screenshots(result,('mkr-combined-cold.png','mkr-combined-reconnected.png')).items():
         (reports/name).write_bytes(image)
     (reports/'scope.json').write_text(json.dumps({'sourceCommit':os.environ.get('GITHUB_SHA'),'applicationId':identity,'androidApi':35,
         'actualAnFActivity':True,'combinedNativeRuntime':True,'coldChannelAndRendererRecovery':True,
+        'nativeSpeechStopReceiptObserved':True,'nativeSpeechStopAccepted':speech_receipt[0]=='true',
         'providerSearched':False,'nativeDecodedPlaybackVerified':False,'originalSignerVerified':False,
         'installedUpgradeVerified':False,'readyForPublication':False,'throwawaySigner':True},indent=2)+'\n')
     print('PASS actual AnF plus packaged native cold channel, in-app UI and renderer recovery; no provider or release claim')

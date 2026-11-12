@@ -209,6 +209,22 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void speakPart(String text,float rate,String id){if(text==null||id==null||text.length()>2000||id.length()>30)return;runOnUiThread(()->{speechPartId=null;speech.stop();speechPartId=id;speechPartLength=text.length();if(!speechReady){speechError(id);return;}speech.setSpeechRate(Math.max(.75f,Math.min(2.5f,rate)));if(speech.speak(text,TextToSpeech.QUEUE_FLUSH,null,id)==TextToSpeech.ERROR)speechError(id);});}
     @JavascriptInterface public void haptic(){runOnUiThread(()->web.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK));}
     @JavascriptInterface public void stopSpeaking(){runOnUiThread(()->{speechPartId=null;speech.stop();});}
+    @JavascriptInterface public void stopSpeakingConfirmed(String id){
+      if(id==null||!id.matches("[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}"))return;
+      runOnUiThread(()->{
+        if(closing)return;
+        speechPartId=null;
+        final int stopped=speech==null?TextToSpeech.ERROR:speech.stop();
+        final long deadline=android.os.SystemClock.elapsedRealtime()+1800;
+        new Runnable(){public void run(){
+          if(closing)return;
+          boolean acknowledged=stopped==TextToSpeech.SUCCESS&&speech!=null&&!speech.isSpeaking();
+          if(acknowledged||stopped!=TextToSpeech.SUCCESS||android.os.SystemClock.elapsedRealtime()>=deadline){
+            web.evaluateJavascript("window.AnFSpeechPauseResult && window.AnFSpeechPauseResult("+JSONObject.quote(id)+","+acknowledged+")",null);
+          }else web.postDelayed(this,30);
+        }}.run();
+      });
+    }
   }
   private void speechError(String id){runOnUiThread(()->{if(!closing&&speechPartId!=null&&speechPartId.equals(id)){speechPartId=null;notice("Read-aloud could not continue. Check installed voice data.");web.evaluateJavascript("window.AnFSpeechError && window.AnFSpeechError("+JSONObject.quote(id)+")",null);}});}
   private void linkResult(String id,String value,String error){runOnUiThread(()->{if(!closing)web.evaluateJavascript("window.linkResult && window.linkResult("+JSONObject.quote(id)+","+JSONObject.quote(value)+","+JSONObject.quote(error)+")",null);});}
