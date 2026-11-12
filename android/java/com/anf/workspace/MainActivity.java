@@ -42,14 +42,22 @@ public class MainActivity extends Activity {
     super.onCreate(state);
     if ("com.coucou.workspace".equals(getPackageName()) || "com.coucou.workspace.musicdev".equals(getPackageName())) origin="https://coucou.local/";
     WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
-    web=new WebView(this);setContentView(web);
+    // Size the browser's viewport inside a native safe-area container. WebView
+    // padding can leave 100dvh at the full window height on the first page load,
+    // placing bottom controls under Android navigation until a renderer reload.
+    web=new WebView(this);
+    android.widget.FrameLayout workspace=new android.widget.FrameLayout(this);
+    workspace.addView(web,new android.widget.FrameLayout.LayoutParams(
+      android.view.ViewGroup.LayoutParams.MATCH_PARENT,android.view.ViewGroup.LayoutParams.MATCH_PARENT));
     embeddedMusic=EmbeddedMusicPage.attach(web,origin);
     media=new MediaBridge(this,this::mediaResult);
     addons=new AddonsBridge(new java.io.File(getFilesDir(),"addons/themes"),this::addonResult);
-    web.setOnApplyWindowInsetsListener((v,insets)->{
-      if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);boolean shown=insets.isVisible(android.view.WindowInsets.Type.ime());web.evaluateJavascript("window.nativeKeyboard && window.nativeKeyboard("+shown+")",null);}
+    workspace.setOnApplyWindowInsetsListener((v,insets)->{
+      if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);boolean shown=insets.isVisible(android.view.WindowInsets.Type.ime());web.evaluateJavascript("window.nativeKeyboard && window.nativeKeyboard("+shown+")",null);}
       else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;
     });
+    setContentView(workspace);
+    workspace.requestApplyInsets();
     WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setMediaPlaybackRequiresUserGesture(false);
     s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     web.addJavascriptInterface(new LocalActions(),"AnFAndroid");
