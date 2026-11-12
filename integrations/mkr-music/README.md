@@ -40,6 +40,25 @@ initial/no-results guidance, busy feedback and a full-width field on small phone
 This does not establish real-provider or combined decoded playback, and does not
 enable the derived catalog in production builds or clear release publication.
 
+Read-aloud and music now share an awaited handoff in both frontends. Reader
+starts/resumes wait for other players; music pauses reader speech without closing
+the document or resetting its sentence. Pending starts have Cancel/Stop handling,
+and the Writing read-aloud controls remain usable while a handoff is pending.
+Writing also shares this gate, including the browser system-speech queue, so old
+reader callbacks cannot cancel a newer writing utterance. Android returns a
+matching bounded stop receipt from the actual native bridge; a missing, denied,
+stale or timed-out receipt stops the switch instead of granting playback.
+
+The renderer regression at `11646e6` / run43290060068 proves the previous immediate
+speech-start defect against unchanged `2714205` source, then checks the new
+cancellation, sentence/resume, shared Writing queue and receipt behavior using
+explicit fake engines. Run43289545217 at `17362ef` retains both actual Android
+review-app UI/recovery cases and observes a genuine native owned-idle speech
+receipt. It does not prove interruption of active audible speech on a physical
+device. Engine queue acknowledgement is not microphone verification or a claim
+about the final audio-mixer buffer. Provider playback, original signers, installed
+upgrades and release clearance remain separate gates.
+
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
 foreground promotion; resolving media and constructing a decoder follow the
