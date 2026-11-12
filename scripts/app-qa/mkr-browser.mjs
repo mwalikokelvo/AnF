@@ -23,7 +23,7 @@ window.mount=async(enabled)=>{
   window.calls.push({command,payload});
   if(command==='capabilities')return{protocol:1,embedded:true,platform:'windows-native'};
   if(command==='open'||command==='hide')return;
-  if(command==='search'){if(window.deferSearch)return new Promise(resolve=>window.finishSearch=()=>resolve(tracks));return tracks;}
+  if(command==='search'){if(window.failSearch)throw Error('https://private.invalid/search-token');if(window.emptySearch)return [];if(window.deferSearch)return new Promise(resolve=>window.finishSearch=()=>resolve(tracks));return tracks;}
   if(command==='status'){if(window.failStatus)throw Error('https://private.invalid/status-token');const captured=copy();if(window.deferStatus)return new Promise(resolve=>window.finishStatus=()=>resolve(captured));return captured;}
   if(command==='play'){
    const play=()=>{state.track=tracks.find(t=>t.id===payload?.id)||state.track;state.playing=true;return copy();};
@@ -53,14 +53,41 @@ try{
  assert.equal(await page.evaluate(()=>window.mount(true)),true);
  assert.equal(await page.evaluate(()=>window.widget.open()),true);
  const input=page.getByRole('searchbox',{name:'Search MKR Music'});
+ await page.getByRole('heading',{name:'Find your next song',exact:true}).waitFor();
+ for(const theme of ['dark','light']){
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  for(const width of [1280,390,320]){
+   await page.setViewportSize({width,height:850});
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Cold search must fit the viewport');
+   await page.screenshot({path:path.join(out,`mkr-empty-${theme}-${width}.png`)});
+  }
+ }
+ await page.setViewportSize({width:1280,height:850});
+ await page.evaluate(()=>{document.documentElement.dataset.theme='dark';window.emptySearch=true;});
+ await input.fill('no matches');await page.getByRole('button',{name:'Search',exact:true}).click();
+ await page.getByRole('heading',{name:'No tracks found',exact:true}).waitFor();
+ assert.equal(await page.locator('.mkr-result').count(),0);
+ await page.evaluate(()=>{window.emptySearch=false;window.failSearch=true;});
+ await input.fill('retry');await page.getByRole('button',{name:'Search',exact:true}).click();
+ await page.getByText('MKR search is unavailable. No alternate service was used.',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Search',exact:true}).isEnabled(),true);
+ assert.equal(await page.getByRole('region',{name:'MKR search results'}).getAttribute('aria-busy'),'false');
+ assert(!await page.locator('.mkr-feedback').innerText().then(text=>text.includes('private.invalid')));
+ await page.evaluate(()=>window.failSearch=false);
  await page.evaluate(()=>window.deferSearch=true);await input.fill('first');
- await page.getByRole('button',{name:'Search',exact:true}).click();await input.fill('changed');
+ await page.getByRole('button',{name:'Search',exact:true}).click();
+ assert.equal(await page.getByRole('button',{name:'Searching…',exact:true}).isDisabled(),true);
+ assert.equal(await page.getByRole('region',{name:'MKR search results'}).getAttribute('aria-busy'),'true');
+ assert.equal(await page.locator('.mkr-empty').isVisible(),false);
+ await input.fill('changed');
  await page.evaluate(()=>window.finishSearch());
  await page.getByText('Your search changed. Press Search for the new words.',{exact:true}).waitFor();
  assert.equal(await page.locator('.mkr-result').count(),0,'stale results must not replace the edited query');
  await page.evaluate(()=>window.deferSearch=false);await input.fill('fixture');
  await page.getByRole('button',{name:'Search',exact:true}).click();await page.locator('.mkr-result').first().waitFor();
  assert.equal(await page.locator('.mkr-result').count(),2);assert.equal(await page.locator('.mkr-results img').count(),0);
+ assert.equal(await page.locator('.mkr-empty').isVisible(),false);
+ assert.equal(await page.getByRole('region',{name:'MKR search results'}).getAttribute('aria-busy'),'false');
  const song=page.getByRole('button',{name:'Play Generated song',exact:true});await song.click();
  await page.getByRole('button',{name:'Pause MKR Music',exact:true}).waitFor();
  await page.waitForFunction(()=>document.body.classList.contains('has-mkr-player'));

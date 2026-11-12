@@ -23,6 +23,14 @@ import static org.junit.Assert.*;
 /** Real optional review APK and native cold channel. No search/provider/decoder. */
 public class MkrCombinedReviewTest {
   private static final String SERVICE="com.anf.mkr.android.MkrPlaybackService";
+  private static void capture(Instrumentation instrumentation,Context context,String name) throws Exception {
+    instrumentation.waitForIdleSync();
+    android.graphics.Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();
+    assertNotNull("Actual combined UI screenshot missing",bitmap);
+    try(java.io.FileOutputStream out=new java.io.FileOutputStream(new File(context.getFilesDir(),name))){
+      assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));
+    }finally{bitmap.recycle();}
+  }
   private static JSONObject state(Instrumentation instrumentation,Activity activity) throws Exception {
     AtomicReference<String> value=new AtomicReference<>();
     instrumentation.runOnMainSync(()->{
@@ -78,6 +86,7 @@ public class MkrCombinedReviewTest {
       assertTrue("MKR must open inside the actual AnF workspace",opened.optBoolean("panel"));
       assertFalse(opened.optBoolean("dock"));assertFalse("Cold music UI overflows the phone",opened.optBoolean("overflow"));
       assertFalse(activity.isFinishing());cold(context);
+      capture(instrumentation,context,"mkr-combined-cold.png");
       instrumentation.runOnMainSync(()->assertTrue(RendererRecoveryTest.web(activity.getWindow().getDecorView()).getWebViewRenderProcess().terminate()));
       RendererRecoveryTest.until(instrumentation,()->RendererRecoveryTest.reload(activity.getWindow().getDecorView())!=null&&!service(context));
       Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);
@@ -88,6 +97,7 @@ public class MkrCombinedReviewTest {
       }finally{instrumentation.removeMonitor(monitor);}
       assertNotNull(reopened);current.set(reopened);ready(instrumentation,reopened);cold(context);
       assertEquals(origin,state(instrumentation,reopened).getString("origin"));
+      capture(instrumentation,context,"mkr-combined-reconnected.png");
       assertArrayEquals(saved,Files.readAllBytes(sentinel.toPath()));
     }finally{
       instrumentation.runOnMainSync(()->current.get().finish());

@@ -1,6 +1,13 @@
 .mkr-browser{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px;color:var(--ink)}
 .mkr-browser>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
-.mkr-browser h2{font-size:32px;letter-spacing:-1px;margin:5px 0}.mkr-browser .eyebrow{font-size:10px;letter-spacing:.15em;margin:0}
+.mkr-browser h2{font-size:32px;letter-spacing:-.025em;margin:0 0 8px}
+.mkr-intro{max-width:55ch;color:var(--muted);line-height:1.6;margin:0}
+.mkr-feedback{color:var(--ink);font-size:14px;line-height:1.6;margin:14px 0 0;overflow-wrap:anywhere}
+.mkr-feedback:empty{display:none}
+.mkr-empty{padding:32px 0 16px;margin-top:24px;border-top:1px solid var(--line)}
+.mkr-empty h3{font-size:18px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px}
+.mkr-empty p{color:var(--muted);line-height:1.6;margin:0;max-width:55ch}
+.mkr-search button{min-height:44px;min-width:100px}
 .mkr-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}.mkr-search input{min-width:0}
 .mkr-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
 .mkr-result{display:flex;flex-direction:column;gap:5px;text-align:left;min-width:0;padding:16px;border-radius:14px}

@@ -50,6 +50,10 @@ try:
     result=run([adb,'shell','am','instrument','-w','-r','-e','class','com.anf.workspace.MkrCombinedReviewTest',test_id+'/androidx.test.runner.AndroidJUnitRunner'])
     (reports/'instrumentation.txt').write_text(result)
     assert 'OK (1 test)' in result and 'FAILURES' not in result and 'INSTRUMENTATION_FAILED' not in result,result
+    for name in ('mkr-combined-cold.png','mkr-combined-reconnected.png'):
+        image=subprocess.run([str(adb),'exec-out','run-as',identity,'cat','files/'+name],capture_output=True,timeout=30)
+        assert image.returncode==0 and image.stdout.startswith(b'\x89PNG\r\n\x1a\n'),name
+        (reports/name).write_bytes(image.stdout)
     (reports/'scope.json').write_text(json.dumps({'sourceCommit':os.environ.get('GITHUB_SHA'),'applicationId':identity,'androidApi':35,
         'actualAnFActivity':True,'combinedNativeRuntime':True,'coldChannelAndRendererRecovery':True,
         'providerSearched':False,'nativeDecodedPlaybackVerified':False,'originalSignerVerified':False,

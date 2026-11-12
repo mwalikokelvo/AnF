@@ -12,8 +12,11 @@ export function createMkrBrowser(options:{transport:MkrTransport|undefined;befor
   const input=h('input',{type:'search',maxlength:500,placeholder:'Find a song or artist','aria-label':'Search MKR Music'});
   const search=h('button',{type:'submit',text:'Search'});
   const form=h('form',{class:'mkr-search'},input,search);
-  const feedback=h('p',{class:'hint',role:'status'});
-  const results=h('div',{class:'mkr-results','aria-label':'MKR search results'});
+  const feedback=h('p',{class:'mkr-feedback',role:'status','aria-live':'polite'});
+  const emptyTitle=h('h3',{text:'Find your next song'});
+  const emptyDetail=h('p',{text:'Search for a song or artist to see available tracks.'});
+  const empty=h('div',{class:'mkr-empty'},emptyTitle,emptyDetail);
+  const results=h('div',{class:'mkr-results',role:'region','aria-label':'MKR search results','aria-busy':'false'});
   const title=h('strong'),artist=h('span'),elapsed=h('span'),total=h('span');
   const seek=h('input',{type:'range',min:0,max:1,value:0,step:1000,'aria-label':'MKR playback position'});
   const toggle=h('button',{type:'button',text:'Play','aria-label':'Play MKR Music'});
@@ -81,17 +84,18 @@ export function createMkrBrowser(options:{transport:MkrTransport|undefined;befor
   form.addEventListener('submit',event=>{
     event.preventDefault();if(!ready||disposed||closing||searching)return;
     const query=input.value.trim();if(!query){feedback.textContent='Enter a song or artist.';input.focus();return;}
-    const request=++epoch;searching=true;search.disabled=true;results.replaceChildren();feedback.textContent='Searching MKR Music…';
+    const request=++epoch;searching=true;search.disabled=true;search.textContent='Searching…';results.setAttribute('aria-busy','true');empty.hidden=true;results.replaceChildren();feedback.textContent='Searching MKR Music…';
     void api.search(query).then(tracks=>{
       if(disposed||request!==epoch)return;
       if(input.value.trim()!==query){feedback.textContent='Your search changed. Press Search for the new words.';return;}
-      feedback.textContent=tracks.length?tracks.length+' results':'No tracks found. Try another song or artist.';
+      feedback.textContent=tracks.length?tracks.length+(tracks.length===1?' result':' results'):'No tracks found. Try another song or artist.';
+      empty.hidden=tracks.length>0;emptyTitle.textContent='No tracks found';emptyDetail.textContent='Try a different song or artist.';
       results.replaceChildren(...tracks.map((track:MkrTrack)=>{
         const button=h('button',{type:'button',class:'mkr-result','aria-label':'Play '+track.title},h('strong',{text:track.title}),h('span',{text:track.artist}));
         button.addEventListener('click',()=>void control(()=>api.play(track.id)));return button;
       }));
     }).catch(()=>{if(!disposed&&request===epoch)feedback.textContent='MKR search is unavailable. No alternate service was used.';})
-      .finally(()=>{searching=false;if(!disposed)search.disabled=false;});
+      .finally(()=>{searching=false;if(!disposed){search.disabled=false;search.textContent='Search';results.setAttribute('aria-busy','false');}});
   });
   toggle.addEventListener('click',()=>void control(()=>state.playing?api.pause():api.play()));
   previous.addEventListener('click',()=>void control(()=>api.previous()));next.addEventListener('click',()=>void control(()=>api.next()));
@@ -99,7 +103,7 @@ export function createMkrBrowser(options:{transport:MkrTransport|undefined;befor
   check.addEventListener('click',()=>{void available().then(found=>{if(found)void refresh(true);});});
   const visibility=()=>{if(doc.hidden)stopTimer();else if(check.hidden)void refresh();};doc.addEventListener('visibilitychange',visibility);
   const back=h('button',{type:'button',text:'Back to library',onclick:()=>void hide()});
-  root.append(h('header',{},h('div',{},h('p',{class:'eyebrow',text:'LISTEN INSIDE ANF'}),h('h2',{text:'MKR Music'})),back),form,feedback,results);
+  root.append(h('header',{},h('div',{},h('h2',{text:'MKR Music'}),h('p',{class:'mkr-intro',text:'Search for a song or artist, then choose a result to play here.'})),back),form,feedback,empty,results);
   dock.append(h('div',{class:'mkr-now'},title,artist),h('div',{class:'mkr-controls'},previous,toggle,next),h('div',{class:'mkr-progress'},elapsed,seek,total),check);
   paint();
   return{root,dock,available,open,hide,

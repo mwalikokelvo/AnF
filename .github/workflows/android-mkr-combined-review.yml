@@ -87,6 +87,7 @@ jobs:
           path: |
             ${{ runner.temp }}/anf-mkr-combined-qa/reports/*.txt
             ${{ runner.temp }}/anf-mkr-combined-qa/reports/*.json
+            ${{ runner.temp }}/anf-mkr-combined-qa/reports/*.png
             android/gradle-build/mkr-*.json
             integrations/mkr-music/android-catalog/build/reports/android-runtime.json
             integrations/mkr-music/android-catalog/build/test-results/testDebugUnitTest/*.xml
