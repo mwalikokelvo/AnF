@@ -33,6 +33,7 @@ import './windows/src/workspace/workspace.css';import './windows/src/workspace/a
 const actualSynth=window.speechSynthesis,ActualUtterance=window.SpeechSynthesisUtterance;
 window.make=async(mode,hold=false)=>{
  window.player?.stop();window.player?.root.remove();
+ document.querySelector('#writing-stop')?.remove();
  window.speechStarts=0;window.speechPlaying=false;window.musicPlaying=true;window.handoffs=0;window.calls=[];
  window.hold=hold;window.deny=false;window.receiptId=undefined;window.finishSpeech=undefined;
  const native={speakPart(text,rate,id){window.calls.push('speech-play');window.speechStarts++;window.speechPlaying=true;window.finishSpeech=()=>window.AnFSpeechDone(id);},stopSpeaking(){window.speechPlaying=false;},stopSpeakingConfirmed(id){window.receiptId=id;window.calls.push('speech-stop-receipt');}};
@@ -47,6 +48,7 @@ window.make=async(mode,hold=false)=>{
  }else{Object.defineProperty(window,'speechSynthesis',{configurable:true,value:actualSynth});window.SpeechSynthesisUtterance=ActualUtterance;}
  const player=createSpeechPlayer(undefined,async()=>{window.handoffs++;if(window.hold)await new Promise(resolve=>window.release=resolve);if(window.deny)throw Error('private.invalid/handoff');await window.music.pause();});
  window.player=player;document.querySelector('#workspace-root').append(player.root);
+ const writingStop=document.createElement('button');writingStop.id='writing-stop';writingStop.textContent='Stop writing speech';writingStop.onclick=()=>player.stop();document.querySelector('#workspace-root').append(writingStop);
  window.music=createMkrPlayer(async(command)=>{
   if(command==='capabilities')return{protocol:1,embedded:true,platform:'windows-native'};
   if(command==='play'){window.calls.push('music-play');window.musicPlaying=true;}
@@ -91,7 +93,7 @@ try{
  assert.equal(await page.evaluate(()=>window.externalRead),false,'A music request must revoke a pending Writing read-aloud');
  assert.equal(await page.evaluate(()=>window.externalStarts),0);
  await page.evaluate(async()=>{await window.make('provider',true);window.externalStarts=0;window.externalRead=window.player.readExternal(()=>window.externalStarts++);});
- await page.getByRole('button',{name:'Stop',exact:true}).click();await page.evaluate(()=>window.release());
+ await page.getByRole('button',{name:'Stop writing speech',exact:true}).click();await page.evaluate(()=>window.release());
  assert.equal(await page.evaluate(()=>window.externalRead),false,'Stop must cancel a pending Writing read-aloud without locking the workspace');
  assert.equal(await page.evaluate(()=>window.externalStarts),0);
  await page.evaluate(async()=>{await window.make('system');window.player.load('System queue fixture.');});
