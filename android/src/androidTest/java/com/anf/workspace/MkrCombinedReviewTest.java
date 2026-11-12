@@ -66,7 +66,7 @@ public class MkrCombinedReviewTest {
     while(android.os.SystemClock.elapsedRealtime()<until){if(state(instrumentation,activity).optBoolean("ready"))return;Thread.sleep(30);}
     throw new AssertionError("Actual AnF never received a live packaged MKR channel");
   }
-  private static void speechStopReceipt(Instrumentation instrumentation,Activity activity) throws Exception {
+  private static boolean requestSpeechStop(Instrumentation instrumentation,Activity activity) throws Exception {
     String id=java.util.UUID.randomUUID().toString();
     instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript(
       "window.anfQaSpeechPause=null;window.anfQaPreviousSpeechPause=window.AnFSpeechPauseResult;window.AnFSpeechPauseResult=(id,paused)=>{if(id==="+JSONObject.quote(id)+")window.anfQaSpeechPause=paused;};window.AnFAndroid.stopSpeakingConfirmed("+JSONObject.quote(id)+")",null));
@@ -80,13 +80,18 @@ public class MkrCombinedReviewTest {
       Thread.sleep(30);
     }while(android.os.SystemClock.elapsedRealtime()<until);
     assertTrue("Actual native speech stop must return a matching boolean receipt", "true".equals(value.get())||"false".equals(value.get()));
-    if("true".equals(value.get())){
+    boolean accepted=Boolean.parseBoolean(value.get());
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("window.AnFSpeechPauseResult=window.anfQaPreviousSpeechPause;delete window.anfQaPreviousSpeechPause;delete window.anfQaSpeechPause",null));
+    return accepted;
+  }
+  private static void speechStopReceipt(Instrumentation instrumentation,Activity activity) throws Exception {
+    boolean accepted=requestSpeechStop(instrumentation,activity);
+    if(accepted){
       java.lang.reflect.Field field=MainActivity.class.getDeclaredField("speech");field.setAccessible(true);
       android.speech.tts.TextToSpeech engine=(android.speech.tts.TextToSpeech)field.get(activity);
       assertNotNull(engine);assertFalse("An accepted stop receipt must observe an idle TTS engine",engine.isSpeaking());
     }
-    android.os.Bundle receipt=new android.os.Bundle();receipt.putString("anf-speech-stop-accepted",value.get());instrumentation.addResults(receipt);
-    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("window.AnFSpeechPauseResult=window.anfQaPreviousSpeechPause;delete window.anfQaPreviousSpeechPause;delete window.anfQaSpeechPause",null));
+    android.os.Bundle receipt=new android.os.Bundle();receipt.putString("anf-speech-stop-accepted",String.valueOf(accepted));instrumentation.addResults(receipt);
   }
   private static void openVisibleMusic(Instrumentation instrumentation,Activity activity) throws Exception {
     ready(instrumentation,activity);
@@ -117,6 +122,69 @@ public class MkrCombinedReviewTest {
     for(ActivityManager.RunningServiceInfo info:context.getSystemService(ActivityManager.class).getRunningServices(Integer.MAX_VALUE))
       if(SERVICE.equals(info.service.getClassName()))return true;
     return false;
+  }
+  /** Engine double only: the actual MainActivity bridge and JS receipt stay real.
+   * No utterance is synthesized and no audible stop/device proof is claimed. */
+  private static final class SpeechEngineDouble extends android.speech.tts.TextToSpeech {
+    static final int DELAYED=0,DENIED=1,STUCK=2;
+    volatile boolean speaking;
+    volatile int mode;
+    volatile long stoppedAt;
+    final java.util.concurrent.atomic.AtomicInteger stops=new java.util.concurrent.atomic.AtomicInteger();
+    final java.util.concurrent.atomic.AtomicInteger observations=new java.util.concurrent.atomic.AtomicInteger();
+    SpeechEngineDouble(Context context){super(context,status->{});}
+    void configure(int value){mode=value;speaking=true;stoppedAt=0;stops.set(0);observations.set(0);}
+    @Override public int stop(){
+      stops.incrementAndGet();stoppedAt=android.os.SystemClock.elapsedRealtime();
+      if(mode==DENIED)return ERROR;
+      if(mode==DELAYED)new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->speaking=false,90);
+      return SUCCESS;
+    }
+    @Override public boolean isSpeaking(){observations.incrementAndGet();return speaking;}
+  }
+  @Test public void requestedSpeechStopRequiresSuccessAndObservedIdleWithEngineDouble() throws Exception {
+    assertTrue(Build.HARDWARE.equals("ranchu")||Build.HARDWARE.equals("goldfish"));
+    Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();Context context=instrumentation.getTargetContext();
+    assertTrue(context.getPackageName().equals("com.anf.workspace.musicdev")||context.getPackageName().equals("com.coucou.workspace.musicdev"));
+    Activity activity=instrumentation.startActivitySync(new Intent().setClassName(context,"com.anf.workspace.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    java.lang.reflect.Field engineField=MainActivity.class.getDeclaredField("speech"),requestedField=MainActivity.class.getDeclaredField("speechRequested");
+    engineField.setAccessible(true);requestedField.setAccessible(true);
+    android.speech.tts.TextToSpeech original=(android.speech.tts.TextToSpeech)engineField.get(activity);
+    boolean originalRequested=requestedField.getBoolean(activity);
+    AtomicReference<SpeechEngineDouble> model=new AtomicReference<>();
+    try{
+      ready(instrumentation,activity);
+      instrumentation.runOnMainSync(()->model.set(new SpeechEngineDouble(context)));
+      SpeechEngineDouble engine=model.get();
+      for(int mode:new int[]{SpeechEngineDouble.DELAYED,SpeechEngineDouble.DENIED,SpeechEngineDouble.STUCK}){
+        instrumentation.runOnMainSync(()->{
+          engine.configure(mode);
+          try{engineField.set(activity,engine);requestedField.setBoolean(activity,true);}catch(IllegalAccessException error){throw new AssertionError(error);}
+        });
+        boolean accepted=requestSpeechStop(instrumentation,activity);
+        assertEquals("Requested speech must invoke the native STOP operation",1,engine.stops.get());
+        if(mode==SpeechEngineDouble.DELAYED){
+          assertTrue("Successful STOP must wait for the engine to become idle",accepted);
+          assertFalse(engine.speaking);assertTrue(engine.observations.get()>=2);
+          assertFalse("Only an accepted receipt may clear requested speech",requestedField.getBoolean(activity));
+        }else{
+          assertFalse("Denied or still-speaking engines must never authorize music",accepted);
+          assertTrue(engine.speaking);assertTrue(requestedField.getBoolean(activity));
+          if(mode==SpeechEngineDouble.STUCK){
+            assertTrue(engine.observations.get()>=2);
+            assertTrue("Busy timeout must observe the actual bounded deadline",android.os.SystemClock.elapsedRealtime()-engine.stoppedAt>=1800);
+          }
+        }
+      }
+      android.os.Bundle evidence=new android.os.Bundle();evidence.putString("anf-speech-policy-engine-double","success-denial-timeout");instrumentation.addResults(evidence);
+    }finally{
+      instrumentation.runOnMainSync(()->{
+        try{engineField.set(activity,original);requestedField.setBoolean(activity,originalRequested);}catch(IllegalAccessException error){throw new AssertionError(error);}
+        if(model.get()!=null){model.get().speaking=false;model.get().shutdown();}
+        activity.finish();
+      });
+      RendererRecoveryTest.until(instrumentation,()->!service(context));
+    }
   }
   @SuppressWarnings("deprecation")
   private static void cold(Context context){
