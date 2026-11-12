@@ -42,7 +42,7 @@ public class MkrCombinedReviewTest {
     instrumentation.runOnMainSync(()->{
       WebView web=RendererRecoveryTest.web(activity.getWindow().getDecorView());
       if(web==null){value.set("null");return;}
-      web.evaluateJavascript("JSON.stringify({origin:location.origin,ready:[...document.querySelectorAll('button')].some(b=>b.textContent==='MKR Music'&&!b.hidden),panel:!!document.querySelector('.mkr-browser:not([hidden])'),dock:!!document.querySelector('.mkr-dock:not([hidden])'),overflow:document.documentElement.scrollWidth>innerWidth})",value::set);
+      web.evaluateJavascript("(()=>{const visible=e=>!!e&&!e.closest('[hidden]')&&e.getClientRects().length>0;const source=[...document.querySelectorAll('button')].find(b=>b.textContent==='MKR Music'&&!b.hidden);return JSON.stringify({origin:location.origin,ready:!!source&&!source.disabled&&document.querySelector('#app')?.getAttribute('aria-busy')!=='true',sourceVisible:visible(source),music:document.body.classList.contains('music-view'),painted:window.anfMkrQaPainted===true,panel:visible(document.querySelector('.mkr-browser')),dock:visible(document.querySelector('.mkr-dock')),overflow:document.documentElement.scrollWidth>innerWidth});})()",value::set);
     });
     RendererRecoveryTest.until(instrumentation,()->value.get()!=null);
     Object decoded=new JSONTokener(value.get()).nextValue();
@@ -52,6 +52,28 @@ public class MkrCombinedReviewTest {
     long until=android.os.SystemClock.elapsedRealtime()+15000;
     while(android.os.SystemClock.elapsedRealtime()<until){if(state(instrumentation,activity).optBoolean("ready"))return;Thread.sleep(30);}
     throw new AssertionError("Actual AnF never received a live packaged MKR channel");
+  }
+  private static void openVisibleMusic(Instrumentation instrumentation,Activity activity) throws Exception {
+    ready(instrumentation,activity);
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("document.querySelector('button[role=tab][data-mode=listen]').click()",null));
+    long until=android.os.SystemClock.elapsedRealtime()+15000;
+    JSONObject current=state(instrumentation,activity);
+    while(!current.optBoolean("sourceVisible")&&android.os.SystemClock.elapsedRealtime()<until){Thread.sleep(30);current=state(instrumentation,activity);}
+    assertTrue("MKR source must be visible inside Music, not in a hidden ancestor",current.optBoolean("sourceVisible"));
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("window.anfMkrQaPainted=false;[...document.querySelectorAll('button')].find(b=>b.textContent==='MKR Music'&&!b.hidden&&!b.disabled).click()",null));
+    until=android.os.SystemClock.elapsedRealtime()+15000;
+    current=state(instrumentation,activity);
+    while(!current.optBoolean("panel")&&android.os.SystemClock.elapsedRealtime()<until){Thread.sleep(30);current=state(instrumentation,activity);}
+    assertTrue("MKR must open visibly inside the actual AnF workspace",current.optBoolean("panel"));
+    assertTrue("Music navigation must remain selected",current.optBoolean("music"));
+    assertFalse(current.optBoolean("dock"));assertFalse("Cold music UI overflows the phone",current.optBoolean("overflow"));
+    // Native UI idle does not wait for WebView's compositor. Observe two actual
+    // browser frames after the visible panel, rather than capture the old Home.
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("requestAnimationFrame(()=>requestAnimationFrame(()=>{window.anfMkrQaPainted=true;}))",null));
+    until=android.os.SystemClock.elapsedRealtime()+15000;
+    current=state(instrumentation,activity);
+    while(!current.optBoolean("painted")&&android.os.SystemClock.elapsedRealtime()<until){Thread.sleep(30);current=state(instrumentation,activity);}
+    assertTrue(current.optBoolean("painted"));assertTrue(current.optBoolean("panel"));
   }
   @SuppressWarnings("deprecation")
   private static boolean service(Context context){
@@ -85,12 +107,7 @@ public class MkrCombinedReviewTest {
       ready(instrumentation,activity);cold(context);
       String origin=context.getPackageName().equals("com.coucou.workspace.musicdev")?"https://coucou.local":"https://anf.local";
       assertEquals(origin,state(instrumentation,activity).getString("origin"));
-      instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("[...document.querySelectorAll('button')].find(b=>b.textContent==='MKR Music'&&!b.hidden).click()",null));
-      long until=android.os.SystemClock.elapsedRealtime()+15000;
-      JSONObject opened=state(instrumentation,activity);
-      while(!opened.optBoolean("panel")&&android.os.SystemClock.elapsedRealtime()<until){Thread.sleep(30);opened=state(instrumentation,activity);}
-      assertTrue("MKR must open inside the actual AnF workspace",opened.optBoolean("panel"));
-      assertFalse(opened.optBoolean("dock"));assertFalse("Cold music UI overflows the phone",opened.optBoolean("overflow"));
+      openVisibleMusic(instrumentation,activity);
       assertFalse(activity.isFinishing());cold(context);
       capture(instrumentation,context,"mkr-combined-cold.png");
       instrumentation.runOnMainSync(()->assertTrue(RendererRecoveryTest.web(activity.getWindow().getDecorView()).getWebViewRenderProcess().terminate()));
@@ -103,6 +120,7 @@ public class MkrCombinedReviewTest {
       }finally{instrumentation.removeMonitor(monitor);}
       assertNotNull(reopened);current.set(reopened);ready(instrumentation,reopened);cold(context);
       assertEquals(origin,state(instrumentation,reopened).getString("origin"));
+      openVisibleMusic(instrumentation,reopened);
       capture(instrumentation,context,"mkr-combined-reconnected.png");
       assertArrayEquals(saved,Files.readAllBytes(sentinel.toPath()));
     }finally{
