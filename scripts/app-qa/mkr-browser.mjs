@@ -54,16 +54,21 @@ try{
  assert.equal(await page.evaluate(()=>window.widget.open()),true);
  const input=page.getByRole('searchbox',{name:'Search MKR Music'});
  await page.getByRole('heading',{name:'Find your next song',exact:true}).waitFor();
+ const coldPalettes=[];
  for(const theme of ['dark','light']){
-  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.querySelector('#workspace-root').dataset.theme=theme;},theme);
+  await page.evaluate(async()=>{void getComputedStyle(document.querySelector('.mkr-browser')).backgroundColor;await Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&Number.isFinite(a.effect?.getTiming().iterations??1)).map(a=>a.finished.catch(()=>{})));});
+  coldPalettes.push(await page.locator('.mkr-browser').evaluate(node=>getComputedStyle(node).backgroundColor));
   for(const width of [1280,390,320]){
    await page.setViewportSize({width,height:850});
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Cold search must fit the viewport');
+   if(width===320)assert(await input.evaluate(node=>node.getBoundingClientRect().width>=document.querySelector('.mkr-browser').getBoundingClientRect().width*.8),'Small phones need a readable full-width search field');
    await page.screenshot({path:path.join(out,`mkr-empty-${theme}-${width}.png`)});
   }
  }
+ assert.notEqual(...coldPalettes,'Light screenshots must actually use the light panel palette');
  await page.setViewportSize({width:1280,height:850});
- await page.evaluate(()=>{document.documentElement.dataset.theme='dark';window.emptySearch=true;});
+ await page.evaluate(()=>{document.documentElement.dataset.theme='dark';document.querySelector('#workspace-root').dataset.theme='dark';window.emptySearch=true;});
  await input.fill('no matches');await page.getByRole('button',{name:'Search',exact:true}).click();
  await page.getByRole('heading',{name:'No tracks found',exact:true}).waitFor();
  assert.equal(await page.locator('.mkr-result').count(),0);
