@@ -97,7 +97,9 @@ try{
  // light MKR panel must keep its paired text/background inside that parent.
  await page.evaluate(()=>{const host=document.createElement('section');host.className='music-hub';document.querySelector('.mkr-browser').replaceWith(host);host.append(window.widget.root);});
  for(const theme of ['dark','light']){
-  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.querySelector('#workspace-root').dataset.theme=theme;},theme);
+  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;const shell=document.querySelector('#workspace-root,#android-shell-fixture');shell.dataset.theme=theme;shell.id=theme==='light'?'android-shell-fixture':'workspace-root';},theme);
+  // Windows deliberately darkens Music Hub even in light mode. The renamed
+  // shell also covers Android, whose nested panel really uses the light palette.
   for(const musicTheme of ['ink','bloom','cyberpunk','velvet','oled']){
    await page.evaluate(value=>document.querySelector('.music-hub').dataset.musicTheme=value,musicTheme);
    await page.evaluate(async()=>{void getComputedStyle(document.querySelector('.mkr-browser')).backgroundColor;await Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&Number.isFinite(a.effect?.getTiming().iterations??1)).map(a=>a.finished.catch(()=>{})));});
@@ -110,7 +112,7 @@ try{
   }
   await page.screenshot({path:path.join(out,`mkr-nested-${theme}.png`)});
  }
- await page.evaluate(()=>{const host=document.querySelector('.music-hub');host.replaceWith(window.widget.root);document.documentElement.dataset.theme='dark';document.querySelector('#workspace-root').dataset.theme='dark';});
+ await page.evaluate(()=>{const host=document.querySelector('.music-hub');host.replaceWith(window.widget.root);document.querySelector('#android-shell-fixture').id='workspace-root';document.documentElement.dataset.theme='dark';document.querySelector('#workspace-root').dataset.theme='dark';});
  const song=page.getByRole('button',{name:'Play Generated song',exact:true});await song.click();
  await page.getByRole('button',{name:'Pause MKR Music',exact:true}).waitFor();
  await page.waitForFunction(()=>document.body.classList.contains('has-mkr-player'));
