@@ -93,6 +93,24 @@ try{
  assert.equal(await page.locator('.mkr-result').count(),2);assert.equal(await page.locator('.mkr-results img').count(),0);
  assert.equal(await page.locator('.mkr-empty').isVisible(),false);
  assert.equal(await page.getByRole('region',{name:'MKR search results'}).getAttribute('aria-busy'),'false');
+ // Music Hub themes have their own bright heading/button tokens. An embedded
+ // light MKR panel must keep its paired text/background inside that parent.
+ await page.evaluate(()=>{const host=document.createElement('section');host.className='music-hub';document.querySelector('.mkr-browser').replaceWith(host);host.append(window.widget.root);});
+ for(const theme of ['dark','light']){
+  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.querySelector('#workspace-root').dataset.theme=theme;},theme);
+  for(const musicTheme of ['ink','bloom','cyberpunk','velvet','oled']){
+   await page.evaluate(value=>document.querySelector('.music-hub').dataset.musicTheme=value,musicTheme);
+   await page.evaluate(async()=>{void getComputedStyle(document.querySelector('.mkr-browser')).backgroundColor;await Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&Number.isFinite(a.effect?.getTiming().iterations??1)).map(a=>a.finished.catch(()=>{})));});
+   const minimum=await page.evaluate(()=>{
+    const luminance=color=>color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{const n=v/255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+    const background=luminance(getComputedStyle(document.querySelector('.mkr-browser')).backgroundColor);
+    return Math.min(...[...document.querySelectorAll('.mkr-browser h2,.mkr-browser>header>button,.mkr-search button')].map(node=>{const text=luminance(getComputedStyle(node).color);return(Math.max(text,background)+.05)/(Math.min(text,background)+.05);}));
+   });
+   assert(minimum>=4.5,`${theme} panel inside ${musicTheme} Music Hub has unreadable text: ${minimum}`);
+  }
+  await page.screenshot({path:path.join(out,`mkr-nested-${theme}.png`)});
+ }
+ await page.evaluate(()=>{const host=document.querySelector('.music-hub');host.replaceWith(window.widget.root);document.documentElement.dataset.theme='dark';document.querySelector('#workspace-root').dataset.theme='dark';});
  const song=page.getByRole('button',{name:'Play Generated song',exact:true});await song.click();
  await page.getByRole('button',{name:'Pause MKR Music',exact:true}).waitFor();
  await page.waitForFunction(()=>document.body.classList.contains('has-mkr-player'));

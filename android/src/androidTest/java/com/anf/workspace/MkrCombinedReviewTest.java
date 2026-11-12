@@ -42,7 +42,7 @@ public class MkrCombinedReviewTest {
     instrumentation.runOnMainSync(()->{
       WebView web=RendererRecoveryTest.web(activity.getWindow().getDecorView());
       if(web==null){value.set("null");return;}
-      web.evaluateJavascript("(()=>{const visible=e=>!!e&&!e.closest('[hidden]')&&e.getClientRects().length>0;const source=[...document.querySelectorAll('button')].find(b=>b.textContent==='MKR Music'&&!b.hidden);return JSON.stringify({origin:location.origin,ready:!!source&&!source.disabled&&document.querySelector('#app')?.getAttribute('aria-busy')!=='true',sourceVisible:visible(source),music:document.body.classList.contains('music-view'),painted:window.anfMkrQaPainted===true,panel:visible(document.querySelector('.mkr-browser')),dock:visible(document.querySelector('.mkr-dock')),overflow:document.documentElement.scrollWidth>innerWidth});})()",value::set);
+      web.evaluateJavascript("(()=>{const visible=e=>!!e&&!e.closest('[hidden]')&&e.getClientRects().length>0;const light=c=>c.match(/[0-9.]+/g).slice(0,3).map(Number).map(v=>{const n=v/255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);const box=document.querySelector('.mkr-browser');const background=box?light(getComputedStyle(box).backgroundColor):0;const minimum=box?Math.min(...[...box.querySelectorAll('h2,header>button,.mkr-search button,.mkr-empty h3')].map(e=>{const text=light(getComputedStyle(e).color);return(Math.max(text,background)+.05)/(Math.min(text,background)+.05);})):0;const source=[...document.querySelectorAll('button')].find(b=>b.textContent==='MKR Music'&&!b.hidden);return JSON.stringify({origin:location.origin,ready:!!source&&!source.disabled&&document.querySelector('#app')?.getAttribute('aria-busy')!=='true',sourceVisible:visible(source),music:document.body.classList.contains('music-view'),minimumContrast:minimum,backFontPx:parseFloat(box?getComputedStyle(box.querySelector('header>button')).fontSize:0),painted:window.anfMkrQaPainted===true,panel:visible(document.querySelector('.mkr-browser')),dock:visible(document.querySelector('.mkr-dock')),overflow:document.documentElement.scrollWidth>innerWidth});})()",value::set);
     });
     RendererRecoveryTest.until(instrumentation,()->value.get()!=null);
     Object decoded=new JSONTokener(value.get()).nextValue();
@@ -74,6 +74,8 @@ public class MkrCombinedReviewTest {
     current=state(instrumentation,activity);
     while(!current.optBoolean("painted")&&android.os.SystemClock.elapsedRealtime()<until){Thread.sleep(30);current=state(instrumentation,activity);}
     assertTrue(current.optBoolean("painted"));assertTrue(current.optBoolean("panel"));
+    assertTrue("Actual embedded music headings and buttons must have readable contrast",current.getDouble("minimumContrast")>=4.5);
+    assertTrue("Embedded back button must not inherit the app header icon size",current.getDouble("backFontPx")<=16);
   }
   @SuppressWarnings("deprecation")
   private static boolean service(Context context){
