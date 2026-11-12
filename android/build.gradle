@@ -43,6 +43,12 @@ android {
         androidTest {
             assets.srcDirs = ['src/androidTest/assets', '../windows/src-tauri/tests/data']
         }
+        if (providers.gradleProperty('mkrReviewRuntime').getOrElse('false')=='true') {
+            review {
+                manifest.srcFile 'mkr-review/AndroidManifest.xml'
+                assets.srcDirs += ['gradle-build/mkr-review-notices']
+            }
+        }
     }
     testBuildType(project.hasProperty('mkrReviewRuntime') && project.property('mkrReviewRuntime')=='true' ? 'review' : 'release')
     compileOptions {
@@ -166,6 +172,23 @@ tasks.register('prepareAnFManifest') {
     inputs.property 'legacyApplicationId', project.hasProperty('legacyApplicationId')
 }
 tasks.named('preBuild').configure { dependsOn 'prepareAnFManifest' }
+
+if (providers.gradleProperty('mkrReviewRuntime').getOrElse('false')=='true') {
+    tasks.register('prepareMkrReviewNotices', Sync) {
+        into 'gradle-build/mkr-review-notices/licenses/mkr'
+        from('../integrations/mkr-music/engine/vendor/mkr/LICENSE') { rename { 'UPSTREAM-LICENSE.txt' } }
+        from('../integrations/mkr-music/engine/PRIMARY-LICENSE.txt')
+        from('../integrations/mkr-music/README.md') { rename { 'REVIEW-NOTICE.md' } }
+        doLast {
+            ['UPSTREAM-LICENSE.txt','PRIMARY-LICENSE.txt','REVIEW-NOTICE.md'].each { name ->
+                if (!file('gradle-build/mkr-review-notices/licenses/mkr/'+name).isFile()) {
+                    throw new GradleException('Required MKR review notice missing: '+name)
+                }
+            }
+        }
+    }
+    tasks.named('preBuild').configure { dependsOn 'prepareMkrReviewNotices' }
+}
 
 // Record only the runtime artifacts actually resolved for the shipped app.
 tasks.register('audioRuntimeInventory') {

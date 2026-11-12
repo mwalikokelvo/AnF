@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
   private String origin="https://anf.local/";
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
-    if ("com.coucou.workspace".equals(getPackageName())) origin="https://coucou.local/";
+    if ("com.coucou.workspace".equals(getPackageName()) || "com.coucou.workspace.musicdev".equals(getPackageName())) origin="https://coucou.local/";
     WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
     web=new WebView(this);setContentView(web);
     embeddedMusic=EmbeddedMusicPage.attach(web,origin);

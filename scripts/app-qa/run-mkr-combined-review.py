@@ -37,6 +37,9 @@ try:
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     native=module.inspect(app);assert native['allRequiredEntriesAligned']
     assert any(x['entry'].endswith('/libquickjs.so') for x in native['nativeEntries'])
+    with zipfile.ZipFile(app) as archive:
+        for name in ('UPSTREAM-LICENSE.txt','PRIMARY-LICENSE.txt','REVIEW-NOTICE.md'):
+            assert archive.read('assets/licenses/mkr/'+name).strip(),name
     (reports/'apk-native.json').write_text(json.dumps(native,indent=2)+'\n')
     work=reports.parent;key=work/'throwaway.p12'
     run(['keytool','-genkeypair','-storetype','PKCS12','-keystore',key,'-storepass','android','-keypass','android','-alias','qa','-keyalg','RSA','-keysize','2048','-validity','2','-dname','CN=AnF combined disposable QA'])
