@@ -437,8 +437,9 @@ queue controls before handoff, source resolution or decoding. The prepared lease
 now implements the playable page contract through validated selected-play and
 fresh audio acknowledgement before foreground promotion. The Java lifecycle
 facade and optional AnF Activity callbacks have separate native/app QA evidence
-in the parent README. Combined native packaging/provider/installed-upgrade
-acceptance is still pending; do not use a browsing token as a source flag.
+in the parent README. The optional combined review build now has cold-channel
+and recovery evidence below. Provider playback and installed-upgrade acceptance
+remain pending; do not use a browsing token as a source flag.
 
 [Run43044615871](https://github.com/mwalikokelvo/AnF/actions/runs/43044615871)
 at `fd3c1a1` passed43 host and19 Android15 component cases, retaining the previous17.
@@ -459,3 +460,26 @@ pinned native artifact and leave the ordinary release graph unchanged.
 The source JAR includes the module's catalog/adapter sources and upstream notices.
 It does not establish full dependency/JNI corresponding-source clearance or
 permission to publish AnF packages. Native verification and locks remain enabled.
+
+[Run43232976771](https://github.com/mwalikokelvo/AnF/actions/runs/43232976771)
+at `8e5b600` passes all43 host and22 Android15 component cases with Core1.9.0.
+The62-artifact runtime differs from the prior22-case profile only in that
+explicitly reviewed Core artifact; native ELF and16KiB APK alignment pass.
+
+[Run43235080413](https://github.com/mwalikokelvo/AnF/actions/runs/43235080413)
+at `82a13c3` passes the actual AnF Activity plus native cold channel on both
+modern and legacy isolated `.musicdev` installs. It checks a private service,
+live-channel capability, the in-app MKR panel without horizontal overflow,
+no cold foreground notification, actual renderer termination/native teardown,
+reload/reconnect and generated-file preservation. Required license assets are
+checked in the review APK. The ordinary release graph is unchanged; all62
+pinned native artifact hashes are retained in the combined67-artifact graph.
+Both jobs also retain43 host tests. The preceding `2b9ae49` build failed exactly
+at missing private-service registration after successful assembly/graph checks.
+
+This is cold UI/channel proof, not combined decoded playback, real-provider
+access, physical-device, original-signer, installed-upgrade or release clearance.
+The optional flag registers the service and notice assets only in `review`;
+normal production builds still exclude this derived runtime. Review APKs and
+temporary signing keys are not uploaded. Full corresponding-source/license
+review, the Windows runtime path and the existing publication holds remain.

@@ -20,6 +20,17 @@ ongoing service playback. A missing renderer still cannot approve a new audio
 handoff. AnF's Activity now forwards optional lifecycle callbacks, but its ordinary
 build does not include this native runtime or register the service.
 
+The optional Android review build now packages the actual native runtime and
+private service. At `82a13c3`, run43235080413 passes fresh modern and legacy
+`.musicdev` installs using the actual AnF Activity and native channel: internal
+cold panel, no horizontal overflow/foreground notification, renderer termination,
+service teardown, reload/reconnect and saved generated-file preservation.
+The release graph stays unchanged and62 pinned native artifacts are retained.
+These tests never search a provider or decode music in the combined app; original
+signers, installed upgrades and full source/license clearance remain unverified.
+Production availability and Windows packaging are still held. See the
+[Android engineering evidence](android-catalog/README.md) for exact run scopes.
+
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
 foreground promotion; resolving media and constructing a decoder follow the
