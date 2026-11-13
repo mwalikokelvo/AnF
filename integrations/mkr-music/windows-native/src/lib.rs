@@ -8,7 +8,7 @@ pub mod host;
 pub mod resources;
 
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
     mpsc::{self, Receiver, SyncSender},
     Arc, OnceLock,
 };
@@ -68,6 +68,17 @@ fn media_error(context: &str, error: windows::core::Error) -> String {
     // Never include a signed stream URL, cookie or private file path in logs.
     format!("{context} (HRESULT {})", error.code())
 }
+
+fn native_failure_message(code: i32) -> &'static str {
+    // MF_E_CANNOT_CREATE_SINK / MF_E_NO_AUDIO_PLAYBACK_DEVICE. Preserve the
+    // failed state; provide a useful next step instead of blaming the track.
+    match code as u32 {
+        0xC00D36FA | 0xC00D4E84 => "Windows could not open an audio output. Check your output device and try again.",
+        0xC00D4E86 => "The Windows audio output disconnected. Select an output device and try again.",
+        0xC00D4E87 => "The Windows audio service is unavailable. Check Windows sound settings and try again.",
+        _ => "Native audio decoding failed. Choose a source to try again.",
+    }
+}
 struct Apartment;
 impl Drop for Apartment {
     fn drop(&mut self) {
@@ -81,6 +92,7 @@ impl Drop for Apartment {
 struct NativeMedia {
     player: MediaPlayer,
     failed: Arc<AtomicBool>,
+    failure_code: Arc<AtomicI32>,
     failure_token: i64,
 }
 
@@ -91,8 +103,12 @@ impl NativeMedia {
             player.SetAutoPlay(false)?;
             player.SetVolume(volume)?;
             let failed = Arc::new(AtomicBool::new(false));
+            let failure_code = Arc::new(AtomicI32::new(0));
             let signal = failed.clone();
+            let code_signal = failure_code.clone();
             let token = player.MediaFailed(&TypedEventHandler::<MediaPlayer, windows::Media::Playback::MediaPlayerFailedEventArgs>::new(move |_, args| {
+                let code = args.as_ref().and_then(|args| args.ExtendedErrorCode().ok()).map(|value| value.0).unwrap_or(0);
+                code_signal.store(code, Ordering::Release);
                 // Test diagnostics are numeric only: never log ErrorMessage,
                 // provider URLs, lease tokens or private file paths.
                 #[cfg(test)]
@@ -101,17 +117,16 @@ impl NativeMedia {
                     let code = args.ExtendedErrorCode().map(|value| value.0 as u32).unwrap_or(0);
                     eprintln!("Native test MediaFailed: category={category}, HRESULT=0x{code:08X}");
                 }
-                #[cfg(not(test))]
-                let _ = args;
                 signal.store(true, Ordering::Release);
                 Ok(())
             }))?;
-            Ok((failed, token))
+            Ok((failed, failure_code, token))
         })();
         match setup {
-            Ok((failed, failure_token)) => Ok(Self {
+            Ok((failed, failure_code, failure_token)) => Ok(Self {
                 player,
                 failed,
+                failure_code,
                 failure_token,
             }),
             Err(error) => {
@@ -338,7 +353,7 @@ fn run_worker(mut player: NativeMedia, receiver: Receiver<Request>) {
                 && !matches!(operation, Operation::Pause)
             {
                 let _ = player.Pause();
-                return Err("Native audio decoding failed. Choose a source to try again.".into());
+                return Err(native_failure_message(player.failure_code.load(Ordering::Acquire)).into());
             }
             match operation {
                 Operation::Load(value) => {
@@ -494,6 +509,17 @@ fn permitted_stream(source: &str) -> bool {
 mod tests {
     use super::*;
     use std::time::Instant;
+
+    #[test]
+    fn output_failures_offer_sound_settings_guidance_without_clearing_failure() {
+        assert!(native_failure_message(0xC00D36FA_u32 as i32).contains("output device"));
+        assert!(native_failure_message(0xC00D4E84_u32 as i32).contains("output device"));
+        assert!(native_failure_message(0xC00D4E86_u32 as i32).contains("disconnected"));
+        assert!(native_failure_message(0xC00D4E87_u32 as i32).contains("audio service"));
+        assert_eq!(native_failure_message(0xC00D36C4_u32 as i32),
+                   "Native audio decoding failed. Choose a source to try again.");
+        assert_eq!(native_failure_message(0), native_failure_message(-1));
+    }
 
     #[test]
     fn only_permitted_https_cdn_sources_enter_public_load() {

@@ -90,3 +90,22 @@ unsupported JavaScript IPC overrides were corrected in the fixtures, preserving
 the host's strict protocol validation. Native-status assertions now wait for
 the actual UI track-change command to finish, rather than probing a retired
 lease mid-transition. Neither decoder errors nor failed assertions are ignored.
+
+Current-source hosted results (2026-11-13) are **not** another six-group pass.
+Run 43481172932 compiled the current engineering app and retained its source and
+binary receipts, then failed the independent generated-file decoder test before
+the in-app groups ran. A smaller native-only probe, run 43487469498, reproduced
+the failure with numeric-only test diagnostics: the deliberately invalid file
+reported `0xC00D36C4` (unsupported byte stream), while valid generated AAC failed
+with `0xC00D36FA` (`MF_E_CANNOT_CREATE_SINK`). Both Windows audio services were
+running; the runner reported no `Win32_SoundDevice` entries. This isolates the
+failure below the catalog/UI layer; it does not by itself prove the precise
+missing endpoint/driver configuration or a supported desktop playback pass.
+Do not install virtual drivers, change protections or mark a mocked clock as
+native acceptance. Resume actual playback QA on an appropriate Windows audio
+environment; keep the historical pass and the current failure separate.
+
+The engine retains per-source numeric failure codes and gives an actionable
+message for output creation, device disconnection and audio-service failures.
+It still rejects playback after failure; invalid/unknown media retains its
+existing decoder error. No raw provider error text or private URI is logged.
