@@ -185,11 +185,14 @@ public class MkrCombinedReviewTest {
       assertEquals(1,((java.util.concurrent.atomic.AtomicInteger)type.getField("created").get(fixture)).get());
       assertTrue(((java.util.concurrent.atomic.AtomicInteger)type.getField("reads").get(fixture)).get()>0);
       assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
-      assertTrue("Accepted playback must be owned by the native service",service(context));
+      assertTrue("Accepted playback must have a foreground native service",foregroundService(context));
+      long beforeDetach=(Long)type.getMethod("position").invoke(fixture);
       instrumentation.runOnMainSync(activity::finish);
       Thread.sleep(200);
       assertTrue("Native playback must survive actual Activity page detachment",(Boolean)type.getMethod("advancing").invoke(fixture));
       assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
+      assertTrue("The native clock must advance after page detachment",(Long)type.getMethod("position").invoke(fixture)>beforeDetach);
+      assertTrue("Detached playback must retain foreground ownership",foregroundService(context));
       android.os.Bundle report=new android.os.Bundle();report.putString("anf-generated-combined-playback","decoded-and-detached");instrumentation.addResults(report);
     }finally{
       instrumentation.runOnMainSync(activity::finish);context.stopService(new Intent().setClassName(context,SERVICE));
@@ -197,6 +200,12 @@ public class MkrCombinedReviewTest {
     }
     final Object completed=fixture;
     RendererRecoveryTest.until(instrumentation,()->{try{return ((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(completed)).get()==1;}catch(ReflectiveOperationException error){throw new AssertionError(error);}});
+  }
+  @SuppressWarnings("deprecation")
+  private static boolean foregroundService(Context context){
+    for(ActivityManager.RunningServiceInfo info:context.getSystemService(ActivityManager.class).getRunningServices(Integer.MAX_VALUE))
+      if(SERVICE.equals(info.service.getClassName()))return info.foreground;
+    return false;
   }
   @SuppressWarnings("deprecation")
   private static boolean service(Context context){
