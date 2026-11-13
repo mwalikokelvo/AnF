@@ -148,6 +148,56 @@ public class MkrCombinedReviewTest {
     assertTrue("Actual embedded music headings and buttons must have readable contrast",current.getDouble("minimumContrast")>=4.5);
     assertTrue("Embedded back button must not inherit the app header icon size",current.getDouble("backFontPx")<=16);
   }
+  private static boolean jsBoolean(Instrumentation instrumentation,Activity activity,String expression) throws Exception {
+    AtomicReference<String> value=new AtomicReference<>();
+    instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript(expression,value::set));
+    RendererRecoveryTest.until(instrumentation,()->value.get()!=null);return "true".equals(value.get());
+  }
+  @Test public void generatedMusicDecodesThroughActualAnFAndSurvivesPageDetach() throws Exception {
+    assertTrue(Build.HARDWARE.equals("ranchu")||Build.HARDWARE.equals("goldfish"));
+    Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();Context context=instrumentation.getTargetContext();
+    assertTrue(context.getPackageName().equals("com.anf.workspace.musicdev")||context.getPackageName().equals("com.coucou.workspace.musicdev"));
+    Activity activity=instrumentation.startActivitySync(new Intent().setClassName(context,"com.anf.workspace.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    Class<?> type=Class.forName("com.anf.workspace.GeneratedMkrPlaybackFixture");Object fixture=null;
+    try{
+      ready(instrumentation,activity);
+      java.lang.reflect.Field field=MainActivity.class.getDeclaredField("embeddedMusic");field.setAccessible(true);
+      instrumentation.runOnMainSync(()->{try{((EmbeddedMusicPage)field.get(activity)).close();field.set(activity,EmbeddedMusicPage.NONE);}catch(IllegalAccessException error){throw new AssertionError(error);}});
+      RendererRecoveryTest.until(instrumentation,()->!service(context));
+      fixture=type.getConstructor(Context.class,Context.class).newInstance(instrumentation.getContext(),context);
+      final Object generated=fixture;
+      instrumentation.runOnMainSync(()->{
+        try{
+          WebView web=RendererRecoveryTest.web(activity.getWindow().getDecorView());
+          EmbeddedMusicPage page=(EmbeddedMusicPage)type.getMethod("attach",WebView.class,String.class).invoke(generated,web,context.getPackageName().startsWith("com.coucou.")?"https://coucou.local/":"https://anf.local/");
+          field.set(activity,page);page.onPageFinished(web.getUrl());
+        }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+      });
+      openVisibleMusic(instrumentation,activity);
+      instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("document.querySelector('.mkr-search input').value='generated';document.querySelector('.mkr-search button').click()",null));
+      long deadline=android.os.SystemClock.elapsedRealtime()+10000;
+      while(!jsBoolean(instrumentation,activity,"!!document.querySelector('.mkr-result')")&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(30);
+      assertTrue(jsBoolean(instrumentation,activity,"!!document.querySelector('.mkr-result')"));
+      instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("document.querySelector('.mkr-result').click()",null));
+      deadline=android.os.SystemClock.elapsedRealtime()+12000;boolean advanced=false;
+      while(android.os.SystemClock.elapsedRealtime()<deadline){if((Boolean)type.getMethod("advancing").invoke(fixture)){advanced=true;break;}Thread.sleep(30);}
+      assertTrue("Actual AnF selection must reach a real muted generated-media decoder",advanced);
+      assertEquals(1,((java.util.concurrent.atomic.AtomicInteger)type.getField("created").get(fixture)).get());
+      assertTrue(((java.util.concurrent.atomic.AtomicInteger)type.getField("reads").get(fixture)).get()>0);
+      assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
+      assertTrue("Accepted playback must be owned by the native service",service(context));
+      instrumentation.runOnMainSync(activity::finish);
+      Thread.sleep(200);
+      assertTrue("Native playback must survive actual Activity page detachment",(Boolean)type.getMethod("advancing").invoke(fixture));
+      assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
+      android.os.Bundle report=new android.os.Bundle();report.putString("anf-generated-combined-playback","decoded-and-detached");instrumentation.addResults(report);
+    }finally{
+      instrumentation.runOnMainSync(activity::finish);context.stopService(new Intent().setClassName(context,SERVICE));
+      RendererRecoveryTest.until(instrumentation,()->!service(context));
+    }
+    final Object completed=fixture;
+    RendererRecoveryTest.until(instrumentation,()->{try{return ((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(completed)).get()==1;}catch(ReflectiveOperationException error){throw new AssertionError(error);}});
+  }
   @SuppressWarnings("deprecation")
   private static boolean service(Context context){
     for(ActivityManager.RunningServiceInfo info:context.getSystemService(ActivityManager.class).getRunningServices(Integer.MAX_VALUE))

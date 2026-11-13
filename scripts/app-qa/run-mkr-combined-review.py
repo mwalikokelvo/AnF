@@ -50,19 +50,20 @@ try:
         run([tools/'apksigner','verify',signed]);run([adb,'install','-t',signed])
     result=run([adb,'shell','am','instrument','-w','-r','-e','class','com.anf.workspace.MkrCombinedReviewTest',test_id+'/androidx.test.runner.AndroidJUnitRunner'])
     (reports/'instrumentation.txt').write_text(result)
-    assert 'OK (2 tests)' in result and 'FAILURES' not in result and 'INSTRUMENTATION_FAILED' not in result,result
-    expected_cases={'packagedNativeChannelStaysInsideAnFAndRecoversWithoutProviderIO','requestedSpeechStopRequiresSuccessAndObservedIdleWithEngineDouble'}
+    assert 'OK (3 tests)' in result and 'FAILURES' not in result and 'INSTRUMENTATION_FAILED' not in result,result
+    expected_cases={'packagedNativeChannelStaysInsideAnFAndRecoversWithoutProviderIO','requestedSpeechStopRequiresSuccessAndObservedIdleWithEngineDouble','generatedMusicDecodesThroughActualAnFAndSurvivesPageDetach'}
     assert set(re.findall(r'^INSTRUMENTATION_STATUS: test=(.+)$',result,re.M))==expected_cases,'A combined regression case is missing'
     speech_receipt=re.findall(r'^INSTRUMENTATION_RESULT: anf-speech-stop-accepted=(true|false)$',result,re.M)
     assert len(speech_receipt)==1,'Native speech-stop receipt observation missing'
     assert re.findall(r'^INSTRUMENTATION_RESULT: anf-speech-policy-engine-double=(.*)$',result,re.M)==['success-denial-timeout']
+    assert re.findall(r'^INSTRUMENTATION_RESULT: anf-generated-combined-playback=(.*)$',result,re.M)==['decoded-and-detached']
     for name,image in extract_screenshots(result,('mkr-combined-cold.png','mkr-combined-reconnected.png')).items():
         (reports/name).write_bytes(image)
     (reports/'scope.json').write_text(json.dumps({'sourceCommit':os.environ.get('GITHUB_SHA'),'applicationId':identity,'androidApi':35,
         'actualAnFActivity':True,'combinedNativeRuntime':True,'coldChannelAndRendererRecovery':True,
         'nativeSpeechStopReceiptObserved':True,'nativeSpeechStopAccepted':speech_receipt[0]=='true',
         'requestedSpeechStopPolicyWithEngineDouble':True,'activeAudibleSpeechStopVerified':False,
-        'providerSearched':False,'nativeDecodedPlaybackVerified':False,'originalSignerVerified':False,
+        'providerSearched':False,'nativeDecodedPlaybackVerified':True,'generatedMediaOnly':True,'pageDetachPlaybackVerified':True,'recreatedPagePlaybackVerified':False,'originalSignerVerified':False,
         'installedUpgradeVerified':False,'readyForPublication':False,'throwawaySigner':True},indent=2)+'\n')
     print('PASS actual AnF plus packaged native cold channel, in-app UI and renderer recovery; no provider or release claim')
 finally:

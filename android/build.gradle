@@ -44,6 +44,10 @@ android {
             assets.srcDirs = ['src/androidTest/assets', '../windows/src-tauri/tests/data']
         }
         if (providers.gradleProperty('mkrReviewRuntime').getOrElse('false')=='true') {
+            androidTest {
+                java.srcDirs += ['mkr-review-tests']
+                assets.srcDirs += ['../integrations/mkr-music/android-catalog/src/androidTest/assets']
+            }
             review {
                 manifest.srcFile 'mkr-review/AndroidManifest.xml'
                 assets.srcDirs += ['gradle-build/mkr-review-notices']
