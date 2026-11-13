@@ -31,6 +31,8 @@ try{
  }
  assert(result,'No native self-test result; no playback success is implied.');
  await writeFile(path.join(evidence,'mkr-in-app-selftest-latest.json'),JSON.stringify({resultFile,...result,...(descriptor.buildReceipt?{buildReceipt:descriptor.buildReceipt}:{})},null,2));
+ // Keep a bounded phase/check summary even if artifact retention fails later.
+ console.log(JSON.stringify({engineeringOnly:true,passed:result.passed,phase:result.phase,checks:result.checks,failure:result.failure}));
  assert.equal(result.passed,true,result.failure||'Native self-test failed');
  assert(result.checks.length>=6,'Missing required native checks');
  for(const check of result.checks)console.log('PASS: '+check);

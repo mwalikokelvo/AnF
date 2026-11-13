@@ -32,6 +32,8 @@ jobs:
       - name: Validate engineering guards and workflow behavior
         run: |
           $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path (Split-Path $env:GITHUB_WORKSPACE) 'anf-pr47-evidence'
+          "ANF_MKR_QA_EVIDENCE=$evidence" | Out-File -LiteralPath $env:GITHUB_ENV -Append -Encoding utf8
           python -B scripts/check-mkr-qa-lock.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B scripts/check-mkr-workspace-receipt.py
@@ -73,6 +75,12 @@ jobs:
           New-Item -ItemType Directory -Path $audio -Force | Out-Null
           & "$env:GITHUB_WORKSPACE/windows/media/ffmpeg.exe" -nostdin -hide_banner -loglevel error -f lavfi -i 'sine=frequency=220:sample_rate=44100' -t 12 -c:a aac -b:a 32k -movflags +faststart "$audio/fixture.m4a"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Record runner audio environment without changing services or drivers
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $services = @(Get-Service -Name Audiosrv,AudioEndpointBuilder -ErrorAction SilentlyContinue | Select-Object Name,Status,StartType)
+          $devices = @(Get-CimInstance Win32_SoundDevice | Select-Object Name,Status)
+          @{engineeringOnly=$true; readyForPublication=$false; services=$services; soundDevices=$devices} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$env:ANF_MKR_QA_EVIDENCE/runner-audio.json"
       - name: Build current frontend and hook without downloading user AI assets
         working-directory: windows
         run: npm run build
@@ -95,6 +103,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B scripts/app-qa/mkr-workspace-receipt.py built
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Isolate real file decoding before testing the catalog bridge
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'windows/target'
+          $env:ANF_MKR_TEST_AUDIO = Join-Path $env:ANF_MKR_QA_EVIDENCE 'mkr-native-audio/fixture.m4a'
+          cargo test --locked --manifest-path integrations/mkr-music/windows-native/Cargo.toml tests::real_muted_playback_seek_pause_and_resume -- --ignored --exact --nocapture 2>&1 | Tee-Object -FilePath "$env:ANF_MKR_QA_EVIDENCE/native-file-decoder.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run actual in-app native generated-media and reciprocal handoff checks
         run: node scripts/app-qa/run-mkr-selftest.mjs
       - name: Retain engineering reports only, never runtime or installable binaries
@@ -103,11 +118,13 @@ jobs:
         with:
           name: AnF-Windows-actual-workspace-evidence
           path: |
-            ../anf-pr47-evidence/mkr-in-app-selftest-latest.json
-            ../anf-pr47-evidence/mkr-workspace-qa-*/source-receipt.json
-            ../anf-pr47-evidence/mkr-workspace-qa-*/built-receipt.json
-            ../anf-pr47-evidence/mkr-workspace-qa-*/manual-*.json
-            ../anf-pr47-evidence/mkr-workspace-qa-*/manual-*.log
-            ../anf-pr47-evidence/mkr-workspace-qa-*/profile/*/AnF/mkr-native-selftest-result.json
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/mkr-in-app-selftest-latest.json
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/runner-audio.json
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/native-file-decoder.txt
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/mkr-workspace-qa-*/source-receipt.json
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/mkr-workspace-qa-*/built-receipt.json
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/mkr-workspace-qa-*/manual-*.json
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/mkr-workspace-qa-*/manual-*.log
+            ${{ env.ANF_MKR_QA_EVIDENCE }}/mkr-workspace-qa-*/profile/*/AnF/mkr-native-selftest-result.json
           if-no-files-found: ignore
           retention-days: 14
