@@ -159,3 +159,12 @@ both pinned runtime/source ledgers. `--reuse-directory <folder>` reuses verified
 bytes; missing inputs require explicit `--fetch`. Cache corruption, graph drift,
 redirects and overwriting stop collection. It does not need runtime binaries,
 execute sources, or infer complete notices or distribution clearance from a JAR.
+
+The exact Microsoft Windows x64 JDK 21.0.12.1 archive is now pinned in
+`../windows-jdk-input.json`. `../audit-windows-jdk.py` inspects it as data only:
+publisher archive SHA256, reviewed release/API-source hashes, required jmod
+presence, all file hashes and original legal notice bytes. Run43435499817 at
+`bb17507` passes and retains reports/legal texts only, without extracting or
+executing the JDK or uploading its binaries. The report inventories 486 files,
+14 required candidate modules and 243 legal texts. This is not a JDK execution,
+jlink image, detached-signature, reproducible-build or publication approval.
