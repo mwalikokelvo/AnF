@@ -168,3 +168,14 @@ presence, all file hashes and original legal notice bytes. Run43435499817 at
 executing the JDK or uploading its binaries. The report inventories 486 files,
 14 required candidate modules and 243 legal texts. This is not a JDK execution,
 jlink image, detached-signature, reproducible-build or publication approval.
+
+Fresh Windows candidate run43445587593 at `2e61eb4` passes all 35 JVM tests,
+source-bound JDK preflight, creation of a 212-file runtime image, and the actual
+Rust supervisor's canonical-path JVM handshake/private release RPC. Its bundled
+Microsoft JRE reports 17 resolved modules, and 74 linked-image legal texts are
+retained. Reports only are uploaded; no runtime or installer is distributed.
+This verifies a private engineering startup path, not provider playback, the
+full AnF desktop UI, signing, installed upgrades or publication. A diagnostic
+comparison finds that image executable/DLL hashes differ from the vendor SDK's
+bin files; jmod payload/transform provenance still needs explicit examination.
+No vendor-signature or binary/source reproducibility claim follows from startup.
