@@ -1741,8 +1741,8 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   if(prefs.sort==='format-desc')return copy.sort((a,b)=>(b.format||'').localeCompare(a.format||'')||a.title.localeCompare(b.title));
   if(prefs.sort==='chapters')return copy.sort((a,b)=>(b.chapters?.length||0)-(a.chapters?.length||0)||a.title.localeCompare(b.title));
   if(prefs.sort==='chapters-desc')return copy.sort((a,b)=>(a.chapters?.length||0)-(b.chapters?.length||0)||a.title.localeCompare(b.title));
-  if(prefs.sort==='lyrics')return copy.sort((a,b)=>(b.lyrics?.length||0)-(a.lyrics?.length||0)||a.title.localeCompare(b.title));
-  if(prefs.sort==='lyrics-desc')return copy.sort((a,b)=>(a.lyrics?.length||0)-(b.lyrics?.length||0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='lyrics')return copy.sort((a,b)=>(b.lyrics?1:0)-(a.lyrics?1:0)||(b.lyrics?.length||0)-(a.lyrics?.length||0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='lyrics-desc')return copy.sort((a,b)=>(a.lyrics?1:0)-(b.lyrics?1:0)||(a.lyrics?.length||0)-(b.lyrics?.length||0)||a.title.localeCompare(b.title));
   if(prefs.sort==='random'){
     for(let i=copy.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[copy[i],copy[j]]=[copy[j],copy[i]];}
     return copy;
@@ -2782,7 +2782,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
     ),
     h('label',{class:'music-sort'},'Sort',
      h('select',{'aria-label':'Sort library',onchange:(e)=>{prefs.sort=(e.target as HTMLSelectElement).value as Preferences['sort'];save();render();}},
-      ...[['newest','Newest'],['oldest','Oldest'],['title','A–Z'],['title-desc','Z–A'],['artist','Artist'],['artist-desc','Artist Z–A'],['longest','Longest'],['shortest','Shortest'],['year','Year'],['year-desc','Year Z–A'],['random','Random'],['mostplayed','Most played'],['leastplayed','Least played'],['album','Album'],['album-desc','Album Z–A'],['genre','Genre'],['genre-desc','Genre Z–A'],['recent','Recently played'],['trackno','Track #'],['composer','Composer'],['composer-desc','Composer Z–A'],['discno','Disc #'],['albumartist','Album Artist'],['albumartist-desc','Album Artist Z–A'],['bitrate','Bitrate'],['bitrate-desc','Bitrate (low)'],['size','File size'],['size-desc','File size (small)'],['samplerate','Sample rate'],['samplerate-desc','Sample rate (low)'],['channels','Channels'],['channels-desc','Channels (mono)'],['bpm','BPM'],['bpm-desc','BPM (low)'],['bitdepth','Bit depth'],['bitdepth-desc','Bit depth (low)'],['format','Format'],['format-desc','Format Z–A'],['chapters','Chapters'],['chapters-desc','Chapters (few)'],['lyrics','Lyrics'],['lyrics-desc','Lyrics (short)']].map(([v,t])=>h('option',{value:v,text:t,selected:prefs.sort===v}))
+      ...[['newest','Newest'],['oldest','Oldest'],['title','A–Z'],['title-desc','Z–A'],['artist','Artist'],['artist-desc','Artist Z–A'],['longest','Longest'],['shortest','Shortest'],['year','Year'],['year-desc','Year Z–A'],['random','Random'],['mostplayed','Most played'],['leastplayed','Least played'],['album','Album'],['album-desc','Album Z–A'],['genre','Genre'],['genre-desc','Genre Z–A'],['recent','Recently played'],['trackno','Track #'],['composer','Composer'],['composer-desc','Composer Z–A'],['discno','Disc #'],['albumartist','Album Artist'],['albumartist-desc','Album Artist Z–A'],['bitrate','Bitrate'],['bitrate-desc','Bitrate (low)'],['size','File size'],['size-desc','File size (small)'],['samplerate','Sample rate'],['samplerate-desc','Sample rate (low)'],['channels','Channels'],['channels-desc','Channels (mono)'],['bpm','BPM'],['bpm-desc','BPM (low)'],['bitdepth','Bit depth'],['bitdepth-desc','Bit depth (low)'],['format','Format'],['format-desc','Format Z–A'],['chapters','Chapters'],['chapters-desc','Chapters (few)'],['lyrics','Has lyrics'],['lyrics-desc','No lyrics']].map(([v,t])=>h('option',{value:v,text:t,selected:prefs.sort===v}))
      )
     ),
     tab==='favorites'
