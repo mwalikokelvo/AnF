@@ -1,0 +1,47 @@
+name: MKR Windows native decoder isolation
+on:
+  push:
+    branches: ['qa/mkr-decoder-**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-decoder-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  decoder:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Record audio environment and generate synthetic AAC
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $reports = Join-Path $env:RUNNER_TEMP 'anf-decoder-reports'
+          New-Item -ItemType Directory -Path $reports | Out-Null
+          $services = @(Get-Service -Name Audiosrv,AudioEndpointBuilder -ErrorAction SilentlyContinue | ForEach-Object { @{name=$_.Name;status=$_.Status.ToString();startType=$_.StartType.ToString()} })
+          $devices = @(Get-CimInstance Win32_SoundDevice | Select-Object Name,Status)
+          @{engineeringOnly=$true; readyForPublication=$false; services=$services; soundDevices=$devices; headSha=$env:GITHUB_SHA} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$reports/environment.json"
+          & ./windows/scripts/prepare-media.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:GITHUB_WORKSPACE/windows/media/ffmpeg.exe" -nostdin -hide_banner -loglevel error -f lavfi -i 'sine=frequency=220:sample_rate=44100' -t 12 -c:a aac -b:a 32k -movflags +faststart "$env:RUNNER_TEMP/fixture.m4a"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Require real native decode, failure recovery, seek, pause and resume
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:ANF_MKR_TEST_AUDIO = Join-Path $env:RUNNER_TEMP 'fixture.m4a'
+          cargo test --locked --manifest-path integrations/mkr-music/windows-native/Cargo.toml tests::real_muted_playback_seek_pause_and_resume -- --ignored --exact --nocapture 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/anf-decoder-reports/native-decoder.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Keep logs only, never test binaries or media
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: AnF-Windows-decoder-isolation-evidence
+          path: ${{ runner.temp }}/anf-decoder-reports/
+          if-no-files-found: error
+          retention-days: 14

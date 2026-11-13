@@ -92,7 +92,17 @@ impl NativeMedia {
             player.SetVolume(volume)?;
             let failed = Arc::new(AtomicBool::new(false));
             let signal = failed.clone();
-            let token = player.MediaFailed(&TypedEventHandler::new(move |_, _| {
+            let token = player.MediaFailed(&TypedEventHandler::<MediaPlayer, windows::Media::Playback::MediaPlayerFailedEventArgs>::new(move |_, args| {
+                // Test diagnostics are numeric only: never log ErrorMessage,
+                // provider URLs, lease tokens or private file paths.
+                #[cfg(test)]
+                if let Some(args) = args.as_ref() {
+                    let category = args.Error().map(|value| value.0).unwrap_or(-1);
+                    let code = args.ExtendedErrorCode().map(|value| value.0 as u32).unwrap_or(0);
+                    eprintln!("Native test MediaFailed: category={category}, HRESULT=0x{code:08X}");
+                }
+                #[cfg(not(test))]
+                let _ = args;
                 signal.store(true, Ordering::Release);
                 Ok(())
             }))?;
