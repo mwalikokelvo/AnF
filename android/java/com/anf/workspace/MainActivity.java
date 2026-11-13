@@ -57,6 +57,7 @@ public class MainActivity extends Activity {
       else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;
     });
     setContentView(workspace);
+    styleSystemChrome(workspace);
     workspace.requestApplyInsets();
     WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setMediaPlaybackRequiresUserGesture(false);
     s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -253,12 +254,12 @@ public class MainActivity extends Activity {
     EmbeddedMusicPage page=embeddedMusic;embeddedMusic=null;
     if(page!=null)try{page.close();}catch(RuntimeException|LinkageError ignored){/* Keep workspace recovery usable. */}
   }
-  private void showRendererRecovery(){
-    closeEmbeddedMusic();
-    android.widget.ScrollView recovery=new android.widget.ScrollView(this);recovery.setFillViewport(true);
+  // Native safe areas use the Activity theme rather than the page palette.
+  // Pair their icon appearance at startup as well as on renderer recovery.
+  private void styleSystemChrome(View surface){
     android.content.res.TypedArray colors=obtainStyledAttributes(new int[]{android.R.attr.colorBackground});
     int background;try{background=colors.getColor(0,android.graphics.Color.WHITE);}finally{colors.recycle();}
-    recovery.setBackgroundColor(background);
+    surface.setBackgroundColor(background);
     boolean light=android.graphics.Color.luminance(background)>0.5f;
     if(android.os.Build.VERSION.SDK_INT>=30){
       android.view.WindowInsetsController bars=getWindow().getInsetsController();
@@ -268,6 +269,11 @@ public class MainActivity extends Activity {
       int mask=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
       View decor=getWindow().getDecorView();decor.setSystemUiVisibility(light?decor.getSystemUiVisibility()|mask:decor.getSystemUiVisibility()&~mask);
     }
+  }
+  private void showRendererRecovery(){
+    closeEmbeddedMusic();
+    android.widget.ScrollView recovery=new android.widget.ScrollView(this);recovery.setFillViewport(true);
+    styleSystemChrome(recovery);
     android.widget.LinearLayout content=new android.widget.LinearLayout(this);content.setOrientation(android.widget.LinearLayout.VERTICAL);
     content.setGravity(android.view.Gravity.CENTER_VERTICAL);content.setPadding(dp(24),dp(32),dp(24),dp(32));
     android.widget.TextView title=new android.widget.TextView(this);title.setText("Workspace needs a reload");

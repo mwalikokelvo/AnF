@@ -70,6 +70,13 @@ public class MkrCombinedReviewTest {
         int safeBottom=metrics.getBounds().bottom-bars.bottom;
         geometry.set("phase="+phase+",controlBottom="+controlBottom+",safeBottom="+safeBottom+",webTop="+position[1]+",webHeight="+web.getHeight()+",paddingTop="+web.getPaddingTop()+",paddingBottom="+web.getPaddingBottom());
         android.os.Bundle report=new android.os.Bundle();report.putString("anf-navigation-geometry-"+phase,geometry.get());instrumentation.addResults(report);
+        android.content.res.TypedArray colors=activity.obtainStyledAttributes(new int[]{android.R.attr.colorBackground});
+        int background;try{background=colors.getColor(0,android.graphics.Color.WHITE);}finally{colors.recycle();}
+        boolean light=android.graphics.Color.luminance(background)>0.5f;
+        android.view.WindowInsetsController controller=activity.getWindow().getInsetsController();assertNotNull(controller);
+        int mask=android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS|android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+        assertEquals("System icons must contrast with the native safe area on "+phase,light?mask:0,controller.getSystemBarsAppearance()&mask);
+        android.os.Bundle chrome=new android.os.Bundle();chrome.putString("anf-system-chrome-"+phase,light?"light":"dark");instrumentation.addResults(chrome);
         assertTrue("Workspace navigation overlaps Android system controls: "+geometry.get(),controlBottom<=safeBottom+1);
       }catch(org.json.JSONException error){throw new AssertionError(error);}
     });
