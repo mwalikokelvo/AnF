@@ -18,7 +18,7 @@ assert.equal(qa.engineeringOnly,true);assert.equal(qa.readyForPublication,false)
 assert.equal(path.resolve(qa.binaryDir),path.join(directory,'bin'));
 assert.equal(path.resolve(qa.cargoTarget),path.join(root,'windows/target'));
 let receipt;
-if(process.env.GITHUB_ACTIONS==='true'){
+if(process.env.GITHUB_ACTIONS==='true'||process.argv.includes('--require-receipt')){
  receipt=JSON.parse(await readFile(path.join(directory,'built-receipt.json'),'utf8'));
  assert.equal(receipt.engineeringOnly,true);assert.equal(receipt.readyForPublication,false);
  const source=await readFile(path.join(directory,'source-receipt.json'));

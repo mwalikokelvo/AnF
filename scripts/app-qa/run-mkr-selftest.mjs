@@ -6,7 +6,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const evidence=path.join(path.dirname(root),'anf-pr47-evidence');
-const helper=spawn(process.execPath,[path.join(root,'scripts/app-qa/mkr-workspace-manual.mjs')],{cwd:root,windowsHide:true,stdio:['pipe','pipe','pipe']});
+assert(process.argv.slice(2).every(arg=>arg==='--require-receipt'),'Unknown native QA runner option');
+const helper=spawn(process.execPath,[path.join(root,'scripts/app-qa/mkr-workspace-manual.mjs'),...process.argv.slice(2)],{cwd:root,windowsHide:true,stdio:['pipe','pipe','pipe']});
 let descriptor,buffer='',stderr='';
 helper.stdout.on('data',data=>{
  buffer+=data.toString();assert(buffer.length<=16384,'Unexpected launcher output');

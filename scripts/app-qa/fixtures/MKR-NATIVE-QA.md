@@ -109,3 +109,23 @@ The engine retains per-source numeric failure codes and gives an actionable
 message for output creation, device disconnection and audio-service failures.
 It still rejects playback after failure; invalid/unknown media retains its
 existing decoder error. No raw provider error text or private URI is logged.
+
+For an audio-capable local Windows desktop, `prepare-local-mkr-inputs.py
+--fetch-jdk` audits the existing pinned vendor archive before extracting a
+portable toolchain under the evidence directory. It changes no installation,
+registry or environment defaults. It builds a distinctly labeled fixture-only
+JRE with a 256 MB Java heap, not a provider/runtime release. Preparation refuses
+to replace an extracted toolchain or an active candidate pointer. Preserve and
+inspect a partial preparation rather than deleting it or retrying blindly.
+
+Pass its explicit `jdk` and `proof` paths to `prepare-mkr-native-qa.py` using
+`--local-jdk` and `--local-jdk-proof`. The compiler/JAR tool and source metadata
+are hash-checked against the audited input inventory before fixture compilation;
+the tools use bounded heaps. Apply the self-test hook as above, then use
+`mkr-workspace-receipt.py seal --local-desktop` before the fresh build and
+`built --local-desktop` afterwards. Use a single Cargo job and
+`CARGO_PROFILE_DEV_DEBUG=0` on small-memory PCs. Finally run
+`run-mkr-selftest.mjs --require-receipt`; this requires the exact new binary's
+receipt even outside a hosted job. Both paths retain the same isolation and
+six-group assertions. Neither these inputs nor a successful component test
+enable the production player or certify a release.

@@ -71,5 +71,26 @@ class ReceiptTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 receipt.context()
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows desktop identity guard')
+    def test_explicit_local_mode_still_rejects_non_qa_and_wrong_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            root = base/'repo'
+            evidence = base/'evidence'
+            qa = evidence/'mkr-workspace-qa-test'
+            qa.mkdir(parents=True)
+            (evidence/'latest-mkr-workspace-qa.json').write_text(json.dumps({'directory':str(qa)}))
+            descriptor = {'engineeringOnly':True,'readyForPublication':False,
+                          'cargoTarget':str(root/'windows/target')}
+            with patch.object(receipt,'ROOT',root), patch.object(receipt,'EVIDENCE',evidence), \
+                 patch.dict(os.environ,{'GITHUB_ACTIONS':'false'}):
+                for changes in ({'engineeringOnly':False}, {'readyForPublication':True},
+                                {'cargoTarget':str(base/'other-target')}):
+                    (qa/'engineering.json').write_text(json.dumps({**descriptor,**changes}))
+                    with self.assertRaises(ValueError):
+                        receipt.context(True)
+                (qa/'engineering.json').write_text(json.dumps(descriptor))
+                self.assertEqual(receipt.context(True)[2],root/'windows/target/debug/anf-mkr-qa.exe')
+
 if __name__ == '__main__':
     unittest.main()

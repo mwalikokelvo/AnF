@@ -1,4 +1,4 @@
-"""Bind a fresh hosted engineering build to its current source and exact binary.
+"""Bind a fresh Windows engineering build to its current source and exact binary.
 
 This is an orchestration receipt, not a reproducible-build or release approval.
 It never launches a binary, includes file contents, or alters production gates.
@@ -48,9 +48,9 @@ def snapshot_inputs(source):
         raise ValueError('Empty engineering source snapshot')
     return files
 
-def context():
-    if os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true':
-        raise ValueError('Receipt is for a fresh hosted Windows QA build only')
+def context(local_desktop=False):
+    if os.name != 'nt' or (os.environ.get('GITHUB_ACTIONS') != 'true' and not local_desktop):
+        raise ValueError('Receipt requires hosted Windows or explicit local desktop QA')
     qa = Path(json.loads((EVIDENCE/'latest-mkr-workspace-qa.json').read_text())['directory'])
     if qa.parent != EVIDENCE or not qa.name.startswith('mkr-workspace-qa-'):
         raise ValueError('Invalid disposable engineering directory')
@@ -64,8 +64,9 @@ def context():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('stage', choices=['seal', 'built'])
+    parser.add_argument('--local-desktop', action='store_true')
     args = parser.parse_args()
-    qa, descriptor, binary = context()
+    qa, descriptor, binary = context(args.local_desktop)
     receipt_file = qa/'source-receipt.json'
     if args.stage == 'seal':
         if binary.exists():

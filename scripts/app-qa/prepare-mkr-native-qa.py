@@ -13,6 +13,7 @@ import uuid
 import re
 import tomllib
 import os
+import argparse
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT.parent / 'anf-pr47-evidence'
@@ -61,7 +62,25 @@ def run(args, cwd):
         raise RuntimeError('Engineering fixture tool failed: ' + result.stderr.decode('utf-8', 'replace')[:3000])
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--local-jdk', type=Path)
+    parser.add_argument('--local-jdk-proof', type=Path)
+    args = parser.parse_args()
+    if bool(args.local_jdk) != bool(args.local_jdk_proof):
+        raise ValueError('Both explicit local JDK inputs are required')
     jdk = JDK
+    if args.local_jdk:
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            raise ValueError('Hosted QA must use its job-owned JDK')
+        jdk = args.local_jdk.resolve()
+        proof = json.loads(args.local_jdk_proof.read_text(encoding='utf-8'))
+        pin = json.loads((ROOT/'integrations/mkr-music/windows-jdk-input.json').read_text(encoding='utf-8'))
+        if proof['archiveSha256'] != pin['archiveSha256'] or proof.get('toolchainExtractedForLocalQa') is not True:
+            raise ValueError('Explicit local QA toolchain proof mismatch')
+        inventory = {item['path']:item['sha256'] for item in proof['files']}
+        for rel in ('release', 'lib/src.zip', 'bin/javac.exe', 'bin/jar.exe'):
+            if digest(jdk/rel) != inventory[rel]:
+                raise ValueError('Local fixture compiler input changed')
     if os.environ.get('GITHUB_ACTIONS') == 'true':
         # The hosted preparation step already audits/extracts the pinned archive.
         # Refuse another installed JDK or a tool outside that temporary input.
@@ -135,9 +154,9 @@ def main():
     classes = out/'fixture-classes'
     classes.mkdir()
     fixture = ROOT/'scripts/app-qa/fixtures/WindowsCatalogSidecarKt.java'
-    run([jdk/'bin/javac.exe','--release','21','-d',classes,fixture],out)
+    run([jdk/'bin/javac.exe','-J-Xmx128m','--release','21','-d',classes,fixture],out)
     (runtime/'lib').mkdir(parents=True)
-    run([jdk/'bin/jar.exe','--create','--file',runtime/'lib/fixture.jar','-C',classes,'.','-C',audio.parent,audio.name],out)
+    run([jdk/'bin/jar.exe','-J-Xmx64m','--create','--file',runtime/'lib/fixture.jar','-C',classes,'.','-C',audio.parent,audio.name],out)
     files = {p.relative_to(runtime).as_posix():digest(p) for p in sorted(runtime.rglob('*')) if p.is_file()}
     inventory = {'schema':1,'java':'runtime/bin/java.exe','classpath':['lib/fixture.jar'],'files':files}
     (app/'mkr-engineering-manifest.json').write_text(json.dumps(inventory,sort_keys=True),encoding='utf-8')
