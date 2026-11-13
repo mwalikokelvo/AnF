@@ -56,8 +56,20 @@
    report.phase='reader-import';await navigate('documents');
    const transfer=new DataTransfer();transfer.items.add(new File([sample],'Generated speech QA.txt',{type:'text/plain'}));
    const files=document.querySelector('input[aria-label="Choose up to four documents"]');assert(files,'Document import missing');
+   const importRoot=files.closest('[aria-busy]');assert(importRoot,'Workspace busy state missing');
+   let busyCards=0,enabledDuringImport=false;
+   const importedCards=new MutationObserver(()=>{
+    if(importRoot.getAttribute('aria-busy')==='true'){
+     const buttons=[...document.querySelectorAll('.document-shelf .library-actions > button')];
+     if(buttons.length){busyCards++;enabledDuringImport ||= buttons.some(button=>!button.disabled);}
+    }
+   });
+   importedCards.observe(document.querySelector('.document-shelf'),{childList:true,subtree:true});
    files.files=transfer.files;files.dispatchEvent(new Event('change',{bubbles:true}));
-   await wait(()=>{const button=byText('.document-shelf button','Open reader');return button&&!button.disabled;},'Generated document import did not finish');
+   await wait(()=>{const button=byText('.document-shelf button','Open reader');return button&&!button.disabled&&importRoot.getAttribute('aria-busy')==='false';},'Generated document import did not finish');
+   importedCards.disconnect();assert(busyCards>0,'Did not observe document controls while import was busy');
+   assert(!enabledDuringImport,'New document controls looked enabled while import was still busy');
+   report.checks.push('New document controls stay disabled during real import and enable when it finishes.');
    byText('.document-shelf button','Open reader').click();
    await wait(()=>{const reader=document.querySelector('.reader-overlay');return reader&&!reader.hidden;},'Reader did not open');
    const reader=document.querySelector('.reader-overlay');
@@ -70,7 +82,7 @@
    assert(reader.querySelector('.speech-player').dataset.state==='paused','Reader position was not retained as paused');
    report.checks.push('Actual Reader local speech and native music pause each other while the reader stays open.');
    report.actualSpeechStartEvents=starts;report.passed=true;
-  }catch(error){report.passed=false;report.failure=String(error).replace(/https?:\/\/[^\s]+/g,'<redacted-uri>').slice(0,1500);}
+  }catch(error){report.passed=false;report.failure=String(error).replace(/https?:\/\/[^\s]+/g,'<redacted-uri>').slice(0,1500);report.readerDiagnostics={count:document.querySelectorAll('.reader-overlay').length,hidden:document.querySelector('.reader-overlay')?.hidden,status:document.querySelector('.activity-bar [role="status"]')?.textContent?.slice(0,400)};}
   finally{
    report.actualSpeechStartEvents=starts;
    try{synth?.cancel();if(synth&&originalSpeak)synth.speak=originalSpeak;}catch{}

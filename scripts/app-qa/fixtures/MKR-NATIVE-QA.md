@@ -137,6 +137,11 @@ playback. Generated text is muted through the real utterance volume setting;
 speech, voices, events and audio states are not substituted. It tests Writing
 and Reader handoff while the current view stays open, since changing views can
 itself stop speech and would conceal a failed handoff.
+The speech scope also observes document-card insertion during a real native
+import. Newly rendered Open reader/Remove controls must remain disabled until
+the workspace's `aria-busy` state clears; a control can exist before the import
+and project save have finished. The runner waits for that actual idle state
+before opening the Reader, and retains the real active-view/speech assertions.
 
 For a justified new local scope using the existing Cargo dependency cache,
 `seal --local-desktop --replace-qa-binary` records the previous QA executable's

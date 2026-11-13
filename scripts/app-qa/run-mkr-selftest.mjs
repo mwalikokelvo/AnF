@@ -37,7 +37,7 @@ try{
  console.log(JSON.stringify({engineeringOnly:true,passed:result.passed,phase:result.phase,checks:result.checks,failure:result.failure}));
  assert.equal(result.passed,true,result.failure||'Native self-test failed');
  if(speechOnly)assert.equal(result.scope,'native-speech-handoff');
- assert(result.checks.length>=(speechOnly?3:6),'Missing required native checks');
+ assert(result.checks.length>=(speechOnly?4:6),'Missing required native checks');
  for(const check of result.checks)console.log('PASS: '+check);
  console.log(speechOnly?'PASS: real desktop local speech/native audio handoff; provider, Android and release QA remain separate.':'PASS: disposable real Tauri/WinRT acceptance with generated catalog/media. Provider streaming, Android and release QA remain separate.');
 }finally{
