@@ -169,7 +169,7 @@ public class MkrCombinedReviewTest {
       instrumentation.runOnMainSync(()->{
         try{
           WebView web=RendererRecoveryTest.web(activity.getWindow().getDecorView());
-          EmbeddedMusicPage page=(EmbeddedMusicPage)type.getMethod("attach",WebView.class,String.class).invoke(generated,web,context.getPackageName().startsWith("com.coucou.")?"https://coucou.local/":"https://anf.local/");
+          EmbeddedMusicPage page=(EmbeddedMusicPage)type.getMethod("attach",WebView.class,String.class).invoke(generated,web,"https://"+android.net.Uri.parse(web.getUrl()).getHost()+"/");
           field.set(activity,page);page.onPageFinished(web.getUrl());
         }catch(ReflectiveOperationException error){throw new AssertionError(error);}
       });
