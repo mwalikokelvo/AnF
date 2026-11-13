@@ -68,6 +68,16 @@ JavaScript receipt are exercised. No utterance is synthesized; this is policy
 coverage, not physical-device or audible interruption proof. The existing idle
 receipt, cold view, renderer recovery and saved-file checks remain intact.
 
+Android native UI run43337076775 at `b1a37ed` also verifies that bottom navigation
+stays outside system controls on first launch and after renderer recovery in both
+review identities. A native safe-area container sizes the WebView viewport;
+WebView padding alone previously left the first page taller than the safe area.
+The old browser is detached before destruction. Native safe-area backgrounds and
+system-bar icon appearance are paired at startup and recovery. Geometry checks
+and all four inspected screenshots confirm clear controls and readable icons.
+This emulator UI proof does not establish physical-device or installed-upgrade
+acceptance, and does not remove the existing production publication holds.
+
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
 foreground promotion; resolving media and constructing a decoder follow the
