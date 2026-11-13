@@ -152,3 +152,10 @@ runs before candidate files are created or jlink executes. It records the pinned
 complete-source archive separately from tool hashes. Matching metadata and Java
 API sources do not prove JVM binary correspondence, publisher trust, complete
 notices, reproducibility or publication readiness; those flags remain false.
+
+`../collect-reviewed-source-inputs.py --output <new-folder> --fetch` restores only
+source archives whose coordinate, binary hash, source URL, size and SHA256 match
+both pinned runtime/source ledgers. `--reuse-directory <folder>` reuses verified
+bytes; missing inputs require explicit `--fetch`. Cache corruption, graph drift,
+redirects and overwriting stop collection. It does not need runtime binaries,
+execute sources, or infer complete notices or distribution clearance from a JAR.
