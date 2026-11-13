@@ -3,7 +3,9 @@ from pathlib import Path
 import json
 import argparse
 parser=argparse.ArgumentParser()
-parser.add_argument('--speech-only',action='store_true')
+scopes=parser.add_mutually_exclusive_group()
+scopes.add_argument('--speech-only',action='store_true')
+scopes.add_argument('--studio-only',action='store_true')
 args=parser.parse_args()
 ROOT=Path(__file__).resolve().parents[2]
 EVIDENCE=ROOT.parent/'anf-pr47-evidence'
@@ -23,7 +25,7 @@ text=text.replace(original, original+'''
                         let _=window.eval(include_str!("../mkr-native-selftest.js"));
                     }
                 })''',1)
-script='mkr-native-speech-selftest.js' if args.speech_only else 'mkr-native-selftest.js'
+script='mkr-native-studio-selftest.js' if args.studio_only else 'mkr-native-speech-selftest.js' if args.speech_only else 'mkr-native-selftest.js'
 for source,dest in [('mkr_qa_native.rs',app/'src/qa_native.rs'),(script,app/'mkr-native-selftest.js')]:
     dest.write_text((ROOT/'scripts/app-qa/fixtures'/source).read_text(encoding='utf-8'),encoding='utf-8')
 p.write_text(text,encoding='utf-8')

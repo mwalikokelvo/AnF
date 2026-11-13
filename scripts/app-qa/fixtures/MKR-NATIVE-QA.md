@@ -150,3 +150,13 @@ binary; a changed, successfully built binary and unchanged sealed source are
 still mandatory. Replacement is restricted to explicit local seal mode and the
 fixed QA executable path. Archived uniquely named binaries and previous results
 are preserved. Hosted/default preparation still refuses an existing binary.
+
+The independent `--studio-only` preparation/runner scope imports generated PCM
+WAV through the actual Audio Studio UI, proves its real HTML audio clock
+advances while native music pauses, and then resumes native music from the
+global dock while Studio remains open. It requires the Studio audio to pause
+and its dock to retire. It records whether the separate embedded Spotube runtime
+is actually present; missing Spotube is not replaced with a fake capability or
+counted as a tested player. This scope does not repeat accepted speech/local
+library tests or test conversions, denoising, delayed-start cancellation or
+real provider streaming.
