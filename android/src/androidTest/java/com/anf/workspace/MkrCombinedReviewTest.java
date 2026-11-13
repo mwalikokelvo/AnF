@@ -125,6 +125,9 @@ public class MkrCombinedReviewTest {
     android.os.Bundle receipt=new android.os.Bundle();receipt.putString("anf-speech-stop-accepted",String.valueOf(accepted));instrumentation.addResults(receipt);
   }
   private static void openVisibleMusic(Instrumentation instrumentation,Activity activity) throws Exception {
+    openVisibleMusic(instrumentation,activity,false);
+  }
+  private static void openVisibleMusic(Instrumentation instrumentation,Activity activity,boolean retainedTrack) throws Exception {
     ready(instrumentation,activity);
     instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("document.querySelector('button[role=tab][data-mode=listen]').click()",null));
     long until=android.os.SystemClock.elapsedRealtime()+15000;
@@ -137,7 +140,7 @@ public class MkrCombinedReviewTest {
     while(!current.optBoolean("panel")&&android.os.SystemClock.elapsedRealtime()<until){Thread.sleep(30);current=state(instrumentation,activity);}
     assertTrue("MKR must open visibly inside the actual AnF workspace",current.optBoolean("panel"));
     assertTrue("Music navigation must remain selected",current.optBoolean("music"));
-    assertFalse(current.optBoolean("dock"));assertFalse("Cold music UI overflows the phone",current.optBoolean("overflow"));
+    assertEquals("Native player dock visibility must match retained playback",retainedTrack,current.optBoolean("dock"));assertFalse("Music UI overflows the phone",current.optBoolean("overflow"));
     // Native UI idle does not wait for WebView's compositor. Observe two actual
     // browser frames after the visible panel, rather than capture the old Home.
     instrumentation.runOnMainSync(()->RendererRecoveryTest.web(activity.getWindow().getDecorView()).evaluateJavascript("requestAnimationFrame(()=>requestAnimationFrame(()=>{window.anfMkrQaPainted=true;}))",null));
@@ -158,6 +161,7 @@ public class MkrCombinedReviewTest {
     Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();Context context=instrumentation.getTargetContext();
     assertTrue(context.getPackageName().equals("com.anf.workspace.musicdev")||context.getPackageName().equals("com.coucou.workspace.musicdev"));
     Activity activity=instrumentation.startActivitySync(new Intent().setClassName(context,"com.anf.workspace.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    AtomicReference<Activity> current=new AtomicReference<>(activity);
     Class<?> type=Class.forName("com.anf.workspace.GeneratedMkrPlaybackFixture");Object fixture=null;
     try{
       ready(instrumentation,activity);
@@ -193,9 +197,43 @@ public class MkrCombinedReviewTest {
       assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
       assertTrue("The native clock must advance after page detachment",(Long)type.getMethod("position").invoke(fixture)>beforeDetach);
       assertTrue("Detached playback must retain foreground ownership",foregroundService(context));
-      android.os.Bundle report=new android.os.Bundle();report.putString("anf-generated-combined-playback","decoded-and-detached");instrumentation.addResults(report);
+      // Reopen the real workspace with the SAME native owner. Its default cold
+      // factory cannot claim an already-owned service; replace only that test
+      // catalog lease, keeping actual Activity callbacks and page IPC.
+      Activity reopened=instrumentation.startActivitySync(new Intent().setClassName(context,"com.anf.workspace.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+      current.set(reopened);
+      RendererRecoveryTest.until(instrumentation,()->{
+        WebView web=RendererRecoveryTest.web(reopened.getWindow().getDecorView());
+        return web!=null&&web.getProgress()==100&&web.getUrl()!=null;
+      });
+      instrumentation.runOnMainSync(()->{
+        try{
+          ((EmbeddedMusicPage)field.get(reopened)).close();
+          WebView web=RendererRecoveryTest.web(reopened.getWindow().getDecorView());
+          EmbeddedMusicPage page=(EmbeddedMusicPage)type.getMethod("attach",WebView.class,String.class).invoke(generated,web,"https://"+android.net.Uri.parse(web.getUrl()).getHost()+"/");
+          field.set(reopened,page);page.onPageFinished(web.getUrl());
+        }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+      });
+      openVisibleMusic(instrumentation,reopened,true);
+      // Pause an existing playing tone if it has not ended yet. Then the new
+      // page must issue PLAY and obtain a fresh native audio handoff receipt.
+      if(jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Pause MKR Music\"]')")){
+        instrumentation.runOnMainSync(()->RendererRecoveryTest.web(reopened.getWindow().getDecorView()).evaluateJavascript("document.querySelector('[aria-label=\"Pause MKR Music\"]').click()",null));
+      }
+      deadline=android.os.SystemClock.elapsedRealtime()+10000;
+      while(!jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Play MKR Music\"]:not(:disabled)')")&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(30);
+      assertTrue("Reopened page must retain the real native track and controls",jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Play MKR Music\"]:not(:disabled)')"));
+      instrumentation.runOnMainSync(()->RendererRecoveryTest.web(reopened.getWindow().getDecorView()).evaluateJavascript("document.querySelector('[aria-label=\"Play MKR Music\"]').click()",null));
+      deadline=android.os.SystemClock.elapsedRealtime()+12000;advanced=false;
+      while(android.os.SystemClock.elapsedRealtime()<deadline){if((Boolean)type.getMethod("advancing").invoke(fixture)){advanced=true;break;}Thread.sleep(30);}
+      assertTrue("New real page must resume decoded playback",advanced);
+      assertEquals("Recreation must reuse the original native owner",1,((java.util.concurrent.atomic.AtomicInteger)type.getField("created").get(fixture)).get());
+      assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
+      assertTrue("New page playback must acquire a fresh handoff",((java.util.concurrent.atomic.AtomicInteger)type.getField("handoffs").get(fixture)).get()>=2);
+      assertTrue(foregroundService(context));
+      android.os.Bundle report=new android.os.Bundle();report.putString("anf-generated-combined-playback","decoded-detached-recreated");instrumentation.addResults(report);
     }finally{
-      instrumentation.runOnMainSync(activity::finish);context.stopService(new Intent().setClassName(context,SERVICE));
+      instrumentation.runOnMainSync(()->current.get().finish());context.stopService(new Intent().setClassName(context,SERVICE));
       RendererRecoveryTest.until(instrumentation,()->!service(context));
     }
     final Object completed=fixture;
