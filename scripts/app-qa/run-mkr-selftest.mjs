@@ -6,10 +6,11 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const evidence=path.join(path.dirname(root),'anf-pr47-evidence');
-assert(process.argv.slice(2).every(arg=>['--require-receipt','--speech-only','--studio-only'].includes(arg)),'Unknown native QA runner option');
+assert(process.argv.slice(2).every(arg=>['--require-receipt','--speech-only','--studio-only','--studio-cancel-only'].includes(arg)),'Unknown native QA runner option');
 const speechOnly=process.argv.includes('--speech-only');
 const studioOnly=process.argv.includes('--studio-only');
-assert(!(speechOnly&&studioOnly),'Choose one native QA scope');
+const studioCancelOnly=process.argv.includes('--studio-cancel-only');
+assert([speechOnly,studioOnly,studioCancelOnly].filter(Boolean).length<=1,'Choose one native QA scope');
 const helper=spawn(process.execPath,[path.join(root,'scripts/app-qa/mkr-workspace-manual.mjs'),...process.argv.slice(2).filter(arg=>arg==='--require-receipt')],{cwd:root,windowsHide:true,stdio:['pipe','pipe','pipe']});
 let descriptor,buffer='',stderr='';
 helper.stdout.on('data',data=>{
@@ -40,7 +41,8 @@ try{
  assert.equal(result.passed,true,result.failure||'Native self-test failed');
  if(speechOnly)assert.equal(result.scope,'native-speech-handoff');
  if(studioOnly)assert.equal(result.scope,'native-studio-handoff');
- assert(result.checks.length>=(studioOnly?2:speechOnly?4:6),'Missing required native checks');
+ if(studioCancelOnly)assert.equal(result.scope,'native-studio-cancel');
+ assert(result.checks.length>=((studioOnly||studioCancelOnly)?2:speechOnly?4:6),'Missing required native checks');
  for(const check of result.checks)console.log('PASS: '+check);
  console.log(studioOnly?'PASS: actual active Audio Studio/native handoff; embedded Spotube and provider acceptance remain separate.':speechOnly?'PASS: real desktop local speech/native audio handoff; provider, Android and release QA remain separate.':'PASS: disposable real Tauri/WinRT acceptance with generated catalog/media. Provider streaming, Android and release QA remain separate.');
 }finally{
