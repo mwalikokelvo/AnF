@@ -5,6 +5,7 @@ import {createReadStream,constants} from 'node:fs';
 import {readFile,writeFile,mkdir,copyFile,lstat,readdir} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import path from 'node:path';
+import {checkJdkSourceBinding} from './jdk-source-binding.mjs';
 import {fileURLToPath} from 'node:url';
 
 const base=fileURLToPath(new URL('./',import.meta.url));
@@ -30,7 +31,9 @@ const jdk=path.resolve(report.jdkHome);
 const release=await readFile(path.join(jdk,'release'),'utf8');
 if(!/^JAVA_VERSION="21\./m.test(release)||!/^OS_NAME="Windows"/m.test(release)||!/^OS_ARCH="x86_64"/m.test(release))throw Error('Expected the audited Windows x64 JDK21 toolchain.');
 const jlink=path.join(jdk,'bin/jlink.exe');
-const provenance={jdkReleaseSha256:await hash(path.join(jdk,'release')),jlinkSha256:await hash(jlink),javaSha256:await hash(path.join(jdk,'bin/java.exe'))};
+const sourceRecord=JSON.parse(await readFile(path.join(base,'native-source-evidence.json'),'utf8')).jdkSource;
+const sourceBinding=checkJdkSourceBinding(await readFile(path.join(jdk,'release')),await hash(path.join(jdk,'lib/src.zip')),sourceRecord);
+const provenance={jdkReleaseSha256:await hash(path.join(jdk,'release')),jlinkSha256:await hash(jlink),javaSha256:await hash(path.join(jdk,'bin/java.exe')),...sourceBinding};
 // Complete preflight before creating any candidate directory or invoking tools.
 await verifyInput(report.engine);
 for(const [index,dependency] of report.dependencies.entries()){

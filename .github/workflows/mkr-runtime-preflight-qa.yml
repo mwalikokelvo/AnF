@@ -1,0 +1,40 @@
+name: MKR runtime preflight guards
+on:
+  push:
+    branches: ['qa/mkr-preflight-**']
+    paths:
+      - integrations/mkr-music/jdk-source-binding.mjs
+      - integrations/mkr-music/prepare-runtime-candidate.mjs
+      - integrations/mkr-music/native-source-evidence.json
+      - scripts/check-mkr-jdk-source-binding.mjs
+      - scripts/check-release.mjs
+      - .github/workflows/mkr-runtime-preflight-qa.yml
+      - .github/workflows/mkr-runtime-source-inventory.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-preflight-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Install locked tooling for workflow validation only
+        working-directory: windows
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test candidate preflight and workflow guards without preparing a runtime
+        run: |
+          set -euo pipefail
+          node scripts/check-mkr-jdk-source-binding.mjs
+          node --check integrations/mkr-music/prepare-runtime-candidate.mjs
+          node --check scripts/check-release.mjs
+          node scripts/check-branding.mjs
+          node scripts/check-workflows.mjs

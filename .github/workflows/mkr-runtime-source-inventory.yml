@@ -41,6 +41,7 @@ jobs:
         run: gradle --no-daemon --max-workers=2 verifyKtorAlignment auditWindowsRuntime
       - name: Check bounded source collection and metadata guards
         run: |
+          node scripts/check-mkr-jdk-source-binding.mjs
           python -B scripts/check-mkr-source-artifacts.py
           python -B scripts/check-mkr-dependency-review.py
       - name: Collect corresponding source evidence only

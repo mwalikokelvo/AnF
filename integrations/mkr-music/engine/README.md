@@ -145,3 +145,10 @@ These are inventory reports, not a source-complete runtime distribution. QuickJS
 native binary correspondence, exact bundled JDK correspondence and complete
 notices/distribution review still require acceptance. No executable, music
 provider query or production app package was uploaded by the inventory workflow.
+
+Candidate preparation now refuses JDK metadata and API-source hashes that differ
+from the exact JDK source record in `../native-source-evidence.json`. This check
+runs before candidate files are created or jlink executes. It records the pinned
+complete-source archive separately from tool hashes. Matching metadata and Java
+API sources do not prove JVM binary correspondence, publisher trust, complete
+notices, reproducibility or publication readiness; those flags remain false.
