@@ -1,0 +1,46 @@
+name: MKR exact Windows JDK provenance
+on:
+  push:
+    branches: ['qa/mkr-jdk-provenance-**']
+    paths:
+      - integrations/mkr-music/audit-windows-jdk.py
+      - integrations/mkr-music/windows-jdk-input.json
+      - integrations/mkr-music/native-source-evidence.json
+      - scripts/check-mkr-windows-jdk.py
+      - .github/workflows/mkr-jdk-provenance-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-jdk-provenance-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  inspect-archive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Install locked workflow validation tools
+        working-directory: windows
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate workflow boundaries and branding
+        run: |
+          node scripts/check-workflows.mjs
+          node scripts/check-branding.mjs
+      - name: Test bounded archive guards without downloading software
+        run: python -B scripts/check-mkr-windows-jdk.py
+      - name: Inspect exact Windows archive as data without extraction or execution
+        run: python -B integrations/mkr-music/audit-windows-jdk.py --output "${{ runner.temp }}/anf-jdk-provenance"
+      - name: Retain reports and legal texts only, never the JDK archive or binaries
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: AnF-Windows-JDK-provenance-evidence
+          path: ${{ runner.temp }}/anf-jdk-provenance/reports/
+          if-no-files-found: ignore
+          retention-days: 14
