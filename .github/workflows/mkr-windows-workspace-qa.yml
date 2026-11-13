@@ -1,0 +1,113 @@
+name: MKR Windows actual workspace engineering QA
+on:
+  push:
+    branches: ['qa/mkr-workspace-**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mkr-workspace-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  workspace:
+    runs-on: windows-2025
+    timeout-minutes: 80
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 0
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Install locked frontend tools without lifecycle scripts
+        working-directory: windows
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate engineering guards and workflow behavior
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B scripts/check-mkr-qa-lock.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B scripts/check-mkr-workspace-receipt.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/check-workflows.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/check-branding.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare exact source-bound JDK in this temporary job only
+        run: python -B integrations/mkr-music/prepare-hosted-windows-jdk.py --output "$env:RUNNER_TEMP/anf-candidate-jdk"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+        with:
+          gradle-version: 9.4.1
+      - name: Prepare the pinned allowlisted upstream catalog
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git init "$env:RUNNER_TEMP/mkr-upstream"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C "$env:RUNNER_TEMP/mkr-upstream" remote add origin https://github.com/mkr-infinity/mkr-music.git
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C "$env:RUNNER_TEMP/mkr-upstream" fetch --depth=1 origin 78ac80c5101c293a5591a4cd5a1ebc90ccbc3138
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node integrations/mkr-music/prepare-catalog.mjs --source "$env:RUNNER_TEMP/mkr-upstream"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build the locked engine for a fresh full-app test runtime
+        working-directory: integrations/mkr-music/engine
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gradle --no-daemon --max-workers=2 "-Dorg.gradle.java.home=$env:JAVA_HOME" "-Dorg.gradle.java.installations.paths=$env:JAVA_HOME" "-Dorg.gradle.java.installations.auto-detect=false" "-Dorg.gradle.java.installations.auto-download=false" verifyKtorAlignment test auditWindowsRuntime
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the verified engineering image
+        run: node integrations/mkr-music/prepare-runtime-candidate.mjs
+      - name: Generate only a synthetic AAC fixture using the pinned media tool
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./windows/scripts/prepare-media.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $audio = Join-Path (Split-Path $env:GITHUB_WORKSPACE) 'anf-pr47-evidence/mkr-native-audio'
+          New-Item -ItemType Directory -Path $audio -Force | Out-Null
+          & "$env:GITHUB_WORKSPACE/windows/media/ffmpeg.exe" -nostdin -hide_banner -loglevel error -f lavfi -i 'sine=frequency=220:sample_rate=44100' -t 12 -c:a aac -b:a 32k -movflags +faststart "$audio/fixture.m4a"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build current frontend and hook without downloading user AI assets
+        working-directory: windows
+        run: npm run build
+      - name: Create the isolated engineering snapshot and source receipt
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B scripts/app-qa/prepare-mkr-native-qa.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B scripts/app-qa/prepare-mkr-selftest.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B scripts/app-qa/mkr-workspace-receipt.py seal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile the actual Tauri host with the locked dependency graph
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path (Split-Path $env:GITHUB_WORKSPACE) 'anf-pr47-evidence'
+          $qa = (Get-Content -LiteralPath "$evidence/latest-mkr-workspace-qa.json" -Raw | ConvertFrom-Json).directory
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'windows/target'
+          cargo build --locked -j 2 --manifest-path "$qa/source/windows/Cargo.toml" -p anf-mkr-qa --features embedded-mkr,embedded-music
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B scripts/app-qa/mkr-workspace-receipt.py built
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run actual in-app native generated-media and reciprocal handoff checks
+        run: node scripts/app-qa/run-mkr-selftest.mjs
+      - name: Retain engineering reports only, never runtime or installable binaries
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: AnF-Windows-actual-workspace-evidence
+          path: |
+            ../anf-pr47-evidence/mkr-in-app-selftest-latest.json
+            ../anf-pr47-evidence/mkr-workspace-qa-*/source-receipt.json
+            ../anf-pr47-evidence/mkr-workspace-qa-*/built-receipt.json
+            ../anf-pr47-evidence/mkr-workspace-qa-*/manual-*.json
+            ../anf-pr47-evidence/mkr-workspace-qa-*/manual-*.log
+            ../anf-pr47-evidence/mkr-workspace-qa-*/profile/*/AnF/mkr-native-selftest-result.json
+          if-no-files-found: ignore
+          retention-days: 14

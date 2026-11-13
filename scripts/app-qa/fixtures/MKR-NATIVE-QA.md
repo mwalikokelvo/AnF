@@ -65,6 +65,24 @@ not a full acceptance pass. No policy denial was established or bypassed.
 Production availability, actual service playback, Android and installable release
 acceptance remain separate requirements.
 
+For current-source hosted acceptance, `mkr-windows-workspace-qa.yml` creates a
+fresh runner-only runtime, builds the current frontend and hook, and runs these
+same six groups through the actual Tauri host. It generates its AAC with the
+existing pinned media tool; it never copies user recordings or models. Hosted
+fixture compilation requires the exact job-owned JDK and verifies its compiler,
+JAR tool, release and API-source hashes against the audited vendor inventory.
+
+The hosted build seals tracked production inputs and the disposable snapshot
+before compilation, requires no pre-existing QA executable, then checks source
+drift and records the built executable hash. The launcher checks the copied
+executable against that receipt, which is included with the final result.
+Tauri's generated JSON schemas are excluded from the snapshot source comparison.
+`python -B scripts/check-mkr-workspace-receipt.py` tests the receipt guards without
+launching anything. These receipts record the executed engineering build;
+they do not assert reproducible compilation or extend historical results to
+today's source. Only JSON/log reports are uploaded; no app, runtime, toolchain,
+recordings, keys or installable packages are uploaded by this workflow.
+
 Latest complete result (2026-10-30): all six native groups pass through the
 app-owned runner, including reciprocal local WAV handoff. It caught and fixed
 the native Pause acknowledgement race. Earlier incomplete fixture handshakes and

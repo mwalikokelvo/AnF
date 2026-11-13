@@ -12,6 +12,7 @@ import subprocess
 import uuid
 import re
 import tomllib
+import os
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT.parent / 'anf-pr47-evidence'
@@ -60,6 +61,22 @@ def run(args, cwd):
         raise RuntimeError('Engineering fixture tool failed: ' + result.stderr.decode('utf-8', 'replace')[:3000])
 
 def main():
+    jdk = JDK
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        # The hosted preparation step already audits/extracts the pinned archive.
+        # Refuse another installed JDK or a tool outside that temporary input.
+        hosted = Path(os.environ['RUNNER_TEMP'])/'anf-candidate-jdk'
+        jdk = Path(os.environ['JAVA_HOME']).resolve()
+        if not jdk.is_relative_to((hosted/'toolchain').resolve()):
+            raise ValueError('Hosted QA requires the job-owned pinned JDK')
+        proof = json.loads((hosted/'jdk-input-proof.json').read_text(encoding='utf-8'))
+        pin = json.loads((ROOT/'integrations/mkr-music/windows-jdk-input.json').read_text(encoding='utf-8'))
+        if proof['archiveSha256'] != pin['archiveSha256'] or proof.get('toolchainExtractedForHostedJob') is not True:
+            raise ValueError('Hosted JDK input proof does not match the pinned archive')
+        inventory = {item['path']:item['sha256'] for item in proof['files']}
+        for rel in ('release', 'lib/src.zip', 'bin/javac.exe', 'bin/jar.exe'):
+            if digest(jdk/rel) != inventory[rel]:
+                raise ValueError('Hosted fixture JDK input changed')
     # Check the lock before creating a partial snapshot or copying its runtime.
     qa_lock = rename_qa_lock((ROOT/'windows/Cargo.toml').read_text(encoding='utf-8'),
                             (ROOT/'windows/Cargo.lock').read_text(encoding='utf-8'))
@@ -118,9 +135,9 @@ def main():
     classes = out/'fixture-classes'
     classes.mkdir()
     fixture = ROOT/'scripts/app-qa/fixtures/WindowsCatalogSidecarKt.java'
-    run([JDK/'bin/javac.exe','--release','21','-d',classes,fixture],out)
+    run([jdk/'bin/javac.exe','--release','21','-d',classes,fixture],out)
     (runtime/'lib').mkdir(parents=True)
-    run([JDK/'bin/jar.exe','--create','--file',runtime/'lib/fixture.jar','-C',classes,'.','-C',audio.parent,audio.name],out)
+    run([jdk/'bin/jar.exe','--create','--file',runtime/'lib/fixture.jar','-C',classes,'.','-C',audio.parent,audio.name],out)
     files = {p.relative_to(runtime).as_posix():digest(p) for p in sorted(runtime.rglob('*')) if p.is_file()}
     inventory = {'schema':1,'java':'runtime/bin/java.exe','classpath':['lib/fixture.jar'],'files':files}
     (app/'mkr-engineering-manifest.json').write_text(json.dumps(inventory,sort_keys=True),encoding='utf-8')
