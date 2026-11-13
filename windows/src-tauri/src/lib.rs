@@ -26,10 +26,12 @@ mod koreader_sync;
 mod subsonic;
 mod workspace_commands;
 use workspace_commands::*;
+use kevo_system::*;
 mod files;
 mod hooks;
 mod integrations;
 mod island;
+mod kevo_system;
 mod log;
 mod pipe;
 mod platform;
@@ -525,6 +527,10 @@ pub fn run() {
             local_link::link_stop,
             local_link::link_address,
             local_link::link_status,
+            kevo_system::shell_exec,
+            kevo_system::app_control,
+            kevo_system::system_stats,
+            kevo_system::diagnostics,
             workspace_load_project,
             workspace_list_projects,
             workspace_preview_action,
