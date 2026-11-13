@@ -94,6 +94,13 @@ service ownership, and require a fresh handoff from the new page. This is native
 instrumentation proof with a test catalog; existing screenshots show the cold UI,
 not a playing dock. Real-provider access and release acceptance remain separate.
 
+Run43372178297 at `60c9e56` adds actual playing-dock visual acceptance in both
+Android review identities. Three compositor-fenced screenshots per identity show
+cold, recovered and playing views. Native system-bar bounds, visible playing
+controls, seek/button hit tests and clearance above both navigation rows pass.
+All six images were inspected. Generated playback and recreated-page handoff
+proof remain scoped to the native test catalog; provider and release holds remain.
+
 The experimental prepared connection now implements that page contract. Native
 selection validation and a fresh positive other-audio acknowledgement precede
 foreground promotion; resolving media and constructing a decoder follow the
