@@ -3,6 +3,8 @@ on:
   push:
     branches: ['qa/mkr-jdk-provenance-**']
     paths:
+      - integrations/mkr-music/audit-jdk-jmods.py
+      - scripts/check-mkr-jdk-jmods.py
       - integrations/mkr-music/audit-windows-jdk.py
       - integrations/mkr-music/windows-jdk-input.json
       - integrations/mkr-music/native-source-evidence.json
@@ -33,9 +35,13 @@ jobs:
           node scripts/check-workflows.mjs
           node scripts/check-branding.mjs
       - name: Test bounded archive guards without downloading software
-        run: python -B scripts/check-mkr-windows-jdk.py
+        run: |
+          python -B scripts/check-mkr-windows-jdk.py
+          python -B scripts/check-mkr-jdk-jmods.py
       - name: Inspect exact Windows archive as data without extraction or execution
         run: python -B integrations/mkr-music/audit-windows-jdk.py --output "${{ runner.temp }}/anf-jdk-provenance"
+      - name: Inspect native payloads inside the verified JMOD containers as data
+        run: python -B integrations/mkr-music/audit-jdk-jmods.py --archive "${{ runner.temp }}/anf-jdk-provenance/vendor-jdk.zip" --report "${{ runner.temp }}/anf-jdk-provenance/reports/jmod-native-inputs.json"
       - name: Retain reports and legal texts only, never the JDK archive or binaries
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
