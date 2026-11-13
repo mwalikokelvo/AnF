@@ -160,3 +160,12 @@ is actually present; missing Spotube is not replaced with a fake capability or
 counted as a tested player. This scope does not repeat accepted speech/local
 library tests or test conversions, denoising, delayed-start cancellation or
 real provider streaming.
+
+The `--studio-cancel-only` scope holds only a completed native Pause result in
+the disposable Rust adapter, for at most 10 seconds. The real decoder is already
+paused; no status, success value or media operation is substituted. It presses
+Studio's enabled Cancel control before releasing that result, requires zero
+Studio `audio.play` attempts from the cancelled start, then requires a fresh
+user start to advance real audio and pause normally. The gate and its commands
+never enter production source. This catches playback that resumes after a
+cancelled asynchronous audio handoff.
