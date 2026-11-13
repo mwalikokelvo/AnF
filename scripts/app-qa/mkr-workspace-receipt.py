@@ -65,11 +65,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('stage', choices=['seal', 'built'])
     parser.add_argument('--local-desktop', action='store_true')
+    parser.add_argument('--replace-qa-binary', action='store_true')
     args = parser.parse_args()
+    if args.replace_qa_binary and (not args.local_desktop or args.stage != 'seal'):
+        raise ValueError('Replacing a QA target requires explicit local seal mode')
     qa, descriptor, binary = context(args.local_desktop)
     receipt_file = qa/'source-receipt.json'
     if args.stage == 'seal':
-        if binary.exists():
+        if binary.exists() and not args.replace_qa_binary:
             raise ValueError('Fresh build required; an existing QA binary cannot be certified')
         if git('status', '--porcelain', '--untracked-files=no'):
             raise ValueError('Production source changed while preparing the snapshot')
@@ -78,6 +81,8 @@ def main():
                    'headSha':git('rev-parse', 'HEAD'),
                    'productionInputs':production_inputs(),
                    'snapshotInputs':snapshot_inputs(qa/'source')}
+        if binary.exists():
+            receipt['previousBinarySha256'] = sha(binary)
         with receipt_file.open('x', encoding='utf-8') as output:
             output.write(json.dumps(receipt, indent=2)+'\n')
     else:
@@ -86,9 +91,12 @@ def main():
             raise ValueError('Production source drift after build seal')
         if receipt['snapshotInputs'] != snapshot_inputs(qa/'source'):
             raise ValueError('Engineering source drift after build seal')
+        binary_sha = sha(binary)
+        if binary_sha == receipt.get('previousBinarySha256'):
+            raise ValueError('Old QA executable was not replaced by the new build')
         built = {'schema':1, 'engineeringOnly':True, 'readyForPublication':False,
                  'providerBacked':False, 'headSha':receipt['headSha'],
-                 'sourceReceiptSha256':sha(receipt_file), 'binarySha256':sha(binary)}
+                 'sourceReceiptSha256':sha(receipt_file), 'binarySha256':binary_sha}
         with (qa/'built-receipt.json').open('x', encoding='utf-8') as output:
             output.write(json.dumps(built, indent=2)+'\n')
     print('PASS: engineering '+args.stage+' receipt; no release or provider approval')

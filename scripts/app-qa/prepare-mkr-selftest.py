@@ -1,6 +1,10 @@
 """Add a native page-load self-test ONLY to an existing disposable QA snapshot."""
 from pathlib import Path
 import json
+import argparse
+parser=argparse.ArgumentParser()
+parser.add_argument('--speech-only',action='store_true')
+args=parser.parse_args()
 ROOT=Path(__file__).resolve().parents[2]
 EVIDENCE=ROOT.parent/'anf-pr47-evidence'
 qa=Path(json.loads((EVIDENCE/'latest-mkr-workspace-qa.json').read_text(encoding='utf-8'))['directory'])
@@ -19,7 +23,8 @@ text=text.replace(original, original+'''
                         let _=window.eval(include_str!("../mkr-native-selftest.js"));
                     }
                 })''',1)
-for source,dest in [('mkr_qa_native.rs',app/'src/qa_native.rs'),('mkr-native-selftest.js',app/'mkr-native-selftest.js')]:
+script='mkr-native-speech-selftest.js' if args.speech_only else 'mkr-native-selftest.js'
+for source,dest in [('mkr_qa_native.rs',app/'src/qa_native.rs'),(script,app/'mkr-native-selftest.js')]:
     dest.write_text((ROOT/'scripts/app-qa/fixtures'/source).read_text(encoding='utf-8'),encoding='utf-8')
 p.write_text(text,encoding='utf-8')
 backend=app/'src/mkr_native.rs'

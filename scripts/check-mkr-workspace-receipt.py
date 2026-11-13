@@ -66,6 +66,33 @@ class ReceiptTests(unittest.TestCase):
                     receipt.main()
             self.assertFalse((qa/'source-receipt.json').exists())
 
+    def test_explicit_local_rebuild_refuses_the_old_binary_at_completion(self):
+        with tempfile.TemporaryDirectory() as temp:
+            qa = Path(temp)
+            (qa/'source').mkdir()
+            (qa/'source/fixture.rs').write_text('new test scope')
+            binary = qa/'old.exe'
+            binary.write_bytes(b'old QA payload')
+            with patch.object(receipt,'context',return_value=(qa,{},binary)), \
+                 patch.object(receipt,'production_inputs',return_value={'fixture':'a'*64}), \
+                 patch.object(receipt,'git',side_effect=lambda *args:'' if args[0]=='status' else 'b'*40):
+                with patch('sys.argv',['receipt','seal','--local-desktop','--replace-qa-binary']):
+                    receipt.main()
+                with patch('sys.argv',['receipt','built','--local-desktop']):
+                    with self.assertRaises(ValueError):
+                        receipt.main()
+                    self.assertFalse((qa/'built-receipt.json').exists())
+                    binary.write_bytes(b'new QA scope payload')
+                    receipt.main()
+                built=json.loads((qa/'built-receipt.json').read_text())
+                self.assertEqual(built['binarySha256'],receipt.sha(binary))
+
+    def test_replacement_option_requires_explicit_local_seal(self):
+        for args in (['receipt','seal','--replace-qa-binary'],
+                     ['receipt','built','--local-desktop','--replace-qa-binary']):
+            with patch('sys.argv',args), self.assertRaises(ValueError):
+                receipt.main()
+
     def test_non_hosted_context_refused(self):
         with patch.dict(os.environ,{'GITHUB_ACTIONS':'false'}):
             with self.assertRaises(ValueError):

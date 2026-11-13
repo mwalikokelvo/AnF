@@ -129,3 +129,19 @@ the tools use bounded heaps. Apply the self-test hook as above, then use
 receipt even outside a hosted job. Both paths retain the same isolation and
 six-group assertions. Neither these inputs nor a successful component test
 enable the production player or certify a release.
+
+An additional local scope uses `prepare-mkr-selftest.py --speech-only` and
+`run-mkr-selftest.mjs --require-receipt --speech-only`. It requires an installed
+local WebView speech voice, genuine utterance start events and actual native
+playback. Generated text is muted through the real utterance volume setting;
+speech, voices, events and audio states are not substituted. It tests Writing
+and Reader handoff while the current view stays open, since changing views can
+itself stop speech and would conceal a failed handoff.
+
+For a justified new local scope using the existing Cargo dependency cache,
+`seal --local-desktop --replace-qa-binary` records the previous QA executable's
+SHA instead of requiring an empty target. Completion refuses that exact old
+binary; a changed, successfully built binary and unchanged sealed source are
+still mandatory. Replacement is restricted to explicit local seal mode and the
+fixed QA executable path. Archived uniquely named binaries and previous results
+are preserved. Hosted/default preparation still refuses an existing binary.
