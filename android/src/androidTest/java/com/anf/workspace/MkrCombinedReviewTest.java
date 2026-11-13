@@ -223,6 +223,12 @@ public class MkrCombinedReviewTest {
       deadline=android.os.SystemClock.elapsedRealtime()+10000;
       while(!jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Play MKR Music\"]:not(:disabled)')")&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(30);
       assertTrue("Reopened page must retain the real native track and controls",jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Play MKR Music\"]:not(:disabled)')"));
+      // Use the real seek control while paused so the generated four-second
+      // tone has a deterministic capture window after the new page resumes.
+      instrumentation.runOnMainSync(()->RendererRecoveryTest.web(reopened.getWindow().getDecorView()).evaluateJavascript("(()=>{const seek=document.querySelector('.mkr-dock input[type=range]');seek.value='0';seek.dispatchEvent(new Event('change',{bubbles:true}));})()",null));
+      deadline=android.os.SystemClock.elapsedRealtime()+10000;
+      while(!jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Play MKR Music\"]:not(:disabled)')")&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(30);
+      assertTrue(jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Play MKR Music\"]:not(:disabled)')"));
       instrumentation.runOnMainSync(()->RendererRecoveryTest.web(reopened.getWindow().getDecorView()).evaluateJavascript("document.querySelector('[aria-label=\"Play MKR Music\"]').click()",null));
       deadline=android.os.SystemClock.elapsedRealtime()+12000;advanced=false;
       while(android.os.SystemClock.elapsedRealtime()<deadline){if((Boolean)type.getMethod("advancing").invoke(fixture)){advanced=true;break;}Thread.sleep(30);}
@@ -231,6 +237,14 @@ public class MkrCombinedReviewTest {
       assertEquals(0,((java.util.concurrent.atomic.AtomicInteger)type.getField("closed").get(fixture)).get());
       assertTrue("New page playback must acquire a fresh handoff",((java.util.concurrent.atomic.AtomicInteger)type.getField("handoffs").get(fixture)).get()>=2);
       assertTrue(foregroundService(context));
+      deadline=android.os.SystemClock.elapsedRealtime()+10000;
+      while(!jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Pause MKR Music\"]:not(:disabled)')")&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(30);
+      assertTrue("Actual dock must display the playing state",jsBoolean(instrumentation,reopened,"!!document.querySelector('[aria-label=\"Pause MKR Music\"]:not(:disabled)')"));
+      assertTrue("Playing dock controls must be visible, hit-testable and above navigation",jsBoolean(instrumentation,reopened,
+        "(()=>{const dock=document.querySelector('.mkr-dock'),rail=document.querySelector('.mode-rail'),nav=document.querySelector('.bottom-nav');if(!dock||dock.hidden||!rail||!nav)return false;const d=dock.getBoundingClientRect(),top=Math.min(rail.getBoundingClientRect().top,nav.getBoundingClientRect().top),controls=[...dock.querySelectorAll('button,input')].filter(e=>e.getClientRects().length);return d.top>=0&&d.left>=0&&d.right<=innerWidth&&d.bottom<=top&&controls.length>=4&&controls.every(e=>{const r=e.getBoundingClientRect(),x=(r.left+r.right)/2,y=(r.top+r.bottom)/2,hit=document.elementFromPoint(x,y);return r.top>=0&&r.bottom<=top&&!!hit&&(hit===e||e.contains(hit));});})()"));
+      capture(instrumentation,reopened,"mkr-combined-playing.png");
+      navigationInsideSystemBars(instrumentation,reopened,"playing");
+      android.os.Bundle dockReport=new android.os.Bundle();dockReport.putString("anf-playing-dock-layout","visible-hit-tested");instrumentation.addResults(dockReport);
       android.os.Bundle report=new android.os.Bundle();report.putString("anf-generated-combined-playback","decoded-detached-recreated");instrumentation.addResults(report);
     }finally{
       instrumentation.runOnMainSync(()->current.get().finish());context.stopService(new Intent().setClassName(context,SERVICE));

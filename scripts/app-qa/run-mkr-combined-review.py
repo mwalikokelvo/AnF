@@ -57,13 +57,14 @@ try:
     assert len(speech_receipt)==1,'Native speech-stop receipt observation missing'
     assert re.findall(r'^INSTRUMENTATION_RESULT: anf-speech-policy-engine-double=(.*)$',result,re.M)==['success-denial-timeout']
     assert re.findall(r'^INSTRUMENTATION_RESULT: anf-generated-combined-playback=(.*)$',result,re.M)==['decoded-detached-recreated']
-    for name,image in extract_screenshots(result,('mkr-combined-cold.png','mkr-combined-reconnected.png')).items():
+    assert re.findall(r'^INSTRUMENTATION_RESULT: anf-playing-dock-layout=(.*)$',result,re.M)==['visible-hit-tested']
+    for name,image in extract_screenshots(result,('mkr-combined-cold.png','mkr-combined-reconnected.png','mkr-combined-playing.png')).items():
         (reports/name).write_bytes(image)
     (reports/'scope.json').write_text(json.dumps({'sourceCommit':os.environ.get('GITHUB_SHA'),'applicationId':identity,'androidApi':35,
         'actualAnFActivity':True,'combinedNativeRuntime':True,'coldChannelAndRendererRecovery':True,
         'nativeSpeechStopReceiptObserved':True,'nativeSpeechStopAccepted':speech_receipt[0]=='true',
         'requestedSpeechStopPolicyWithEngineDouble':True,'activeAudibleSpeechStopVerified':False,
-        'providerSearched':False,'nativeDecodedPlaybackVerified':True,'generatedMediaOnly':True,'pageDetachPlaybackVerified':True,'recreatedPagePlaybackVerified':True,'originalSignerVerified':False,
+        'providerSearched':False,'nativeDecodedPlaybackVerified':True,'generatedMediaOnly':True,'pageDetachPlaybackVerified':True,'recreatedPagePlaybackVerified':True,'playingDockLayoutVerified':True,'originalSignerVerified':False,
         'installedUpgradeVerified':False,'readyForPublication':False,'throwawaySigner':True},indent=2)+'\n')
     print('PASS actual AnF plus packaged native cold channel, in-app UI and renderer recovery; no provider or release claim')
 finally:
