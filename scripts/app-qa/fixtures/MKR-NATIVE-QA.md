@@ -22,6 +22,12 @@ The preparation writes the paths to `latest-mkr-workspace-qa.json`. Build its
 cargo build --offline --locked -j 1 -p anf-mkr-qa --features embedded-mkr,embedded-music
 ```
 
+The snapshot lock entry is renamed using the current workspace version, rather
+than a fixed historical release number. `python -B scripts/check-mkr-qa-lock.py`
+checks that only the app name changes and every locked dependency stays intact.
+Preparation refuses a missing, duplicate, registry-backed or mismatched app
+entry before copying files; do not regenerate the lock to hide such a failure.
+
 Set `CARGO_TARGET_DIR` to the recorded engineering target directory before this
 build, to reuse existing dependencies. The app name is distinct from AnF; never
 overwrite or publish a normal AnF package. The snapshot builds only an rlib plus

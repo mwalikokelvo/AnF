@@ -36,6 +36,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node scripts/check-branding.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B scripts/check-mkr-qa-lock.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Check archive guards and prepare only the pinned Microsoft JDK
         run: |
           $ErrorActionPreference = 'Stop'

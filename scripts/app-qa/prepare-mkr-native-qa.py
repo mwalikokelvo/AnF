@@ -11,10 +11,27 @@ import shutil
 import subprocess
 import uuid
 import re
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT.parent / 'anf-pr47-evidence'
 JDK = ROOT.parent / '2026-10-03/https-github-com-louis-cfm-coucou/work/android-tools/jdk/jdk-21.0.12.1+1'
+
+def rename_qa_lock(workspace_text, lock_text):
+    """Rename only the current workspace app; retain the locked dependency graph."""
+    version = tomllib.loads(workspace_text)['workspace']['package']['version']
+    packages = tomllib.loads(lock_text)['package']
+    matches = [p for p in packages if p['name'] == 'anf' and p['version'] == version]
+    if len(matches) != 1 or 'source' in matches[0]:
+        raise ValueError('Expected exactly one local AnF lock entry at the workspace version')
+    if any(p['name'] == 'anf-mkr-qa' for p in packages):
+        raise ValueError('Lock already contains the engineering app')
+    pattern = (r'(?m)^(\[\[package\]\]\r?\n)name = "anf"(\r?\nversion = "'
+               + re.escape(version) + r'"\r?$)')
+    renamed, count = re.subn(pattern, r'\1name = "anf-mkr-qa"\2', lock_text)
+    if count != 1:
+        raise ValueError('Unsupported app lock entry layout; dependency graph left unchanged')
+    return renamed
 
 def digest(path):
     with path.open('rb') as source:
@@ -43,6 +60,9 @@ def run(args, cwd):
         raise RuntimeError('Engineering fixture tool failed: ' + result.stderr.decode('utf-8', 'replace')[:3000])
 
 def main():
+    # Check the lock before creating a partial snapshot or copying its runtime.
+    qa_lock = rename_qa_lock((ROOT/'windows/Cargo.toml').read_text(encoding='utf-8'),
+                            (ROOT/'windows/Cargo.lock').read_text(encoding='utf-8'))
     pointer = json.loads((ROOT/'integrations/mkr-music/engine/build/reports/latest-runtime-candidate.json').read_text(encoding='utf-8'))
     candidate = Path(pointer['bundle'])
     approved = json.loads(Path(pointer['manifest']).read_text(encoding='utf-8'))
@@ -80,7 +100,7 @@ def main():
     text = text.replace('path = "../../integrations/mkr-music/windows-native"',f'path = "{path}"')
     manifest.write_text(text,encoding='utf-8')
     lock = source/'windows/Cargo.lock'
-    lock.write_text(lock.read_text(encoding='utf-8').replace('name = "anf"\nversion = "0.1.42"','name = "anf-mkr-qa"\nversion = "0.1.42"',1),encoding='utf-8')
+    lock.write_text(qa_lock,encoding='utf-8')
     main_rs = app/'src/main.rs'
     main_rs.write_text(main_rs.read_text(encoding='utf-8').replace('anf_lib::run()','anf_mkr_qa_lib::run()'),encoding='utf-8')
     config = json.loads((app/'tauri.conf.json').read_text(encoding='utf-8'))
