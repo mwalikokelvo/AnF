@@ -176,6 +176,8 @@ Microsoft JRE reports 17 resolved modules, and 74 linked-image legal texts are
 retained. Reports only are uploaded; no runtime or installer is distributed.
 This verifies a private engineering startup path, not provider playback, the
 full AnF desktop UI, signing, installed upgrades or publication. A diagnostic
-comparison finds that image executable/DLL hashes differ from the vendor SDK's
-bin files; jmod payload/transform provenance still needs explicit examination.
-No vendor-signature or binary/source reproducibility claim follows from startup.
+comparison found different image and SDK-bin hashes. Data-only run43454612833 at
+`de040cc` inventories all 70 pinned JMOD containers and 128 native entries: all
+70 image executable/DLL hashes match vendor JMOD payloads. This confirms the
+module payload inputs, not individual Authenticode signatures, source-build
+reproducibility, complete licensing or production publication clearance.
