@@ -57,9 +57,10 @@
    const transfer=new DataTransfer();transfer.items.add(new File([sample],'Generated speech QA.txt',{type:'text/plain'}));
    const files=document.querySelector('input[aria-label="Choose up to four documents"]');assert(files,'Document import missing');
    files.files=transfer.files;files.dispatchEvent(new Event('change',{bubbles:true}));
-   await wait(()=>byText('.document-shelf button','Open reader'),'Generated document was not imported');
+   await wait(()=>{const button=byText('.document-shelf button','Open reader');return button&&!button.disabled;},'Generated document import did not finish');
    byText('.document-shelf button','Open reader').click();
-   const reader=document.querySelector('.reader-overlay');assert(reader&&!reader.hidden,'Reader did not open');
+   await wait(()=>{const reader=document.querySelector('.reader-overlay');return reader&&!reader.hidden;},'Reader did not open');
+   const reader=document.querySelector('.reader-overlay');
    const before=starts;assert(await playing(),'Native playback ended before Reader handoff');byText('.reader-header button','Read aloud').click();
    await wait(()=>starts>before&&speechActive(),'Actual reader voice did not start');
    assert(!(await request('status')).playing,'Reader did not pause native music');
@@ -71,6 +72,7 @@
    report.actualSpeechStartEvents=starts;report.passed=true;
   }catch(error){report.passed=false;report.failure=String(error).replace(/https?:\/\/[^\s]+/g,'<redacted-uri>').slice(0,1500);}
   finally{
+   report.actualSpeechStartEvents=starts;
    try{synth?.cancel();if(synth&&originalSpeak)synth.speak=originalSpeak;}catch{}
    try{await request('pause');}catch{}
    await invoke('qa_native_result',{payload:report});
