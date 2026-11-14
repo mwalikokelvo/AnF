@@ -10,4 +10,4 @@ Key directives:
 5. **App Store Preservation**: Never restyle existing shipped views in `main`.
 
 ## Storage
-- **Clear superseded builds**: when a newer AnF build replaces an older one, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
+- **Clear superseded builds**: once a newer AnF build is installed and runs, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
