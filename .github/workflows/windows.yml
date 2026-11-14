@@ -126,8 +126,12 @@ jobs:
         run: |
           cargo build --release --locked -p coucou-hook
           if ($LASTEXITCODE) { throw 'Hook build failed' }
-          cargo test --locked -p coucou --lib -- --test-threads=1
-          if ($LASTEXITCODE) { throw 'Native tests failed' }
+          cargo test --locked -p coucou --lib -- --test-threads=1 2>&1 | Tee-Object -Variable testLog
+          if ($LASTEXITCODE) {
+            # Surface compiler errors and failing tests as annotations, so the cause is visible without the full log.
+            $testLog | Select-String -Pattern '^error(\[E\d+\])?:|^\s+-->|^test .* FAILED$|panicked at' | Select-Object -First 25 | ForEach-Object { Write-Host "::error::$($_.Line.Trim())" }
+            throw 'Native tests failed'
+          }
           cargo test --locked -p coucou --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
           if ($LASTEXITCODE) { throw 'Offline model switching test failed' }
           cargo test --locked -p coucou --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
