@@ -47,6 +47,7 @@ jobs:
           toolchain: 1.99.0
       - name: Prepare pinned native music module
         run: |
+          node scripts/check-spotube-storage-patches.mjs
           node scripts/check-spotube-build-tools.mjs
           node integrations/spotube/prepare.mjs
       - name: Build unsigned native music libraries
@@ -100,6 +101,7 @@ jobs:
           channel: stable
       - name: Prepare pinned embedded music
         run: |
+          node scripts/check-spotube-storage-patches.mjs
           node scripts/check-spotube-build-tools.mjs
           node integrations/spotube/prepare.mjs --windows
       - name: Build native child view

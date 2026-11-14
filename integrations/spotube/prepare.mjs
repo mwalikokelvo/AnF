@@ -6,6 +6,7 @@ import path from 'node:path';
 import {spawnTool} from './tool-process.mjs';
 import {configureAndroidModule} from './module-identity.mjs';
 import {embeddedEnvironment} from './embedded-environment.mjs';
+import {patchEmbeddedDatabase,patchEmbeddedLogger,patchWindowsStorageIdentity} from './storage-patches.mjs';
 // Preserve main's concise Actions annotation without losing the actual error.
 process.on('uncaughtException',(e)=>{
   const message=String(e&&e.stack||e).split('\n').slice(0,6).join('%0A').replace(/\r/g,'');
@@ -87,14 +88,17 @@ for(const [relative,changes] of [
 }
 // Isolate Spotube's database from every existing AnF data store.
 const dbFile=path.join(module,'lib/models/database/database.dart');
-let database=await readFile(dbFile,'utf8');database=database.replace("File(join(dbFolder.path, 'db.sqlite'))","File(join(dbFolder.path, 'anf-spotube.sqlite'))");await writeFile(dbFile,database);
+await writeFile(dbFile,patchEmbeddedDatabase(await readFile(dbFile,'utf8')));
+// A separate DB filename alone does not isolate the standalone app's logs.
+const loggerFile=path.join(module,'lib/services/logger/logger.dart');
+await writeFile(loggerFile,patchEmbeddedLogger(await readFile(loggerFile,'utf8')));
 if(desktop){
   await cp(path.join(source,'windows'),path.join(module,'windows'),{recursive:true});
   await cp(path.join(root,'integrations/spotube/windows_main.cpp'),path.join(module,'windows/runner/main.cpp'));
   const header=path.join(module,'windows/runner/flutter_window.h');
   let text=await readFile(header,'utf8');text=text.replace('  virtual ~FlutterWindow();','  virtual ~FlutterWindow();\n  flutter::FlutterEngine* AnfEngine(){return flutter_controller_->engine();}');await writeFile(header,text);
   const resource=path.join(module,'windows/runner/Runner.rc');
-  let metadata=await readFile(resource,'utf8');metadata=metadata.replace('VALUE "CompanyName", "oss.krtirtho"','VALUE "CompanyName", "AnF"').replace('VALUE "ProductName", "spotube"','VALUE "ProductName", "AnFMusic"');await writeFile(resource,metadata);
+  await writeFile(resource,patchWindowsStorageIdentity(await readFile(resource,'utf8')));
 }
 run(flutter,['pub','get','--enforce-lockfile',...(process.argv.includes('--offline')?['--offline']:[])],module);
 if(!desktop){
