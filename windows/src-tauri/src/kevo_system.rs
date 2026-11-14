@@ -232,7 +232,7 @@ fn app_control_start(target: &str) -> Result<AppControlResult, String> {
         let mut cmd = StdCommand::new(target);
         #[cfg(windows)]
         {
-            crate::platform::windows::no_console(&mut cmd);
+            crate::platform::no_console(&mut cmd);
         }
         let child = cmd.spawn().map_err(|e| format!("Failed to start '{target}': {e}"))?;
         return Ok(AppControlResult {
