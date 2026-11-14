@@ -21,4 +21,9 @@ assert.equal(pickVoice([v('Hortense','fr-FR')],{accent:'en-US'}),null);
 assert.deepEqual(splitForSpeech('One. Two!  Three?'),['One. Two! Three?']);
 assert.ok(splitForSpeech('A sentence that is long enough. '.repeat(20)).every(p=>p.length<=220));
 assert.ok(splitForSpeech('word '.repeat(120)).every(p=>p.length<=220),'one long unpunctuated sentence is split');
+// Every built-in recording exists under the name the pack lists and really is an MP3 (a WAV renamed .mp3 fails in some players).
+const fs=require('node:fs'),path=require('node:path');const dir=path.join(__dirname,'../voice-pack');
+const pack=fs.readFileSync(path.join(__dirname,'../src/workspace/jarvis/voice/jarvis-voice-pack.ts'),'utf8');
+const names=[...pack.matchAll(/filename: '([^']+)'/g)].map(m=>m[1]);assert.equal(names.length,13);
+for(const name of names){const head=fs.readFileSync(path.join(dir,name)).subarray(0,3);assert.ok(head.toString('latin1')==='ID3'||(head[0]===0xff&&(head[1]&0xe0)===0xe0),name+' is not an MP3');}
 console.log('Kevo voice checks passed.');

@@ -170,9 +170,16 @@ export class JarvisSpeaker {
   }
 
   /** Plays a voice's built-in recording in full. False when the file is not in this build. */
-  playSample(filename: string): Promise<boolean> {
+  async playSample(filename: string): Promise<boolean> {
     this.stop();
-    return this.playMp3Snippet(voicePackUrl(filename), 20000);
+    const token = ++this.utteranceToken;
+    // A recording is speech too: same start/end as a reply, so the microphone is muted while it plays.
+    this.duckAudio?.(true);
+    this.isSpeaking = true;
+    this.onStart?.();
+    const played = await this.playMp3Snippet(voicePackUrl(filename), 20000);
+    if (token === this.utteranceToken) this.finishSpeaking();
+    return played;
   }
 
   private playMp3Snippet(url: string, maxMs: number): Promise<boolean> {
