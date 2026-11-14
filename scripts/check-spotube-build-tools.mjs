@@ -34,6 +34,19 @@ try {
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), literals);
+  if (process.platform === 'win32') {
+    // Reproduce Flutter's actual SDK-root lookup through a PATH-resolved .bat.
+    const probe = 'anf-root-probe.cmd';
+    writeFileSync(path.join(fixture, probe), '@echo off\r\necho %~dp0\r\n');
+    const found = spawnTool(probe, [], {
+      cwd: path.dirname(fixture),
+      env: { ...process.env, PATH: fixture + path.delimiter + process.env.PATH },
+      encoding: 'utf8',
+    });
+    assert.ifError(found.error);
+    assert.equal(found.status, 0, found.stderr);
+    assert.equal(path.resolve(found.stdout.trim()), fixture, 'PATH tool must retain its own script directory');
+  }
 } finally {
   const parent = realpathSync.native(tmpdir());
   const resolved = realpathSync.native(fixture);
