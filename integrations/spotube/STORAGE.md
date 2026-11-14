@@ -53,3 +53,17 @@ additional boundary, not a replacement for OS-profile isolation.
 Disabling backward compatibility or changing a production secure-storage prefix
 requires a separately reviewed migration and installed-upgrade test; neither is
 part of the log patch. Full dependency/storage coverage is still pending.
+
+## Playback acceptance boundary
+
+Actual generated-media playback failed on the hosted Windows runner with the
+native error `Could not open/initialize audio device -> no sound.` This diagnoses
+an output initialization failure in that environment; it does not prove a codec
+failure or successful playback on another machine. Keep decoder/clock assertions
+strict. Do not replace the output with a null sink or install a driver and call
+that physical playback acceptance. A test environment with a working audio output
+is still needed for that scope. Lifecycle/status/window tests remain separate.
+
+Known output-device errors are presented through `playback-error.dart` as a
+sound-output recovery message. Other errors retain the generic bounded message;
+raw media URLs, credentials, paths and device names are never shown by it.

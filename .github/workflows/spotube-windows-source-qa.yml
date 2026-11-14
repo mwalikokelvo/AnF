@@ -47,6 +47,7 @@ jobs:
           node scripts/app-qa/spotube-playback-fixture.mjs
           if($LASTEXITCODE){throw 'Disposable fixture preparation failed'}
       - name: Compile child without publishing it
+        if: "!startsWith(github.ref, 'refs/heads/qa/spotube-source-error-')"
         working-directory: windows/spotube-native
         shell: pwsh
         run: |
@@ -62,7 +63,7 @@ jobs:
           Write-Output "COMPILE ONLY: SHA256=$hash Company=AnF Product=AnFMusic"
           Write-Output 'Compilation receipt only. No playback acceptance, installer, signing or publication.'
       - name: Exercise actual child on disposable hosted Windows profile
-        if: "!startsWith(github.ref, 'refs/heads/qa/spotube-workspace-')"
+        if: "!startsWith(github.ref, 'refs/heads/qa/spotube-workspace-') && !startsWith(github.ref, 'refs/heads/qa/spotube-source-error-')"
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
@@ -81,6 +82,13 @@ jobs:
             }
           }
           Write-Output 'Native child lifecycle scope only; no streaming or AnF player handoff acceptance.'
+      - name: Validate bounded output-device recovery messages
+        if: startsWith(github.ref, 'refs/heads/qa/spotube-source-error-')
+        working-directory: windows/spotube-native
+        shell: pwsh
+        run: |
+          flutter test --reporter expanded test/playback_error_test.dart
+          if($LASTEXITCODE){throw 'Actual Dart output error regression failed'}
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
         if: startsWith(github.ref, 'refs/heads/qa/spotube-workspace-')
         with:
