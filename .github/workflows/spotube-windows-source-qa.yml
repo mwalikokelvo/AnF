@@ -1,0 +1,51 @@
+name: Spotube Windows source compilation QA
+on:
+  push:
+    branches: ['qa/spotube-source-**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spotube-source-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: windows-2022
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.35.2
+          channel: stable
+      - name: Validate source recipes and prepare exact pinned child
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          node scripts/check-spotube-storage-patches.mjs
+          if($LASTEXITCODE){throw 'Storage recipe regression'}
+          node scripts/check-spotube-build-tools.mjs
+          if($LASTEXITCODE){throw 'Build tool regression'}
+          node integrations/spotube/prepare.mjs --windows
+          if($LASTEXITCODE){throw 'Pinned source preparation failed'}
+      - name: Compile child without running or publishing it
+        working-directory: windows/spotube-native
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          flutter build windows --release
+          if($LASTEXITCODE){throw 'Native child compilation failed'}
+          $exe=Get-Item -LiteralPath build/windows/x64/runner/Release/spotube.exe
+          $info=$exe.VersionInfo
+          if($info.CompanyName -ne 'AnF' -or $info.ProductName -ne 'AnFMusic'){
+            throw 'Compiled native storage identity differs from recipe'
+          }
+          $hash=(Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash
+          Write-Output "COMPILE ONLY: SHA256=$hash Company=AnF Product=AnFMusic"
+          Write-Output 'No player execution, playback acceptance, installer, signing or publication.'
+    # No secrets, release jobs or binary uploads. Hosted VM is disposed by Actions.
