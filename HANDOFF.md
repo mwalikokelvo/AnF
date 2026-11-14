@@ -595,6 +595,15 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Actual Windows Node/OS regression passes literal/space/metacharacter arguments, rejected arguments and PATH-derived script directory (canonical paths support 8.3 aliases). Test uses disposable synthetic scripts only: no Flutter download/run, Gradle/AAR build, native playback, device changes or production signer/upgrade claim. Scoped Windows+Ubuntu CI covers the helper and syntax without installing dependencies.
 - Evidence: external main-spotube-tool-before-20261114.json (legacy batch did not start), main-spotube-tool-after-20261114.txt (fixed functional test). Existing output-device failure and full release/licensing/signing/migration holds remain. Source change helps module builds; it does not make embedded Spotube/MKR runtime reconciliation complete.
 
+## 2026-11-14: Kevo 0.1.52, fixes from the owner's recording of the installed 0.1.51 (Claude)
+The recording (installed app, real microphone) showed Kevo answering itself in a loop and "open Brave browser" doing nothing.
+- **Echo loop**: the recogniser hands over what it heard a moment after Kevo stops talking, so ignoring results while muted was not enough. The recognition session is now dropped (`abort`) while Kevo thinks, speaks or plays the wake chime, and a fresh one starts afterwards. One command at a time. A transcript that is part of Kevo's last reply is also ignored (`isEchoOf`).
+- **Poisoned memory**: saved history containing the same Kevo answer twice (from the loop) is dropped on load; history sent to the model is 8 turns, not 20; "New conversation" clears it.
+- **Opening apps**: new Tauri command `open_installed_app(name)` opens a Start Menu shortcut matched by whole words (shortest name wins; uninstallers never). It takes no path, command or arguments, unlike `app_control`, which stays unregistered. Voice: "open/launch/start <app>".
+- **Microphone button** shows what the owner chose and no longer flips when the recogniser restarts itself; turning it off also stops Kevo talking.
+- **Layout**: activity list fills its panel with one scrollbar; long replies scroll inside the stage; the duplicate "Kevo" heading is gone. More mishearings of "Kevo" accepted ("Caval" was in the recording).
+- Version 0.1.52. Checks: `npm test` 580, `cargo test -p coucou --lib` (Linux), `check-release.mjs`, `jarvis-layout.mjs`. `open_installed_app`'s Windows branch is compiled only by Windows CI and has not been run on a PC. The local model took about 40 s to answer in the recording; that is model speed and is not changed here.
+
 ## 2026-11-14 — Codex: embedded music bounds preserve workspace controls
 
 - Base main `68f36f1`, including merged build-tool PR129, Studio cancellation and music time toggle. Branch `integration/main-spotube-bounds-20261114`; original/integration branches and libraries preserved.

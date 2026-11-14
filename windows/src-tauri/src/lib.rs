@@ -531,6 +531,7 @@ pub fn run() {
             // arbitrary commands without a prompt. Re-add only behind an explicit per-command confirmation.
             kevo_system::system_stats,
             kevo_system::diagnostics,
+            kevo_system::open_installed_app,
             workspace_load_project,
             workspace_list_projects,
             workspace_preview_action,

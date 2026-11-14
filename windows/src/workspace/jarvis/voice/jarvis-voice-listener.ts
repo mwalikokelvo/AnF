@@ -38,12 +38,13 @@ export class JarvisVoiceListener {
   private awakeUntil = 0;
   private muted = false;
   private tapPending = false;
+  private reported = false;
   private onAwakeChange?: (awake: boolean) => void;
   private awakeTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(options?: VoiceListenerOptions) {
     // Recognisers often hear "Kevo" as one of these.
-    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo'];
+    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo'];
     this.requireWakeWord = options?.requireWakeWord ?? true;
     this.followUpMs = options?.followUpMs ?? 8000;
     this.onAwakeChange = options?.onAwakeChange;
@@ -77,8 +78,7 @@ export class JarvisVoiceListener {
         // The mic tap counts from when listening really begins (after any permission prompt), not on restarts.
         if (this.tapPending) { this.tapPending = false; this.keepAwake(); }
         this.isListening = true;
-        this.onListeningStateChange?.(true);
-        this.notifyStateListeners(true);
+        this.reportRunning(true);
       };
 
       this.recognition.onresult = (event: any) => {
@@ -107,23 +107,18 @@ export class JarvisVoiceListener {
       };
 
       this.recognition.onerror = (e: any) => {
-        if (e.error !== 'no-speech') {
+        // 'aborted' is Kevo resting the microphone on purpose while it talks.
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
           this.onError?.(`Speech recognition error: ${e.error}`);
         }
       };
 
       this.recognition.onend = () => {
         this.isListening = false;
-        this.onListeningStateChange?.(false);
-        this.notifyStateListeners(false);
-        // Automatically restart if user hasn't explicitly stopped it
-        if (this.isRunning) {
-          try {
-            setTimeout(() => {
-              if (this.isRunning) this.recognition?.start();
-            }, 300);
-          } catch {}
-        }
+        // The recogniser ends by itself every few seconds; restart it quietly unless the owner turned the
+        // microphone off or Kevo is talking (it is restarted when Kevo finishes).
+        if (this.isRunning && !this.muted) setTimeout(() => this.resume(), 300);
+        else if (!this.isRunning) this.reportRunning(false);
       };
 
       this.isRunning = true;
@@ -140,6 +135,7 @@ export class JarvisVoiceListener {
   stop(): void {
     this.isRunning = false;
     this.isListening = false;
+    this.muted = false; // a later start() is a fresh session; whoever muted will mute again when Kevo talks
     this.setAwakeUntil(0);
     if (this.recognition) {
       try {
@@ -147,7 +143,7 @@ export class JarvisVoiceListener {
       } catch {}
       this.recognition = null;
     }
-    this.onListeningStateChange?.(false);
+    this.reportRunning(false);
   }
 
   /** Accept commands without the wake word for the follow-up window (after a reply, a wake word or a mic tap). */
@@ -170,7 +166,25 @@ export class JarvisVoiceListener {
 
   /** Mute while Kevo is talking so its own voice is never taken as a command. */
   setMuted(muted: boolean): void {
+    if (this.muted === muted) return;
     this.muted = muted;
+    // Ignoring results is not enough: the recogniser hands over what it heard a moment after Kevo stops.
+    // So the session is dropped while Kevo talks and a fresh one starts afterwards, with nothing buffered.
+    if (muted) { try { this.recognition?.abort(); } catch { /* not started */ } }
+    else this.resume();
+  }
+
+  private resume(): void {
+    if (!this.isRunning || this.muted || this.isListening) return;
+    try { this.recognition?.start(); } catch { /* already starting */ }
+  }
+
+  /** The microphone state the owner chose. It does not flicker when the recogniser restarts itself. */
+  private reportRunning(running: boolean): void {
+    if (this.reported === running) return;
+    this.reported = running;
+    this.onListeningStateChange?.(running);
+    this.notifyStateListeners(running);
   }
 
   private handleFinalTranscript(rawText: string): void {
@@ -200,8 +214,9 @@ export class JarvisVoiceListener {
     };
   }
 
+  /** True while the owner has the microphone turned on. */
   getListeningState(): boolean {
-    return this.isListening;
+    return this.isRunning;
   }
 }
 
