@@ -132,10 +132,10 @@ fn build_system_stats() -> SystemStats {
     };
 
     SystemStats {
-        host_name: system.host_name().unwrap_or_else(|| "-".to_string()),
-        os: system.os_version().unwrap_or_else(|| "-".to_string()),
-        os_version: system.long_os_version().unwrap_or_else(|| "-".to_string()),
-        arch: system.cpu_arch().unwrap_or_else(|| "-".to_string()),
+        host_name: System::host_name().unwrap_or_else(|| "-".to_string()),
+        os: System::os_version().unwrap_or_else(|| "-".to_string()),
+        os_version: System::long_os_version().unwrap_or_else(|| "-".to_string()),
+        arch: System::cpu_arch().unwrap_or_else(|| "-".to_string()),
         cpu_cores,
         cpu_usage_percent: cpu_usage,
         memory_total_bytes: memory_total,
@@ -238,7 +238,7 @@ fn app_control_start(target: &str) -> Result<AppControlResult, String> {
         return Ok(AppControlResult {
             action: "start".to_string(),
             target: target.to_string(),
-            pid: child.id().map(|i| i.to_string()).unwrap_or_else(|| "-1".to_string()),
+            pid: child.id().to_string(),
             ok: true,
         });
     }
@@ -268,7 +268,7 @@ fn app_control_start(target: &str) -> Result<AppControlResult, String> {
 
     Ok(AppControlResult {
         action: "start".to_string(),
-        target,
+        target: target.to_string(),
         pid: "-1".to_string(),
         ok: output.status.code() == Some(0),
     })
