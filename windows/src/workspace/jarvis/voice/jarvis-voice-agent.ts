@@ -13,6 +13,8 @@ export interface JarvisActionContext {
   nextTrack?: () => void;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
+  /** Opens an installed app by name; resolves to the name of the app it opened. */
+  openApp?: (name: string) => Promise<string>;
   openQuickCapture?: () => void;
   saveQuickNote?: (text: string) => Promise<void>;
   askAI?: (query: string) => Promise<string>;
@@ -212,6 +214,17 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
+    const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
+    if (app && this.context.openApp) {
+      try {
+        const opened = await this.context.openApp(app[1]);
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
+      } catch (err) {
+        return { handled: true, actionName: 'open_app_failed', speechReply: String(err).replace(/^Error:\s*/, '') };
+      }
+    }
+
     // 4. Note taking & Quick Capture Commands
     if (
       lower.startsWith('take a note') ||
@@ -260,7 +273,8 @@ export class JarvisVoiceAgent {
     if (this.context.askAI) {
       try {
         appendJarvisTurn('user', text);
-        const history = formatJarvisHistoryForPrompt(20);
+        // A short history keeps the local model quick and stops old exchanges steering new answers.
+        const history = formatJarvisHistoryForPrompt(8);
         const prompt = history
           ? `Prior Kevo conversation (most recent last):\n${history}\n\nRespond as Kevo to the latest user message.`
           : text;
@@ -286,4 +300,12 @@ export class JarvisVoiceAgent {
       speechReply: `Understood, sir: "${text}". Standing by for further commands.`,
     };
   }
+}
+
+/** True when what the microphone heard is (part of) what Kevo itself just said. */
+export function isEchoOf(heard: string, reply: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const h = norm(heard);
+  // Short phrases ("yes", "open music") are too common to call an echo.
+  return h.split(' ').length >= 4 && norm(reply).includes(h);
 }

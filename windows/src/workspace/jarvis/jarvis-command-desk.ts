@@ -25,6 +25,8 @@ import { SupportOperationsAgent } from './agents/support-agent';
 import { JarvisVoiceListener } from './voice/jarvis-voice-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
+import { clearJarvisHistory } from './voice/jarvis-memory';
+import { isEchoOf } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 
 export interface JarvisCommandDeskOptions {
@@ -58,16 +60,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   // ── Inject desk styles
   injectDeskStyles();
-
-  // ── Header bar
-  const header = document.createElement('header');
-  header.className = 'jarvis-desk-header';
-  header.innerHTML = `
-    <div class="jarvis-desk-title">
-      <h2>Kevo</h2>
-      <p>Your voice companion. Say “Kevo”, then what you need.</p>
-    </div>
-  `;
 
   // ── Agent cards row
   const agentRow = document.createElement('div');
@@ -144,6 +136,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Voice Companion Engine Setup
   let unmuteTimer: ReturnType<typeof setTimeout> | undefined;
   let thinking = false;
+  let lastReply = '';
   /** Shows on the orb what Kevo is doing right now. */
   const refresh = () => hud.setState(kevoState({
     micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
@@ -177,6 +170,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     nextTrack: options?.voiceActionContext?.nextTrack,
     searchMusic: options?.voiceActionContext?.searchMusic,
     searchVault: options?.voiceActionContext?.searchVault,
+    openApp: options?.voiceActionContext?.openApp,
     openQuickCapture: options?.voiceActionContext?.openQuickCapture,
     saveQuickNote: options?.voiceActionContext?.saveQuickNote,
     askAI: options?.voiceActionContext?.askAI,
@@ -250,12 +244,23 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     onWakeWord: () => {
       hud.setWakeActive(true);
-      void speaker.playIdentityCue();
+      // The chime is a recording of a voice: the microphone rests while it plays, or Kevo would hear it as a command.
+      listener.setMuted(true);
+      void speaker.playIdentityCue().finally(() => {
+        if (thinking || speaker.getIsSpeaking()) return; // a command came with the name; its reply gives the microphone back
+        listener.setMuted(false);
+        listener.keepAwake();
+      });
     },
     onFinalSpeech: async (finalTranscript) => {
+      // Kevo's own words coming back through the microphone are not a command.
+      if (thinking || isEchoOf(finalTranscript, lastReply)) return;
       hud.setHeard(finalTranscript);
       hud.pulseMessage(`You: ${finalTranscript}`);
       thinking = true;
+      // One command at a time: the microphone rests until Kevo has answered.
+      clearTimeout(unmuteTimer);
+      listener.setMuted(true);
       refresh();
       let reply: string;
       try {
@@ -265,10 +270,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       } finally {
         thinking = false;
       }
+      lastReply = reply;
       hud.setReply(reply);
       hud.pulseMessage(`Kevo: ${reply}`);
       refresh();
       await speaker.speak(reply);
+      // Nothing to say means no speech ever ends: give the microphone back here.
+      if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
     },
     onError: (err) => {
       speechStatusEl.textContent = err;
@@ -278,6 +286,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   micBtn.addEventListener('click', () => {
     if (listener.getListeningState()) {
       listener.stop();
+      speaker.stop(); // turning the microphone off also stops Kevo talking
     } else if (!listener.start()) {
       speechStatusEl.textContent = 'The microphone or speech recognition is not available in this window. Check the microphone permission in Windows settings.';
     }
@@ -293,7 +302,16 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
   onlineToggle.append(onlineBox, ' Natural online voices (replies are sent to Microsoft to be spoken)');
 
-  voiceBar.append(micBtn, voiceSelect, previewBtn, onlineToggle, speechStatusEl);
+  // Kevo remembers the last few exchanges; this starts over.
+  const forgetBtn = makeBtn('New conversation', '', () => {
+    clearJarvisHistory();
+    lastReply = '';
+    hud.setHeard('');
+    hud.setReply('Starting fresh. Say “Kevo” and what you need.');
+    hud.pulseMessage('New conversation started');
+  });
+
+  voiceBar.append(micBtn, voiceSelect, previewBtn, forgetBtn, onlineToggle, speechStatusEl);
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
@@ -305,7 +323,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   teamTitle.textContent = 'Team';
   team.append(teamTitle, agentRow, briefingPanel, toolbar);
 
-  root.append(header, hud.root, voiceBar, team);
+  // The page already shows "Kevo" as its title, so the desk does not repeat it.
+  root.append(hud.root, voiceBar, team);
 
   function destroy(): void {
     listener.stop();
@@ -340,11 +359,6 @@ function injectDeskStyles(): void {
       container-type: inline-size;
       color: var(--ink, #edf4ef);
     }
-    .jarvis-desk-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
-    .jarvis-desk-title { min-width: 0; }
-    .jarvis-desk-title h2 { margin: 0; }
-    .jarvis-desk-title p { margin: 2px 0 0; color: var(--muted, #b0c4bd); overflow-wrap: anywhere; }
-
     .jarvis-voice-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
     .jarvis-voice-select { width: auto; flex: 0 1 auto; min-width: 0; max-width: 100%; }
     .jarvis-online-voices { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted, #b0c4bd); cursor: pointer; min-width: 0; }

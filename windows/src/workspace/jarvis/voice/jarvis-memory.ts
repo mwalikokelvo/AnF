@@ -17,9 +17,13 @@ function load(): JarvisTurn[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as JarvisTurn[];
     if (!Array.isArray(parsed)) return [];
-    return parsed
+    const turns = parsed
       .filter((t) => t && (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string')
       .slice(-MAX_TURNS);
+    // A saved history where Kevo gave the same answer twice came from Kevo hearing itself (fixed 14 Nov 2026);
+    // it would steer every new answer, so it is dropped.
+    const answers = turns.filter((t) => t.role === 'assistant').map((t) => t.text);
+    return new Set(answers).size < answers.length ? [] : turns;
   } catch {
     return [];
   }

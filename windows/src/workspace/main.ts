@@ -277,6 +277,7 @@ const jarvisCommandDesk=createJarvisCommandDesk({
       quickNote.open();
     },
     saveQuickNote:async text=>captureDaily(`\n\n[Kevo Note] ${text}`),
+    openApp:name=>invoke<string>('open_installed_app',{name}),
     askAI:async query=>{
       try {
         const reply=await invoke<{text:string;notice:string}>('workspace_ask',{job,query,sources:[],history:[],memory:memory.value,model:model.value});
