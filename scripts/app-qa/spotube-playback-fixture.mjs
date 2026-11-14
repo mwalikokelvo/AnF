@@ -46,6 +46,23 @@ export function generatedWave(){
  return data;
 }
 
+export function withDecoderDiagnostics(source){
+ source=source.replaceAll('\r\n','\n');
+ const marker='      stream.error.listen((event) {';
+ if(source.includes('decoder-errors.txt')||source.split(marker).length!==2)throw Error('Unexpected decoder diagnostic source.');
+ return "import 'dart:io';\n"+source.replace(marker,marker+String.raw`
+        if (Platform.environment['GITHUB_ACTIONS'] == 'true' &&
+            Platform.environment['RUNNER_ENVIRONMENT'] == 'github-hosted' &&
+            Platform.environment['ANF_SPOTUBE_QA_FIXTURE'] != null) {
+          final safe = event.toString()
+            .replaceAll(RegExp(r'https?://\S+'), '[url]')
+            .replaceAll(RegExp(r'[A-Za-z]:[\\/]\S+'), '[path]')
+            .replaceAll(RegExp(r'\b[a-fA-F0-9]{32,}\b'), '[identifier]');
+          final dir = File(Platform.environment['ANF_SPOTUBE_QA_FIXTURE']!).parent.path;
+          File(dir + Platform.pathSeparator + 'decoder-errors.txt').writeAsStringSync(safe + '\n', mode: FileMode.append);
+        }`);
+}
+
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  if(process.platform!=='win32'||process.env.GITHUB_ACTIONS!=='true'||process.env.RUNNER_ENVIRONMENT!=='github-hosted')throw Error('Disposable hosted Windows only.');
  const root=fileURLToPath(new URL('../../',import.meta.url));
@@ -56,6 +73,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
  const fixture=path.join(dir,'fixture.wav'),bytes=generatedWave(),sha=createHash('sha256').update(bytes).digest('hex');
  writeFileSync(fixture,bytes,{flag:'wx'});
  writeFileSync(module,withPausedFixture(original));
+ const player=path.join(root,'windows/spotube-native/lib/services/audio_player/custom_player.dart');
+ writeFileSync(player,withDecoderDiagnostics(readFileSync(player,'utf8')));
  writeFileSync(process.env.GITHUB_ENV,`ANF_SPOTUBE_QA_FIXTURE=${fixture}\nANF_SPOTUBE_QA_SHA256=${sha}\n`,{flag:'a'});
  console.log('Prepared generated 30-second muted-player fixture; SHA256='+sha+'. Only disposable module changed.');
 }

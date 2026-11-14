@@ -106,6 +106,23 @@ def exercise():
             assert reply(request_id).startswith(f'ANF_REPLY {request_id} OK '),'Theme command was not forwarded'
         send('CONTROL 8 retry');assert reply(8).startswith(('ANF_REPLY 8 OK ','ANF_REPLY 8 ERROR'))
         send('CONTROL 9 unsupported');assert reply(9).startswith('ANF_REPLY 9 ERROR'),'Unknown commands must fail without timing out'
+        if os.environ.get('ANF_SPOTUBE_QA_FIXTURE'):
+            send('CONTROL 10 play')
+            played = reply(10)
+            assert played.startswith('ANF_REPLY 10 OK '), played
+            actual = json.loads(played.split(' ', 3)[3])
+            deadline = time.monotonic()+15
+            sequence = 11
+            while time.monotonic() < deadline:
+                send(f'CONTROL {sequence} status')
+                actual = json.loads(reply(sequence).split(' ', 3)[3])
+                assert not actual.get('error'), 'Real decoder/output error: '+str(actual.get('error'))
+                if actual['playing'] and actual['position'] > 300 and 29900 <= actual['duration'] <= 30100:
+                    break
+                sequence += 1
+                time.sleep(.2)
+            assert actual['playing'] and actual['position'] > 300 and 29900 <= actual['duration'] <= 30100, 'Actual decoder clock/duration did not advance'
+            print('PASS: actual upstream generated-media clock under native-only host; physical output/provider unverified.',flush=True)
         print('Largest non-protocol output line:',max(log_lengths,default=0),flush=True)
         print('PASS: actual Flutter startup, parent attachment, exact bounds, playback status, pause acknowledgement, hide/retain/reopen.',flush=True)
         print('Streaming/provider login is a separate interactive check.',flush=True)
