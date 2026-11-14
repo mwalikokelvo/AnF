@@ -10,6 +10,7 @@ $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
 $env:ANF_NATIVE_QA_CDP='1'
 New-Item -ItemType Directory -Path $env:ANF_QA_OUTPUT,$env:APPDATA,$env:LOCALAPPDATA -Force | Out-Null
 $process=Start-Process -FilePath $binary -WindowStyle Hidden -PassThru
+$env:ANF_QA_HOST_PID=[string]$process.Id
 try{
  node scripts/app-qa/windows-workspace-spotube.mjs
  if($LASTEXITCODE){throw 'Actual workspace Spotube integration test failed'}

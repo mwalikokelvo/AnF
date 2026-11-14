@@ -4,11 +4,17 @@ import {navigateWorkspace} from './navigation.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
+import {execFileSync} from 'node:child_process';
 assert.equal(process.env.GITHUB_ACTIONS,'true');
 assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 assert(process.env.ANF_QA_OUTPUT);
 let browser,page;
 const errors=[];
+const nativeWindows=[];
+const nativeWindow=expected=>{
+ const state=JSON.parse(execFileSync('python',['scripts/app-qa/spotube-window-state.py',expected],{encoding:'utf8',timeout:10000}));
+ nativeWindows.push({expected,...state});return state;
+};
 try {
  const deadline=Date.now()+90000;
  while(Date.now()<deadline&&!page){
@@ -37,30 +43,41 @@ try {
   return state;
  };
  await go('music');await ready();
+ const firstWindow=nativeWindow('visible');
  const bounds=await page.locator('.spotube-host').evaluate(host=>{
   const r=host.getBoundingClientRect();const footer=document.querySelector('.activity-bar').getBoundingClientRect();
-  return {left:r.left,top:r.top,width:r.width,footerTop:footer.top,viewportHeight:innerHeight};
+  return {left:r.left,top:r.top,width:r.width,footerTop:footer.top,viewportHeight:innerHeight,scale:devicePixelRatio};
  });
  assert(bounds.width>100&&bounds.top>=0&&bounds.footerTop>bounds.top+50,'Embedded surface must have usable workspace bounds');
+ assert(Math.abs(firstWindow.left-Math.round(bounds.left*bounds.scale))<=2,'Actual child escaped horizontal host bounds');
+ assert(Math.abs(firstWindow.top-Math.round(bounds.top*bounds.scale))<=2,'Actual child escaped vertical host bounds');
+ assert(Math.abs(firstWindow.width-Math.round(bounds.width*bounds.scale))<=2,'Actual child width differs from UI host');
+ assert(firstWindow.top+firstWindow.height<=Math.round(bounds.footerTop*bounds.scale),'Actual child covers the status bar');
+ assert(firstWindow.left>=0&&firstWindow.left+firstWindow.width<=firstWindow.clientWidth+1,'Actual child extends beyond parent client');
  await go('writing');
  await page.waitForFunction(()=>!document.body.classList.contains('spotube-visible'));
+ assert.equal(nativeWindow('hidden').childPid,firstWindow.childPid,'Navigation must retain same native child');
  assert(await page.getByLabel('Live Markdown writing',{exact:true}).isVisible());
  // Native state remains accessible while its view is hidden.
  assert.equal(typeof (await invoke('music_control',{operation:'status'})).hasTrack,'boolean');
  await go('music');await ready();
+ assert.equal(nativeWindow('visible').childPid,firstWindow.childPid,'Reopen must retain same native child');
  await page.getByRole('button',{name:'Local library',exact:true}).click();
  await page.waitForFunction(()=>!document.body.classList.contains('spotube-visible'));
+ nativeWindow('hidden');
  assert.equal(await page.getByRole('button',{name:'Local library',exact:true}).getAttribute('aria-pressed'),'true');
  await page.getByRole('button',{name:'Open Spotube',exact:true}).click();await ready();
+ assert.equal(nativeWindow('visible').childPid,firstWindow.childPid);
  await go('settings');
  await page.waitForFunction(()=>!document.body.classList.contains('spotube-visible'));
+ nativeWindow('hidden');
  assert(await page.getByLabel('Project name',{exact:true}).isVisible());
  assert.deepEqual(errors,[],'Actual workspace page errors');
  await mkdir(process.env.ANF_QA_OUTPUT,{recursive:true});
  await writeFile(path.join(process.env.ANF_QA_OUTPUT,'spotube-workspace.json'),JSON.stringify({
   sourceCommit:process.env.GITHUB_SHA,nativeTauri:true,realFlutterChild:true,
   nativeAvailabilityAndStatus:true,visibleMusicMount:true,writingAndSettingsNavigation:true,
-  localLibrarySwitch:true,reopen:true,bounds,providerStreamingVerified:false,
+  localLibrarySwitch:true,reopen:true,bounds,nativeWindows,actualNativeBoundsAndVisibility:true,providerStreamingVerified:false,
   musicPlaybackVerified:false,audioHandoffVerified:false,installedUpgradeVerified:false,readyForPublication:false,
  },null,2));
  console.log('PASS: actual AnF workspace mounts Spotube, navigates without overlay, switches to local library and reopens native child. No music playback/provider claim.');
