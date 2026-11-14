@@ -27,6 +27,9 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
     open:async()=>{showMusic();active=true;await invoke('music_open',{bounds:bounds()});},
   });
   root.querySelector('.music-heading')!.append(h('button',{type:'button',text:'Open Spotube',onclick:()=>void player.open()}));
+  // Playback status can reveal the dock without any window resize.
+  const layout = new ResizeObserver(()=>void update());
+  for(const element of [root,root.querySelector('.music-heading')!,document.querySelector('.native-music-player')!])layout.observe(element);
   await listen('spotube-closed',()=>{active=false;void player.refresh();});
   document.addEventListener('anf-view-changed',()=>void update());
   window.addEventListener('resize',()=>void update());

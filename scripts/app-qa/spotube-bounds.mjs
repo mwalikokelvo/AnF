@@ -25,11 +25,10 @@ try{
    assert(sample.bounds.y/sample.scale>=sample.headingBottom,'Native music overlaps source/header controls');
    assert((sample.bounds.y+sample.bounds.height)/sample.scale<=sample.footerTop,'Native music overlaps activity/status bar');
    assert(sample.bounds.width>0&&sample.bounds.height>60,'Native music needs usable content space');
+   const previous=await page.evaluate(()=>window.__spotubeBounds.length);
    await page.evaluate(()=>{window.__spotubeWithTrack=true;});
    await page.locator('.native-music-player').waitFor({state:'visible'});
-   const previous=await page.evaluate(()=>window.__spotubeBounds.length);
-   await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
-   await page.waitForFunction(n=>window.__spotubeBounds.length>n,previous);
+   await page.waitForFunction(n=>window.__spotubeBounds.length>n,previous,{timeout:2500});
    const docked=await page.evaluate(()=>({bounds:window.__spotubeBounds.at(-1),
     dockTop:document.querySelector('.native-music-player').getBoundingClientRect().top,scale:devicePixelRatio}));
    result.sizes.at(-1).docked=docked;
