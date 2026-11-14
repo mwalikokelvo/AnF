@@ -1,5 +1,6 @@
 // Reconstruct a pinned, patched Flutter module. No signing/service secrets.
 import {spawnSync} from 'node:child_process';
+import {spawnTool} from './tool-process.mjs';
 import {cp,mkdir,readFile,writeFile,access} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -15,12 +16,8 @@ const pin='69a310c78f5ceaf4eab7dfee98f187d38211c9ba';
 const source=process.env.SPOTUBE_SOURCE||path.join(root,'../.cache/anf-spotube-source');
 const desktop=process.argv.includes('--windows');
 const module=path.join(root,desktop?'windows/spotube-native':'android/spotube-module');
-const flutter=process.env.FLUTTER_BIN||'flutter';
-// On Windows `flutter` is flutter.bat, which Node cannot start by bare name
-// (spawnSync ENOENT), so Flutter runs through the shell there, as in
-// build-android.mjs. A shell does not quote for us, so quote anything with spaces.
-const quote=(s)=>/[\s"&|<>^%]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
-function run(bin,args,cwd=root){const shell=process.platform==='win32'&&bin===flutter;const result=spawnSync(shell?quote(bin):bin,shell?args.map(quote):args,{cwd,stdio:'inherit',env:process.env,shell});if(result.error)throw result.error;if(result.status)throw Error(`${bin} ${args.slice(0,3).join(' ')} failed (${result.status})`);}
+const flutter=process.env.FLUTTER_BIN||(process.platform==='win32'?'flutter.bat':'flutter');
+function run(bin,args,cwd=root){const result=spawnTool(bin,args,{cwd,stdio:'inherit',env:process.env});if(result.error)throw result.error;if(result.status)throw Error(`${bin} ${args.slice(0,3).join(' ')} failed (${result.status})`);}
 // core.autocrlf=false: the patches below match text containing "\n". A Windows
 // git that checks the clone out with CRLF endings would make them fail (or
 // silently not apply).
