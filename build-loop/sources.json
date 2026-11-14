@@ -1,0 +1,38 @@
+{
+  "_comment": "Source of truth for everything build-loop takes up. update.py reads this to refresh the bundled skills from upstream (auto-adopt latest). Add new skills under vendor[], new persona packs are handled by personas, docs-only adaptations under adapted[], and record integrations under plugins[]/mcp_servers[]. Commits are the last-known-good HEAD each source was vendored at; update.py rewrites them when it adopts a newer one.",
+  "skill": {
+    "name": "build-loop",
+    "limits": { "max_files": 200, "max_bytes": 31457280, "max_description": 1024 }
+  },
+  "vendor": [
+    { "name": "reverse-api-engineer", "url": "https://github.com/kalil0321/reverse-api-engineer", "root": "skills", "prefix": "", "exclude": [], "licence": "MIT", "copyright": "2025 kalil0321", "commit": "c644f8af453136ac69489370d6c581d89b9e1bf9" },
+    { "name": "rea", "url": "https://github.com/morluto/rea", "root": ".agents/skills/reverse-engineer-anything", "prefix": "reverse-engineer-anything/", "exclude": [], "licence": "MIT", "copyright": "2026 morluto", "commit": "8250bf2320ea57aab4e664db4b4d44b8abd2004e" },
+    { "name": "strix", "url": "https://github.com/usestrix/strix", "root": "skills", "prefix": "", "exclude": [], "licence": "Apache-2.0", "copyright": "2025 OmniSecure Inc.", "commit": "6b7ae2ebe4d47037a927aade23265ff4e4f27e84" },
+    { "name": "fish-audio", "url": "https://github.com/fishaudio/fish-audio-plugin", "root": "plugins/fish-audio", "prefix": "", "exclude": ["assets"], "licence": "MIT", "copyright": "2026 Fish Audio", "commit": "6e18251863e6229d6eafb58866197e8564a29c01" },
+    { "name": "claude-mem", "url": "https://github.com/thedotmack/claude-mem", "root": "plugin/skills", "prefix": "", "exclude": [], "licence": "Apache-2.0", "copyright": "2026 Alex Newman", "commit": "6988c73fb5cb5ae06bcd6b9bc511c503cddbd0df" },
+    { "name": "anthropic-skills", "url": "https://github.com/anthropics/skills", "root": "skills", "prefix": "", "exclude": ["docx", "pdf", "pptx", "xlsx"], "licence": "Apache-2.0 (per-skill LICENSE.txt)", "copyright": "Anthropic, PBC", "commit": "ca45fc496a3436251f191354091d557da31c15b5" }
+  ],
+  "personas": {
+    "name": "agency-agents", "url": "https://github.com/msitarzewski/agency-agents", "licence": "MIT", "copyright": "2025 AgentLand Contributors", "commit": "b37b5bb33b78f2c1d6567d98e25ca818e3259219"
+  },
+  "adapted": [
+    { "name": "agent-skills", "url": "https://github.com/addyosmani/agent-skills", "licence": "MIT", "commit": null, "note": "Condensed into references/ and the loop structure — NOT regenerable by a packer. On upstream change update.py only flags it so the adaptation can be refreshed by hand." },
+    { "name": "replica-skill", "url": "https://github.com/Jakeschincariol/replica-skill", "licence": "MIT", "commit": "77c9436fb3d18c3d58169efb8caf4fe906b0dc51", "note": "Condensed into references/replica.md, scripts/ and assets/replica/ — flag-only on upstream change." }
+  ],
+  "plugins": [
+    { "name": "chrome-devtools-mcp", "marketplace": "ChromeDevTools/chrome-devtools-mcp", "install": "/plugin install chrome-devtools-mcp@chrome-devtools-plugins" },
+    { "name": "superpowers", "marketplace": "obra/superpowers-marketplace", "install": "/plugin install superpowers@superpowers-marketplace" },
+    { "name": "rust-analyzer-lsp", "install": "/plugin install rust-analyzer-lsp@claude-plugins-official" },
+    { "name": "typescript-lsp", "install": "/plugin install typescript-lsp@claude-plugins-official" },
+    { "name": "pr-review-toolkit", "install": "/plugin install pr-review-toolkit@claude-plugins-official" },
+    { "name": "security-guidance", "install": "/plugin install security-guidance@claude-plugins-official" }
+  ],
+  "mcp_servers": [
+    { "name": "filesystem", "command": "cmd.exe", "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-filesystem", "{USER_HOME}"], "note": "self-updates via npx @latest at launch" },
+    { "name": "git", "command": "cmd.exe", "args": ["/c", "uvx", "mcp-server-git", "--repository", "{REPO_DIR}"] },
+    { "name": "tauri", "command": "cmd.exe", "args": ["/c", "npx", "-y", "@hypothesi/tauri-mcp-server"] },
+    { "name": "context7", "command": "cmd.exe", "args": ["/c", "npx", "-y", "@upstash/context7-mcp"] },
+    { "name": "sequential-thinking", "command": "cmd.exe", "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-sequential-thinking"] },
+    { "name": "playwright", "command": "cmd.exe", "args": ["/c", "npx", "-y", "@playwright/mcp"] }
+  ]
+}

@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: replica-borrowed-feature
+expected_outcome: |
+  The agent uses the Replica track scoped to one borrowed feature: a short recon of
+  Simplenote's pinning from public sources (sources table with URLs), a
+  replica/features.csv with must/should rows and skip reasons, then builds pinning in
+  jotter test-first with its own wording. "Better than theirs" comes from real,
+  linked user feedback or is clearly labelled as the agent's own idea, never from
+  invented reviews. parity.py shows all must-haves done, sweep.py finds no
+  "Simplenote" outside replica/, and the result is committed on a branch with the
+  suite green.
+context:
+  scaffold_script: place-files.sh

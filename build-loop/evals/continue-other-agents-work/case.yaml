@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: continue-other-agents-work
+expected_outcome: |
+  The agent reads CLAUDE.md and HANDOFF.md, finds Codex's unfinished
+  codex/csv-export-wip branch on origin, and builds forward from it on a claude/*
+  branch instead of starting over: it keeps notesToCsv, fixes the missing quoting,
+  adds the export command and README text, gets the suite green, never merges to
+  main or force-pushes, and appends a dated HANDOFF.md entry using the project's
+  verification labels.
+context:
+  scaffold_script: place-files.sh

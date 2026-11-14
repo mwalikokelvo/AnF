@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: tags-data-change
+expected_outcome: |
+  The agent treats this as a feature that changes the stored data shape. The spec
+  records decisions about tag syntax and multiple tags, and how existing notes
+  without tags are handled. Existing notes keep loading and listing (a test proves
+  it), new notes can carry tags, and the list command can filter by tag. Built in
+  vertical slices with tests first, suite green, README updated, committed on a
+  branch, and the user's real ~/.jotter.json is never read or modified.
+context:
+  scaffold_script: place-files.sh
