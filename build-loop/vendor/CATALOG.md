@@ -95,3 +95,9 @@ Every third-party skill bundled into build-loop, unchanged. Print one with `pyth
 | `web-artifacts-builder` | `vendor.py anthropic-skills web-artifacts-builder/SKILL.md` | Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex… |
 | `webapp-testing` | `vendor.py anthropic-skills webapp-testing/SKILL.md` | Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser… |
 
+## frontend-slides — 1 skills (MIT)
+
+| skill | read | what it does |
+|---|---|---|
+| `SKILL.md` | `vendor.py frontend-slides SKILL.md` | Create stunning, animation-rich HTML presentations from scratch or by converting PowerPoint files. Use when the user wants to build a presentation, convert a PPT/PPTX… |
+
