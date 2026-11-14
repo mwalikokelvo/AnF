@@ -27,6 +27,7 @@ jobs:
         with:
           flutter-version: 3.35.2
           channel: stable
+          cache: true
       - name: Validate source recipes and prepare exact pinned child
         shell: pwsh
         run: |
@@ -80,9 +81,9 @@ jobs:
           if($LASTEXITCODE){throw 'QA browser client failed'}
           Push-Location windows
           try{
-            npm exec -- tsc --noEmit
-            if($LASTEXITCODE){throw 'Typecheck failed'}
-            npm exec -- vite build
+            # The normal prebuild compiles the real relay embedded by hooks.rs.
+            # Skipping it makes a clean host fail at include_bytes!(anf-hook.exe).
+            npm run build
             if($LASTEXITCODE){throw 'Frontend build failed'}
             $config=Join-Path $env:RUNNER_TEMP 'anf-spotube-host-qa.json'
             @{identifier='fr.louisraille.anf.spotubeqa';build=@{beforeBuildCommand=''};bundle=@{active=$false;resources=@()}} |
