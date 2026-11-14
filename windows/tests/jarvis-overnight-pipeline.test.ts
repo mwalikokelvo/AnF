@@ -96,6 +96,27 @@ describe('Overnight JARVIS pipeline', () => {
     g.window = prevWindow;
   });
 
+  it('listener ignores room talk and its own voice, and still answers its name', () => {
+    const g = globalThis as any;
+    const prevWindow = g.window;
+    const fake = new FakeSpeechRecognition();
+    g.window = { SpeechRecognition: function SpeechRecognition() { return fake; } };
+    const finals: string[] = [];
+    const listener = new JarvisVoiceListener({ followUpMs: 0, onFinalSpeech: (t) => finals.push(t) });
+    listener.start();
+    fake.emitFinal('Hey Google.');
+    fake.emitFinal('Are you awake?');
+    assert.deepEqual(finals, []);
+    listener.setMuted(true);
+    fake.emitFinal('Jarvis, it is 9 pm, sir.');
+    assert.deepEqual(finals, []);
+    listener.setMuted(false);
+    fake.emitFinal('Jarvis what time is it');
+    assert.deepEqual(finals, ['what time is it']);
+    listener.stop();
+    g.window = prevWindow;
+  });
+
   it('agent + memory: open question stores turns and includes history in askAI', async () => {
     let seenPrompt = '';
     const agent = new JarvisVoiceAgent({

@@ -24,7 +24,7 @@ import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
 import { JarvisVoiceListener } from './voice/jarvis-voice-listener';
-import { JarvisSpeaker } from './voice/jarvis-speaker';
+import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 
@@ -163,12 +163,21 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   });
 
   // ── Voice Companion Engine Setup
+  let unmuteTimer: ReturnType<typeof setTimeout> | undefined;
   const speaker = new JarvisSpeaker({
     onStart: () => {
       hud.pulseMessage('JARVIS Speaking...');
+      clearTimeout(unmuteTimer);
+      listener.setMuted(true);
     },
     onEnd: () => {
-      // resume idle state
+      // A short pause lets the room echo die down; then a follow-up needs no wake word.
+      clearTimeout(unmuteTimer);
+      unmuteTimer = setTimeout(() => {
+        if (speaker.getIsSpeaking()) return; // a newer reply took over
+        listener.setMuted(false);
+        listener.keepAwake();
+      }, 400);
     },
   });
 
@@ -205,7 +214,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const micBtn = document.createElement('button');
   micBtn.className = 'jarvis-mic-btn';
   micBtn.innerHTML = '🎙️ <span class="mic-label">Voice: OFF</span>';
-  micBtn.title = 'Toggle Autonomous Voice Companion (Say "Jarvis" or speak commands)';
+  micBtn.title = 'Turn the voice companion on or off. Commands need "Jarvis" except right after you tap the mic or JARVIS replies.';
 
   const voiceSelect = document.createElement('select');
   voiceSelect.className = 'jarvis-voice-select';
@@ -235,7 +244,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       micBtn.classList.toggle('active', listening);
       micBtn.querySelector('.mic-label')!.textContent = listening ? 'Voice: LISTENING' : 'Voice: OFF';
       if (listening) {
-        speechStatusEl.textContent = 'Listening... Speak anything to JARVIS';
+        speechStatusEl.textContent = 'Listening. Say "Jarvis" before a command.';
       }
     },
     onInterimSpeech: (transcript) => {
@@ -271,7 +280,17 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  voiceBar.append(micBtn, voiceSelect, speechStatusEl);
+  // Microsoft's natural voices are online: replies are sent to Microsoft to be spoken, so they are opt-in.
+  const onlineToggle = document.createElement('label');
+  onlineToggle.className = 'jarvis-online-voices';
+  onlineToggle.title = 'Natural voices sound more human but send each reply to Microsoft to be spoken. Off: only voices installed on this computer.';
+  const onlineBox = document.createElement('input');
+  onlineBox.type = 'checkbox';
+  onlineBox.checked = onlineVoicesAllowed();
+  onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
+  onlineToggle.append(onlineBox, ' Natural online voices (sends replies to Microsoft)');
+
+  voiceBar.append(micBtn, voiceSelect, onlineToggle, speechStatusEl);
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
@@ -319,7 +338,10 @@ function injectDeskStyles(): void {
       color: #7de8ff;
       font-family: 'Courier New', Courier, monospace;
       min-height: 100%;
+      min-width: 0;
       box-sizing: border-box;
+      container-type: inline-size;
+      overflow-x: hidden;
     }
     .jarvis-desk-header {
       display: flex;
@@ -329,12 +351,16 @@ function injectDeskStyles(): void {
       background: rgba(0,170,255,0.08);
       border: 1px solid rgba(0,170,255,0.3);
       border-radius: 6px;
+      flex-wrap: wrap;
+      gap: 6px 12px;
     }
     .jarvis-desk-title {
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
     }
+    .jarvis-desk-title p { overflow-wrap: anywhere; }
     .jarvis-logo {
       font-size: 28px;
       color: #0af;
@@ -376,16 +402,20 @@ function injectDeskStyles(): void {
     }
     .jarvis-desk-main {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
       gap: 10px;
       flex: 1;
     }
-    .jarvis-desk-hud-col { display: flex; flex-direction: column; }
-    .jarvis-desk-right-col { display: flex; flex-direction: column; gap: 10px; }
+    .jarvis-desk-hud-col { display: flex; flex-direction: column; min-width: 0; }
+    .jarvis-desk-right-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    /* Not maximized: the HUD sits above the controls instead of squeezing beside them */
+    @container (max-width: 1100px) {
+      .jarvis-desk-main { grid-template-columns: minmax(0, 1fr); }
+    }
     /* Agent cards */
     .jarvis-agent-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 8px;
     }
     .jarvis-agent-card {
@@ -394,6 +424,7 @@ function injectDeskStyles(): void {
       border-radius: 6px;
       padding: 10px;
       font-size: 11px;
+      min-width: 0;
     }
     .agent-header {
       display: flex;
@@ -435,6 +466,7 @@ function injectDeskStyles(): void {
       background: rgba(0,170,255,0.08);
       border: 1px solid rgba(0,170,255,0.3);
       border-radius: 6px;
+      flex-wrap: wrap;
     }
     .jarvis-mic-btn {
       display: flex;
@@ -468,7 +500,12 @@ function injectDeskStyles(): void {
       font-size: 11px;
       padding: 4px 8px;
       border-radius: 4px;
+      width: auto;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 100%;
     }
+    .jarvis-online-voices { display: flex; align-items: center; gap: 6px; font-size: 10px; cursor: pointer; }
     .jarvis-speech-status {
       font-size: 10px;
       color: rgba(125,232,255,0.7);
@@ -476,7 +513,8 @@ function injectDeskStyles(): void {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      flex: 1;
+      flex: 1 1 180px;
+      min-width: 0;
     }
     /* Toolbar */
     .jarvis-toolbar {

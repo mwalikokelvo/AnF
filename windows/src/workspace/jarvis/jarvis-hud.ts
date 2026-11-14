@@ -31,8 +31,8 @@ function injectHudStyles(): void {
       --hud-dim: rgba(125,232,255,0.5);
       --hud-panel-bg: rgba(2,13,20,0.92);
       display: grid;
-      grid-template-columns: 1fr 1.6fr 1fr;
-      grid-template-rows: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
+      grid-template-rows: minmax(150px, 1fr) minmax(150px, 1fr) minmax(110px, auto);
       gap: 8px;
       padding: 10px;
       background: var(--hud-bg);
@@ -69,6 +69,12 @@ function injectHudStyles(): void {
       grid-row: 1 / 3;
       align-items: center;
       justify-content: center;
+    }
+    /* The log runs along the bottom, so all six panels have a fixed place */
+    .jarvis-panel-term { grid-column: 1 / -1; }
+    @container (max-width: 640px) {
+      .jarvis-hud { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; min-height: 0; }
+      .jarvis-panel-ai-core { grid-column: auto; grid-row: auto; }
     }
     /* Core matrix grid */
     .core-matrix-grid {
@@ -344,7 +350,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   freqPanel.appendChild(spectrumContainer);
 
   // ── Panel 6: TERM_CON // DB_QUERY (bottom-center... but we have 3-col grid so place via CSS)
-  const termPanel = makePanel();
+  const termPanel = makePanel('jarvis-panel-term');
   termPanel.appendChild(makeTitle('TERM_CON // DB_QUERY'));
   const termLogEl = document.createElement('div');
   termLogEl.className = 'term-log';
@@ -356,7 +362,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
 
   // Assemble layout: grid order is top-left, top-center(aiPanel spans), top-right, bottom-left, bottom-center, bottom-right
   // Grid is 3-col 2-row; ai-panel is col-2 row-1/3
-  root.append(sysPanel, aiPanel, envPanel, netPanel, termPanel, freqPanel, pulseEl);
+  root.append(sysPanel, aiPanel, envPanel, netPanel, freqPanel, termPanel, pulseEl);
 
   // ── Animation: spectrum + net flow + matrix
   const LOG_PREFIXES = ['[SYS]', '[NET]', '[DB]', '[AI]', '[AUTH]', '[TASK]'];

@@ -11,6 +11,8 @@ export interface VoiceProfile {
   isPersonaVoice?: boolean;
   accent?: string;
   style?: string;
+  /** Which system voices suit this profile; the reference MP3 itself is not used to speak. */
+  gender?: 'female' | 'male';
 }
 
 export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
@@ -21,6 +23,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     filename: 'Nath - engaging, british and calm.mp3',
     isPersonaVoice: true,
     accent: 'en-GB',
+    gender: 'male',
     style: 'calm-butler',
   },
   {
@@ -29,6 +32,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Deep, resonant, authoritative and articulate.',
     filename: 'Burt - deep, smooth and clear.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'authoritative',
   },
   {
@@ -45,6 +49,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Dramatic, deep and cinematic narrator voice.',
     filename: 'Dav - movie trailer narrator.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'cinematic',
   },
   {
@@ -53,6 +58,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Rich, textured masculine voice.',
     filename: 'Cart - rich, smooth and rugged.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'rugged',
   },
   {
@@ -61,6 +67,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Deep, soothing and comforting presence.',
     filename: 'Bria - deep, resonant and comforting.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'comforting',
   },
   {
@@ -69,6 +76,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Clear, engaging storytelling cadence.',
     filename: 'Jean - audiobook narrator.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'narrative',
   },
   {
@@ -77,6 +85,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Warm, raspy and authentic conversational tone.',
     filename: 'Aust - deep, raspy and authentic.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'conversational',
   },
   {
@@ -85,6 +94,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Soft, gentle and melodic presence.',
     filename: 'Bra - romantic & gentle.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'gentle',
   },
   {
@@ -93,6 +103,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Smooth, polished feminine actress cadence.',
     filename: 'Lil - velvety actress.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'expressive',
   },
   {
@@ -101,6 +112,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Warm, expressive, melodic vocal style.',
     filename: 'Seraf - sensual temptress.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'melodic',
   },
   {
@@ -109,6 +121,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'High energy, bold and engaging announcer style.',
     filename: 'Husky, engaging and bold.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'bold',
   },
   {
@@ -117,6 +130,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Wise, gentle, vintage storytelling voice.',
     filename: 'grandpa.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'storyteller',
   },
 ];
