@@ -13,7 +13,7 @@
 .workspace-panel input[type=checkbox]{width:18px;min-width:18px;height:18px;vertical-align:middle;margin-right:8px;accent-color:#80d9bb}.workspace-panel section[aria-label="Optional web research"]{padding:18px;border:1px solid var(--line);border-radius:16px;margin:18px 0}.workspace-panel section[aria-label="Optional web research"] label{font-weight:650}
 .mode-rail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0 0 12px}.mode-rail button{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:8px 4px;font-size:.78em}.mode-rail button[aria-selected=true]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 
-/* JARVIS Global Floating Voice Pill */
+/* Kevo floating voice pill: a small echo of the orb, on the workspace tokens */
 .jarvis-global-pill {
   position: fixed;
   bottom: 24px;
@@ -22,56 +22,42 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(14, 22, 26, 0.88);
-  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 6px 14px 6px 8px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(0, 229, 255, 0.15);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 6px 14px 6px 6px;
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
   user-select: none;
 }
-.jarvis-global-pill:hover {
-  border-color: rgba(0, 229, 255, 0.7);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(0, 229, 255, 0.35);
-}
-.jarvis-global-pill.active {
-  border-color: #00e5ff;
-  background: rgba(0, 36, 48, 0.94);
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.55);
-  animation: jarvisPulse 1.8s infinite ease-in-out;
-}
+.jarvis-global-pill:hover { border-color: var(--accent); transform: translateY(-2px); }
+.jarvis-global-pill.active { border-color: var(--accent); }
+/* The Kevo view has the full controls, so the pill steps aside there */
+body:has(#panel-jarvis:not([hidden])) .jarvis-global-pill { display: none; }
 .jarvis-global-pill-mic {
-  background: rgba(0, 229, 255, 0.12);
+  position: relative;
   border: 0;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  font-size: 15px;
-  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
   padding: 0;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface));
+  transition: background var(--transition-smooth);
 }
-.jarvis-global-pill-mic.active {
-  background: #00e5ff;
-  color: #051419;
+.jarvis-global-pill-mic.active { background: var(--accent); }
+.jarvis-global-pill-mic.active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: jarvisPulse 1.9s cubic-bezier(.2,.6,.3,1) infinite;
 }
-.jarvis-global-pill-status {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #00e5ff;
-  text-transform: uppercase;
-}
-@keyframes jarvisPulse {
-  0% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
-  50% { box-shadow: 0 0 22px rgba(0, 229, 255, 0.7); }
-  100% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
-}
+.jarvis-global-pill-status { font-size: 13px; font-weight: 600; color: var(--ink); }
+@keyframes jarvisPulse { from { transform: scale(1); opacity: .7; } to { transform: scale(1.7); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .jarvis-global-pill, .jarvis-global-pill-mic { transition: none; } .jarvis-global-pill-mic.active::after { animation: none; } }
 
 /* Cloud backup settings panel */
 .cloud-backup-panel{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}

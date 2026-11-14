@@ -1,5 +1,5 @@
 /**
- * Overnight JARVIS pipeline: listener → agent → memory → telemetry gating.
+ * Overnight Kevo pipeline: listener → agent → memory → telemetry gating.
  * DOM/Speech APIs are shimmed so this runs under `npm test` (Node + esbuild).
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
@@ -49,7 +49,7 @@ class FakeSpeechRecognition {
   }
 }
 
-describe('Overnight JARVIS pipeline', () => {
+describe('Overnight Kevo pipeline', () => {
   beforeEach(() => {
     clearJarvisHistory();
   });
@@ -87,8 +87,8 @@ describe('Overnight JARVIS pipeline', () => {
     });
     assert.equal(listener.isSupported(), true);
     assert.equal(listener.start(), true);
-    fake.emitFinal('Hey Jarvis pause the music');
-    assert.deepEqual(wakes, ['hey jarvis']);
+    fake.emitFinal('Hey Kevo pause the music');
+    assert.deepEqual(wakes, ['hey kevo']);
     assert.deepEqual(finals, ['pause the music']);
     listener.stop();
     assert.ok(fake.stopCalls >= 1);
@@ -108,10 +108,10 @@ describe('Overnight JARVIS pipeline', () => {
     fake.emitFinal('Are you awake?');
     assert.deepEqual(finals, []);
     listener.setMuted(true);
-    fake.emitFinal('Jarvis, it is 9 pm, sir.');
+    fake.emitFinal('Kevo, it is 9 pm, sir.');
     assert.deepEqual(finals, []);
     listener.setMuted(false);
-    fake.emitFinal('Jarvis what time is it');
+    fake.emitFinal('Kevo what time is it');
     assert.deepEqual(finals, ['what time is it']);
     listener.stop();
     g.window = prevWindow;
@@ -135,7 +135,7 @@ describe('Overnight JARVIS pipeline', () => {
     const hist = getJarvisHistory();
     assert.ok(hist.some((t) => t.role === 'user' && t.text.includes('Explain gravity')));
     assert.ok(hist.some((t) => t.role === 'assistant' && t.text.includes('Gravity curves')));
-    assert.match(formatJarvisHistoryForPrompt(), /JARVIS: Gravity curves/);
+    assert.match(formatJarvisHistoryForPrompt(), /Kevo: Gravity curves/);
   });
 
   it('command desk intents: music, vault, notes, briefing, time', async () => {
@@ -154,7 +154,7 @@ describe('Overnight JARVIS pipeline', () => {
       },
     });
 
-    assert.equal((await agent.processVoiceInput('Jarvis, pause the music')).actionName, 'pause_music');
+    assert.equal((await agent.processVoiceInput('Kevo, pause the music')).actionName, 'pause_music');
     assert.equal((await agent.processVoiceInput('search notes for EQ curve')).actionName, 'search_vault');
     assert.equal((await agent.processVoiceInput('Open my notes')).actionName, 'navigate_notes');
     assert.equal((await agent.processVoiceInput('Give me a status report')).actionName, 'briefing');

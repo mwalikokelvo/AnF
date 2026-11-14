@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId, getSelectedVoiceProfile } from '../src/workspace/jarvis/voice/jarvis-voice-pack';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 
-describe('JARVIS Voice Pack & Profiles', () => {
+describe('Kevo Voice Pack & Profiles', () => {
   it('loads voice pack items including all user provided voices', () => {
     assert.ok(JARVIS_VOICE_PACK.length >= 12, 'contains all voice files');
     const ids = JARVIS_VOICE_PACK.map(v => v.id);
@@ -30,7 +30,7 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
       switchView: () => {},
       pauseMusic: () => { paused = true; },
     });
-    const res = await agent.processVoiceInput('Jarvis, please pause the music');
+    const res = await agent.processVoiceInput('Kevo, please pause the music');
     assert.ok(res.handled);
     assert.strictEqual(res.actionName, 'pause_music');
     assert.strictEqual(paused, true);

@@ -1,5 +1,5 @@
 /**
- * JARVIS Voice Pack & Speech Synthesis Profile Registry
+ * Kevo Voice Pack & Speech Synthesis Profile Registry
  * Manages custom reference voice audio samples (cloned voices) and Web Speech / Neural TTS synthesis.
  */
 
@@ -18,7 +18,7 @@ export interface VoiceProfile {
 export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
   {
     id: 'nath-british-calm',
-    name: 'Nath (British & Calm - Classic JARVIS)',
+    name: 'Nath (British & Calm - Classic Kevo)',
     description: 'Engaging, British, polished and calm. True AI butler feel.',
     filename: 'Nath - engaging, british and calm.mp3',
     isPersonaVoice: true,
@@ -37,11 +37,13 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
   },
   {
     id: 'kelvin-mwamburi',
-    name: 'Kelvin Mwamburi Mwaliko (Personal Voice)',
-    description: 'Custom authentic personal reference voice.',
-    filename: 'Kelvin mwamburi mwaliko.mp3',
+    // The id is a stored preference and stays; the voice is shown as Kevo.
+    name: 'Kevo (Gentle Bass)',
+    description: 'Gentle, warm bass voice: the voice of Kevo.',
+    filename: 'Kevo - gentle bass.mp3',
     accent: 'en',
-    style: 'natural',
+    gender: 'male',
+    style: 'comforting',
   },
   {
     id: 'dav-movie-trailer',
@@ -138,12 +140,15 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
 const PREF_VOICE_KEY = 'jarvis-active-voice-id';
 let _memVoiceId: string | null = null;
 
+/** Kevo speaks as Kevo unless the owner picks another voice. */
+const DEFAULT_VOICE_ID = 'kelvin-mwamburi';
+
 export function getSelectedVoiceId(): string {
   if (_memVoiceId !== null) return _memVoiceId;
   try {
-    return (typeof localStorage !== 'undefined' && localStorage.getItem(PREF_VOICE_KEY)) || 'nath-british-calm';
+    return (typeof localStorage !== 'undefined' && localStorage.getItem(PREF_VOICE_KEY)) || DEFAULT_VOICE_ID;
   } catch {
-    return 'nath-british-calm';
+    return DEFAULT_VOICE_ID;
   }
 }
 
@@ -156,7 +161,7 @@ export function setSelectedVoiceId(id: string): void {
 
 export function getSelectedVoiceProfile(): VoiceProfile {
   const id = getSelectedVoiceId();
-  return JARVIS_VOICE_PACK.find(v => v.id === id) || JARVIS_VOICE_PACK[0];
+  return JARVIS_VOICE_PACK.find(v => v.id === id) || JARVIS_VOICE_PACK.find(v => v.id === DEFAULT_VOICE_ID) || JARVIS_VOICE_PACK[0];
 }
 
 /** Dev/build URL for a voice-pack MP3 (Vite serves /voice-pack/*). */
