@@ -35,6 +35,7 @@ export class JarvisVoiceListener {
   private followUpMs: number;
   private awakeUntil = 0;
   private muted = false;
+  private tapPending = false;
 
   constructor(options?: VoiceListenerOptions) {
     // Recognisers often hear "Jarvis" as one of these.
@@ -68,6 +69,8 @@ export class JarvisVoiceListener {
       this.recognition.lang = 'en-US';
 
       this.recognition.onstart = () => {
+        // The mic tap counts from when listening really begins (after any permission prompt), not on restarts.
+        if (this.tapPending) { this.tapPending = false; this.keepAwake(); }
         this.isListening = true;
         this.onListeningStateChange?.(true);
         this.notifyStateListeners(true);
@@ -120,7 +123,7 @@ export class JarvisVoiceListener {
 
       this.isRunning = true;
       // Tapping the mic counts as calling JARVIS, so the first command needs no wake word.
-      this.keepAwake();
+      this.tapPending = true;
       this.recognition.start();
       return true;
     } catch (err) {
@@ -156,7 +159,7 @@ export class JarvisVoiceListener {
     if (command.wake) {
       this.keepAwake();
       this.onWakeWord?.(command.wake);
-    } else if (this.requireWakeWord && Date.now() > this.awakeUntil) {
+    } else if (this.requireWakeWord && Date.now() >= this.awakeUntil) {
       return; // Room talk, a TV or another assistant ("Hey Google") — not for JARVIS.
     }
     if (command.text) {
@@ -189,7 +192,8 @@ export function parseWakeCommand(rawText: string, wakeWords: string[]): { wake: 
   const words = [...wakeWords].sort((a, b) => b.length - a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const match = new RegExp(`\\b(?:(hey|ok|okay|hi|hello)[\\s,]+)?(${words.join('|')})\\b[,.:;!?\\s]*`, 'i').exec(text);
   if (!match) return { wake: null, text };
-  const after = text.slice(match.index + match[0].length).trim();
+  let after = text.slice(match.index + match[0].length).trim();
+  if (/^(please|thanks|thank you|now|sir)?[.!?]*$/i.test(after)) after = ''; // "What time is it, Jarvis, please?"
   // "What time is it, Jarvis?" puts the command before the name.
   const before = text.slice(0, match.index).replace(/[,.:;!?\s]+$/, '').trim();
   return { wake: [match[1], match[2]].filter(Boolean).join(' ').toLowerCase(), text: after || before };
