@@ -45,7 +45,10 @@ try {
     });
     assert.ifError(found.error);
     assert.equal(found.status, 0, found.stderr);
-    assert.equal(path.resolve(found.stdout.trim()), fixture, 'PATH tool must retain its own script directory');
+    // Hosted Windows TEMP may use an 8.3 alias (RUNNER~1); compare the actual
+    // directories, not spelling. An incorrect cwd still resolves elsewhere.
+    assert.equal(realpathSync.native(found.stdout.trim()).toLowerCase(),
+      realpathSync.native(fixture).toLowerCase(), 'PATH tool must retain its own script directory');
   }
 } finally {
   const parent = realpathSync.native(tmpdir());
