@@ -8,7 +8,12 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
   let active = false;
   const bounds = () => {
     const rect = root.getBoundingClientRect(), scale = devicePixelRatio;
-    return {x:Math.round(rect.left*scale),y:Math.round(rect.top*scale),width:Math.max(1,Math.round(rect.width*scale)),height:Math.max(1,Math.round((innerHeight-rect.top-16)*scale))};
+    const heading = root.querySelector('.music-heading')!.getBoundingClientRect();
+    const footer = document.querySelector('.activity-bar')?.getBoundingClientRect().top ?? innerHeight;
+    const dock = document.querySelector('.native-music-player:not([hidden])')?.getBoundingClientRect();
+    const top = Math.max(0,rect.top,heading.bottom+12);
+    const bottom = Math.min(innerHeight,footer,dock?.height?dock.top:innerHeight)-12;
+    return {x:Math.round(rect.left*scale),y:Math.round(top*scale),width:Math.max(1,Math.round(rect.width*scale)),height:Math.max(1,Math.round((bottom-top)*scale))};
   };
   const update = async () => {
     if (!active) return;
