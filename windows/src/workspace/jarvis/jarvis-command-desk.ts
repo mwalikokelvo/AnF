@@ -1,11 +1,11 @@
 /**
- * JARVIS Command Desk
+ * Kevo Command Desk
  * The assembled command center UI for the AnF workspace.
- * Mounts as section('jarvis', 'JARVIS', commandDesk.root) in main.ts.
+ * Mounts as section('jarvis', 'Kevo', commandDesk.root) in main.ts.
  *
  * Layout:
  * ┌─────────────────────────────────────────────┐
- * │  JARVIS  •  Autonomous Command Center        │
+ * │  Kevo  •  Autonomous Command Center        │
  * ├──────────────────┬──────────────────────────┤
  * │  HUD (animated)  │  Agent Cards row         │
  * │                  ├──────────────────────────┤
@@ -15,11 +15,10 @@
  * └──────────────────┴──────────────────────────┘
  */
 
-import { createJarvisHud } from './jarvis-hud';
+import { createJarvisHud, kevoState } from './jarvis-hud';
 import { JarvisExecutive } from './jarvis-executive';
 import { RevenueConnector } from './connectors/revenue-connector';
 import { AdsConnector } from './connectors/ads-connector';
-import { startTelemetryPolling } from './connectors/system-connector';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
@@ -40,10 +39,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   speaker: JarvisSpeaker;
   agent: JarvisVoiceAgent;
 } {
-  const notify = options?.onNotify ?? ((msg: string) => { console.log('[JARVIS]', msg); });
+  const notify = options?.onNotify ?? ((msg: string) => { console.log('[Kevo]', msg); });
 
   // ── Instantiate all subsystems
-  const hud = createJarvisHud({ spectrumBars: 32, maxLogLines: 24, animIntervalMs: 80 });
+  const hud = createJarvisHud();
   const executive = new JarvisExecutive();
   const revenue = new RevenueConnector();
   const ads = new AdsConnector();
@@ -55,7 +54,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const root = document.createElement('div');
   root.className = 'jarvis-command-desk';
   root.setAttribute('role', 'region');
-  root.setAttribute('aria-label', 'JARVIS Command Center');
+  root.setAttribute('aria-label', 'Kevo Command Center');
 
   // ── Inject desk styles
   injectDeskStyles();
@@ -65,30 +64,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   header.className = 'jarvis-desk-header';
   header.innerHTML = `
     <div class="jarvis-desk-title">
-      <span class="jarvis-logo" aria-hidden="true">⬡</span>
-      <div>
-        <h2>JARVIS</h2>
-        <p>Autonomous Multi-Agent Command Center</p>
-      </div>
-    </div>
-    <div class="jarvis-desk-status">
-      <span class="jarvis-online-dot"></span>
-      <span>ONLINE</span>
+      <h2>Kevo</h2>
+      <p>Your voice companion. Say “Kevo”, then what you need.</p>
     </div>
   `;
-
-  // ── Main layout: HUD left, panels right
-  const mainLayout = document.createElement('div');
-  mainLayout.className = 'jarvis-desk-main';
-
-  // HUD column
-  const hudCol = document.createElement('div');
-  hudCol.className = 'jarvis-desk-hud-col';
-  hudCol.appendChild(hud.root);
-
-  // Right column
-  const rightCol = document.createElement('div');
-  rightCol.className = 'jarvis-desk-right-col';
 
   // ── Agent cards row
   const agentRow = document.createElement('div');
@@ -107,9 +86,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const toolbar = document.createElement('div');
   toolbar.className = 'jarvis-toolbar';
 
-  const btnBriefing = makeBtn('📋 Morning Briefing', 'jarvis-btn-primary', async () => {
+  const btnBriefing = makeBtn('Morning briefing', 'jarvis-btn-primary', async () => {
     btnBriefing.disabled = true;
-    btnBriefing.textContent = '⏳ Generating…';
+    btnBriefing.textContent = 'Writing the briefing…';
     try {
       const [revenueStats, adsStats, supportBriefing, devBriefing, contentBriefing] = await Promise.all([
         revenue.getStats(),
@@ -128,16 +107,16 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
       hud.pulseMessage('Briefing complete — ' + briefing.summary);
-      notify('JARVIS briefing generated successfully.');
+      notify('Kevo briefing generated successfully.');
     } catch (err) {
       notify('Briefing error: ' + String(err));
     } finally {
       btnBriefing.disabled = false;
-      btnBriefing.textContent = '📋 Morning Briefing';
+      btnBriefing.textContent = 'Morning briefing';
     }
   });
 
-  const btnAutoTriage = makeBtn('🎧 Auto-Triage Support', '', async () => {
+  const btnAutoTriage = makeBtn('Triage support', '', async () => {
     btnAutoTriage.disabled = true;
     try {
       const count = support.autoTriage();
@@ -148,7 +127,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  const btnAddTask = makeBtn('🤖 New Dev Task', '', () => {
+  const btnAddTask = makeBtn('New dev task', '', () => {
     const title = prompt('Task title:');
     if (!title?.trim()) return;
     tom.addTask('feature', title.trim(), 'medium');
@@ -156,7 +135,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     notify(`Dev task queued: "${title}"`);
   });
 
-  const btnScoutAngle = makeBtn('📡 Scout Angle', '', () => {
+  const btnScoutAngle = makeBtn('Suggest an angle', '', () => {
     const angles = scout.suggestAngles(1);
     hud.pulseMessage(`Scout: try "${angles[0]}"`);
     notify(`Scout suggests: ${angles[0]}`);
@@ -164,13 +143,19 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   // ── Voice Companion Engine Setup
   let unmuteTimer: ReturnType<typeof setTimeout> | undefined;
+  let thinking = false;
+  /** Shows on the orb what Kevo is doing right now. */
+  const refresh = () => hud.setState(kevoState({
+    micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
+  }));
   const speaker = new JarvisSpeaker({
     onStart: () => {
-      hud.pulseMessage('JARVIS Speaking...');
+      refresh();
       clearTimeout(unmuteTimer);
       listener.setMuted(true);
     },
     onEnd: () => {
+      refresh();
       // A short pause lets the room echo die down; then a follow-up needs no wake word.
       clearTimeout(unmuteTimer);
       unmuteTimer = setTimeout(() => {
@@ -207,61 +192,83 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     notify: (msg) => notify(msg),
   });
 
-  // ── Voice companion status pill & controls
+  // ── Voice controls
   const voiceBar = document.createElement('div');
   voiceBar.className = 'jarvis-voice-bar';
 
   const micBtn = document.createElement('button');
+  micBtn.type = 'button';
   micBtn.className = 'jarvis-mic-btn';
-  micBtn.innerHTML = '🎙️ <span class="mic-label">Voice: OFF</span>';
-  micBtn.title = 'Turn the voice companion on or off. Commands need "Jarvis" except right after you tap the mic or JARVIS replies.';
+  micBtn.textContent = 'Turn microphone on';
+  micBtn.setAttribute('aria-pressed', 'false');
+  micBtn.title = 'Commands need “Kevo”, except right after you turn the microphone on or Kevo replies.';
 
   const voiceSelect = document.createElement('select');
   voiceSelect.className = 'jarvis-voice-select';
-  voiceSelect.title = 'Select Voice Profile from Voice Pack';
+  voiceSelect.setAttribute('aria-label', 'Kevo’s voice');
   for (const v of JARVIS_VOICE_PACK) {
     const opt = document.createElement('option');
     opt.value = v.id;
-    opt.textContent = `🗣️ ${v.name}`;
+    opt.textContent = v.name;
     if (v.id === getSelectedVoiceId()) opt.selected = true;
     voiceSelect.appendChild(opt);
   }
   voiceSelect.addEventListener('change', () => {
     setSelectedVoiceId(voiceSelect.value);
     const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
-    hud.pulseMessage(`Voice pack profile set to: ${prof?.name || voiceSelect.value}`);
-    notify(`JARVIS voice set to: ${prof?.name}`);
-    // Identity cue on profile change (MP3 snippet or Web Audio chirp)
+    hud.pulseMessage(`Voice set to ${prof?.name || voiceSelect.value}`);
     void speaker.playIdentityCue(prof?.filename);
   });
 
-  const speechStatusEl = document.createElement('div');
+  // The built-in recording of the chosen voice, in full.
+  const previewBtn = makeBtn('Hear this voice', '', async () => {
+    const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
+    if (!prof) return;
+    previewBtn.disabled = true;
+    try {
+      if (!await speaker.playSample(prof.filename)) speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+    } finally {
+      previewBtn.disabled = false;
+    }
+  });
+
+  const speechStatusEl = document.createElement('p');
   speechStatusEl.className = 'jarvis-speech-status';
-  speechStatusEl.textContent = 'Say "Hey Jarvis" or tap mic to speak.';
+  speechStatusEl.setAttribute('role', 'status');
 
   const listener = new JarvisVoiceListener({
+    onAwakeChange: () => refresh(),
     onListeningStateChange: (listening) => {
       micBtn.classList.toggle('active', listening);
-      micBtn.querySelector('.mic-label')!.textContent = listening ? 'Voice: LISTENING' : 'Voice: OFF';
-      if (listening) {
-        speechStatusEl.textContent = 'Listening. Say "Jarvis" before a command.';
-      }
+      micBtn.setAttribute('aria-pressed', String(listening));
+      micBtn.textContent = listening ? 'Turn microphone off' : 'Turn microphone on';
+      if (listening) speechStatusEl.textContent = '';
+      refresh();
     },
     onInterimSpeech: (transcript) => {
-      speechStatusEl.textContent = `Hearing: "${transcript}"...`;
+      if (listener.isAwake()) hud.setHeard(transcript);
     },
-    onWakeWord: (wake) => {
+    onWakeWord: () => {
       hud.setWakeActive(true);
-      hud.pulseMessage(`Wake word: "${wake}"`);
-      speechStatusEl.textContent = 'At your service, sir.';
       void speaker.playIdentityCue();
     },
     onFinalSpeech: async (finalTranscript) => {
-      speechStatusEl.textContent = `Processing: "${finalTranscript}"`;
-      hud.pulseMessage(`Voice command: "${finalTranscript}"`);
-      const result = await voiceAgent.processVoiceInput(finalTranscript);
-      speechStatusEl.textContent = `JARVIS: ${result.speechReply}`;
-      await speaker.speak(result.speechReply);
+      hud.setHeard(finalTranscript);
+      hud.pulseMessage(`You: ${finalTranscript}`);
+      thinking = true;
+      refresh();
+      let reply: string;
+      try {
+        reply = (await voiceAgent.processVoiceInput(finalTranscript)).speechReply;
+      } catch (err) {
+        reply = 'That did not work: ' + String(err).replace(/^Error:\s*/, '');
+      } finally {
+        thinking = false;
+      }
+      hud.setReply(reply);
+      hud.pulseMessage(`Kevo: ${reply}`);
+      refresh();
+      await speaker.speak(reply);
     },
     onError: (err) => {
       speechStatusEl.textContent = err;
@@ -271,16 +278,12 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   micBtn.addEventListener('click', () => {
     if (listener.getListeningState()) {
       listener.stop();
-      speechStatusEl.textContent = 'Voice companion standby.';
-    } else {
-      const ok = listener.start();
-      if (!ok) {
-        speechStatusEl.textContent = 'Microphone permission or speech recognition unavailable in this window.';
-      }
+    } else if (!listener.start()) {
+      speechStatusEl.textContent = 'The microphone or speech recognition is not available in this window. Check the microphone permission in Windows settings.';
     }
   });
 
-  // Microsoft's natural voices are online: replies are sent to Microsoft to be spoken, so they are opt-in.
+  // Microsoft's natural voices are online: replies are sent to Microsoft to be spoken. On by default; this box turns them off.
   const onlineToggle = document.createElement('label');
   onlineToggle.className = 'jarvis-online-voices';
   onlineToggle.title = 'Natural voices sound more human but send each reply to Microsoft to be spoken. Off: only voices installed on this computer.';
@@ -288,28 +291,26 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   onlineBox.type = 'checkbox';
   onlineBox.checked = onlineVoicesAllowed();
   onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
-  onlineToggle.append(onlineBox, ' Natural online voices (sends replies to Microsoft)');
+  onlineToggle.append(onlineBox, ' Natural online voices (replies are sent to Microsoft to be spoken)');
 
-  voiceBar.append(micBtn, voiceSelect, onlineToggle, speechStatusEl);
+  voiceBar.append(micBtn, voiceSelect, previewBtn, onlineToggle, speechStatusEl);
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
-  rightCol.append(voiceBar, agentRow, briefingPanel, toolbar);
-  mainLayout.append(hudCol, rightCol);
-  root.append(header, mainLayout);
+  const team = document.createElement('section');
+  team.className = 'jarvis-team';
+  team.setAttribute('aria-label', 'Team');
+  const teamTitle = document.createElement('h3');
+  teamTitle.className = 'jarvis-panel-title';
+  teamTitle.textContent = 'Team';
+  team.append(teamTitle, agentRow, briefingPanel, toolbar);
 
-  // ── Event-gated telemetry (pauses when tab hidden or HUD off-screen)
-  const stopPolling = startTelemetryPolling(stats => {
-    hud.updateTelemetry(stats);
-  }, 2000, hud.root);
-
-  // Initial pulse
-  hud.pulseMessage('JARVIS Command Center online. Good morning, sir.');
+  root.append(header, hud.root, voiceBar, team);
 
   function destroy(): void {
     listener.stop();
     speaker.stop();
-    stopPolling();
+    clearTimeout(unmuteTimer);
     hud.destroy();
   }
 
@@ -329,223 +330,59 @@ function injectDeskStyles(): void {
   const style = document.createElement('style');
   style.id = 'jarvis-desk-styles';
   style.textContent = `
+    /* Uses the workspace tokens from anf-design.css, so Kevo follows the light, dark and theme-pack looks. */
     .jarvis-command-desk {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 12px;
-      background: #020d14;
-      color: #7de8ff;
-      font-family: 'Courier New', Courier, monospace;
-      min-height: 100%;
+      gap: 12px;
       min-width: 0;
       box-sizing: border-box;
       container-type: inline-size;
-      overflow-x: hidden;
+      color: var(--ink, #edf4ef);
     }
-    .jarvis-desk-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: rgba(0,170,255,0.08);
-      border: 1px solid rgba(0,170,255,0.3);
-      border-radius: 6px;
-      flex-wrap: wrap;
-      gap: 6px 12px;
+    .jarvis-desk-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+    .jarvis-desk-title { min-width: 0; }
+    .jarvis-desk-title h2 { margin: 0; }
+    .jarvis-desk-title p { margin: 2px 0 0; color: var(--muted, #b0c4bd); overflow-wrap: anywhere; }
+
+    .jarvis-voice-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
+    .jarvis-voice-select { width: auto; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+    .jarvis-online-voices { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted, #b0c4bd); cursor: pointer; min-width: 0; }
+    .jarvis-online-voices input { width: auto; flex: none; }
+    .jarvis-speech-status { flex: 1 1 100%; margin: 0; font-size: 13px; color: var(--muted, #b0c4bd); min-width: 0; overflow-wrap: anywhere; }
+    .jarvis-speech-status:empty { display: none; }
+
+    .jarvis-btn, .jarvis-mic-btn { transition: transform .12s cubic-bezier(.16,1,.3,1); }
+    .jarvis-btn:active, .jarvis-mic-btn:active { transform: scale(.97); }
+    .jarvis-mic-btn, .jarvis-btn-primary {
+      background: var(--accent, #a3e5cd);
+      color: var(--accent-ink, #10392e);
+      border-color: transparent;
+      font-weight: 600;
     }
-    .jarvis-desk-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .jarvis-mic-btn.active { background: transparent; color: var(--ink, #edf4ef); border-color: var(--line, #385052); }
+    .jarvis-btn:disabled { opacity: .55; cursor: default; }
+
+    .jarvis-team { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .jarvis-panel-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted, #b0c4bd); }
+    .jarvis-agent-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+    .jarvis-agent-card, .jarvis-briefing-panel {
+      background: var(--surface, #182a2d);
+      border: 1px solid var(--line, #385052);
+      border-radius: var(--radius, 16px);
+      padding: 14px;
       min-width: 0;
+      font-size: 13px;
     }
-    .jarvis-desk-title p { overflow-wrap: anywhere; }
-    .jarvis-logo {
-      font-size: 28px;
-      color: #0af;
-      text-shadow: 0 0 12px rgba(0,170,255,0.8);
-      animation: core-pulse 2s ease-in-out infinite;
-    }
-    .jarvis-desk-title h2 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: bold;
-      color: #0af;
-      letter-spacing: 0.15em;
-    }
-    .jarvis-desk-title p {
-      margin: 2px 0 0;
-      font-size: 10px;
-      opacity: 0.6;
-      letter-spacing: 0.1em;
-    }
-    .jarvis-desk-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: #00ff88;
-      letter-spacing: 0.1em;
-    }
-    .jarvis-online-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #00ff88;
-      box-shadow: 0 0 8px #00ff88;
-      animation: online-blink 2s ease-in-out infinite;
-    }
-    @keyframes online-blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    .jarvis-desk-main {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-      gap: 10px;
-      flex: 1;
-    }
-    .jarvis-desk-hud-col { display: flex; flex-direction: column; min-width: 0; }
-    .jarvis-desk-right-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-    /* Not maximized: the HUD sits above the controls instead of squeezing beside them */
-    @container (max-width: 1100px) {
-      .jarvis-desk-main { grid-template-columns: minmax(0, 1fr); }
-    }
-    /* Agent cards */
-    .jarvis-agent-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 8px;
-    }
-    .jarvis-agent-card {
-      background: rgba(0,170,255,0.06);
-      border: 1px solid rgba(0,170,255,0.25);
-      border-radius: 6px;
-      padding: 10px;
-      font-size: 11px;
-      min-width: 0;
-    }
-    .agent-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 8px;
-      border-bottom: 1px solid rgba(0,170,255,0.15);
-      padding-bottom: 6px;
-    }
-    .agent-avatar { font-size: 16px; }
-    .agent-name { font-weight: bold; color: #0af; font-size: 12px; }
-    .agent-role { font-size: 9px; opacity: 0.5; margin-left: auto; }
-    .agent-metric {
-      display: flex;
-      justify-content: space-between;
-      padding: 2px 0;
-      font-size: 10px;
-    }
-    .agent-metric span { opacity: 0.6; }
-    .status-clean { color: #00ff88; }
-    /* Briefing panel */
-    .jarvis-briefing-panel {
-      background: rgba(0,170,255,0.04);
-      border: 1px solid rgba(0,170,255,0.2);
-      border-radius: 6px;
-      padding: 12px;
-      flex: 1;
-      overflow-y: auto;
-      font-size: 11px;
-    }
-    .jarvis-dim { opacity: 0.5; font-style: italic; }
-    .jarvis-briefing-card h3 { margin: 0 0 8px; }
-    /* Voice Bar */
-    .jarvis-voice-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      background: rgba(0,170,255,0.08);
-      border: 1px solid rgba(0,170,255,0.3);
-      border-radius: 6px;
-      flex-wrap: wrap;
-    }
-    .jarvis-mic-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      border: 1px solid rgba(0,170,255,0.4);
-      background: rgba(0,170,255,0.12);
-      color: #7de8ff;
-      font-family: inherit;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .jarvis-mic-btn.active {
-      background: rgba(255,50,50,0.25);
-      border-color: #ff4444;
-      color: #ffaaaa;
-      animation: mic-pulse 1.5s infinite;
-    }
-    @keyframes mic-pulse {
-      0%, 100% { box-shadow: 0 0 4px #ff4444; }
-      50% { box-shadow: 0 0 14px #ff4444; }
-    }
-    .jarvis-voice-select {
-      background: #020d14;
-      border: 1px solid rgba(0,170,255,0.3);
-      color: #7de8ff;
-      font-family: inherit;
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      width: auto;
-      flex: 0 1 auto;
-      min-width: 0;
-      max-width: 100%;
-    }
-    .jarvis-online-voices { display: flex; align-items: center; gap: 6px; font-size: 10px; cursor: pointer; }
-    .jarvis-speech-status {
-      font-size: 10px;
-      color: rgba(125,232,255,0.7);
-      font-style: italic;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      flex: 1 1 180px;
-      min-width: 0;
-    }
-    /* Toolbar */
-    .jarvis-toolbar {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .jarvis-btn {
-      padding: 7px 14px;
-      background: rgba(0,170,255,0.1);
-      border: 1px solid rgba(0,170,255,0.4);
-      border-radius: 20px;
-      color: #7de8ff;
-      font-family: inherit;
-      font-size: 11px;
-      cursor: pointer;
-      transition: background 0.2s, box-shadow 0.2s;
-      white-space: nowrap;
-    }
-    .jarvis-btn:hover {
-      background: rgba(0,170,255,0.22);
-      box-shadow: 0 0 10px rgba(0,170,255,0.3);
-    }
-    .jarvis-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .jarvis-btn-primary {
-      background: rgba(0,170,255,0.2);
-      border-color: #0af;
-      color: #fff;
-      font-weight: bold;
-    }
-    .jarvis-btn-primary:hover { background: rgba(0,170,255,0.35); }
+    .agent-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+    .agent-avatar { display: none; }
+    .agent-name { font-weight: 600; font-size: 15px; }
+    .agent-role { margin-left: auto; font-size: 12px; color: var(--muted, #b0c4bd); }
+    .agent-metric { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    .agent-metric span { color: var(--muted, #b0c4bd); }
+    .jarvis-dim { color: var(--muted, #b0c4bd); }
+    .jarvis-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+    @media (prefers-reduced-motion: reduce) { .jarvis-btn, .jarvis-mic-btn { transition: none; } }
   `;
   document.head.appendChild(style);
 }

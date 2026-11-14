@@ -1,5 +1,5 @@
 /**
- * JARVIS Autonomous Action & Intent Dispatcher
+ * Kevo Autonomous Action & Intent Dispatcher
  * Parses natural spoken voice instructions and executes corresponding actions across the entire workspace.
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
@@ -198,9 +198,9 @@ export class JarvisVoiceAgent {
         this.context.switchView('audio');
         return { handled: true, actionName: 'navigate_audio', speechReply: 'Opening Audio Studio.' };
       }
-      if (dest.includes('jarvis') || dest.includes('command')) {
+      if (dest.includes('kevo') || dest.includes('jarvis') || dest.includes('command')) {
         this.context.switchView('jarvis');
-        return { handled: true, actionName: 'navigate_jarvis', speechReply: 'Opening JARVIS Command Center.' };
+        return { handled: true, actionName: 'navigate_jarvis', speechReply: 'Opening Kevo Command Center.' };
       }
       if (dest.includes('home') || dest.includes('dashboard')) {
         this.context.switchView('home');
@@ -262,7 +262,7 @@ export class JarvisVoiceAgent {
         appendJarvisTurn('user', text);
         const history = formatJarvisHistoryForPrompt(20);
         const prompt = history
-          ? `Prior JARVIS conversation (most recent last):\n${history}\n\nRespond as JARVIS to the latest user message.`
+          ? `Prior Kevo conversation (most recent last):\n${history}\n\nRespond as Kevo to the latest user message.`
           : text;
         const aiAnswer = await this.context.askAI(prompt);
         appendJarvisTurn('assistant', aiAnswer);

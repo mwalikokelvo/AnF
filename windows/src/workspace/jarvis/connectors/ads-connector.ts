@@ -1,5 +1,5 @@
 /**
- * JARVIS Ads Analytics Connector (Meta Ads compatible)
+ * Kevo Ads Analytics Connector (Meta Ads compatible)
  * Tracks ad spend, ROAS, CPM, CTR across campaigns.
  * Demo values from Cindy Zhu video: $475 spend, 1.5x ROAS.
  * Offline-first; real Meta API calls are gated behind onlineLookupsEnabled().

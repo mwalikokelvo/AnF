@@ -1,14 +1,14 @@
-// JARVIS voice: only speech addressed to JARVIS becomes a command, and each profile gets a fitting natural voice.
+// Kevo voice: only speech addressed to Kevo becomes a command, and each profile gets a fitting natural voice.
 const {parseWakeCommand,pickVoice,splitForSpeech}=require(require('node:path').resolve(process.argv[2]));const assert=require('node:assert/strict');
-const w=['jarvis','jervis','javis','jarvas','jarvice'];
+const w=['kevo','keevo','kivo','kayvo','kebo','cavo'];
 assert.deepEqual(parseWakeCommand('Hey Google.',w),{wake:null,text:'Hey Google.'});
 assert.deepEqual(parseWakeCommand('Are you awake?',w),{wake:null,text:'Are you awake?'});
-assert.deepEqual(parseWakeCommand('Hey Jarvis, what time is it',w),{wake:'hey jarvis',text:'what time is it'});
-assert.deepEqual(parseWakeCommand('okay jervis play music',w),{wake:'okay jervis',text:'play music'});
-assert.deepEqual(parseWakeCommand('What time is it, Jarvis?',w),{wake:'jarvis',text:'What time is it'});
-assert.deepEqual(parseWakeCommand('What time is it, Jarvis, please?',w),{wake:'jarvis',text:'What time is it'});
-assert.deepEqual(parseWakeCommand('Jarvis',w),{wake:'jarvis',text:''});
-assert.equal(parseWakeCommand('jarvisify this',w).wake,null);
+assert.deepEqual(parseWakeCommand('Hey Kevo, what time is it',w),{wake:'hey kevo',text:'what time is it'});
+assert.deepEqual(parseWakeCommand('okay keevo play music',w),{wake:'okay keevo',text:'play music'});
+assert.deepEqual(parseWakeCommand('What time is it, Kevo?',w),{wake:'kevo',text:'What time is it'});
+assert.deepEqual(parseWakeCommand('What time is it, Kevo, please?',w),{wake:'kevo',text:'What time is it'});
+assert.deepEqual(parseWakeCommand('Kevo',w),{wake:'kevo',text:''});
+assert.equal(parseWakeCommand('kevology is fun',w).wake,null);
 const v=(name,lang,localService=true)=>({name,lang,localService});
 const voices=[v('Microsoft David - English (United States)','en-US'),v('Microsoft Zira - English (United States)','en-US'),v('Microsoft Aria Online (Natural) - English (United States)','en-US',false),v('Microsoft Guy Online (Natural) - English (United States)','en-US',false),v('Microsoft Ryan Online (Natural) - English (United Kingdom)','en-GB',false),v('Microsoft Hortense - French','fr-FR')];
 assert.match(pickVoice(voices,{accent:'en-US',gender:'female'}).name,/Zira/,'online voices need opt-in');
@@ -21,4 +21,4 @@ assert.equal(pickVoice([v('Hortense','fr-FR')],{accent:'en-US'}),null);
 assert.deepEqual(splitForSpeech('One. Two!  Three?'),['One. Two! Three?']);
 assert.ok(splitForSpeech('A sentence that is long enough. '.repeat(20)).every(p=>p.length<=220));
 assert.ok(splitForSpeech('word '.repeat(120)).every(p=>p.length<=220),'one long unpunctuated sentence is split');
-console.log('JARVIS voice checks passed.');
+console.log('Kevo voice checks passed.');

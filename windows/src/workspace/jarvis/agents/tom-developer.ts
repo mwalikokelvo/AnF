@@ -2,7 +2,7 @@
  * Tom — Developer Agent
  * Monitors code health, runs diagnostics, surfaces build/test status.
  * Integrates with vault-health, knowledge-data, and workspace internals.
- * "I handed it to Tom, the developer agent" — Cindy Zhu JARVIS video
+ * "I handed it to Tom, the developer agent" — Cindy Zhu Kevo video
  */
 
 export interface CodeHealthReport {

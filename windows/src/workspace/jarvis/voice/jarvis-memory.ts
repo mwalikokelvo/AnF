@@ -1,5 +1,5 @@
 /**
- * JARVIS conversational memory — last N turns for askAI context.
+ * Kevo conversational memory — last N turns for askAI context.
  * Destructive single store (no V1/V2 stacks). localStorage-backed when available.
  */
 
@@ -57,6 +57,6 @@ export function formatJarvisHistoryForPrompt(limit = MAX_TURNS): string {
   const turns = getJarvisHistory(limit);
   if (!turns.length) return '';
   return turns
-    .map((t) => `${t.role === 'user' ? 'User' : 'JARVIS'}: ${t.text}`)
+    .map((t) => `${t.role === 'user' ? 'User' : 'Kevo'}: ${t.text}`)
     .join('\n');
 }
