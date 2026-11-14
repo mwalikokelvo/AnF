@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: search-case-bug
+expected_outcome: |
+  The agent sizes this as a small bug fix and doesn't over-ceremony it. It first
+  writes a regression test that reproduces the case-sensitive search and sees it
+  fail, then fixes the root cause in the search logic, gets the full suite green,
+  commits the fix on a branch, leaves unrelated code untouched, and reports briefly.
+context:
+  scaffold_script: place-files.sh

@@ -1,0 +1,5 @@
+*.skill
+__pycache__/
+*.pyc
+.bl-update-work/
+build-loop-update-report.json
