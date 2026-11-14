@@ -90,6 +90,9 @@ function injectHudStyles(): void {
     }
     .kevo-state { margin: 6px 0 0; font-size: 20px; font-weight: 600; color: var(--ink, #edf4ef); }
     .kevo-heard, .kevo-reply { margin: 0; max-width: 46ch; overflow-wrap: anywhere; }
+    /* A long answer stays readable without pushing the controls off the screen */
+    .kevo-reply { max-height: 7.3em; overflow-y: auto; }
+    .kevo-heard { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .kevo-heard { font-size: 13px; color: var(--muted, #b0c4bd); min-height: 1.4em; }
     .kevo-reply { font-size: 15px; line-height: 1.45; color: var(--ink, #edf4ef); min-height: 1.45em; }
     .kevo-reply.fresh, .kevo-heard.fresh { animation: kevo-line-in .35s cubic-bezier(.16,1,.3,1); }
@@ -127,7 +130,9 @@ function injectHudStyles(): void {
     .kevo-activity { animation: kevo-follow .5s .28s cubic-bezier(.16,1,.3,1) both; }
 
     /* ── Activity */
-    .kevo-log { list-style: none; margin: 0; padding: 0; overflow-y: auto; max-height: 300px; display: flex; flex-direction: column; gap: 6px; }
+    /* The list fills the panel beside the orb and scrolls inside it, so there is one scrollbar, not two */
+    .kevo-activity { min-height: 220px; }
+    .kevo-log { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
     .kevo-log li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; font-size: 13px; line-height: 1.4; color: var(--ink, #edf4ef); animation: kevo-line-in .3s cubic-bezier(.16,1,.3,1); }
     .kevo-log time { color: var(--muted, #b0c4bd); font-variant-numeric: tabular-nums; }
     .kevo-log span { overflow-wrap: anywhere; }

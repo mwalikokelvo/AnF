@@ -13,6 +13,8 @@ export interface JarvisActionContext {
   nextTrack?: () => void;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
+  /** Opens an installed app by name; resolves to the name of the app it opened. */
+  openApp?: (name: string) => Promise<string>;
   openQuickCapture?: () => void;
   saveQuickNote?: (text: string) => Promise<void>;
   askAI?: (query: string) => Promise<string>;
@@ -43,6 +45,21 @@ function speakDate(): string {
     day: 'numeric',
   });
   return `Today is ${date}, sir.`;
+}
+
+const WORKSPACE_PLACES: Record<string, { view: string; action: string; say: string }> = {};
+for (const [names, view, action, say] of [
+  ['notes|my notes|quick capture|quick note|quick notes', 'home', 'navigate_notes', 'Opening your notes, sir.'],
+  ['music|music hub|the hub|hub', 'music', 'navigate_music', 'Opening Music Hub.'],
+  ['chat|assistant|chat assistant', 'chat', 'navigate_chat', 'Opening Chat assistant.'],
+  ['writing|editor|writing editor', 'writing', 'navigate_writing', 'Opening Writing editor.'],
+  ['documents|document|library|document library', 'documents', 'navigate_docs', 'Opening Documents.'],
+  ['audio|studio|audio studio', 'audio', 'navigate_audio', 'Opening Audio Studio.'],
+  ['kevo|jarvis|command center|kevo command center', 'jarvis', 'navigate_jarvis', 'Opening Kevo.'],
+  ['home|dashboard', 'home', 'navigate_home', 'Opening Home.'],
+  ['settings|setting', 'settings', 'navigate_settings', 'Opening Settings.'],
+] as const) {
+  for (const name of names.split('|')) WORKSPACE_PLACES[name] = { view, action, say };
 }
 
 export class JarvisVoiceAgent {
@@ -170,45 +187,23 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
 
-    // 3. Navigation Commands
-    if (lower.startsWith('open ') || lower.startsWith('go to ') || lower.startsWith('show ')) {
-      const dest = lower.replace(/^(open|go to|show)\s+/, '').trim();
-      if (dest.includes('my notes') || dest === 'notes' || dest.includes('quick capture') || dest.includes('quick note')) {
-        this.context.switchView('home');
-        this.context.openQuickCapture?.();
-        return { handled: true, actionName: 'navigate_notes', speechReply: 'Opening your notes, sir.' };
-      }
-      if (dest.includes('music') || dest.includes('hub')) {
-        this.context.switchView('music');
-        return { handled: true, actionName: 'navigate_music', speechReply: 'Opening Music Hub.' };
-      }
-      if (dest.includes('chat') || dest.includes('assistant')) {
-        this.context.switchView('chat');
-        return { handled: true, actionName: 'navigate_chat', speechReply: 'Opening Chat assistant.' };
-      }
-      if (dest.includes('writing') || dest.includes('editor')) {
-        this.context.switchView('writing');
-        return { handled: true, actionName: 'navigate_writing', speechReply: 'Opening Writing editor.' };
-      }
-      if (dest.includes('document') || dest.includes('library')) {
-        this.context.switchView('documents');
-        return { handled: true, actionName: 'navigate_docs', speechReply: 'Opening Documents.' };
-      }
-      if (dest.includes('audio') || dest.includes('studio')) {
-        this.context.switchView('audio');
-        return { handled: true, actionName: 'navigate_audio', speechReply: 'Opening Audio Studio.' };
-      }
-      if (dest.includes('kevo') || dest.includes('jarvis') || dest.includes('command')) {
-        this.context.switchView('jarvis');
-        return { handled: true, actionName: 'navigate_jarvis', speechReply: 'Opening Kevo Command Center.' };
-      }
-      if (dest.includes('home') || dest.includes('dashboard')) {
-        this.context.switchView('home');
-        return { handled: true, actionName: 'navigate_home', speechReply: 'Opening Home.' };
-      }
-      if (dest.includes('setting')) {
-        this.context.switchView('settings');
-        return { handled: true, actionName: 'navigate_settings', speechReply: 'Opening Settings.' };
+    // 3. Places inside AnF. Exact names only, so "open Visual Studio Code" or "open ChatGPT" reach the apps below.
+    const place = /^(?:open|go to|show)\s+(?:the\s+|my\s+)?(.+?)[.!?]*$/.exec(lower);
+    const route = place && WORKSPACE_PLACES[place[1]];
+    if (route) {
+      this.context.switchView(route.view);
+      if (route.view === 'home' && route.say.includes('notes')) this.context.openQuickCapture?.();
+      return { handled: true, actionName: route.action, speechReply: route.say };
+    }
+
+    // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
+    const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
+    if (app && this.context.openApp) {
+      try {
+        const opened = await this.context.openApp(app[1]);
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
+      } catch (err) {
+        return { handled: true, actionName: 'open_app_failed', speechReply: String(err).replace(/^Error:\s*/, '') };
       }
     }
 
@@ -260,7 +255,8 @@ export class JarvisVoiceAgent {
     if (this.context.askAI) {
       try {
         appendJarvisTurn('user', text);
-        const history = formatJarvisHistoryForPrompt(20);
+        // A short history keeps the local model quick and stops old exchanges steering new answers.
+        const history = formatJarvisHistoryForPrompt(8);
         const prompt = history
           ? `Prior Kevo conversation (most recent last):\n${history}\n\nRespond as Kevo to the latest user message.`
           : text;
@@ -286,4 +282,12 @@ export class JarvisVoiceAgent {
       speechReply: `Understood, sir: "${text}". Standing by for further commands.`,
     };
   }
+}
+
+/** True when what the microphone heard is (part of) what Kevo itself just said. */
+export function isEchoOf(heard: string, reply: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const h = norm(heard);
+  // Short phrases ("yes", "open music") are too common to call an echo.
+  return h.split(' ').length >= 4 && norm(reply).includes(h);
 }

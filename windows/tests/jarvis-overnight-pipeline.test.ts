@@ -4,7 +4,7 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceAgent, isEchoOf } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 import { JarvisSpeaker } from '../src/workspace/jarvis/voice/jarvis-speaker';
 import {
@@ -40,6 +40,12 @@ class FakeSpeechRecognition {
 
   stop() {
     this.stopCalls += 1;
+    this.onend?.();
+  }
+
+  abortCalls = 0;
+  abort() {
+    this.abortCalls += 1;
     this.onend?.();
   }
 
@@ -115,6 +121,52 @@ describe('Overnight Kevo pipeline', () => {
     assert.deepEqual(finals, ['what time is it']);
     listener.stop();
     g.window = prevWindow;
+  });
+
+  it('the microphone session is dropped while Kevo talks and restarted after, without the button flickering', () => {
+    const g = globalThis as any;
+    const prevWindow = g.window;
+    const fake = new FakeSpeechRecognition();
+    g.window = { SpeechRecognition: function SpeechRecognition() { return fake; } };
+    const states: boolean[] = [];
+    const listener = new JarvisVoiceListener({ onListeningStateChange: (on) => states.push(on) });
+    listener.start();
+    listener.setMuted(true); // Kevo starts talking
+    assert.equal(fake.abortCalls, 1, 'what the recogniser was hearing is thrown away');
+    assert.equal(fake.startCalls, 1, 'it is not restarted while Kevo talks');
+    listener.setMuted(false); // Kevo finished
+    assert.equal(fake.startCalls, 2, 'a fresh session starts afterwards');
+    assert.deepEqual(states, [true], 'the owner still sees the microphone as on throughout');
+    assert.equal(listener.getListeningState(), true);
+    listener.stop();
+    assert.deepEqual(states, [true, false]);
+    g.window = prevWindow;
+  });
+
+  it('Kevo does not answer its own voice', () => {
+    const reply = 'I see that you are having trouble with the offline runtime. Could you check the system requirements again?';
+    assert.equal(isEchoOf('See that you are having trouble with the offline runtime.', reply), true);
+    assert.equal(isEchoOf('Could you check the system requirements again', reply), true);
+    assert.equal(isEchoOf('open Brave browser', reply), false);
+    assert.equal(isEchoOf('check again', reply), false, 'short phrases are never treated as an echo');
+  });
+
+  it('opens an installed app by name, and says so plainly when it is not installed', async () => {
+    const asked: string[] = [];
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      openApp: async (name) => { asked.push(name); if (/brave/i.test(name)) return 'Brave'; throw new Error(`I could not find an app called ${name} in the Start Menu.`); },
+      askAI: async () => { throw new Error('the AI must not be asked to open an app'); },
+    });
+    assert.equal((await agent.processVoiceInput('open Brave browser.')).speechReply, 'Opening Brave.');
+    assert.equal((await agent.processVoiceInput('launch the Photoshop app')).speechReply, 'I could not find an app called Photoshop in the Start Menu.');
+    assert.deepEqual(asked, ['Brave browser', 'Photoshop']);
+    // Places inside AnF still open inside AnF.
+    assert.equal((await agent.processVoiceInput('open music')).actionName, 'navigate_music');
+    assert.equal((await agent.processVoiceInput('Open the Audio Studio.')).actionName, 'navigate_audio');
+    // An app whose name contains a place's name is still an app.
+    assert.equal((await agent.processVoiceInput('open Brave Studio')).speechReply, 'Opening Brave.');
+    assert.equal(asked.at(-1), 'Brave Studio');
   });
 
   it('agent + memory: open question stores turns and includes history in askAI', async () => {

@@ -336,3 +336,127 @@ pub fn diagnostics() -> Result<Diagnostics, String> {
         disks: stats.disks,
     })
 }
+
+// ---------------------------------------------------------------------------
+// Opening an installed app by name ("Kevo, open Brave browser")
+// ---------------------------------------------------------------------------
+
+/// Words people add that are not part of an app's name.
+#[cfg_attr(not(windows), allow(dead_code))]
+const APP_FILLER: [&str; 6] = ["browser", "app", "application", "program", "the", "my"];
+
+#[cfg_attr(not(windows), allow(dead_code))]
+fn app_words(text: &str) -> Vec<String> {
+    text.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Picks the Start Menu entry a spoken name refers to: every word the person said (ignoring filler such as
+/// "browser") must be in the entry's name, and the shortest such name wins ("Brave" over "Brave Beta").
+/// Uninstallers and help links are never chosen.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn best_app_match<'a>(spoken: &str, names: &'a [String]) -> Option<&'a String> {
+    let all = app_words(spoken);
+    let wanted: Vec<&String> = all.iter().filter(|w| !APP_FILLER.contains(&w.as_str())).collect();
+    let wanted: Vec<&String> = if wanted.is_empty() { all.iter().collect() } else { wanted };
+    if wanted.is_empty() {
+        return None;
+    }
+    names
+        .iter()
+        .filter(|name| {
+            let words = app_words(name);
+            !words.iter().any(|w| ["uninstall", "uninstaller", "help", "readme", "website"].contains(&w.as_str()))
+                && wanted.iter().all(|w| words.contains(w))
+        })
+        .min_by_key(|name| name.len())
+}
+
+#[cfg(windows)]
+fn start_menu_shortcuts() -> Vec<(String, std::path::PathBuf)> {
+    fn walk(dir: &std::path::Path, depth: u8, out: &mut Vec<(String, std::path::PathBuf)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if depth < 4 {
+                    walk(&path, depth + 1, out);
+                }
+            } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")) {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    out.push((stem.to_string(), path.clone()));
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for var in ["APPDATA", "ProgramData"] {
+        if let Some(base) = std::env::var_os(var) {
+            walk(&std::path::Path::new(&base).join("Microsoft\\Windows\\Start Menu\\Programs"), 0, &mut out);
+        }
+    }
+    out
+}
+
+/// Opens an app the owner installed, chosen by name from the Start Menu, and returns its name.
+///
+/// Unlike `app_control`, a caller cannot pass a path, a command or arguments: the only thing that can be
+/// started is a Start Menu shortcut that already exists on this computer, exactly as if it were clicked.
+#[tauri::command]
+pub fn open_installed_app(name: String) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() || name.len() > 80 {
+        return Err("Say which app to open.".into());
+    }
+    #[cfg(windows)]
+    {
+        let shortcuts = start_menu_shortcuts();
+        let names: Vec<String> = shortcuts.iter().map(|(n, _)| n.clone()).collect();
+        let chosen = best_app_match(name, &names)
+            .ok_or_else(|| format!("I could not find an app called {name} in the Start Menu."))?;
+        let path = &shortcuts.iter().find(|(n, _)| n == chosen).expect("chosen from this list").1;
+        let mut cmd = StdCommand::new("explorer.exe");
+        cmd.arg(path);
+        crate::platform::no_console(&mut cmd);
+        cmd.spawn().map_err(|e| format!("Could not open {chosen}: {e}"))?;
+        Ok(chosen.clone())
+    }
+    #[cfg(not(windows))]
+    {
+        Err(format!("Opening apps by name works on Windows only, so {name} was not opened."))
+    }
+}
+
+#[cfg(test)]
+mod open_app_tests {
+    use super::best_app_match;
+
+    fn names() -> Vec<String> {
+        ["Brave", "Brave Beta", "Uninstall Brave", "Google Chrome", "Spotify", "Visual Studio Code", "Word"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn spoken_names_find_the_installed_app() {
+        let n = names();
+        assert_eq!(best_app_match("Brave browser", &n).unwrap(), "Brave");
+        assert_eq!(best_app_match("chrome", &n).unwrap(), "Google Chrome");
+        assert_eq!(best_app_match("the Spotify app", &n).unwrap(), "Spotify");
+        assert_eq!(best_app_match("visual studio code", &n).unwrap(), "Visual Studio Code");
+    }
+
+    #[test]
+    fn unknown_apps_and_uninstallers_are_not_opened() {
+        let n = names();
+        assert!(best_app_match("photoshop", &n).is_none());
+        assert_eq!(best_app_match("uninstall brave", &n), None);
+        assert!(best_app_match("  ", &n).is_none());
+        // "wor" is not "Word": whole words only, so a misheard fragment opens nothing.
+        assert!(best_app_match("wor", &n).is_none());
+    }
+}
