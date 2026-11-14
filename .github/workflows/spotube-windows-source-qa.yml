@@ -1,7 +1,7 @@
 name: Spotube Windows native child QA
 on:
   push:
-    branches: ['qa/spotube-source-**']
+    branches: ['qa/spotube-source-**', 'qa/spotube-workspace-**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,7 +11,11 @@ concurrency:
 jobs:
   compile:
     runs-on: windows-2022
-    timeout-minutes: 55
+    timeout-minutes: 75
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -49,6 +53,7 @@ jobs:
           Write-Output "COMPILE ONLY: SHA256=$hash Company=AnF Product=AnFMusic"
           Write-Output 'Compilation receipt only. No playback acceptance, installer, signing or publication.'
       - name: Exercise actual child on disposable hosted Windows profile
+        if: "!startsWith(github.ref, 'refs/heads/qa/spotube-workspace-')"
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
@@ -60,4 +65,36 @@ jobs:
           python scripts/app-qa/windows-spotube-smoke.py windows/spotube-native/build/windows/x64/runner/Release
           if($LASTEXITCODE){throw 'Actual native child smoke test failed'}
           Write-Output 'Native child lifecycle scope only; no streaming or AnF player handoff acceptance.'
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        if: startsWith(github.ref, 'refs/heads/qa/spotube-workspace-')
+        with:
+          toolchain: 1.99.0
+      - name: Build actual AnF host with compiled Spotube child
+        if: startsWith(github.ref, 'refs/heads/qa/spotube-workspace-')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          npm ci --prefix windows
+          if($LASTEXITCODE){throw 'Frontend dependencies failed'}
+          npm install --no-save --package-lock=false --prefix scripts playwright-core@1.56.1
+          if($LASTEXITCODE){throw 'QA browser client failed'}
+          Push-Location windows
+          try{
+            npm exec -- tsc --noEmit
+            if($LASTEXITCODE){throw 'Typecheck failed'}
+            npm exec -- vite build
+            if($LASTEXITCODE){throw 'Frontend build failed'}
+            $config=Join-Path $env:RUNNER_TEMP 'anf-spotube-host-qa.json'
+            @{identifier='fr.louisraille.anf.spotubeqa';build=@{beforeBuildCommand=''};bundle=@{active=$false;resources=@()}} |
+              ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $config
+            npm exec -- tauri build --debug --no-bundle --features embedded-music --config $config
+            if($LASTEXITCODE){throw 'Actual native host compilation failed'}
+          }finally{Pop-Location}
+          Copy-Item -LiteralPath windows/spotube-native/build/windows/x64/runner/Release -Destination windows/target/debug/spotube -Recurse
+      - name: Exercise actual complete workspace mounting and navigation
+        if: startsWith(github.ref, 'refs/heads/qa/spotube-workspace-')
+        shell: pwsh
+        run: |
+          ./scripts/app-qa/run-windows-workspace-spotube.ps1
+          Get-Content -LiteralPath "$env:RUNNER_TEMP/anf-spotube-workspace-qa/results/spotube-workspace.json"
     # No secrets, release jobs or binary uploads. Hosted VM is disposed by Actions.
