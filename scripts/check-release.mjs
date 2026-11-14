@@ -20,6 +20,7 @@ const checks=[
   ['android/sync-check.cjs','android/web/sync.ts'],
   ['android/storage-check.cjs','android/web/storage.ts'],
   ['android/native-media-check.cjs','android/web/native-media.ts'],
+  ['windows/dev/jarvis-voice-check.cjs','windows/dev/jarvis-voice-entry.ts'],
 ];
 function run(script,args=[]) {
   const result=spawnSync(process.execPath,[path.join(root,script),...args],{cwd:path.dirname(path.join(root,script)),stdio:'inherit'});

@@ -5,13 +5,73 @@
  * MP3 is missing. Destructive single speaker — no V2 stack.
  */
 
-import { getSelectedVoiceProfile, voicePackUrl } from './jarvis-voice-pack';
+import { getSelectedVoiceProfile, voicePackUrl, type VoiceProfile } from './jarvis-voice-pack';
+
+const STYLE_TONE: Record<string, { rate: number; pitch: number }> = {
+  'calm-butler': { rate: 0.95, pitch: 0.95 },
+  authoritative: { rate: 0.93, pitch: 0.88 },
+  cinematic: { rate: 0.9, pitch: 0.85 },
+  rugged: { rate: 0.95, pitch: 0.9 },
+  comforting: { rate: 0.92, pitch: 0.95 },
+  narrative: { rate: 0.96, pitch: 1 },
+  gentle: { rate: 0.92, pitch: 1.05 },
+  expressive: { rate: 0.98, pitch: 1.05 },
+  melodic: { rate: 0.94, pitch: 1.05 },
+  bold: { rate: 1.04, pitch: 1 },
+  storyteller: { rate: 0.88, pitch: 0.85 },
+};
+
+const FEMALE = /\b(female|woman|aria|jenny|michelle|sonia|libby|maisie|natasha|clara|emma|ava|ana|zira|hazel|susan|samantha|karen|moira|tessa|serena|victoria|fiona|kate|heera|neerja|zuri|imani)\b/i;
+const MALE = /\b(male|man|guy|ryan|christopher|eric|roger|steffan|thomas|brian|andrew|william|liam|david|mark|george|daniel|james|alex|fred|oliver|arthur|elimu|abeo)\b/i;
+
+/** Picks the most natural installed voice for a profile: neural voices first, then accent, then gender. */
+export function pickVoice(voices: readonly SpeechSynthesisVoice[], profile: Pick<VoiceProfile, 'accent' | 'gender'>): SpeechSynthesisVoice | null {
+  let best: SpeechSynthesisVoice | null = null;
+  let bestScore = -Infinity;
+  for (const v of voices) {
+    if (!/^en\b/i.test(v.lang)) continue;
+    let score = 0;
+    if (/natural|neural|online/i.test(v.name)) score += 6; // Edge/WebView2 neural voices sound human
+    else if (/google/i.test(v.name)) score += 3;
+    if (profile.accent && v.lang.toLowerCase() === profile.accent.toLowerCase()) score += 3;
+    else if (profile.accent && v.lang.toLowerCase().startsWith(profile.accent.slice(0, 2).toLowerCase())) score += 1;
+    if (profile.gender === 'female') score += FEMALE.test(v.name) ? 4 : MALE.test(v.name) ? -4 : 0;
+    if (profile.gender === 'male') score += MALE.test(v.name) ? 4 : FEMALE.test(v.name) ? -4 : 0;
+    if (v.localService) score += 0.5; // works offline
+    if (score > bestScore) { best = v; bestScore = score; }
+  }
+  return best;
+}
+
+/** Splits a reply into sentence-sized parts of at most ~220 characters. */
+export function splitForSpeech(text: string): string[] {
+  const sentences = text.replace(/\s+/g, ' ').trim().match(/[^.!?;:]+[.!?;:]*\s*/g) || [];
+  const parts: string[] = [];
+  for (const s of sentences) {
+    const last = parts[parts.length - 1];
+    if (last && last.length + s.length <= 220) parts[parts.length - 1] = last + s;
+    else parts.push(s);
+  }
+  return parts.map(p => p.trim()).filter(Boolean);
+}
+
+/** Voices load asynchronously in Chromium; wait briefly for the list instead of speaking with the default voice. */
+function loadVoices(): Promise<SpeechSynthesisVoice[]> {
+  const synth = window.speechSynthesis;
+  const now = synth.getVoices();
+  if (now.length) return Promise.resolve(now);
+  return new Promise((resolve) => {
+    const done = () => { synth.removeEventListener('voiceschanged', done); clearTimeout(timer); resolve(synth.getVoices()); };
+    const timer = setTimeout(done, 1500);
+    synth.addEventListener('voiceschanged', done);
+  });
+}
 
 export interface JarvisSpeakerOptions {
   onStart?: () => void;
   onEnd?: () => void;
   duckAudio?: (duck: boolean) => void;
-  /** Play ~1s identity cue before speaking. Default true. */
+  /** Play ~1s identity cue before every reply. Default false: the cue plays on the wake word instead. */
   identityCue?: boolean;
 }
 
@@ -22,12 +82,13 @@ export class JarvisSpeaker {
   private onEnd?: () => void;
   private duckAudio?: (duck: boolean) => void;
   private identityCue: boolean;
+  private utteranceToken = 0;
 
   constructor(options?: JarvisSpeakerOptions) {
     this.onStart = options?.onStart;
     this.onEnd = options?.onEnd;
     this.duckAudio = options?.duckAudio;
-    this.identityCue = options?.identityCue !== false;
+    this.identityCue = options?.identityCue === true;
   }
 
   /**
@@ -49,39 +110,27 @@ export class JarvisSpeaker {
     }
 
     if ('speechSynthesis' in window) {
-      await new Promise<void>((resolve) => {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0 && profile.accent) {
-          const matched =
-            voices.find((v) => v.lang.startsWith(profile.accent!)) ||
-            voices.find(
-              (v) =>
-                v.name.toLowerCase().includes('british') ||
-                v.name.toLowerCase().includes('uk') ||
-                v.name.toLowerCase().includes('george')
-            );
-          if (matched) utterance.voice = matched;
-        }
-
-        utterance.rate = 1.0;
-        utterance.pitch =
-          profile.style === 'authoritative' ? 0.9 : profile.style === 'calm-butler' ? 0.95 : 1.0;
-
-        utterance.onend = () => {
-          this.finishSpeaking();
-          resolve();
-        };
-
-        utterance.onerror = () => {
-          this.finishSpeaking();
-          resolve();
-        };
-
-        window.speechSynthesis.speak(utterance);
-      });
+      window.speechSynthesis.cancel();
+      const voice = pickVoice(await loadVoices(), profile);
+      const tone = STYLE_TONE[profile.style || ''] || { rate: 1, pitch: 1 };
+      const token = ++this.utteranceToken;
+      // Long replies are spoken sentence by sentence: Chromium voices stop mid-sentence after ~15 s.
+      for (const part of splitForSpeech(text)) {
+        if (token !== this.utteranceToken) break;
+        await new Promise<void>((resolve) => {
+          const utterance = new SpeechSynthesisUtterance(part);
+          if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+          }
+          utterance.rate = tone.rate;
+          utterance.pitch = tone.pitch;
+          utterance.onend = () => resolve();
+          utterance.onerror = () => resolve();
+          window.speechSynthesis.speak(utterance);
+        });
+      }
+      if (token === this.utteranceToken) this.finishSpeaking();
     } else {
       this.finishSpeaking();
     }
@@ -157,6 +206,7 @@ export class JarvisSpeaker {
   }
 
   stop(): void {
+    this.utteranceToken++;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
