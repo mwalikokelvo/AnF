@@ -1,4 +1,4 @@
-name: Spotube Windows source compilation QA
+name: Spotube Windows native child QA
 on:
   push:
     branches: ['qa/spotube-source-**']
@@ -33,7 +33,7 @@ jobs:
           if($LASTEXITCODE){throw 'Build tool regression'}
           node integrations/spotube/prepare.mjs --windows
           if($LASTEXITCODE){throw 'Pinned source preparation failed'}
-      - name: Compile child without running or publishing it
+      - name: Compile child without publishing it
         working-directory: windows/spotube-native
         shell: pwsh
         run: |
@@ -47,5 +47,17 @@ jobs:
           }
           $hash=(Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash
           Write-Output "COMPILE ONLY: SHA256=$hash Company=AnF Product=AnFMusic"
-          Write-Output 'No player execution, playback acceptance, installer, signing or publication.'
+          Write-Output 'Compilation receipt only. No playback acceptance, installer, signing or publication.'
+      - name: Exercise actual child on disposable hosted Windows profile
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows'){
+            throw 'Runtime QA requires disposable GitHub-hosted Windows, never a live user profile'
+          }
+          $support=Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'AnF/AnFMusic'
+          if(Test-Path -LiteralPath $support){throw 'Expected a fresh isolated child profile'}
+          python scripts/app-qa/windows-spotube-smoke.py windows/spotube-native/build/windows/x64/runner/Release
+          if($LASTEXITCODE){throw 'Actual native child smoke test failed'}
+          Write-Output 'Native child lifecycle scope only; no streaming or AnF player handoff acceptance.'
     # No secrets, release jobs or binary uploads. Hosted VM is disposed by Actions.
