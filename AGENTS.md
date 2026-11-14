@@ -68,6 +68,7 @@ The repository contains 232 specialized domain personas. Whenever an agent or de
 
 ## 3. Multi-Agent Handover & Token Quota Protection
 - **Check State First**: Read `HANDOFF.md` and `docs/BUILDUP-STATUS.md` before starting any task.
+- **Clear superseded builds**: once a newer AnF build is installed and runs, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
 - **Continuous Buildup**: Never discard or overwrite working code from other partner agents. Inspect recent commits on `origin/` and continuation checkpoints.
 - **Atomic Commits & Pushes**: Whenever approaching token quota limits, commit working increments with passing tests and push to `origin` immediately, appending details to `HANDOFF.md`.
 - **No Build Collisions**: Do not run `cargo build` or `npm run pack` while another agent process is running; native target directories lock.

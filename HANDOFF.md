@@ -555,3 +555,8 @@ Nothing merged. Labels per runbook section 7. Baseline on origin/main `b7cb275` 
 - Added `windows/tests/jarvis-overnight-pipeline.test.ts`: wake-word strip → agent intents → memory/askAI → telemetry stop.
 - **Blocked human-only**: native Windows `npm run pack` / live mic+TTS on device; drop 13 MP3s into `windows/voice-pack/` then pack on PC. REA CLI not installed in this cloud image.
 - Jarvis code path is functionally ready for talk-testing once the Windows build with voice samples is on the PC.
+
+## 2026-11-14: owner rule, clear superseded builds (Claude)
+- The owner asked that every assistant remove an older AnF build from their devices once a newer one replaces it, so storage does not fill up. Written into `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and `docs/BUILDER-RUNBOOK.md` ("Clearing superseded builds").
+- Also: main's Windows installer build was broken since a1b0e7c (KEVO Phase 4/5): lock file not updated, `kevo_system.rs` did not compile, and `shell_exec`/`app_control` were exposed to every window. Fixed in PR #123. Job logs are readable from cloud sessions again (`gh api .../actions/jobs/<id>/logs`).
+
