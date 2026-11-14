@@ -107,7 +107,8 @@ export class JarvisVoiceListener {
       };
 
       this.recognition.onerror = (e: any) => {
-        if (e.error !== 'no-speech') {
+        // 'aborted' is Kevo resting the microphone on purpose while it talks.
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
           this.onError?.(`Speech recognition error: ${e.error}`);
         }
       };
@@ -134,6 +135,7 @@ export class JarvisVoiceListener {
   stop(): void {
     this.isRunning = false;
     this.isListening = false;
+    this.muted = false; // a later start() is a fresh session; whoever muted will mute again when Kevo talks
     this.setAwakeUntil(0);
     if (this.recognition) {
       try {

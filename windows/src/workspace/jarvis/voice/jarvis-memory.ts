@@ -10,6 +10,15 @@ const MAX_TURNS = 20;
 
 let memory: JarvisTurn[] = load();
 
+/**
+ * Kevo giving the same long answer twice in a row came from Kevo hearing itself (fixed 14 Nov 2026).
+ * Such a history would steer every new answer, so it is dropped. Short repeated answers are normal.
+ */
+export function healHistory(turns: JarvisTurn[]): JarvisTurn[] {
+  const answers = turns.filter((t) => t.role === 'assistant').map((t) => t.text);
+  return answers.some((text, i) => i > 0 && text.length > 80 && text === answers[i - 1]) ? [] : turns;
+}
+
 function load(): JarvisTurn[] {
   try {
     if (typeof localStorage === 'undefined') return [];
@@ -20,10 +29,7 @@ function load(): JarvisTurn[] {
     const turns = parsed
       .filter((t) => t && (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string')
       .slice(-MAX_TURNS);
-    // A saved history where Kevo gave the same answer twice came from Kevo hearing itself (fixed 14 Nov 2026);
-    // it would steer every new answer, so it is dropped.
-    const answers = turns.filter((t) => t.role === 'assistant').map((t) => t.text);
-    return new Set(answers).size < answers.length ? [] : turns;
+    return healHistory(turns);
   } catch {
     return [];
   }

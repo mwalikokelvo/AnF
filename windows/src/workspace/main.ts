@@ -322,6 +322,7 @@ jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
 pillMic.addEventListener('click',()=>{
  if(jarvisCommandDesk.listener.getListeningState()){
   jarvisCommandDesk.listener.stop();
+  jarvisCommandDesk.speaker.stop(); // as on the Kevo view: microphone off also stops Kevo talking
  }else{
   jarvisCommandDesk.listener.start();
  }

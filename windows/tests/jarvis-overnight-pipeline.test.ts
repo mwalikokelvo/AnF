@@ -163,6 +163,10 @@ describe('Overnight Kevo pipeline', () => {
     assert.deepEqual(asked, ['Brave browser', 'Photoshop']);
     // Places inside AnF still open inside AnF.
     assert.equal((await agent.processVoiceInput('open music')).actionName, 'navigate_music');
+    assert.equal((await agent.processVoiceInput('Open the Audio Studio.')).actionName, 'navigate_audio');
+    // An app whose name contains a place's name is still an app.
+    assert.equal((await agent.processVoiceInput('open Brave Studio')).speechReply, 'Opening Brave.');
+    assert.equal(asked.at(-1), 'Brave Studio');
   });
 
   it('agent + memory: open question stores turns and includes history in askAI', async () => {

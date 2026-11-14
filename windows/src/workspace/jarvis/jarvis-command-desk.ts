@@ -137,6 +137,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   let unmuteTimer: ReturnType<typeof setTimeout> | undefined;
   let thinking = false;
   let lastReply = '';
+  let conversation = 0;
   /** Shows on the orb what Kevo is doing right now. */
   const refresh = () => hud.setState(kevoState({
     micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
@@ -255,6 +256,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     onFinalSpeech: async (finalTranscript) => {
       // Kevo's own words coming back through the microphone are not a command.
       if (thinking || isEchoOf(finalTranscript, lastReply)) return;
+      const asked = conversation;
       hud.setHeard(finalTranscript);
       hud.pulseMessage(`You: ${finalTranscript}`);
       thinking = true;
@@ -269,6 +271,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
         reply = 'That did not work: ' + String(err).replace(/^Error:\s*/, '');
       } finally {
         thinking = false;
+      }
+      if (asked !== conversation) {
+        // "New conversation" was chosen while Kevo was thinking: this answer belongs to the old one.
+        clearJarvisHistory();
+        listener.setMuted(false);
+        refresh();
+        return;
       }
       lastReply = reply;
       hud.setReply(reply);
@@ -305,6 +314,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
     clearJarvisHistory();
+    conversation++;
     lastReply = '';
     hud.setHeard('');
     hud.setReply('Starting fresh. Say “Kevo” and what you need.');
