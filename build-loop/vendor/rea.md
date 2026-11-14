@@ -1,7 +1,623 @@
 # rea (bundled skills)
 
-Source: https://github.com/morluto/rea at commit `8250bf2`, path `.agents/skills/reverse-engineer-anything/`. Licence: MIT (see `vendor/LICENSES.md`).
-8 files bundled unchanged. Read one with `python3 scripts/vendor.py rea <path>`; restore them with `python3 scripts/vendor.py --export <dir> --source rea`.
+Source: https://github.com/morluto/rea at commit `8250bf2`, path `.agents/skills/`. Licence: MIT (see `vendor/LICENSES.md`).
+16 files bundled unchanged. Read one with `python3 scripts/vendor.py rea <path>`; restore them with `python3 scripts/vendor.py --export <dir> --source rea`.
+
+<!-- vendor-file: rea-analysis-optimization/SKILL.md -->
+---
+name: rea-analysis-optimization
+description: Optimize REA providers and shared analysis workflows for agent context, latency, CPU, and memory while preserving correctness and Evidence. Use for analysis bottlenecks and cache or query design; CI/test-suite optimization belongs to rea-ci-tests-audit.
+---
+
+# REA analysis optimization
+
+Find a concrete source of unnecessary work, change it at its owner, and verify
+equivalent completed investigations. A useful outcome can also be a measured
+decision to leave an implementation alone.
+
+Follow the checkout's [performance priorities](../../../AGENTS.md#performance),
+[tool design](../../../docs/tool-design.md), and
+[testing guide](../../../docs/testing.md). This skill supplies an optimization
+workflow, not additional permission to execute targets, publish, or merge.
+Use the current contracts, provider prerequisites, and user authorization.
+
+Reserve performance measurements for changes that target performance or have a
+concrete regression concern. Routine cleanup uses correctness checks and does
+not require this optimization workflow or synthetic benchmarks merely because
+helper calls, imports, or representations change.
+
+Read [the Kuna case study](references/kuna-case-study.md) when selecting a
+reuse strategy or interpreting a benchmark. Its pinned observations illustrate
+tradeoffs; they are not current-provider guarantees or universal speedups.
+
+## Pin the question and the correctness oracle
+
+Describe the analyst's completed task, including the facts and relationships
+needed to answer it, requested detail, source access, and meaningful unknowns.
+Choose a representative real artifact and a small or empty case. Record the
+baseline revision, target digest, engine identity, options, host, and entrypoint.
+Use a separate checkout for changes without disturbing other work.
+
+Establish an oracle independent of the changed implementation: source-built
+fixture expectations, independently mapped file bytes, or a native producer
+paired with checks of its interpretation. Comparing two wrappers around the
+same faulty decoder does not establish correctness. Preserve address widths,
+same-address alternatives, unresolved endpoints, coverage, and source linkage.
+An empty result proves absence only within the actually examined scope.
+
+## Locate the earliest unnecessary work
+
+Trace one public CLI or MCP task through shared application code to its producer.
+Measure relevant phases: admission and identity checks, native analysis,
+decoding, lookup, projection, serialization, Evidence retention, and cleanup.
+Include catalog discovery and extra calls when they affect the completed task.
+
+Use the evidence to choose the smallest structural correction:
+
+| Observed cost                     | Candidate correction                                       | Condition to establish                                                               |
+| --------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Repeated scans of validated facts | Reuse existing order or lookup structure                   | The owner establishes ordering and identity; every matching alternative survives     |
+| Repeated equivalent engine work   | Share a validated result or in-flight producer             | Inputs, freshness, lifetime, and per-caller outcomes remain explicit                 |
+| Full reports for selected facts   | Push selection or projection to the earliest capable owner | Required facts and evidence remain reachable; examined coverage is reported          |
+| Large temporary transport buffers | Decode incrementally or use bounded source reads           | Validate the whole admitted document; retained facts and copies still consume memory |
+| Many repeated homogeneous reads   | Share admission, decoding, or batch work                   | Preserve item identity, order where required, and individual failures                |
+
+Do not introduce an index, generic cache, batch endpoint, or orchestration layer
+without identifying the work it removes and its maintenance/resource cost.
+Projection after materializing a full report may reduce output while leaving
+analysis time and peak memory unchanged. Fix missing or incorrect facts before
+benchmarking an alternative composition against a better-covered workflow.
+
+## Keep one interpretation and a defined reuse lifetime
+
+Let the producer boundary validate and normalize facts once. Consumers query
+that representation through the shared CLI/MCP implementation; adapters should
+not rebuild relationships or independently reinterpret raw reports. Keep lookup
+identity separate from display formatting. Reuse contracts when their intent
+matches, honoring requested detail and complete Evidence access.
+
+For every cache or shared producer, state its key, owner, invalidation, retained
+size, and lifetime. Account for result-affecting target bytes, engine contents,
+analysis options, architecture/load mapping, and parser/schema versions where
+they affect reuse. Validate live state before calling a cached observation
+current. Cache a refusal only when it is deterministic for that validated key;
+malformed, partial, transient, or cancelled attempts need explicit retry policy.
+
+One cancelled waiter must not invalidate a successful peer. Preserve producer
+failure context and each caller's cancellation reason. Retain ownership and
+capacity charges until shared work and cleanup settle; preserve completed
+observations when cleanup fails. Exercise invalidation, concurrent consumers,
+last-waiter cancellation, close, and cleanup retry when those paths change.
+
+Bound the process family and retained state, not just a parent heap or worker
+count. Account for decoding and serialization expansion before allocation.
+Choose CPU, memory, concurrency, and disk limits from the host and workload;
+stop before OOM and verify owned cleanup. A guard-stopped task is incomplete.
+Do not replace a transport buffer cap with an unbounded retained inventory or
+hide partial results behind a success status.
+
+## Compare completed tasks and limit the claim
+
+Run the affected real public workflow before and after with equivalent inputs,
+results, coverage, and Evidence semantics. Include small inputs so setup costs
+and regressions are visible. Distinguish fresh sessions, warm runtime caches,
+and OS file caches. Alternate or repeat runs when variance affects the decision.
+Choose meaningful boundary regressions for cases the actual engine cannot
+reliably reproduce; a fake engine does not qualify a real provider.
+
+Report task outcome, relevant phase timings, total elapsed and CPU time, peak
+process-family memory and its accounting method, resource stops, and cleanup.
+Check the payload exit status as well as the profiler's. Keep failed attempts
+and identify unmeasured costs; a passing retry does not explain a failure.
+
+For token claims, count schemas/discovery, arguments, replies, retries, and
+continuations needed to finish the task. Label tokenizer estimates separately
+from actual model usage and record the client/catalog behavior. Smaller JSON
+alone establishes neither fewer model tokens nor better investigation quality.
+Do not claim a complex-software advantage without completed representative
+investigations and comparable correctness/coverage.
+
+Finish with the bottleneck, owning change, preserved semantics, executed
+checks, before/after measurements, and remaining limits. Keep any integration
+record current with its tested revision and distinguish merged production work
+from experiment-only code. Stop when the demonstrated bottleneck is resolved
+or further benefit remains speculative.
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-analysis-optimization/agents/openai.yaml -->
+interface:
+  display_name: "REA analysis optimization"
+  short_description: "Optimize analysis with preserved Evidence and measured costs"
+  default_prompt: "Use $rea-analysis-optimization to find and verify a concrete analysis bottleneck while preserving correctness and Evidence."
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-analysis-optimization/references/kuna-case-study.md -->
+# Kuna: reuse before adding machinery
+
+Read this reference for concrete examples of the skill's decisions. The records
+below concern static Linux analysis with caller-supplied Kuna. They do not
+establish parity with another provider or a general advantage for Code Mode,
+atomic tools, or any particular orchestration design.
+
+## Exact-address lookup: a measured, narrow improvement
+
+[PR #4695](https://github.com/morluto/rea/pull/4695) reused the validated string
+inventory's numeric address order. Previously, each `list_strings(address)`
+filtered all cached facts. The owner now performs a binary lower-bound lookup
+and returns every encoding at that address: O(log n + matches), without a
+second retained lookup index.
+
+The owning implementation is
+[`KunaStringInventory.ts`](../../../../src/kuna/KunaStringInventory.ts), consumed
+by [`KunaStringQueries.ts`](../../../../src/kuna/KunaStringQueries.ts). Inspect
+their current versions before adapting the example. Numeric u64 addresses,
+same-address encodings, duplicate rejection, source digests, caller selection,
+and the existing session lifetime were part of the contract. Full listings and
+literal/regex searches kept their semantics. An attempted removal of the
+duplicate-detection set was dropped: no stable memory benefit was established,
+and it delayed malformed-input rejection.
+
+### Recorded workload and results
+
+The benchmark used unmodified Kuna 1.833 and LLVM 16 on Linux x86-64, with
+602,544 string facts. Baseline was `be0b2d138`; the final feature was
+`5f564962da0e1b17f00a68a74a312539f0209a01`, subsequently integrated in
+`c6b62754b095a134d6d67877508fa34311a2eda2`. These are historical observations,
+not a benchmark of every subsequent main revision.
+
+The same production stdio MCP task discovered the catalog, opened the binary,
+made one cold selected read and 28 warm exact reads, checked retained Evidence,
+and closed the session. Five selected addresses and two absent selectors were
+read four times. A native filtered scan selected the strings; an independent
+ELF load-header mapping checked the source bytes and terminators. Returned
+facts, source linkage, target digests, and cleanup were checked.
+
+Three alternating fresh sessions per implementation used one CPU, a 4 GiB
+process-family hard limit, a 3 GiB early stop, and no swap. OS file caches were
+warm. Whole-harness costs include the independent native oracle, hashing,
+catalog/client work, and correctness checks.
+
+| Median                                   |     Before |      After |
+| ---------------------------------------- | ---------: | ---------: |
+| 28 warm exact MCP reads                  |   495.2 ms |    90.8 ms |
+| Cold selected MCP read                   |    11.30 s |    11.01 s |
+| Whole harness elapsed                    |    28.24 s |    27.43 s |
+| Whole process-family CPU                 |    27.71 s |    26.89 s |
+| Kernel family peak, including file cache | 2237.6 MiB | 2240.6 MiB |
+
+Warm totals ranged from 491.7–544.3 ms before to 84.8–99.5 ms after: about
+5.5 times faster at this phase. Cold/whole-task timing and memory overlapped;
+no stable improvement in those costs was established. One small SQLite pair
+(7,985 facts) measured 20 warm reads at 88.6 → 80.5 ms and the whole harness at
+13.68 → 13.94 s. The large-inventory lookup benefit does not generalize to a
+whole-task speedup on small inputs.
+
+Catalog hashes, call counts, and normalized facts were unchanged. A
+`cl100k_base` estimate over one pass of raw catalog JSON, arguments, and replies
+was about 846,000 tokens in both lanes, with about 802,562 from the catalog.
+This was transport serialization, not rendered model context or actual usage;
+client discovery, prompts, replay, and protocol framing were unmeasured.
+**No token reduction or improved agent investigation outcome was established.**
+
+Pinned target SHA-256:
+`f62d254b7f2bf42df8c8b07d46ee3bb4c2cafeca436b2e6bc6ccbe4581f58f40`.
+Pinned engine SHA-256:
+`d858918b0766435cd96b999a77f2d5a31a0cc4f07256421c883b5b9dc4dd58e4`.
+All six normalized-result sequence digests were
+`4d2f90269da8568984090b20274163c4a7c2a0538aab63530bd2fe44840a0bba`.
+Selected byte agreement does not prove native discovery completeness; missing
+strings and relationships can remain unknown.
+
+## Other transferable changes and their limits
+
+- [Cached string inventory and search, #4095](https://github.com/morluto/rea/pull/4095):
+  share validated facts across queries in a defined session. Audit key inputs
+  and lifetime before extending reuse across targets or engine revisions.
+- [Shared single-function work, #4045](https://github.com/morluto/rea/pull/4045)
+  and [repeat-request reuse, #4169](https://github.com/morluto/rea/pull/4169):
+  avoid duplicate native work while retaining per-caller cancellation and
+  cleanup ownership. A query count alone cannot reveal duplicate subprocesses.
+- [Streamed strings, #4318](https://github.com/morluto/rea/pull/4318)
+  and [streamed call graph, #4329](https://github.com/morluto/rea/pull/4329):
+  remove fixed aggregate transport-buffer failures through incremental parsing.
+  Streaming transport does not bound every retained object or final reply.
+  These links establish changes; no numerical speedup is asserted here.
+
+Typed reference facts, native string-query projection, and shared native byte
+reads remained experimental at the 2026-10-17 checkpoint
+`65f2f9a22bc892f61d2b00f9a4611124f57d4bff` on
+`experiment/atomic-codemode-20261016`. Some experiments used a patched native
+engine. Check current integration and bring-your-own engine capabilities before
+proposing them; a working experiment is not a stock-provider guarantee.
+
+## Applying the reasoning elsewhere
+
+For another provider or format, inspect its actual representation and native
+capabilities before borrowing the implementation. Existing numeric ordering
+may support range reads; an on-disk native query may avoid materializing an
+inventory; an immutable parse may support several views. Measure the relevant
+alternative rather than requiring every provider to use Kuna's cached array.
+
+For live observations, immutable artifact caching rules are insufficient:
+validate the process/session identity and freshness required by the caller.
+For compact replies, preserve access to source Evidence and report examined
+coverage; projection must not silently turn an unresolved edge into no edge.
+For batching, test mixed successes and failures and measure the entire task,
+including discovery, extra calls, native work, and serialization.
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-changelog-update/SKILL.md -->
+---
+name: rea-changelog-update
+description: Prepare or rewrite REA release changelogs and GitHub release notes from pinned Git history, with verified contributor thanks and Release Please synchronization.
+---
+
+# REA changelog update
+
+Use this for release-note preparation and contributor attribution. Read
+[docs/releasing.md](../../../docs/releasing.md) from the repository root for
+publication authority and the existing checkpoint checks. This skill prepares
+notes; it does not authorize merging, tagging, or publishing.
+
+## Inventory before prose
+
+Fetch complete history and tags. Select the published baseline tag from
+`.release-please-manifest.json` on the release PR's **base branch**, and pin that
+branch's exact SHA as the editorial target. REA tags are `rea-agents-VERSION`.
+Use the proposed version, including its prerelease suffix; do not change the
+`always-bump-minor` strategy to imitate OpenClaw's calendar versions.
+
+```bash
+node scripts/release-notes.mjs inventory \
+  --repository morluto/rea --base rea-agents-PREVIOUS \
+  --target FULL_BASE_BRANCH_SHA --version VERSION \
+  --manifest /tmp/rea-VERSION.contributions.json
+node scripts/release-notes.mjs record \
+  --manifest /tmp/rea-VERSION.contributions.json \
+  --summary \
+  --output /tmp/rea-VERSION.record.md
+```
+
+Read the inventory, not just the existing bot draft. It includes side-branch
+commits, GitHub-associated PRs whose merge commits are in the range, commit
+authors/co-authors, and confirmed closing issues with their reporters. GitHub
+connections are paginated. Network errors stop generation; rerun into a new
+output file after recovery. Existing output files are never overwritten.
+
+Unresolved commit identities are retained as names/emails with `user: null`;
+never guess a handle or thank the merger as a substitute. The report preserves
+unknowns. This is a reviewed metadata snapshot, not independent proof that a
+human authored a patch. For unattributed identities, unusual merge strategies,
+backports, reversions, or references that GitHub did not associate, inspect
+the source PRs and diffs and report the limitation. The current collector uses
+confirmed PR-closing relationships for issue-reporter credit; unrelated issue
+mentions are not automatically credited. Do not claim that merely inventoried
+work still ships after a revert.
+
+## Write for users and retain credit
+
+Rewrite only the newest `## [VERSION]` section in `CHANGELOG.md`, preserving its
+version/date/link heading. Use single-line Markdown list items under:
+
+- `### Highlights`: a few release-defining user outcomes; no quota for small releases.
+- `### Changes`: capabilities and meaningful behavior changes.
+- `### Fixes`: reliability, correctness, compatibility, and safety fixes.
+- `### ⚠ BREAKING CHANGES`: retain when applicable, with migrations and original
+  PR/commit references required by the existing checkpoint validator.
+
+Group related work by analyst workflow or user impact. Explain the resulting
+behavior in short, concrete entries. Highlights summarize the release; avoid
+repeating their full descriptions in Changes. Internal cleanup, tests, CI, and
+routine documentation generally belong only in the provenance file. Read ambiguous PRs/diffs before making
+claims. Distinguish simulated-provider checks from real-provider verification.
+
+Credit each represented contribution once in the public notes with its link
+and `Thanks @...` for its verified human author, known co-authors, and confirmed
+closing-issue reporters. Grouping preserves all those credits in one line.
+When Highlights, detailed entries or migrations reference the same work,
+put its thanks in one of those entries, not all of them. Include issue links.
+Direct-commit bullets carry the commit link and known human credit.
+Exclude GitHub bots and known agent accounts. REA's observed Anthropic, Cursor,
+Codex, and Copilot co-author trailers resolve to `@claude`, `@cursoragent`,
+`@codex`, and `@Copilot` with GitHub type `User`; the credit policy excludes
+them while retaining their metadata.
+At the REA maintainer's request, omit `@morluto` self-thanks while preserving
+authorship in the inventory. Other human contributors remain eligible.
+Use explicit GitHub links for cross-repository references to avoid ambiguous
+`#NNN` numbers. Unknown handles stay unknown; they are not fabricated credit.
+
+Append the generated `record --summary` provenance link verbatim at the end
+of this release. The linked inventory accounts for every discovered in-range
+PR and direct contribution, including internal work omitted from the prose.
+Do not paste the full `record` output into public notes: it duplicates thanks
+and obscures the user-facing changes. Full records remain available for review.
+Do not hand-edit generated credits to make validation pass. Refresh the inventory
+when product history changes; a prose-only correction can reuse the snapshot.
+
+## Finalize with Release Please
+
+Before changing the live release PR, have authorization for that PR update.
+Local preparation and validation can proceed independently.
+
+1. Add `rea:release-notes-finalized` to the selected open release PR **before**
+   editing its branch/body. Main proposal pushes respect this label. This is
+   our workflow guard, not Release Please's `autorelease: snooze` mechanism.
+   A proposal already running must finish before editing. Do not dispatch
+   manual preparation over finalized notes.
+2. On that release branch, save the reviewed inventory as
+   `docs/releases/VERSION.contributions.json`. This is durable public release
+   provenance, not a temporary planning file. Do not add credentials or local
+   environment dumps. Keep the existing version artifacts aligned.
+3. Run the existing checkpoint validator and the new checker:
+
+   ```bash
+   node scripts/release-notes.mjs check \
+     --manifest docs/releases/VERSION.contributions.json
+   node scripts/release-notes.mjs render \
+     --manifest docs/releases/VERSION.contributions.json \
+     --output /tmp/rea-VERSION.notes.md
+   ```
+
+   The checker supports inline PR bodies, including their surrounding metadata,
+   up to GitHub's 65,536-character limit. It fails on larger notes rather than
+   truncating credit; Release Please's overflow-link bodies are not integrated.
+
+4. Update the release PR body with the rendered section while preserving its
+   Release Please header/footer and component/version structure. Use a body
+   file for `gh pr edit --body-file`; changing only `CHANGELOG.md` does not
+   change Release Please's release body. Push only authorized changes.
+5. Freshly fetch the PR body to a file and run `check --pr-body FILE`. Review
+   the complete diff and wait for current CI. Publication checks the body
+   again before release creation. Avoid further body edits while publishing.
+
+The finalization label freezes bot refreshes, not main. New product changes
+after the inventory target require refreshing the notes before publication.
+The workflow checks target ancestry and allows only release metadata paths
+after that target. It also requires the inventory target to equal the reviewed
+merge's first parent, so intervening main commits require a fresh inventory.
+Review diffs within the allowed release metadata paths too: the path guard does
+not prove that package dependency/script edits are version-only changes.
+To resume automatic proposals, remove the finalization label and let the bot
+regenerate; expect editorial changes to be replaced.
+
+Existing releases without a contribution inventory retain their current
+publication path. Never retag or republish a package to correct release prose.
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-ci-tests-audit/SKILL.md -->
+---
+name: rea-ci-tests-audit
+description: Audit REA CI and test suites for correctness, fixture drift, false passes, and measured performance; use for suite or workflow investigations and efficiency changes, rather than ordinary feature testing or a single test failure.
+---
+
+# REA CI and tests audit
+
+Establish which checks still catch real regressions and which costs can be
+removed without losing that protection. The outcome may be a verified fix,
+an evidence-backed recommendation, or an explicit decision to stop.
+
+Follow the checkout's `AGENTS.md`, [testing guide](../../../docs/testing.md),
+and [contribution rules](../../../CONTRIBUTING.md). Use their current commands
+and pinned toolchain, rather than commands remembered from an earlier audit.
+Preserve the requested scope: investigation alone does not authorize edits;
+this skill does not grant permission to publish issues, push, or merge. Existing
+user authorization still applies. Keep audit notes and raw results outside the
+tracked tree, normally in a task-specific `/tmp` directory.
+
+## Establish the executed baseline
+
+Fetch when the user asks for latest main. Pin the baseline SHA and inspected
+workflow revision; use an isolated worktree when changing or comparing code.
+Do not modify another task's checkout. Record dirty changes and the exact
+command, toolchain, host, selected tests, instrumentation, and prerequisites.
+An old run is evidence for its executed revision, even if main advances.
+
+Trace workflow triggers, changed-path selection, job dependencies, reusable
+actions, package scripts, test discovery, artifact producers, and report gates
+through to the commands that actually execute. Include scripts, generated data,
+runtime registration, and subprocess boundaries missing from import graphs.
+Check positive and negative selection paths: required files must be discovered
+once per intended test configuration; deliberate platform/configuration repeats
+are separate coverage. A missing explicit test or missing required report must
+not turn green. Optional lanes may skip; preserve their stated prerequisites.
+
+Use existing timing and failure artifacts to select suspicious families. Run
+relevant checks to establish a baseline; reserve a full local suite for broad
+CI diagnosis or uncertainty that focused checks cannot resolve. Do not rebuild
+or rerun an unchanged complete suite after every documentation edit.
+
+## Prove the failure or protection
+
+For each candidate, state the expected observable behavior and its owner,
+then construct the smallest reproduction against production behavior. Follow
+the producer and affected consumers before deciding where to fix it.
+
+- For drift, compare fixtures with current admission requirements, protocol
+  replies, named contracts, tool versions, and actual public entrypoints. A
+  plausible-looking mock can fail before the behavior its test claims to cover.
+  Search the whole affected fixture family, including other version strings.
+  Preserve intentionally malformed fixtures and test their intended rejection.
+- For a suspicious green test, perturb the relevant behavior in an isolated
+  copy or inject a controlled failure. Verify that the existing assertion or
+  gate detects it. A test may merely repeat its mock, import abandoned code,
+  or hide a subprocess/checker failure. Restore mutations after the experiment.
+- For shared setup or pruning, map distinct assertions to their retained
+  scenarios. Preserve malformed inputs, cancellation, cleanup failure,
+  permissions, capacity, identity, and meaningful concurrency interactions.
+  A faster run that skips a case or weakens its oracle is not an improvement.
+- For provider coverage, separate fake-producer, boundary, and actual-engine
+  evidence. Inspect named skips and prerequisites; fixtures do not establish
+  real Ghidra, LLDB, browser, or other provider behavior.
+
+Classify findings as reproduced defects, supported costs, hypotheses, or
+unavailable evidence. Record the baseline command, observed output/exit status,
+expected result, affected scope, and competing explanation. A failure on main
+may be pre-existing; that does not by itself make it irrelevant to a CI audit.
+Attribute PR failures using the executed revision and a clean baseline, not
+just their resemblance to a previous failure. Retry only to test a specific
+transient explanation; retain the original failure and stop when repetition
+adds no evidence. A passing retry does not establish a root cause or a fix.
+
+## Assess efficiency without losing the gate
+
+Read [measurement and CI checks](references/measurement-and-ci.md) when
+investigating slowness, caching, runner waits, shared artifacts, or log noise.
+Compare equivalent completed work before claiming a speedup. Distinguish
+setup/build time, test execution, coverage instrumentation, dependency waits,
+and runner scheduling; state which costs remain unmeasured.
+
+Prefer removing proven duplicate preparation, reusing immutable setup, and
+reducing repeated subprocess work before shrinking correctness coverage.
+Preserve independent sessions where lifecycle or concurrency is the oracle.
+Keep live tests fresh; a cached previous pass cannot validate current host,
+installed provider contents, permissions, or external state.
+
+## Fix, verify, and hand off within scope
+
+If implementation is authorized, make the smallest structural change at the
+owning boundary and add a regression that fails on the baseline for the right
+reason. Retest affected consumers and meaningful negative paths; verify cache
+invalidation or discovery when those mechanisms change. Read the installed
+Turbo documentation before changing its configuration or commands.
+
+Run the repository's applicable checks and inspect complete current-head CI
+results before an authorized merge. Preserve required coverage and discovery
+gates. Do not suppress a failure, add blanket retries, raise timeouts, or delete
+distinct assertions solely to make CI green. Changes to these controls need
+their own demonstrated reason and retained failure detection.
+
+Report each confirmed issue with exact revision, reproduction, consequence,
+proposed correction, and validation limits. Report performance with workload
+and measurements, not just a percentage. Use English issue/PR records when
+requested; follow the user's assignment, commit identity, review, and merge
+preferences without assuming them for other users. Open ready-for-review PRs
+only when that lifecycle is authorized. Resolve necessary review findings and
+check final main against the tested tree after merging.
+
+Stop when the authorized work is verified, remaining benefits are unproven,
+or further changes would trade correctness for speculative speed. List genuine
+uncertainties without turning them into additional optimization rounds.
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-ci-tests-audit/agents/openai.yaml -->
+interface:
+  display_name: "REA CI and tests audit"
+  short_description: "Audit CI/test correctness and measured performance"
+  default_prompt: "Use $rea-ci-tests-audit to investigate CI and test correctness, drift, and performance before proposing changes."
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-ci-tests-audit/references/measurement-and-ci.md -->
+# Measurement and CI checks
+
+## Equivalent completed work
+
+Record the source/workflow SHA, command, test identities and counts, skips,
+assertions or output contract, exit status, coverage scope and thresholds,
+toolchain/provider versions, host resources, and prepared artifacts. Inspect
+both the child result and its report: a profiling wrapper may exit successfully
+after the measured command failed. Focused tests can pass while global coverage
+thresholds fail; describe both rather than calling the command green.
+
+Measure wall time, user/system CPU, and peak process-family memory for relevant
+completed tasks. Parent-only RSS misses workers and their children. On Linux,
+summed RSS can double-count shared pages; report RSS/PSS semantics, sampling
+interval, missing samples, and observed cleanup limits. Use equivalent host
+tools elsewhere. State unknown costs, including agent tokens; fewer log bytes
+alone prove neither fewer tokens nor faster tests.
+
+Separate cold execution, warm build/file caches, and warm runtime caches.
+Use repeated or alternating runs when variance affects the decision, with
+enough observations to distinguish the proposed benefit from noise. Keep
+workload, instrumentation, and host conditions comparable; record interference.
+A run with fewer tests, early rejection, lost coverage, or a different runner
+does not prove suite acceleration. CI-wide claims need end-to-end measurements,
+not an extrapolation from one improved family.
+
+## Workflow, caches, and shared artifacts
+
+Trace each reused result from producer to consumers and identify its lifetime.
+Check key/input coverage against the actual file inventory and result-affecting
+configuration, environment, generated data, tool versions, and host state.
+Exercise an affected input change to prove invalidation; exercise an irrelevant
+change to support reuse where useful. Cache deterministic preparation and
+static analysis only when their inputs fully describe the result.
+
+Verify downloaded artifacts match the expected revision, platform, runtime,
+and schema. Check restore misses, failed/partial producers, stale reports,
+removed output files, and consumers after producer failures. Shared writers
+need output ownership or locks; tests need isolated state, not an unnecessary
+global lock. Worker counts do not bound children spawned within each test.
+Preserve intentionally concurrent scenarios while bounding unrelated batches.
+
+Check matrix expansion and all job pages before saying CI passed. Inspect
+required gates after failed, cancelled, and skipped dependencies. `always()`
+alone does not preserve failures; inspect the aggregation logic. Test/report
+uploads should retain available diagnostics after failure, while absent or
+malformed required results must fail closed. Do not demand an optional report
+from a lane intentionally excluded by the selector.
+
+## Runner waits and console noise
+
+Use per-job and per-step timestamps where available. Workflow creation to job
+start includes dependencies and other delays; it is not necessarily runner
+queue time. Identify when the job became eligible before attributing waits to
+runner capacity. If eligibility/queue timestamps are unavailable, report the
+combined delay and unknown split. Compare equivalent lanes and runner types
+across enough runs; a single busy runner is not a workflow regression.
+
+For console reductions, retain checker exit codes, actionable errors, useful
+summary counts, and complete machine-readable artifacts. Verify authored code
+remains in the actual checker inventory when excluding generated outputs.
+Introduce an authored error as a control; it must still fail. An ignore pattern
+can hide real source as well as noise. Show that cached reports are restored,
+stale successful reports cannot mask current failures, and report parse errors
+remain failures. Measure readability or byte reduction separately from runtime.
+
+<!-- /vendor-file -->
+
+<!-- vendor-file: rea-tool-design/SKILL.md -->
+---
+name: rea-tool-design
+description: Audit, investigate, design, or change REA investigation tools, CLI/MCP contracts, provider capabilities, and Evidence semantics.
+---
+
+# REA tool design
+
+Use the [tool-design guide](../../../docs/tool-design.md) for tool boundaries,
+contract semantics, provider ownership, and discoverability. Inspect the current
+contract and nearest existing tool relevant to the analyst question; source,
+documentation, and live catalogs may describe different versions.
+
+For provider-backed work, exercise the analyst's task through REA and compare
+relevant native provider and independent artifact observations where available.
+Check applicable partial results, recovery and session boundaries; report what
+was not exercised. For failure guidance, follow [design recovery around the
+failure](../../../docs/tool-design.md#design-recovery-around-the-failure).
+Use [workflow verification](../../../docs/testing.md#provider-backed-workflow-verification)
+to select evidence for the proposed contract instead of seeking provider API
+parity.
+
+For an audit, follow [audit existing tools](../../../docs/tool-design.md#audit-existing-tools):
+scope representative tasks, exercise the live workflow, and distinguish
+reproduced bugs, supported limitations, design opportunities and unverified
+claims. Report working alternatives and evidence limits as well as findings.
+
+For a design request, return the proposed boundary, input/result shape, Evidence
+semantics, nearest alternative, and verification approach. Implement when
+requested, preserving the user's scope and existing authorization.
+
+For implementation or verification, consult [testing](../../../docs/testing.md)
+for the affected consumer and provider lanes, and
+[contributing](../../../CONTRIBUTING.md) for generated-file ownership. Read
+provider/workflow guides only as the task requires.
+
+<!-- /vendor-file -->
 
 <!-- vendor-file: reverse-engineer-anything/SKILL.md -->
 ---

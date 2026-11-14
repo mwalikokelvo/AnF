@@ -8,10 +8,14 @@ Every third-party skill bundled into build-loop, unchanged. Print one with `pyth
 |---|---|---|
 | `reverse-api-engineer` | `vendor.py reverse-api-engineer reverse-api-engineer/SKILL.md` | Reverse engineer a website's private HTTP API into a typed, runnable client (Python, TypeScript, Go and 7 more) with the reverse-api-engineer CLI. A browser performs… |
 
-## rea — 1 skills (MIT)
+## rea — 5 skills (MIT)
 
 | skill | read | what it does |
 |---|---|---|
+| `rea-analysis-optimization` | `vendor.py rea rea-analysis-optimization/SKILL.md` | Optimize REA providers and shared analysis workflows for agent context, latency, CPU, and memory while preserving correctness and Evidence. Use for analysis bottlenecks… |
+| `rea-changelog-update` | `vendor.py rea rea-changelog-update/SKILL.md` | Prepare or rewrite REA release changelogs and GitHub release notes from pinned Git history, with verified contributor thanks and Release Please synchronization. |
+| `rea-ci-tests-audit` | `vendor.py rea rea-ci-tests-audit/SKILL.md` | Audit REA CI and test suites for correctness, fixture drift, false passes, and measured performance; use for suite or workflow investigations and efficiency changes,… |
+| `rea-tool-design` | `vendor.py rea rea-tool-design/SKILL.md` | Audit, investigate, design, or change REA investigation tools, CLI/MCP contracts, provider capabilities, and Evidence semantics. |
 | `reverse-engineer-anything` | `vendor.py rea reverse-engineer-anything/SKILL.md` | Reverse engineer native, managed, Electron/JavaScript, packaged, firmware, and browser targets with REA, and build agent environments (AgentEnv bundles) of web… |
 
 ## strix — 9 skills (Apache-2.0)
