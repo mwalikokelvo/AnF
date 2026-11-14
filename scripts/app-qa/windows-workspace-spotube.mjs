@@ -33,6 +33,7 @@ try {
   const state=await invoke('music_control',{operation:'status'});
   assert.equal(typeof state?.hasTrack,'boolean');assert.equal(typeof state?.playing,'boolean');
   assert.equal(state.playing,false,'Fresh fixture has no playing track');
+  assert(await page.getByRole('button',{name:'Local library',exact:true}).isVisible(),'Native view must retain the visible source switch');
   return state;
  };
  await go('music');await ready();
@@ -63,4 +64,13 @@ try {
   musicPlaybackVerified:false,audioHandoffVerified:false,installedUpgradeVerified:false,readyForPublication:false,
  },null,2));
  console.log('PASS: actual AnF workspace mounts Spotube, navigates without overlay, switches to local library and reopens native child. No music playback/provider claim.');
+}catch(error){
+ if(page)console.log('Workspace source-switch diagnostic:',JSON.stringify(await page.evaluate(()=>{
+  const button=document.querySelector('.music-source-switch button');
+  const ancestors=[];for(let node=button;node&&ancestors.length<8;node=node.parentElement){
+   ancestors.push({tag:node.tagName,class:node.className,hidden:node.hidden,display:getComputedStyle(node).display});
+  }
+  return {view:document.body.dataset.view,sourceSwitchAncestors:ancestors};
+ }).catch(()=>null)));
+ throw error;
 }finally{if(browser)await browser.close();}

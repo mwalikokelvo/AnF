@@ -7,7 +7,15 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
   if (!await invoke<boolean>('music_available').catch(()=>false)) return;
   const heading = root.querySelector<HTMLElement>('.music-heading')!;
   const localHeading=heading.firstElementChild as HTMLElement;
-  const localContent = Array.from(root.children).filter(child=>child!==heading) as HTMLElement[];
+  // The redesigned library nests its header inside the main stage. Hide only
+  // siblings along that path, never the ancestor holding the source switch.
+  const localContent:HTMLElement[]=[];
+  for(let branch:HTMLElement=heading;branch!==root;){
+    const parent=branch.parentElement;
+    if(!parent)throw Error('Music heading must belong to its library.');
+    for(const child of Array.from(parent.children))if(child!==branch&&child instanceof HTMLElement)localContent.push(child);
+    branch=parent;
+  }
   const host = h('div',{class:'spotube-host',hidden:true,'aria-label':'Embedded Spotube'});
   const stateLabel=h('span',{role:'status',text:'Choose a track'});
   const retry=h('button',{text:'Retry playback',type:'button',hidden:true,onclick:()=>void invoke('music_control',{operation:'retry'}).then(()=>player.refresh()).catch(error=>notify(String(error)))});
@@ -22,6 +30,7 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
   const select = (native:boolean) => {
     if(native && !active)for(const child of localContent)previousHidden.set(child,child.hidden);
     active = native; host.hidden = !native;
+    root.classList.toggle('spotube-selected',native);
     connection.hidden=!native;
     localHeading.hidden=native;
     const monogram=heading.querySelector<HTMLElement>('.music-monogram');if(monogram)monogram.hidden=native;

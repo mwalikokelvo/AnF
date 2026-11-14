@@ -42,6 +42,8 @@ body.has-music-player:has(#app) #app>main{margin-bottom:var(--local-player-heigh
 
 .native-music-player .music-now-info{min-width:0;flex:1;border-radius:8px;text-align:left;display:block}
 .music-source-switch{display:flex;gap:6px;flex-wrap:wrap}
+.music-hub.spotube-selected .music-studio-layout{display:block}
+.music-hub.spotube-selected [hidden]{display:none!important}
 .music-source-switch button[aria-pressed=true]{background:var(--accent,#a3e5cd);color:var(--accent-ink,#10392e)}
 .music-source-switch button[aria-pressed=true]:hover{background:var(--accent,#a3e5cd);color:var(--accent-ink,#10392e)}
 .music-player button.music-play:hover{background:var(--accent,#a3e5cd);color:var(--accent-ink,#10392e)}
