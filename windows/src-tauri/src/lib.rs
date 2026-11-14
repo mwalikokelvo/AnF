@@ -527,8 +527,8 @@ pub fn run() {
             local_link::link_stop,
             local_link::link_address,
             local_link::link_status,
-            kevo_system::shell_exec,
-            kevo_system::app_control,
+            // shell_exec and app_control stay unregistered: any script in an AnF window could call them to run
+            // arbitrary commands without a prompt. Re-add only behind an explicit per-command confirmation.
             kevo_system::system_stats,
             kevo_system::diagnostics,
             workspace_load_project,

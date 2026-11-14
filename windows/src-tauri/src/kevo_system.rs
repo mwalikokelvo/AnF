@@ -152,6 +152,7 @@ fn build_system_stats() -> SystemStats {
 ///
 /// On Windows this uses `cmd /C`, on other platforms `sh -c`. A blank command is
 /// rejected before anything is spawned.
+#[allow(dead_code)] // not registered as a command; see lib.rs
 #[tauri::command]
 pub fn shell_exec(cmd: String) -> Result<ShellResult, String> {
     if cmd.trim().is_empty() {
@@ -190,6 +191,7 @@ pub fn shell_exec(cmd: String) -> Result<ShellResult, String> {
 ///
 /// `action` must be `"start"` or `"stop"`; `target` is either an absolute file
 /// path (for `"start"`) or an executable image name (for `"stop"`.
+#[allow(dead_code)] // not registered as a command; see lib.rs
 #[tauri::command]
 pub fn app_control(action: String, target: String) -> Result<AppControlResult, String> {
     let action = action.trim().to_lowercase();
