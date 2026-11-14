@@ -70,6 +70,9 @@ for s in MANIFEST["vendor"]:
     kept, skipped = [], []
     for p in sorted(x for x in base.rglob("*") if x.is_file()):
         rel = p.relative_to(base).as_posix()
+        if p.is_symlink() or base.resolve() not in p.resolve().parents:
+            sys.exit(f"{name}: refusing symlink or out-of-tree path {rel!r} — a compromised upstream "
+                     "could point it at a host file and embed its contents in the bundle")
         if rel.split("/", 1)[0] in excluded:
             skipped.append(rel + " (excluded)")
             continue
@@ -80,6 +83,9 @@ for s in MANIFEST["vendor"]:
         if "<!-- vendor-file" in text or "<!-- /vendor-file" in text:
             sys.exit("marker clash in " + str(p))
         kept.append((prefix + rel, text))
+    if not base.exists() or not kept:
+        sys.exit(f"{name}: vendor root {root!r} is missing or produced no files at {base} — "
+                 "refusing to overwrite the bundle with an empty one (upstream may have moved it)")
     head = [f"# {name} (bundled skills)", "",
             f"Source: {url} at commit `{commit}`, path `{root}/`. Licence: {lic} (see `vendor/LICENSES.md`).",
             f"{len(kept)} files bundled unchanged. Read one with `python3 scripts/vendor.py {name} <path>`; "

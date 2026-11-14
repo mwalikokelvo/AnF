@@ -29,14 +29,18 @@ python3 update.py --repo . --pin              # clone the recorded commits — p
 python3 update.py --repo . --use-src DIR      # reuse existing clones under DIR/<repo-basename>
 ```
 
-Outputs `build-loop.skill` and `build-loop-update-report.json` next to the repo (both gitignored).
+Outputs `build-loop.skill`, `build-loop-update-report.json`, and the `.bl-update-work/` clone dir inside `build-loop/` (all gitignored).
 
 ## Add a new skill / plugin / MCP server
 
 Edit `sources.json`:
-- **A skill** that bundles verbatim → add to `vendor[]` (`name`, `url`, `root` path inside the repo, optional `prefix`, `exclude`, `licence`). Run `update.py --latest`; it bundles and records the commit.
+- **A skill** that bundles verbatim → add to `vendor[]` (`name`, `url`, `root` path inside the repo, optional `prefix`, `exclude`, `licence`, and a `licence_file` path or a `licence_note` so it's attributed in `LICENSES.md` — the update fails if neither is present). Run `update.py --latest`; it bundles and records the commit.
 - **A skill adapted into the loop's own docs** → add to `adapted[]` (flag-only on upstream change).
 - **A plugin** → add to `plugins[]` with its `/plugin install` command.
 - **An MCP server** → add to `mcp_servers[]` with its launch command (these self-update at runtime via `npx …@latest` / `uvx`).
+- **An editor extension** → add to `editor_extensions[]` (`name`, marketplace `id`).
+- **An npm package / SDK** → add to `packages[]` (`name`, `registry`, `use`).
+
+To put the MCP servers, editor extensions, plugins and packages onto the machine you code on, run `python3 scripts/install.py` **on that machine** (not in a cloud session): it registers the MCP servers via the `claude` CLI, installs the extensions into VS Code and/or Cursor, and prints the npm and `/plugin` commands to finish by hand. Re-runnable; `--dry-run` previews.
 
 Then watch the limits in the report. The description field is the tight one; adding a bundled skill doesn't touch it, but widening what triggers the skill does.

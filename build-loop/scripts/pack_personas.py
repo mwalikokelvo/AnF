@@ -30,6 +30,9 @@ for div in sorted(labels):
         rel = f.relative_to(src).as_posix()
         seen[f.stem] = rel
         body = f.read_bytes().decode("utf-8")
+        if "<!-- persona:" in body or "<!-- /persona -->" in body:
+            sys.exit(f"persona marker collision in {rel} — refusing to write an ambiguous bundle "
+                     "that persona.py --export could not restore byte-for-byte")
         parts.append(f"<!-- persona: {f.stem} | source: {rel} -->\n{body}\n<!-- /persona -->\n\n")
     (out / f"{div}.md").write_bytes("".join(parts).encode("utf-8"))
     total += len(files)

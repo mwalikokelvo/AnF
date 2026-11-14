@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 HERE = pathlib.Path(__file__).resolve().parent
 START = re.compile(r"^<!-- vendor-file: (?P<path>[^\n]+?) -->\n", re.M)
 END = "\n<!-- /vendor-file -->\n"
-EXCLUDE_DIRS = {"__pycache__", "node_modules", ".git"}
+EXCLUDE_DIRS = {"__pycache__", "node_modules", ".git", ".bl-update-work"}
 EXCLUDE_GLOBS = (".pyc",)
 ROOT_EXCLUDE_DIRS = {"evals"}
 
@@ -88,6 +88,22 @@ def roundtrip(repo, manifest, srcroot):
             if not orig.exists() or orig.read_bytes() != body.encode("utf-8"):
                 diffs += 1
                 bad.append(f"{s['name']}:{rel}")
+    # Persona bundles too — same byte-for-byte guarantee, so a marker collision or corruption is caught.
+    pers = manifest["personas"]
+    clone = pathlib.Path(srcroot) / repodir(pers["url"])
+    pstart = re.compile(r"^<!-- persona: [^|]+ \| source: (?P<src>[^ ]+) -->\n", re.M)
+    for bundle in sorted((repo / "agents").glob("*.md")):
+        if bundle.name == "ROSTER.md":
+            continue
+        btext = bundle.read_text(encoding="utf-8", newline="")
+        for m in pstart.finditer(btext):
+            end = btext.find("\n<!-- /persona -->\n", m.end())
+            body = btext[m.end():end]
+            orig = clone / m.group("src")
+            compared += 1
+            if not orig.exists() or orig.read_bytes() != body.encode("utf-8"):
+                diffs += 1
+                bad.append("persona:" + m.group("src"))
     return {"compared": compared, "differing": diffs, "diffs": bad[:20]}
 
 
@@ -102,7 +118,8 @@ def package(repo, out):
             if top in ROOT_EXCLUDE_DIRS:
                 continue
             for n in names:
-                if n.endswith(EXCLUDE_GLOBS) or n == ".DS_Store" or n.endswith(".skill"):
+                if (n.endswith(EXCLUDE_GLOBS) or n == ".DS_Store" or n.endswith(".skill")
+                        or n == "build-loop-update-report.json"):
                     continue
                 p = pathlib.Path(root) / n
                 arc = pathlib.Path(repo.name) / p.relative_to(repo)
@@ -133,7 +150,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     repo = pathlib.Path(args.repo).resolve()
-    work = pathlib.Path(args.work).resolve() if args.work else repo.parent / ".bl-update-work"
+    work = pathlib.Path(args.work).resolve() if args.work else repo / ".bl-update-work"
     work.mkdir(parents=True, exist_ok=True)
     mode = "pin" if args.pin else "latest"
     manifest_path = repo / "sources.json"
@@ -170,7 +187,7 @@ def main(argv=None):
     scripts = repo / "scripts"
     try:
         sh([sys.executable, str(scripts / "pack_vendor.py"), srcroot, str(repo / "vendor"), str(manifest_path)])
-        sh([sys.executable, str(scripts / "make_licenses.py"), srcroot, str(repo / "vendor")])
+        sh([sys.executable, str(scripts / "make_licenses.py"), srcroot, str(repo / "vendor"), str(manifest_path)])
         clone_pers = pathlib.Path(srcroot) / repodir(pers["url"])
         sh([sys.executable, str(scripts / "pack_personas.py"), str(clone_pers), str(repo / "agents")])
         sh([sys.executable, str(scripts / "make_roster.py"), str(clone_pers), str(repo / "agents")])
@@ -188,7 +205,25 @@ def main(argv=None):
             report["errors"].append(f"{a['name']} ls-remote: {e}")
 
     report["roundtrip"] = roundtrip(repo, manifest, srcroot)
-    skill_out = pathlib.Path(args.skill_out) if args.skill_out else repo.parent / "build-loop.skill"
+
+    # Persist adopted commits BEFORE packaging, so the archived sources.json matches the bundles it
+    # ships with (extract + --pin then reproduces exactly what was packaged). Adapted sources are
+    # never auto-advanced — their recorded commit stays until a human completes the manual re-condense.
+    if args.write_manifest or (mode == "latest" and not args.pin):
+        for s in manifest["vendor"]:
+            s["commit"] = s.pop("_new", s.get("commit"))
+        pers["commit"] = pers.pop("_new", pers.get("commit"))
+        for a in manifest.get("adapted", []):
+            a.pop("_new", None)
+        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    else:
+        for s in manifest["vendor"]:
+            s.pop("_new", None)
+        pers.pop("_new", None)
+        for a in manifest.get("adapted", []):
+            a.pop("_new", None)
+
+    skill_out = pathlib.Path(args.skill_out) if args.skill_out else repo / "build-loop.skill"
     files, total = package(repo, skill_out)
     lim = manifest["skill"]["limits"]
     desc = description_len(repo)
@@ -201,26 +236,11 @@ def main(argv=None):
     }
     report["package"] = str(skill_out)
 
-    if args.write_manifest or (mode == "latest" and not args.pin):
-        for s in manifest["vendor"]:
-            s["commit"] = s.pop("_new", s.get("commit"))
-        pers["commit"] = pers.pop("_new", pers.get("commit"))
-        for a in manifest.get("adapted", []):
-            if "_new" in a:
-                a["commit"] = a.pop("_new")
-        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    else:
-        for s in manifest["vendor"]:
-            s.pop("_new", None)
-        pers.pop("_new", None)
-        for a in manifest.get("adapted", []):
-            a.pop("_new", None)
-
     if not args.keep_clones and not args.use_src:
         import shutil
         shutil.rmtree(work, ignore_errors=True)
 
-    report_path = pathlib.Path(args.report) if args.report else repo.parent / "build-loop-update-report.json"
+    report_path = pathlib.Path(args.report) if args.report else repo / "build-loop-update-report.json"
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     changed_names = [c["name"] if isinstance(c, dict) else c for c in report["changed"]]
     print(f"changed: {changed_names or 'none'}")

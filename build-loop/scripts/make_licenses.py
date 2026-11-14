@@ -1,44 +1,52 @@
-"""Write vendor/LICENSES.md from the upstream licence and NOTICE files.
+"""Write vendor/LICENSES.md from the manifest and the upstream licence files.
 
-    python3 make_licenses.py <srcdir> <vendor_outdir>
+    python3 make_licenses.py <srcdir> <vendor_outdir> <sources.json>
 
-<srcdir> holds the cloned repos (reverse-api-engineer, rea, fish-audio-plugin,
-strix, claude-mem) by their repo-basename. Reproduces the committed LICENSES.md
-byte for byte when the upstream licence files are unchanged.
+Driven by the `vendor` list in sources.json: the table and the quoted licence
+blocks are generated from each source's metadata, so a skill added to the
+manifest is attributed automatically. Every vendor entry must carry a
+`licence_file` (a path under <srcdir>, quoted verbatim) or a `licence_note`
+(explaining where its licence lives) — update fails loudly otherwise, so a new
+source can't be distributed without attribution.
 """
+import json
 import pathlib
 import sys
 
 SRC = pathlib.Path(sys.argv[1])
 out = pathlib.Path(sys.argv[2])
+vendors = json.loads(pathlib.Path(sys.argv[3]).read_text(encoding="utf-8"))["vendor"]
+
+missing = [v["name"] for v in vendors if not v.get("licence_file") and not v.get("licence_note")]
+if missing:
+    sys.exit("make_licenses: no licence_file or licence_note in sources.json for: " + ", ".join(missing))
 
 
-def block(path):
+def quote(path):
     return "```text\n" + (SRC / path).read_text(encoding="utf-8").strip("\n") + "\n```\n"
 
+
+rows = [f"| `{v['name']}.md` | {v['url'].split('://', 1)[-1]} | {v['licence']} | {v.get('copyright', '')} |"
+        for v in vendors]
 
 parts = [
     "# Licences for the bundled skills\n",
     "The files in `vendor/` are third-party skills, bundled unchanged. Each keeps its own licence, reproduced here "
-    "from the upstream repository. Anything you export with `scripts/vendor.py --export` stays under these terms.\n",
-    "| bundle | upstream | licence | copyright |\n|---|---|---|---|\n"
-    "| `reverse-api-engineer.md` | github.com/kalil0321/reverse-api-engineer | MIT | 2025 kalil0321 |\n"
-    "| `rea.md` | github.com/morluto/rea | MIT | 2026 morluto |\n"
-    "| `fish-audio.md` | github.com/fishaudio/fish-audio-plugin | MIT | 2026 Fish Audio |\n"
-    "| `strix.md` | github.com/usestrix/strix | Apache-2.0 | 2025 OmniSecure Inc. |\n"
-    "| `claude-mem.md` | github.com/thedotmack/claude-mem | Apache-2.0 | 2026 Alex Newman (NOTICE below) |\n"
-    "| `anthropic-skills.md` | github.com/anthropics/skills | Apache-2.0, each skill's own `LICENSE.txt` is bundled with it | Anthropic, PBC |\n",
+    "from the upstream repository. Anything you export with `scripts/vendor.py --export` stays under these terms. "
+    "This file is generated from `sources.json` by `scripts/make_licenses.py`.\n",
+    "| bundle | upstream | licence | copyright |\n|---|---|---|---|\n" + "\n".join(rows) + "\n",
     "Not bundled: the `docx`, `pdf`, `pptx` and `xlsx` skills from anthropics/skills, whose licence reserves all rights "
     "(they are already built into Claude), and binary files (fonts, a sample PDF, a .gz archive) listed in each bundle's header. "
     "From `rea`, only the agent skill folder is bundled; REA's own code and its third-party components are not, so its "
     "THIRD_PARTY_NOTICES do not apply here.\n",
     "Changes: none to file contents. Files were concatenated into one Markdown file per source, wrapped in "
     "`<!-- vendor-file: path -->` markers; `scripts/vendor.py --export` restores them byte for byte.\n",
-    "## MIT — reverse-api-engineer\n", block("reverse-api-engineer/LICENSE"),
-    "## MIT — rea\n", block("rea/LICENSE"),
-    "## MIT — fish-audio-plugin\n", block("fish-audio-plugin/LICENSE"),
-    "## NOTICE — claude-mem\n", block("claude-mem/NOTICE"),
-    "## Apache License 2.0 — strix (also the licence text for claude-mem and anthropics/skills)\n", block("strix/LICENSE"),
 ]
+for v in vendors:
+    heading = f"## {v['licence']} — {v['name']}"
+    if v.get("licence_file"):
+        parts.append(f"{heading}\n\n" + quote(v["licence_file"]))
+    else:
+        parts.append(f"{heading}\n\n{v['licence_note']}\n")
 (out / "LICENSES.md").write_text("\n".join(parts), encoding="utf-8")
 print("wrote", out / "LICENSES.md")

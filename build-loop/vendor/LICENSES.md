@@ -1,15 +1,15 @@
 # Licences for the bundled skills
 
-The files in `vendor/` are third-party skills, bundled unchanged. Each keeps its own licence, reproduced here from the upstream repository. Anything you export with `scripts/vendor.py --export` stays under these terms.
+The files in `vendor/` are third-party skills, bundled unchanged. Each keeps its own licence, reproduced here from the upstream repository. Anything you export with `scripts/vendor.py --export` stays under these terms. This file is generated from `sources.json` by `scripts/make_licenses.py`.
 
 | bundle | upstream | licence | copyright |
 |---|---|---|---|
 | `reverse-api-engineer.md` | github.com/kalil0321/reverse-api-engineer | MIT | 2025 kalil0321 |
 | `rea.md` | github.com/morluto/rea | MIT | 2026 morluto |
-| `fish-audio.md` | github.com/fishaudio/fish-audio-plugin | MIT | 2026 Fish Audio |
 | `strix.md` | github.com/usestrix/strix | Apache-2.0 | 2025 OmniSecure Inc. |
-| `claude-mem.md` | github.com/thedotmack/claude-mem | Apache-2.0 | 2026 Alex Newman (NOTICE below) |
-| `anthropic-skills.md` | github.com/anthropics/skills | Apache-2.0, each skill's own `LICENSE.txt` is bundled with it | Anthropic, PBC |
+| `fish-audio.md` | github.com/fishaudio/fish-audio-plugin | MIT | 2026 Fish Audio |
+| `claude-mem.md` | github.com/thedotmack/claude-mem | Apache-2.0 | 2026 Alex Newman |
+| `anthropic-skills.md` | github.com/anthropics/skills | Apache-2.0 (per-skill LICENSE.txt) | Anthropic, PBC |
 
 Not bundled: the `docx`, `pdf`, `pptx` and `xlsx` skills from anthropics/skills, whose licence reserves all rights (they are already built into Claude), and binary files (fonts, a sample PDF, a .gz archive) listed in each bundle's header. From `rea`, only the agent skill folder is bundled; REA's own code and its third-party components are not, so its THIRD_PARTY_NOTICES do not apply here.
 
@@ -67,46 +67,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## MIT — fish-audio-plugin
-
-```text
-MIT License
-
-Copyright (c) 2026 Fish Audio
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## NOTICE — claude-mem
-
-```text
-Claude-Mem
-Copyright 2026 Alex Newman
-
-This product includes software developed for the Claude-Mem project.
-
-Licensed under the Apache License, Version 2.0.
-
-If other attributions are required by dependencies or included code, add them here.
-```
-
-## Apache License 2.0 — strix (also the licence text for claude-mem and anthropics/skills)
+## Apache-2.0 — strix
 
 ```text
                                  Apache License
@@ -311,3 +272,46 @@ If other attributions are required by dependencies or included code, add them he
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
+## MIT — fish-audio
+
+```text
+MIT License
+
+Copyright (c) 2026 Fish Audio
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Apache-2.0 — claude-mem
+
+```text
+Claude-Mem
+Copyright 2026 Alex Newman
+
+This product includes software developed for the Claude-Mem project.
+
+Licensed under the Apache License, Version 2.0.
+
+If other attributions are required by dependencies or included code, add them here.
+```
+
+## Apache-2.0 (per-skill LICENSE.txt) — anthropic-skills
+
+Apache-2.0; each bundled skill keeps its own LICENSE.txt inside its folder. The docx/pdf/pptx/xlsx skills are excluded (all rights reserved). The full Apache-2.0 text is shown under strix above.
