@@ -1,6 +1,6 @@
 /**
- * JARVIS Speech-to-Text Listener
- * Continuous & push-to-talk microphone listener with wake word support ("Hey Jarvis" / "Jarvis").
+ * Kevo Speech-to-Text Listener
+ * Continuous & push-to-talk microphone listener with wake word support ("Hey Kevo" / "Kevo").
  * Uses webkitSpeechRecognition / SpeechRecognition API with automatic restart on pause.
  */
 
@@ -15,8 +15,10 @@ export interface VoiceListenerOptions {
   onError?: (err: string) => void;
   /** Act only on speech that follows a wake word (or comes inside the follow-up window). Default true. */
   requireWakeWord?: boolean;
-  /** How long after a wake word, a reply or a mic tap JARVIS accepts a command without the wake word. */
+  /** How long after a wake word, a reply or a mic tap Kevo accepts a command without the wake word. */
   followUpMs?: number;
+  /** Told when Kevo starts or stops accepting a command without its name (drives the orb). */
+  onAwakeChange?: (awake: boolean) => void;
 }
 
 export class JarvisVoiceListener {
@@ -36,12 +38,15 @@ export class JarvisVoiceListener {
   private awakeUntil = 0;
   private muted = false;
   private tapPending = false;
+  private onAwakeChange?: (awake: boolean) => void;
+  private awakeTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(options?: VoiceListenerOptions) {
-    // Recognisers often hear "Jarvis" as one of these.
-    this.wakeWords = options?.wakeWords ?? ['jarvis', 'jervis', 'javis', 'jarvas', 'jarvice'];
+    // Recognisers often hear "Kevo" as one of these.
+    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo'];
     this.requireWakeWord = options?.requireWakeWord ?? true;
     this.followUpMs = options?.followUpMs ?? 8000;
+    this.onAwakeChange = options?.onAwakeChange;
     this.continuous = options?.continuous ?? true;
     this.onListeningStateChange = options?.onListeningStateChange;
     this.onInterimSpeech = options?.onInterimSpeech;
@@ -77,7 +82,7 @@ export class JarvisVoiceListener {
       };
 
       this.recognition.onresult = (event: any) => {
-        // While JARVIS speaks, the microphone hears JARVIS: ignore it.
+        // While Kevo speaks, the microphone hears Kevo: ignore it.
         if (this.muted) return;
         let interim = '';
         let final = '';
@@ -122,7 +127,7 @@ export class JarvisVoiceListener {
       };
 
       this.isRunning = true;
-      // Tapping the mic counts as calling JARVIS, so the first command needs no wake word.
+      // Tapping the mic counts as calling Kevo, so the first command needs no wake word.
       this.tapPending = true;
       this.recognition.start();
       return true;
@@ -135,6 +140,7 @@ export class JarvisVoiceListener {
   stop(): void {
     this.isRunning = false;
     this.isListening = false;
+    this.setAwakeUntil(0);
     if (this.recognition) {
       try {
         this.recognition.stop();
@@ -146,10 +152,23 @@ export class JarvisVoiceListener {
 
   /** Accept commands without the wake word for the follow-up window (after a reply, a wake word or a mic tap). */
   keepAwake(): void {
-    this.awakeUntil = Date.now() + this.followUpMs;
+    this.setAwakeUntil(Date.now() + this.followUpMs);
   }
 
-  /** Mute while JARVIS is talking so its own voice is never taken as a command. */
+  /** True while a command needs no wake word. */
+  isAwake(): boolean {
+    return Date.now() < this.awakeUntil;
+  }
+
+  private setAwakeUntil(until: number): void {
+    this.awakeUntil = until;
+    clearTimeout(this.awakeTimer);
+    const left = until - Date.now();
+    this.onAwakeChange?.(left > 0);
+    if (left > 0 && this.onAwakeChange) this.awakeTimer = setTimeout(() => this.onAwakeChange?.(false), left);
+  }
+
+  /** Mute while Kevo is talking so its own voice is never taken as a command. */
   setMuted(muted: boolean): void {
     this.muted = muted;
   }
@@ -160,10 +179,10 @@ export class JarvisVoiceListener {
       this.keepAwake();
       this.onWakeWord?.(command.wake);
     } else if (this.requireWakeWord && Date.now() >= this.awakeUntil) {
-      return; // Room talk, a TV or another assistant ("Hey Google") — not for JARVIS.
+      return; // Room talk, a TV or another assistant ("Hey Google") — not for Kevo.
     }
     if (command.text) {
-      this.awakeUntil = 0; // The reply re-opens the window once it has been spoken.
+      this.setAwakeUntil(0); // The reply re-opens the window once it has been spoken.
       this.onFinalSpeech?.(command.text);
     }
   }
@@ -186,15 +205,15 @@ export class JarvisVoiceListener {
   }
 }
 
-/** Finds a wake word anywhere in a phrase ("okay Jarvis, what time is it") and returns what follows it. */
+/** Finds a wake word anywhere in a phrase ("okay Kevo, what time is it") and returns what follows it. */
 export function parseWakeCommand(rawText: string, wakeWords: string[]): { wake: string | null; text: string } {
   const text = rawText.trim();
   const words = [...wakeWords].sort((a, b) => b.length - a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const match = new RegExp(`\\b(?:(hey|ok|okay|hi|hello)[\\s,]+)?(${words.join('|')})\\b[,.:;!?\\s]*`, 'i').exec(text);
   if (!match) return { wake: null, text };
   let after = text.slice(match.index + match[0].length).trim();
-  if (/^(please|thanks|thank you|now|sir)?[.!?]*$/i.test(after)) after = ''; // "What time is it, Jarvis, please?"
-  // "What time is it, Jarvis?" puts the command before the name.
+  if (/^(please|thanks|thank you|now|sir)?[.!?]*$/i.test(after)) after = ''; // "What time is it, Kevo, please?"
+  // "What time is it, Kevo?" puts the command before the name.
   const before = text.slice(0, match.index).replace(/[,.:;!?\s]+$/, '').trim();
   return { wake: [match[1], match[2]].filter(Boolean).join(' ').toLowerCase(), text: after || before };
 }

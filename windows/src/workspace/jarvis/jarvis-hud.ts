@@ -1,18 +1,30 @@
 /**
- * JARVIS Orbital HUD
- * Futuristic telemetry command center dashboard.
- * Pure DOM + CSS — no canvas required.
- * Inspired by the Cindy Zhu JARVIS video HUD layout.
+ * Kevo stage: the orb that shows what Kevo is doing, the last exchange, and a log of what really happened.
+ * DOM + CSS only. Every animation is CSS, so nothing runs while the view is hidden.
+ * Colours come from the workspace tokens (anf-design.css), so it follows the light, dark and theme-pack looks.
  */
-import type { SystemTelemetry } from './connectors/system-connector';
+
+export type KevoState = 'off' | 'idle' | 'listening' | 'thinking' | 'speaking';
 
 export interface JarvisHudOptions {
-  /** Number of bars in the frequency spectrum panel. Default 32. */
-  spectrumBars?: number;
-  /** Max log lines shown in TERM_CON panel. Default 24. */
+  /** Max lines kept in the activity list. Default 40. */
   maxLogLines?: number;
-  /** Update interval for spectrum animation (ms). Default 80. */
-  animIntervalMs?: number;
+}
+
+const STATE_LABEL: Record<KevoState, string> = {
+  off: 'Microphone off',
+  idle: 'Say “Kevo”',
+  listening: 'Listening',
+  thinking: 'Thinking',
+  speaking: 'Speaking',
+};
+
+/** What the orb should show. Speaking wins over thinking, which wins over listening. */
+export function kevoState(s: { micOn: boolean; awake: boolean; thinking: boolean; speaking: boolean }): KevoState {
+  if (s.speaking) return 'speaking';
+  if (s.thinking) return 'thinking';
+  if (!s.micOn) return 'off';
+  return s.awake ? 'listening' : 'idle';
 }
 
 function injectHudStyles(): void {
@@ -21,477 +33,214 @@ function injectHudStyles(): void {
   style.id = 'jarvis-hud-styles';
   style.textContent = `
     .jarvis-hud {
-      --hud-bg: #020d14;
-      --hud-border: #0af;
-      --hud-glow: rgba(0,170,255,0.18);
-      --hud-green: #00ff88;
-      --hud-amber: #ffb700;
-      --hud-red: #ff3333;
-      --hud-text: #7de8ff;
-      --hud-dim: rgba(125,232,255,0.5);
-      --hud-panel-bg: rgba(2,13,20,0.92);
+      --kevo: var(--accent, #a3e5cd);
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
-      grid-template-rows: minmax(150px, 1fr) minmax(150px, 1fr) minmax(110px, auto);
-      gap: 8px;
-      padding: 10px;
-      background: var(--hud-bg);
-      color: var(--hud-text);
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 11px;
-      min-height: 480px;
-      border-radius: 8px;
-      position: relative;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 12px;
+      min-width: 0;
     }
+    @container (max-width: 760px) { .jarvis-hud { grid-template-columns: minmax(0, 1fr); } }
     .jarvis-panel {
-      background: var(--hud-panel-bg);
-      border: 1px solid var(--hud-border);
-      border-radius: 4px;
-      padding: 8px;
-      box-shadow: 0 0 12px var(--hud-glow), inset 0 0 8px rgba(0,170,255,0.04);
+      background: var(--surface, #182a2d);
+      border: 1px solid var(--line, #385052);
+      border-radius: var(--radius, 16px);
+      padding: 16px;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      overflow: hidden;
+      gap: 8px;
     }
-    .jarvis-panel-title {
-      font-size: 9px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--hud-border);
-      border-bottom: 1px solid rgba(0,170,255,0.3);
-      padding-bottom: 4px;
-      margin-bottom: 4px;
-    }
-    /* AI CORE panel spans both rows in center */
-    .jarvis-panel-ai-core {
-      grid-column: 2;
-      grid-row: 1 / 3;
+    .jarvis-panel-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted, #b0c4bd); }
+
+    /* ── Stage */
+    .kevo-stage {
       align-items: center;
-      justify-content: center;
+      text-align: center;
+      padding: 28px 16px 20px;
+      background:
+        radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--kevo) 14%, transparent), transparent 70%),
+        var(--surface, #182a2d);
     }
-    /* The log runs along the bottom, so all six panels have a fixed place */
-    .jarvis-panel-term { grid-column: 1 / -1; }
-    @container (max-width: 640px) {
-      .jarvis-hud { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; min-height: 0; }
-      .jarvis-panel-ai-core { grid-column: auto; grid-row: auto; }
-    }
-    /* Core matrix grid */
-    .core-matrix-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 2px;
-    }
-    .matrix-cell {
-      aspect-ratio: 1;
-      border-radius: 1px;
-      transition: background 0.4s;
-    }
-    /* Gauge bars */
-    .gauge-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
-    .gauge-label { width: 56px; color: var(--hud-dim); font-size: 10px; }
-    .gauge-track { flex: 1; height: 8px; background: rgba(0,170,255,0.1); border: 1px solid rgba(0,170,255,0.25); border-radius: 2px; overflow: hidden; }
-    .gauge-fill { height: 100%; border-radius: 2px; transition: width 0.6s; }
-    .gauge-fill-cpu { background: linear-gradient(90deg, #0af, #00ff88); }
-    .gauge-fill-ram { background: linear-gradient(90deg, #0af, #ffb700); }
-    .gauge-fill-bat { background: linear-gradient(90deg, #0af, #00ff88); }
-    .gauge-val { width: 36px; text-align: right; font-size: 10px; }
-    /* Net flow mini-bars */
-    .net-flow-bars { display: flex; align-items: flex-end; gap: 1px; height: 48px; }
-    .net-flow-bar { flex: 1; border-radius: 1px 1px 0 0; transition: height 0.3s; }
-    /* Spectrum bars */
-    .spectrum-bars { display: flex; align-items: flex-end; gap: 1px; height: 64px; }
-    .spectrum-bar { flex: 1; border-radius: 1px 1px 0 0; min-height: 2px; transition: height 0.1s; }
-    /* Terminal log */
-    .term-log { flex: 1; overflow-y: auto; font-size: 9.5px; color: var(--hud-dim); line-height: 1.4; scrollbar-width: none; }
-    .term-log::-webkit-scrollbar { display: none; }
-    .term-entry { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .term-entry-new { color: var(--hud-green); }
-    /* Orbital AI Core */
-    .ai-core-orbital {
+    .kevo-orb {
       position: relative;
-      width: 140px;
-      height: 140px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 10px auto;
+      width: 168px; height: 168px;
+      display: grid; place-items: center;
+      flex: none;
     }
-    .orbital-ring {
-      position: absolute;
-      width: 130px; height: 130px;
-      border: 2px solid rgba(0,170,255,0.6);
-      border-radius: 50%;
-      border-top-color: transparent;
-      animation: orbit-spin 3s linear infinite;
+    .kevo-ring, .kevo-arc, .kevo-core { position: absolute; border-radius: 50%; }
+    .kevo-ring { inset: 22px; border: 2px solid var(--kevo); opacity: 0; }
+    .kevo-arc {
+      inset: 8px; opacity: 0;
+      background: conic-gradient(from 0deg, transparent 0 62%, var(--kevo) 96%, transparent 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      transition: opacity .3s;
     }
-    .orbital-ring-2 {
-      position: absolute;
-      width: 110px; height: 110px;
-      border: 1px solid rgba(0,255,136,0.4);
-      border-radius: 50%;
-      border-bottom-color: transparent;
-      animation: orbit-spin 5s linear infinite reverse;
+    .kevo-core {
+      inset: 30px;
+      background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--kevo) 55%, #fff), var(--kevo) 46%, color-mix(in srgb, var(--kevo) 55%, #000) 100%);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--kevo) 40%, transparent), 0 10px 36px color-mix(in srgb, var(--kevo) 36%, transparent);
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      animation: kevo-breathe 5.5s ease-in-out infinite;
+      transition: filter .4s, box-shadow .4s;
     }
-    .orbital-core {
-      width: 60px; height: 60px;
-      background: radial-gradient(circle, #0af 0%, rgba(0,100,180,0.6) 60%, transparent 100%);
-      border-radius: 50%;
-      box-shadow: 0 0 24px rgba(0,170,255,0.8), 0 0 48px rgba(0,170,255,0.3);
-      animation: core-pulse 2s ease-in-out infinite;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      color: white;
+    .kevo-bar {
+      width: 6px; height: 6px; border-radius: 3px;
+      background: var(--accent-ink, #10392e);
     }
-    .jarvis-hud.wake-active .orbital-core {
-      animation: core-pulse 0.45s ease-in-out infinite;
-      box-shadow: 0 0 40px rgba(0,255,200,1), 0 0 80px rgba(0,170,255,0.7);
+    .kevo-state { margin: 6px 0 0; font-size: 20px; font-weight: 600; color: var(--ink, #edf4ef); }
+    .kevo-heard, .kevo-reply { margin: 0; max-width: 46ch; overflow-wrap: anywhere; }
+    .kevo-heard { font-size: 13px; color: var(--muted, #b0c4bd); min-height: 1.4em; }
+    .kevo-reply { font-size: 15px; line-height: 1.45; color: var(--ink, #edf4ef); min-height: 1.45em; }
+    .kevo-reply.fresh, .kevo-heard.fresh { animation: kevo-line-in .35s cubic-bezier(.16,1,.3,1); }
+
+    /* Off: a quiet orb */
+    .jarvis-hud[data-state=off] .kevo-core { filter: saturate(.25) brightness(.8); animation: none; box-shadow: none; }
+    /* Listening: rings travel outwards, bars stir */
+    .jarvis-hud[data-state=listening] .kevo-ring { animation: kevo-ripple 1.9s cubic-bezier(.2,.6,.3,1) infinite; }
+    .jarvis-hud[data-state=listening] .kevo-ring:nth-child(2) { animation-delay: .63s; }
+    .jarvis-hud[data-state=listening] .kevo-ring:nth-child(3) { animation-delay: 1.26s; }
+    .jarvis-hud[data-state=listening] .kevo-bar { animation: kevo-bar 1.1s ease-in-out infinite; --peak: 16px; }
+    /* Thinking: an arc circles the orb */
+    .jarvis-hud[data-state=thinking] .kevo-arc { opacity: 1; animation: kevo-spin 1.05s linear infinite; }
+    .jarvis-hud[data-state=thinking] .kevo-core { animation: kevo-breathe 1.6s ease-in-out infinite; }
+    /* Speaking: the bars become a voice */
+    .jarvis-hud[data-state=speaking] .kevo-bar { animation: kevo-bar .52s ease-in-out infinite; --peak: 44px; }
+    .jarvis-hud[data-state=speaking] .kevo-core { animation: kevo-speak 1.04s ease-in-out infinite; }
+    .jarvis-hud .kevo-bar:nth-child(1) { animation-delay: -.40s; }
+    .jarvis-hud .kevo-bar:nth-child(2) { animation-delay: -.15s; }
+    .jarvis-hud .kevo-bar:nth-child(3) { animation-delay: -.30s; }
+    .jarvis-hud .kevo-bar:nth-child(4) { animation-delay: -.05s; }
+    .jarvis-hud .kevo-bar:nth-child(5) { animation-delay: -.22s; }
+
+    @keyframes kevo-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+    @keyframes kevo-speak { 0%,100% { transform: scale(1); } 50% { transform: scale(1.03); box-shadow: 0 0 0 1px color-mix(in srgb, var(--kevo) 40%, transparent), 0 10px 56px color-mix(in srgb, var(--kevo) 60%, transparent); } }
+    @keyframes kevo-ripple { 0% { transform: scale(.72); opacity: .7; } 100% { transform: scale(1.36); opacity: 0; } }
+    @keyframes kevo-spin { to { transform: rotate(360deg); } }
+    @keyframes kevo-bar { 0%,100% { height: 6px; } 50% { height: var(--peak, 16px); } }
+    @keyframes kevo-line-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    /* Opening the view: the orb arrives, then the rest follows */
+    @keyframes kevo-arrive { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+    @keyframes kevo-follow { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .kevo-orb { animation: kevo-arrive .7s cubic-bezier(.16,1,.3,1) both; }
+    .kevo-state { animation: kevo-follow .5s .18s cubic-bezier(.16,1,.3,1) both; }
+    .kevo-activity { animation: kevo-follow .5s .28s cubic-bezier(.16,1,.3,1) both; }
+
+    /* ── Activity */
+    .kevo-log { list-style: none; margin: 0; padding: 0; overflow-y: auto; max-height: 300px; display: flex; flex-direction: column; gap: 6px; }
+    .kevo-log li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; font-size: 13px; line-height: 1.4; color: var(--ink, #edf4ef); animation: kevo-line-in .3s cubic-bezier(.16,1,.3,1); }
+    .kevo-log time { color: var(--muted, #b0c4bd); font-variant-numeric: tabular-nums; }
+    .kevo-log span { overflow-wrap: anywhere; }
+    .kevo-log-empty { margin: 0; font-size: 13px; color: var(--muted, #b0c4bd); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .jarvis-hud *, .jarvis-hud *::before { animation: none !important; transition: none !important; }
+      .jarvis-hud[data-state=listening] .kevo-ring:first-child { opacity: .6; transform: scale(1.12); }
+      .jarvis-hud[data-state=thinking] .kevo-arc { opacity: 1; }
+      .jarvis-hud[data-state=speaking] .kevo-bar:nth-child(odd) { height: 30px; }
+      .jarvis-hud[data-state=speaking] .kevo-bar:nth-child(even) { height: 18px; }
     }
-    .jarvis-hud.wake-active .orbital-ring {
-      animation-duration: 0.8s;
-      border-color: rgba(0,255,200,0.85);
-    }
-    .jarvis-hud.wake-active .orbital-ring-2 {
-      animation-duration: 1.2s;
-    }
-    @keyframes orbit-spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    @keyframes core-pulse {
-      0%, 100% { box-shadow: 0 0 24px rgba(0,170,255,0.8), 0 0 48px rgba(0,170,255,0.3); }
-      50% { box-shadow: 0 0 36px rgba(0,170,255,1), 0 0 72px rgba(0,170,255,0.5); }
-    }
-    .ai-core-status {
-      text-align: center;
-      font-size: 10px;
-      color: var(--hud-green);
-      letter-spacing: 0.1em;
-      margin-top: 6px;
-    }
-    .ai-core-metric {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      padding: 2px 0;
-      border-bottom: 1px solid rgba(0,170,255,0.1);
-    }
-    /* Pulse message overlay */
-    .jarvis-pulse-msg {
-      position: absolute;
-      bottom: 14px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,170,255,0.15);
-      border: 1px solid var(--hud-border);
-      color: var(--hud-text);
-      font-size: 11px;
-      padding: 6px 18px;
-      border-radius: 20px;
-      max-width: 80%;
-      text-align: center;
-      opacity: 0;
-      transition: opacity 0.4s;
-      pointer-events: none;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .jarvis-pulse-msg.visible { opacity: 1; }
   `;
   document.head.appendChild(style);
 }
 
-function makePanel(extraClass = ''): HTMLElement {
-  const p = document.createElement('div');
-  p.className = 'jarvis-panel' + (extraClass ? ' ' + extraClass : '');
-  return p;
-}
-
-function makeTitle(text: string): HTMLElement {
-  const t = document.createElement('div');
-  t.className = 'jarvis-panel-title';
-  t.textContent = text;
-  return t;
-}
-
-function makeGaugeRow(label: string, fillClass: string): { row: HTMLElement; fill: HTMLElement; val: HTMLElement } {
-  const row = document.createElement('div');
-  row.className = 'gauge-row';
-  const lbl = document.createElement('div');
-  lbl.className = 'gauge-label';
-  lbl.textContent = label;
-  const track = document.createElement('div');
-  track.className = 'gauge-track';
-  const fill = document.createElement('div');
-  fill.className = `gauge-fill ${fillClass}`;
-  fill.style.width = '0%';
-  track.appendChild(fill);
-  const val = document.createElement('div');
-  val.className = 'gauge-val';
-  val.textContent = '0%';
-  row.append(lbl, track, val);
-  return { row, fill, val };
-}
-
-/** Spectrum colors: deep blue → cyan → green across 32 bars */
-function barColor(i: number, total: number): string {
-  const t = i / total;
-  if (t < 0.33) return `hsl(${200 + t * 60}, 100%, 55%)`;
-  if (t < 0.66) return `hsl(${220 + t * 40}, 100%, 60%)`;
-  return `hsl(${160 + t * 40}, 100%, 55%)`;
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = ''): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (text) node.textContent = text;
+  return node;
 }
 
 export function createJarvisHud(options?: JarvisHudOptions): {
   root: HTMLElement;
-  updateTelemetry: (stats: SystemTelemetry) => void;
+  setState: (state: KevoState) => void;
+  setHeard: (text: string) => void;
+  setReply: (text: string) => void;
   pulseMessage: (msg: string) => void;
   setWakeActive: (active: boolean) => void;
   destroy: () => void;
 } {
-  const opts = {
-    spectrumBars: options?.spectrumBars ?? 32,
-    maxLogLines: options?.maxLogLines ?? 24,
-    animIntervalMs: options?.animIntervalMs ?? 80,
-  };
-
+  const maxLogLines = options?.maxLogLines ?? 40;
   injectHudStyles();
 
-  const root = document.createElement('div');
-  root.className = 'jarvis-hud';
-  root.setAttribute('role', 'region');
-  root.setAttribute('aria-label', 'JARVIS Command HUD');
+  const root = el('div', 'jarvis-hud');
+  root.dataset.state = 'off';
 
-  // ── Panel 1: SYS_STATUS // CORE_MATRIX (top-left)
-  const sysPanel = makePanel();
-  sysPanel.appendChild(makeTitle('SYS_STATUS // CORE_MATRIX'));
-  const matrixGrid = document.createElement('div');
-  matrixGrid.className = 'core-matrix-grid';
-  const matrixCells: HTMLElement[] = [];
-  for (let i = 0; i < 48; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'matrix-cell';
-    cell.style.background = '#00ff88';
-    matrixGrid.appendChild(cell);
-    matrixCells.push(cell);
-  }
-  sysPanel.appendChild(matrixGrid);
+  // ── Stage: the orb, what it is doing, and the last exchange
+  const stage = el('section', 'jarvis-panel kevo-stage');
+  stage.setAttribute('aria-label', 'Kevo');
+  const orb = el('div', 'kevo-orb');
+  orb.setAttribute('aria-hidden', 'true');
+  const core = el('div', 'kevo-core');
+  for (let i = 0; i < 5; i++) core.appendChild(el('span', 'kevo-bar'));
+  orb.append(el('span', 'kevo-ring'), el('span', 'kevo-ring'), el('span', 'kevo-ring'), el('span', 'kevo-arc'), core);
+  const stateEl = el('p', 'kevo-state', STATE_LABEL.off);
+  stateEl.setAttribute('role', 'status');
+  const heardEl = el('p', 'kevo-heard');
+  const replyEl = el('p', 'kevo-reply', 'Turn the microphone on, then say “Kevo” and what you need.');
+  replyEl.setAttribute('aria-live', 'polite');
+  stage.append(orb, stateEl, heardEl, replyEl);
 
-  // ── Panel 2: AI_CORE // NEURAL_LINK (center, spans 2 rows)
-  const aiPanel = makePanel('jarvis-panel-ai-core');
-  aiPanel.appendChild(makeTitle('AI_CORE // NEURAL_LINK'));
-  const orbital = document.createElement('div');
-  orbital.className = 'ai-core-orbital';
-  const ring1 = document.createElement('div');
-  ring1.className = 'orbital-ring';
-  const ring2 = document.createElement('div');
-  ring2.className = 'orbital-ring-2';
-  const coreEl = document.createElement('div');
-  coreEl.className = 'orbital-core';
-  coreEl.textContent = '⬡';
-  orbital.append(ring1, ring2, coreEl);
-  aiPanel.appendChild(orbital);
-  const aiStatus = document.createElement('div');
-  aiStatus.className = 'ai-core-status';
-  aiStatus.textContent = '● CLAUDE · ONLINE · READY';
-  aiPanel.appendChild(aiStatus);
-  ['LATENCY', 'TOKENS/SEC', 'CONTEXT', 'MODEL'].forEach((k, i) => {
-    const row = document.createElement('div');
-    row.className = 'ai-core-metric';
-    const vals = ['24ms', '847', '12.4k', 'Claude 3.5'];
-    row.innerHTML = `<span style="color:var(--hud-dim)">${k}</span><strong>${vals[i]}</strong>`;
-    aiPanel.appendChild(row);
-  });
+  // ── Activity: what Kevo heard and did, newest first
+  const activity = el('section', 'jarvis-panel kevo-activity');
+  activity.setAttribute('aria-label', 'Kevo activity');
+  const emptyEl = el('p', 'kevo-log-empty', 'What Kevo hears and does will be listed here.');
+  const logEl = el('ol', 'kevo-log');
+  activity.append(el('h3', 'jarvis-panel-title', 'Activity'), emptyEl, logEl);
 
-  // ── Panel 3: ENV_DYNAMICS // AUX_LOAD (top-right)
-  const envPanel = makePanel();
-  envPanel.appendChild(makeTitle('ENV_DYNAMICS // AUX_LOAD'));
-  const cpuGauge = makeGaugeRow('CPU', 'gauge-fill-cpu');
-  const ramGauge = makeGaugeRow('RAM', 'gauge-fill-ram');
-  const batGauge = makeGaugeRow('BATTERY', 'gauge-fill-bat');
-  envPanel.append(cpuGauge.row, ramGauge.row, batGauge.row);
+  root.append(stage, activity);
 
-  // ── Panel 4: NET_FLOW // PROTOCOL_STATS (bottom-left)
-  const netPanel = makePanel();
-  netPanel.appendChild(makeTitle('NET_FLOW // PROTOCOL_STATS'));
-  const netLabels = document.createElement('div');
-  netLabels.style.cssText = 'display:flex;gap:12px;font-size:10px;';
-  const rxLbl = document.createElement('span');
-  rxLbl.innerHTML = '<span style="color:var(--hud-dim)">↓RX</span> <strong id="jrx">0</strong> KB/s';
-  const txLbl = document.createElement('span');
-  txLbl.innerHTML = '<span style="color:var(--hud-dim)">↑TX</span> <strong id="jtx">0</strong> KB/s';
-  netLabels.append(rxLbl, txLbl);
-  netPanel.appendChild(netLabels);
-  const netFlowContainer = document.createElement('div');
-  netFlowContainer.className = 'net-flow-bars';
-  const netFlowBarsEls: HTMLElement[] = [];
-  for (let i = 0; i < 20; i++) {
-    const bar = document.createElement('div');
-    bar.className = 'net-flow-bar';
-    bar.style.cssText = `height:20%;background:rgba(0,170,255,0.6);`;
-    netFlowContainer.appendChild(bar);
-    netFlowBarsEls.push(bar);
-  }
-  netPanel.appendChild(netFlowContainer);
-
-  // ── Panel 5: FREQ_ANALYSIS // HARDWARE_LOAD (bottom-right)
-  const freqPanel = makePanel();
-  freqPanel.appendChild(makeTitle('FREQ_ANALYSIS // HARDWARE_LOAD'));
-  const spectrumContainer = document.createElement('div');
-  spectrumContainer.className = 'spectrum-bars';
-  const spectrumBarsEls: HTMLElement[] = [];
-  for (let i = 0; i < opts.spectrumBars; i++) {
-    const bar = document.createElement('div');
-    bar.className = 'spectrum-bar';
-    bar.style.cssText = `height:5%;background:${barColor(i, opts.spectrumBars)};`;
-    spectrumContainer.appendChild(bar);
-    spectrumBarsEls.push(bar);
-  }
-  freqPanel.appendChild(spectrumContainer);
-
-  // ── Panel 6: TERM_CON // DB_QUERY (bottom-center... but we have 3-col grid so place via CSS)
-  const termPanel = makePanel('jarvis-panel-term');
-  termPanel.appendChild(makeTitle('TERM_CON // DB_QUERY'));
-  const termLogEl = document.createElement('div');
-  termLogEl.className = 'term-log';
-  termPanel.appendChild(termLogEl);
-
-  // Pulse message overlay
-  const pulseEl = document.createElement('div');
-  pulseEl.className = 'jarvis-pulse-msg';
-
-  // Assemble layout: grid order is top-left, top-center(aiPanel spans), top-right, bottom-left, bottom-center, bottom-right
-  // Grid is 3-col 2-row; ai-panel is col-2 row-1/3
-  root.append(sysPanel, aiPanel, envPanel, netPanel, freqPanel, termPanel, pulseEl);
-
-  // ── Animation: spectrum + net flow + matrix
-  const LOG_PREFIXES = ['[SYS]', '[NET]', '[DB]', '[AI]', '[AUTH]', '[TASK]'];
-  const LOG_MSGS = [
-    'Connection established', 'Token refresh OK', 'Cache hit ratio 94%',
-    'Telemetry snapshot written', 'Model weights validated', 'Health check OK',
-    'TLS handshake complete', 'API rate limit nominal', 'Briefing engine ready',
-    'Subscriber count updated', 'Revenue delta computed', 'Support triage complete',
-  ];
-
-  let animTimer: ReturnType<typeof setTimeout> | null = null;
-  let animPaused = typeof document !== 'undefined' && document.hidden;
-  let logIdx = 0;
-  let netHistory: number[] = new Array(20).fill(20);
-  let spectrumPhase = 0;
-  let wakeTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const animate = () => {
-    if (animPaused) {
-      animTimer = setTimeout(animate, opts.animIntervalMs);
-      return;
-    }
-    spectrumPhase += 0.07;
-    // Spectrum: sine wave with harmonics for realism
-    for (let i = 0; i < spectrumBarsEls.length; i++) {
-      const t = i / spectrumBarsEls.length;
-      const h = Math.abs(Math.sin(spectrumPhase + t * 4) * 0.6
-        + Math.sin(spectrumPhase * 2.3 + t * 7) * 0.3
-        + Math.sin(spectrumPhase * 0.7 + t * 2) * 0.1);
-      spectrumBarsEls[i].style.height = Math.max(3, Math.round(h * 95)) + '%';
-    }
-    // Net flow
-    netHistory.shift();
-    netHistory.push(20 + Math.round(Math.random() * 70));
-    const maxNet = Math.max(...netHistory, 1);
-    for (let i = 0; i < netFlowBarsEls.length; i++) {
-      netFlowBarsEls[i].style.height = Math.round((netHistory[i] / maxNet) * 90) + '%';
-    }
-    // Matrix cells: randomly flicker 2% of cells per tick
-    const flipCount = Math.max(1, Math.round(matrixCells.length * 0.02));
-    for (let f = 0; f < flipCount; f++) {
-      const idx = Math.floor(Math.random() * matrixCells.length);
-      const r = Math.random();
-      matrixCells[idx].style.background = r < 0.9 ? '#00ff88' : r < 0.95 ? '#ffb700' : '#ff3333';
-    }
-    // Periodic log entry (~every 1.5s = ~19 ticks at 80ms)
-    logIdx++;
-    if (logIdx % 19 === 0) {
-      const prefix = LOG_PREFIXES[Math.floor(Math.random() * LOG_PREFIXES.length)];
-      const msg = LOG_MSGS[Math.floor(Math.random() * LOG_MSGS.length)];
-      const ts = new Date().toISOString().slice(11, 19);
-      const entry = document.createElement('p');
-      entry.className = 'term-entry term-entry-new';
-      entry.textContent = `${ts} ${prefix} ${msg}`;
-      termLogEl.appendChild(entry);
-      // Trim to maxLogLines
-      while (termLogEl.children.length > opts.maxLogLines) {
-        termLogEl.removeChild(termLogEl.firstChild!);
-        // Fade out the new-entry class after first tick
-      }
-      termLogEl.scrollTop = termLogEl.scrollHeight;
-      // De-highlight after 1 frame
-      requestAnimationFrame(() => entry.classList.remove('term-entry-new'));
-    }
-
-    animTimer = setTimeout(animate, opts.animIntervalMs);
-  };
-
-  const onDocVisibility = () => {
-    animPaused = document.hidden;
-  };
-
-  // Start animation only in browser environment; pause when tab/window hidden.
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', onDocVisibility);
-    animTimer = setTimeout(animate, 100);
+  function replay(node: HTMLElement): void {
+    node.classList.remove('fresh');
+    void node.offsetWidth; // restart the entrance animation
+    node.classList.add('fresh');
   }
 
-  // ── updateTelemetry: called by polling loop
-  function updateTelemetry(stats: SystemTelemetry): void {
-    cpuGauge.fill.style.width = stats.cpuLoadPct + '%';
-    cpuGauge.val.textContent = stats.cpuLoadPct + '%';
-    cpuGauge.fill.style.background = stats.cpuLoadPct > 80 ? 'linear-gradient(90deg,#f00,#f60)' : '';
-
-    const ramPct = stats.memoryUsedPct;
-    ramGauge.fill.style.width = ramPct + '%';
-    ramGauge.val.textContent = ramPct + '%';
-
-    if (stats.batteryPct !== null) {
-      batGauge.fill.style.width = stats.batteryPct + '%';
-      batGauge.val.textContent = stats.batteryPct + '% ' + (stats.isCharging ? '⚡' : '');
-    } else {
-      batGauge.fill.style.width = '100%';
-      batGauge.val.textContent = '—';
-    }
-
-    const rxEl = root.querySelector('#jrx') as HTMLElement | null;
-    const txEl = root.querySelector('#jtx') as HTMLElement | null;
-    if (rxEl) rxEl.textContent = stats.networkRxKbps.toString();
-    if (txEl) txEl.textContent = stats.networkTxKbps.toString();
+  function setState(state: KevoState): void {
+    if (root.dataset.state === state) return;
+    root.dataset.state = state;
+    stateEl.textContent = STATE_LABEL[state];
   }
 
-  // ── pulseMessage: flash a message in the bottom overlay bar
-  let pulseTimer: ReturnType<typeof setTimeout> | null = null;
+  function setHeard(text: string): void {
+    heardEl.textContent = text ? `“${text}”` : '';
+    if (text) replay(heardEl);
+  }
+
+  function setReply(text: string): void {
+    replyEl.textContent = text;
+    replay(replyEl);
+  }
+
+  /** Adds a line to the activity list. */
   function pulseMessage(msg: string): void {
-    pulseEl.textContent = `▶ ${msg}`;
-    pulseEl.classList.add('visible');
-    if (pulseTimer) clearTimeout(pulseTimer);
-    pulseTimer = setTimeout(() => pulseEl.classList.remove('visible'), 5000);
+    if (!msg) return;
+    emptyEl.hidden = true;
+    const item = document.createElement('li');
+    const time = document.createElement('time');
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const text = document.createElement('span');
+    text.textContent = msg;
+    item.append(time, text);
+    logEl.prepend(item);
+    while (logEl.children.length > maxLogLines) logEl.lastElementChild!.remove();
   }
 
+  let wakeTimer: ReturnType<typeof setTimeout> | null = null;
   function setWakeActive(active: boolean): void {
     root.classList.toggle('wake-active', active);
-    if (wakeTimer) clearTimeout(wakeTimer);
-    wakeTimer = null;
-    if (active) {
-      wakeTimer = setTimeout(() => root.classList.remove('wake-active'), 2500);
+    // Hearing its name: one pop (not a CSS class, so the arrival animation is not replayed afterwards)
+    if (active && orb.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      orb.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)', offset: 0.4 }, { transform: 'scale(1)' }], { duration: 500, easing: 'cubic-bezier(.2,1.6,.4,1)' });
     }
+    if (wakeTimer) clearTimeout(wakeTimer);
+    wakeTimer = active ? setTimeout(() => root.classList.remove('wake-active'), 600) : null;
   }
 
   function destroy(): void {
-    if (animTimer) clearTimeout(animTimer);
-    if (pulseTimer) clearTimeout(pulseTimer);
     if (wakeTimer) clearTimeout(wakeTimer);
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', onDocVisibility);
-    }
     root.remove();
   }
 
-  return { root, updateTelemetry, pulseMessage, setWakeActive, destroy };
+  return { root, setState, setHeard, setReply, pulseMessage, setWakeActive, destroy };
 }

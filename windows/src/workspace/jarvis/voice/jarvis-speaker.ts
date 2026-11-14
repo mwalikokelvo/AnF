@@ -1,5 +1,5 @@
 /**
- * JARVIS Speech Synthesis (Text-to-Speech)
+ * Kevo Speech Synthesis (Text-to-Speech)
  * Plays spoken replies using Web Speech API, with an optional voice-pack MP3
  * identity cue (~1s) before speech. Falls back to a Web Audio chirp when the
  * MP3 is missing. Destructive single speaker — no V2 stack.
@@ -30,7 +30,7 @@ export function pickVoice(voices: readonly SpeechSynthesisVoice[], profile: Pick
   let bestScore = -Infinity;
   for (const v of voices) {
     if (!/^en\b/i.test(v.lang)) continue;
-    // Online voices send the reply text to the voice provider: only with the owner's opt-in.
+    // Online voices send the reply text to the voice provider: skipped when the owner turned them off.
     if (!v.localService && !allowOnline) continue;
     let score = 0;
     if (/natural|neural|online/i.test(v.name)) score += 6; // Edge/WebView2 neural voices sound human
@@ -60,9 +60,9 @@ export function splitForSpeech(text: string): string[] {
 }
 
 const ONLINE_VOICES_KEY = 'jarvis-allow-online-voices';
-/** Whether the owner allowed online (cloud) voices, which send reply text to the voice provider. */
+/** Online (cloud) voices send reply text to the voice provider. On unless the owner turns them off (owner's decision, 14 Nov 2026). */
 export function onlineVoicesAllowed(): boolean {
-  try { return localStorage.getItem(ONLINE_VOICES_KEY) === '1'; } catch { return false; }
+  try { return localStorage.getItem(ONLINE_VOICES_KEY) !== '0'; } catch { return true; }
 }
 export function setOnlineVoicesAllowed(allowed: boolean): void {
   try { localStorage.setItem(ONLINE_VOICES_KEY, allowed ? '1' : '0'); } catch { /* not remembered */ }
@@ -167,6 +167,19 @@ export class JarvisSpeaker {
     })();
     this.cue = cue.catch(() => {});
     return this.cue;
+  }
+
+  /** Plays a voice's built-in recording in full. False when the file is not in this build. */
+  async playSample(filename: string): Promise<boolean> {
+    this.stop();
+    const token = ++this.utteranceToken;
+    // A recording is speech too: same start/end as a reply, so the microphone is muted while it plays.
+    this.duckAudio?.(true);
+    this.isSpeaking = true;
+    this.onStart?.();
+    const played = await this.playMp3Snippet(voicePackUrl(filename), 20000);
+    if (token === this.utteranceToken) this.finishSpeaking();
+    return played;
   }
 
   private playMp3Snippet(url: string, maxMs: number): Promise<boolean> {

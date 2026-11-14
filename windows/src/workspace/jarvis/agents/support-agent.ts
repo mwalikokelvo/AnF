@@ -28,7 +28,7 @@ export interface SupportBriefing {
   recommendation: string;
 }
 
-/** Patterns that JARVIS can auto-resolve with a canned reply. */
+/** Patterns that Kevo can auto-resolve with a canned reply. */
 const AUTO_RESOLVE_PATTERNS: Array<{ pattern: RegExp; reply: string }> = [
   {
     pattern: /how.*(cancel|unsubscribe|refund)/i,

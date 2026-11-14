@@ -7,7 +7,7 @@ import {
   getJarvisHistory,
 } from '../src/workspace/jarvis/voice/jarvis-memory.js';
 
-describe('JARVIS conversational memory', () => {
+describe('Kevo conversational memory', () => {
   beforeEach(() => {
     clearJarvisHistory();
   });
@@ -19,7 +19,7 @@ describe('JARVIS conversational memory', () => {
     assert.equal(hist.length, 2);
     const prompt = formatJarvisHistoryForPrompt();
     assert.match(prompt, /User: What time is rehearsal\?/);
-    assert.match(prompt, /JARVIS: I do not have your calendar/);
+    assert.match(prompt, /Kevo: I do not have your calendar/);
   });
 
   it('keeps only the last 20 turns', () => {

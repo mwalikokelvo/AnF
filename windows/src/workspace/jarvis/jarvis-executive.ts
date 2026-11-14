@@ -1,5 +1,5 @@
 /**
- * JARVIS Executive Orchestrator
+ * Kevo Executive Orchestrator
  * Generates comprehensive morning briefings from all agents.
  * Speaks the briefing via TTS (ducking music when active).
  * "What would you like me to handle first, sir?" — Cindy Zhu video
@@ -15,7 +15,7 @@ export interface AgentBriefingChunk {
 export interface ExecutiveBriefing {
   timestamp: number;
   date: string;
-  greeting: string;           // Top-level JARVIS greeting
+  greeting: string;           // Top-level Kevo greeting
   chunks: AgentBriefingChunk[];
   fullText: string;           // Complete spoken text for TTS
   summary: string;            // One-liner summary for UI
@@ -96,7 +96,7 @@ export class JarvisExecutive {
       voiceEnabled: options?.voiceEnabled ?? false,
     };
 
-    const greeting = `${formatTime()}, sir. JARVIS online. Today is ${formatDate()}.`;
+    const greeting = `${formatTime()}, sir. Kevo online. Today is ${formatDate()}.`;
     const chunks: AgentBriefingChunk[] = [];
 
     // Revenue chunk
@@ -237,7 +237,7 @@ export class JarvisExecutive {
     const card = document.createElement('div');
     card.className = 'jarvis-briefing-card';
     if (!b) {
-      card.innerHTML = '<p class="jarvis-dim">No briefing yet. Click "Morning Briefing" to generate.</p>';
+      card.innerHTML = '<p class="jarvis-dim">No briefing yet. Choose “Morning briefing” to write one.</p>';
       return card;
     }
     const heading = document.createElement('h3');

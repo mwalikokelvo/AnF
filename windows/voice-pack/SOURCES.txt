@@ -1,23 +1,13 @@
-JARVIS Voice Pack samples
-=========================
+Kevo voice pack
+===============
 
-Place the 13 reference MP3s here (filenames must match jarvis-voice-pack.ts).
+The 13 recordings here are built into the app: Vite serves them at /voice-pack/*.mp3 in dev and
+copies them into dist/voice-pack/ on build, so every installer and portable folder carries them.
+File names must match windows/src/workspace/jarvis/voice/jarvis-voice-pack.ts.
 
-Vite serves them at /voice-pack/*.mp3 in dev and copies them into dist/voice-pack/
-on build. If a file is missing, JARVIS still speaks via Web Speech and synthesizes
-a short Web Audio identity chirp instead of the MP3 cue.
+The owner made or designed these voices and chose to publish all 13 with the app (14 Nov 2026).
+"Kevo - gentle bass.mp3" is the owner's own voice.
 
-Expected filenames:
-  Nath - engaging, british and calm.mp3
-  Burt - deep, smooth and clear.mp3
-  Kelvin mwamburi mwaliko.mp3
-  Dav - movie trailer narrator.mp3
-  Cart - rich, smooth and rugged.mp3
-  Bria - deep, resonant and comforting.mp3
-  Jean - audiobook narrator.mp3
-  Aust - deep, raspy and authentic.mp3
-  Bra - romantic & gentle.mp3
-  Lil - velvety actress.mp3
-  Seraf - sensual temptress.mp3
-  Husky, engaging and bold.mp3
-  grandpa.mp3
+What they are used for: the "Hear this voice" button plays a recording in full, and the first second
+is the chime Kevo plays when it hears its name. Kevo's replies are spoken by a Windows voice matched
+to the chosen profile's accent and gender; the recordings are not a speech engine.
