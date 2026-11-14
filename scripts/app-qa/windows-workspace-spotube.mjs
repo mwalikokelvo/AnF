@@ -10,6 +10,7 @@ assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 assert(process.env.ANF_QA_OUTPUT);
 let browser,page;
 const errors=[];
+let playbackEvidence=null;
 const nativeWindows=[];
 const nativeWindow=expected=>{
  const state=JSON.parse(execFileSync('python',['scripts/app-qa/spotube-window-state.py',expected],{encoding:'utf8',timeout:10000}));
@@ -39,6 +40,7 @@ try {
   const state=await invoke('music_control',{operation:'status'});
   assert.equal(typeof state?.hasTrack,'boolean');assert.equal(typeof state?.playing,'boolean');
   assert.equal(state.playing,false,'Fresh fixture has no playing track');
+  if(process.env.ANF_SPOTUBE_QA_FIXTURE)assert.equal(state.hasTrack,true,'Generated media must really load into upstream player');
   assert(await page.getByRole('button',{name:'Local library',exact:true}).isVisible(),'Native view must retain the visible source switch');
   return state;
  };
@@ -60,6 +62,32 @@ try {
  assert(await page.getByLabel('Live Markdown writing',{exact:true}).isVisible());
  // Native state remains accessible while its view is hidden.
  assert.equal(typeof (await invoke('music_control',{operation:'status'})).hasTrack,'boolean');
+ if(process.env.ANF_SPOTUBE_QA_FIXTURE){
+  await page.getByRole('button',{name:'Play Spotube',exact:true}).click();
+  const samples=[];let advancing;
+  const deadline=Date.now()+15000;
+  while(Date.now()<deadline){
+   const sample=await invoke('music_control',{operation:'status'});
+   samples.push({playing:sample.playing,position:sample.position,duration:sample.duration,error:sample.error??null});
+   assert(!sample.error,'Real decoder/output reported error: '+sample.error);
+   if(sample.playing&&sample.position>300&&sample.duration>=29900&&sample.duration<=30100){advancing=sample;break;}
+   await new Promise(resolve=>setTimeout(resolve,200));
+  }
+  assert(advancing,'Real upstream media clock/duration did not advance: '+JSON.stringify(samples));
+  await new Promise(resolve=>setTimeout(resolve,600));
+  const later=await invoke('music_control',{operation:'status'});
+  assert(later.position>advancing.position+100,'Real playback position must keep advancing');
+  await page.getByRole('button',{name:'Pause Spotube',exact:true}).click();
+  const paused=await invoke('music_control',{operation:'status'});
+  assert.equal(paused.playing,false);
+  await new Promise(resolve=>setTimeout(resolve,600));
+  const settled=await invoke('music_control',{operation:'status'});
+  assert.equal(settled.playing,false);assert(Math.abs(settled.position-paused.position)<100,'Paused media clock must settle');
+  playbackEvidence={fixtureSHA256:process.env.ANF_SPOTUBE_QA_SHA256,samples,
+   laterPosition:later.position,pausedPosition:paused.position,settledPosition:settled.position,
+   muted:true,outputDeviceOverridden:false,physicalAudioOutputVerified:false};
+  console.log('PASS: real upstream generated-media duration, advancing clock and pause through actual AnF dock. Muted; no physical output or provider claim.');
+ }
  await go('music');await ready();
  assert.equal(nativeWindow('visible').childPid,firstWindow.childPid,'Reopen must retain same native child');
  await page.getByRole('button',{name:'Local library',exact:true}).click();
@@ -78,7 +106,8 @@ try {
   sourceCommit:process.env.GITHUB_SHA,nativeTauri:true,realFlutterChild:true,
   nativeAvailabilityAndStatus:true,visibleMusicMount:true,writingAndSettingsNavigation:true,
   localLibrarySwitch:true,reopen:true,bounds,nativeWindows,actualNativeBoundsAndVisibility:true,providerStreamingVerified:false,
-  musicPlaybackVerified:false,audioHandoffVerified:false,installedUpgradeVerified:false,readyForPublication:false,
+  musicPlaybackVerified:false,generatedMutedMediaClockVerified:!!playbackEvidence,playbackEvidence,
+  audioHandoffVerified:false,installedUpgradeVerified:false,readyForPublication:false,
  },null,2));
  console.log('PASS: actual AnF workspace mounts Spotube, navigates without overlay, switches to local library and reopens native child. No music playback/provider claim.');
 }catch(error){

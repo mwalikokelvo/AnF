@@ -38,6 +38,14 @@ jobs:
           if($LASTEXITCODE){throw 'Build tool regression'}
           node integrations/spotube/prepare.mjs --windows
           if($LASTEXITCODE){throw 'Pinned source preparation failed'}
+      - name: Load generated paused media into disposable QA child only
+        if: startsWith(github.ref, 'refs/heads/qa/spotube-workspace-playback-')
+        shell: pwsh
+        run: |
+          node scripts/app-qa/check-spotube-playback-fixture.mjs
+          if($LASTEXITCODE){throw 'Fixture source guard failed'}
+          node scripts/app-qa/spotube-playback-fixture.mjs
+          if($LASTEXITCODE){throw 'Disposable fixture preparation failed'}
       - name: Compile child without publishing it
         working-directory: windows/spotube-native
         shell: pwsh
