@@ -8,3 +8,6 @@ Key directives:
 3. **Ponytail Dev Standard**: Smallest complete change, zero speculative boilerplate, never skip tests or security.
 4. **NotchBuddy Contracts**: Never rename pill IDs in `NotchBuddy/Sources/App/PillCatalog.swift`.
 5. **App Store Preservation**: Never restyle existing shipped views in `main`.
+
+## Storage
+- **Clear superseded builds**: when a newer AnF build replaces an older one, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
