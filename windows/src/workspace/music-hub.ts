@@ -317,6 +317,27 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function exportPlaylist(p:AudioPlaylist){const selected=p.order.map(id=>tracks.find(t=>t.id===id)).filter((t):t is AudioTrack=>!!t);const recipe=playlistRecipe({format:'anf-playlist-1',name:p.name,tracks:selected.map(({title,artist,name})=>({title,artist,name}))});const text=JSON.stringify(recipe,null,2);if(new TextEncoder().encode(text).length>200000)throw Error('Playlist export exceeds 200 KB. Split the playlist into smaller collections.');if(options.exportPlaylist){await options.exportPlaylist(text);return;}const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=h('a',{href:url,download:'AnF-playlist.json'});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  function showRecap(){const el=h('dialog',{class:'music-dialog','aria-label':'Listening recap'}),year=new Date().getFullYear();const entries=tracks.map(track=>({track,seconds:listening.seconds[year+'|'+track.id]||0})).filter(item=>item.seconds>0).sort((a,b)=>b.seconds-a.seconds);el.append(h('h3',{text:'Listening recap'}),h('p',{text:year+' · '+Math.floor(entries.reduce((n,item)=>n+item.seconds,0)/60)+' minutes heard'}),h('p',{text:'Local playback only. Pauses, seeking, and Spotube do not count.'}),...entries.slice(0,10).map(({track,seconds})=>h('p',{text:track.title+' — '+durationText(seconds)})),button('Clear listening totals',()=>{void run(async()=>{if(!await askConfirm('Clear local listening totals? Files and saved positions will remain.'))return;listening.seconds={};saveListening();el.close();el.remove();showRecap();});}),button('Close recap',()=>{el.close();el.remove();}));el.addEventListener('cancel',()=>el.remove());document.body.append(el);el.showModal();}
 
+ function showShortcuts(){
+  const el=h('dialog',{class:'music-dialog','aria-label':'Player keyboard shortcuts'});
+  const rows=[
+   ['Space','Play / Pause'],
+   ['N','Next track'],
+   ['P','Previous track'],
+   ['Ctrl + → / ←','Next / Previous track'],
+   ['R','Cycle repeat mode'],
+   ['S','Toggle shuffle'],
+   ['L','Like / unlike current'],
+   ['T','Toggle remaining time'],
+   ['M','Mute / unmute'],
+   ['+ / -','Volume up / down'],
+   ['?','Show this list']
+  ];
+  el.append(h('h3',{text:'Player shortcuts'}),...rows.map(([k,v])=>h('p',{text:k+' — '+v})),button('Close',()=>{el.close();el.remove();}));
+  el.addEventListener('cancel',()=>el.remove());
+  document.body.append(el);
+  el.showModal();
+ }
+
  const TAB_LABELS=['Music','Streaming','Radio','Smart Mixes','Audiobooks','Podcasts','Favorites','Playlists','History'];
  function switchTab(label:string){
   const clean=label.toLowerCase();
@@ -3037,6 +3058,9 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   else if(e.key==='l'||e.key==='L'){if(current){e.preventDefault();const liked=prefs.favorites.includes(current.id);prefs.favorites=liked?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];save();paint();report(liked?'Removed from favorites: '+current.title:'Added to favorites: '+current.title);}}
   else if(e.key==='t'||e.key==='T'){e.preventDefault();prefs.showRemaining=!prefs.showRemaining;save();paint();report(prefs.showRemaining?'Showing remaining time':'Showing total time');}
   else if(e.key==='m'||e.key==='M'){e.preventDefault();audio.muted=!audio.muted;mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';volumeLabel.textContent=audio.muted?'Muted':Math.round(audio.volume*100)+'%';report(audio.muted?'Muted':'Unmuted');}
+  else if(e.key==='n'||e.key==='N'){e.preventDefault();void step(1);}
+  else if(e.key==='p'||e.key==='P'){e.preventDefault();void step(-1);}
+  else if(e.key==='?'){e.preventDefault();showShortcuts();}
  });
  volume.addEventListener('input',()=>{stopFade();audio.volume=prefs.volume=Number(volume.value);volumeLabel.textContent=Math.round(prefs.volume*100)+'%';save();});
  speed.addEventListener('change',()=>{sample();audio.playbackRate=prefs.speed=Number(speed.value);ensurePreservesPitch(audio, true);resetClock();save();});
