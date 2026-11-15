@@ -26,7 +26,7 @@ import { JarvisVoiceListener } from './voice/jarvis-voice-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory } from './voice/jarvis-memory';
-import { isEchoOf } from './voice/jarvis-voice-agent';
+import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 
 export interface JarvisCommandDeskOptions {
@@ -212,8 +212,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     // An AI answer is shown and spoken sentence by sentence while the rest is still being written.
     let stream: ReturnType<JarvisSpeaker['beginStream']> | null = null;
     let shown = '';
+    let complete = false;
     const onPart = (part: string) => {
-      if (asked !== turn) return;
+      if (asked !== turn || complete) return;
       shown = shown ? `${shown} ${part}` : part;
       hud.setReply(shown);
       (stream ??= speaker.beginStream()).push(part);
@@ -236,8 +237,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       hud.pulseMessage(`Kevo: ${reply}`);
     }
     refresh();
-    const speaking: Promise<void> = stream ? (stream as ReturnType<JarvisSpeaker['beginStream']>).end() : speaker.speak(reply);
-    await speaking;
+    // The whole answer is here. A last sentence whose event has not arrived yet is spoken from the answer itself.
+    complete = true;
+    const rest = unspokenRest(shown, reply);
+    const live = stream as ReturnType<JarvisSpeaker['beginStream']> | null;
+    if (live && rest) live.push(rest);
+    await (live ? live.end() : speaker.speak(reply));
+    if (asked !== turn) return; // a typed request took over while this one was being spoken
     stopBtn.hidden = true;
     // Nothing to say means no speech ever ends: give the microphone back here.
     if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }

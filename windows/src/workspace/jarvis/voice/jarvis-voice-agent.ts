@@ -403,3 +403,10 @@ export function isEchoOf(heard: string, reply: string): boolean {
   // Short phrases ("yes", "open music") are too common to call an echo.
   return h.split(' ').length >= 4 && norm(reply).includes(h);
 }
+
+/** What is left of `whole` after the sentences already spoken; empty when they do not line up. */
+export function unspokenRest(spoken: string, whole: string): string {
+  const flat = (t: string) => t.replace(/\s+/g, ' ').trim();
+  const [said, all] = [flat(spoken), flat(whole)];
+  return said && all.startsWith(said) ? all.slice(said.length).trim() : '';
+}

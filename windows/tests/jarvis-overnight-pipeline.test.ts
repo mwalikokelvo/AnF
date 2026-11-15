@@ -4,7 +4,7 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { JarvisVoiceAgent, isEchoOf, parseDuration, solveArithmetic } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceAgent, isEchoOf, parseDuration, solveArithmetic, unspokenRest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 import { JarvisSpeaker } from '../src/workspace/jarvis/voice/jarvis-speaker';
 import {
@@ -254,6 +254,14 @@ describe('Overnight Kevo pipeline', () => {
     assert.equal((await agent.processVoiceInput('say that again')).speechReply, time);
     assert.match((await agent.processVoiceInput('search the web for parish news')).speechReply, /could not open the browser: no browser found/);
     agent.dispose();
+  });
+
+  it('a last sentence that arrived late is still spoken, once', () => {
+    const whole = 'Nairobi is the capital.\nIt is also the largest city.';
+    assert.equal(unspokenRest('Nairobi is the capital.', whole), 'It is also the largest city.');
+    assert.equal(unspokenRest('Nairobi is the capital. It is also the largest city.', whole), '', 'nothing is said twice');
+    assert.equal(unspokenRest('', whole), '', 'with nothing streamed the whole answer is spoken the ordinary way');
+    assert.equal(unspokenRest('Something else.', whole), '');
   });
 
   it('command desk intents: music, vault, notes, briefing, time', async () => {
