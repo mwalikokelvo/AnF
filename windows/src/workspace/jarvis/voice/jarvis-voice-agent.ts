@@ -82,14 +82,12 @@ export class JarvisVoiceAgent {
 
   private timers = new Set<ReturnType<typeof setTimeout>>();
   private lastSpoken = '';
+  private generation = 0;
 
   /** Things Kevo can answer or do without the AI. Null when the request is not one of them. */
   private quickAnswer(text: string): ActionResult | null {
     const lower = text.toLowerCase().replace(/[.!?]+$/, '').trim();
-    const done = (actionName: string, speechReply: string): ActionResult => {
-      if (speechReply) this.lastSpoken = speechReply;
-      return { handled: true, actionName, speechReply };
-    };
+    const done = (actionName: string, speechReply: string): ActionResult => ({ handled: true, actionName, speechReply });
 
     if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
@@ -103,7 +101,8 @@ export class JarvisVoiceAgent {
       this.timers.clear();
       return done('timer_cancel', count ? `Cancelled ${count === 1 ? 'the timer' : `${count} timers`}.` : 'There is no timer running.');
     }
-    if (/\btimer\b|\bremind me in\b/.test(lower)) {
+    // Only a request to start one: "how does a timer work?" is a question for the AI.
+    if (/\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
       if (!this.context.announce) return done('timer_unavailable', 'Timers are not available here.');
@@ -119,11 +118,6 @@ export class JarvisVoiceAgent {
     const sum = solveArithmetic(lower);
     if (sum) return done('arithmetic', sum);
 
-    const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+)$/.exec(lower);
-    if (web && this.context.searchWeb) {
-      void this.context.searchWeb(web[1]);
-      return done('web_search', `Searching the web for ${web[1]}.`);
-    }
     return null;
   }
 
@@ -133,7 +127,19 @@ export class JarvisVoiceAgent {
     this.timers.clear();
   }
 
+  /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
+    const result = await this.handle(spokenText, onPart);
+    if (result.speechReply && result.actionName !== 'repeat') this.lastSpoken = result.speechReply;
+    return result;
+  }
+
+  /** Forget the answer being worked out: it was stopped, so it must not be saved or repeated. */
+  abandon(): void {
+    this.generation++;
+  }
+
+  private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
     const text = spokenText.trim();
     if (!text) {
       return { handled: false, actionName: 'none', speechReply: 'I am listening, sir.' };
@@ -166,6 +172,16 @@ export class JarvisVoiceAgent {
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
+
+    const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+?)[.!?]*$/.exec(lower);
+    if (web && this.context.searchWeb) {
+      try {
+        await this.context.searchWeb(web[1]);
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
+      } catch (err) {
+        return { handled: true, actionName: 'web_search_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+      }
+    }
 
     // 1. Briefing command
     if (lower.includes('briefing') || lower.includes('morning update') || lower.includes('status report')) {
@@ -319,9 +335,11 @@ export class JarvisVoiceAgent {
     if (this.context.askAI) {
       try {
         // A short history keeps the local model quick and stops old exchanges steering new answers.
-        const history = getJarvisHistory(8);
+        const asked = this.generation;
+        const aiAnswer = await this.context.askAI(text, { history: getJarvisHistory(8), onPart });
+        if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+        // Saved only once answered, so a question that was stopped never steers later answers.
         appendJarvisTurn('user', text);
-        const aiAnswer = await this.context.askAI(text, { history, onPart });
         appendJarvisTurn('assistant', aiAnswer);
         return {
           handled: true,

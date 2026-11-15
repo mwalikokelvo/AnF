@@ -138,7 +138,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   let thinking = false;
   let lastReply = '';
   let turn = 0;
-  let wipe = false;
   /** Shows on the orb what Kevo is doing right now. */
   const refresh = () => hud.setState(kevoState({
     micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
@@ -198,9 +197,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   });
 
   /** Carries out one request, spoken or typed, and answers it. */
-  async function handleCommand(request: string): Promise<void> {
-    // Kevo's own words coming back through the microphone are not a command.
-    if (thinking || isEchoOf(request, lastReply)) return;
+  async function handleCommand(request: string, typed = false): Promise<void> {
+    // Kevo's own words coming back through the microphone are not a command. Typed text is never an echo.
+    if (thinking || (!typed && isEchoOf(request, lastReply))) return;
     const asked = ++turn;
     hud.setHeard(request);
     hud.pulseMessage(`You: ${request}`);
@@ -229,7 +228,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
     if (asked !== turn) {
       // Stopped, or a new conversation was started, while Kevo was working: this answer is not wanted.
-      if (wipe) { clearJarvisHistory(); wipe = false; }
       return;
     }
     lastReply = reply;
@@ -249,6 +247,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   function stopNow(): void {
     turn++;
     thinking = false;
+    voiceAgent.abandon();
     options?.voiceActionContext?.cancelAI?.();
     speaker.stop();
     stopBtn.hidden = true;
@@ -276,7 +275,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (!request || thinking) return;
     typeInput.value = '';
     speaker.stop(); // a new request replaces what Kevo was saying
-    void handleCommand(request);
+    void handleCommand(request, true);
   });
 
   // ── Voice controls
@@ -372,9 +371,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
+    stopNow(); // also abandons an answer being written, so it is never saved into the fresh conversation
     clearJarvisHistory();
-    wipe = thinking; // the answer being written would otherwise be saved into the fresh conversation
-    stopNow();
     lastReply = '';
     hud.setHeard('');
     hud.setReply('Starting fresh. Say “Kevo” and what you need.');

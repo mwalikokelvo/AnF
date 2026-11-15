@@ -229,6 +229,33 @@ describe('Overnight Kevo pipeline', () => {
     agent.dispose();
   });
 
+  it('a stopped question is not saved, a timer question is a question, and repeat covers every kind of answer', async () => {
+    clearJarvisHistory();
+    let release: (text: string) => void = () => {};
+    const asked: string[] = [];
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      announce: () => {},
+      searchWeb: async () => { throw new Error('no browser found'); },
+      askAI: (query) => { asked.push(query); return new Promise<string>((resolve) => { release = resolve; }); },
+    });
+    const pending = agent.processVoiceInput('Tell me a very long story');
+    agent.abandon(); // Stop was pressed
+    release('Once upon a time');
+    assert.equal((await pending).speechReply, '');
+    assert.deepEqual(getJarvisHistory(), [], 'neither the stopped question nor its answer is kept');
+
+    const question = agent.processVoiceInput('How does a sleep timer work?');
+    release('It stops playback after a set time.');
+    assert.equal((await question).actionName, 'ai_conversation');
+    assert.deepEqual(asked, ['Tell me a very long story', 'How does a sleep timer work?']);
+
+    const time = (await agent.processVoiceInput('what time is it')).speechReply;
+    assert.equal((await agent.processVoiceInput('say that again')).speechReply, time);
+    assert.match((await agent.processVoiceInput('search the web for parish news')).speechReply, /could not open the browser: no browser found/);
+    agent.dispose();
+  });
+
   it('command desk intents: music, vault, notes, briefing, time', async () => {
     const calls: string[] = [];
     const agent = new JarvisVoiceAgent({
