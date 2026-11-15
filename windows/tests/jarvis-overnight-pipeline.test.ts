@@ -4,7 +4,7 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { JarvisVoiceAgent, isEchoOf } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceAgent, isEchoOf, parseDuration, solveArithmetic } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 import { JarvisSpeaker } from '../src/workspace/jarvis/voice/jarvis-speaker';
 import {
@@ -169,25 +169,64 @@ describe('Overnight Kevo pipeline', () => {
     assert.equal(asked.at(-1), 'Brave Studio');
   });
 
-  it('agent + memory: open question stores turns and includes history in askAI', async () => {
-    let seenPrompt = '';
+  it('agent + memory: an open question goes to the AI with recent turns, and its sentences are passed on as they arrive', async () => {
+    let seenQuery = '';
+    let seenHistory: string[] = [];
     const agent = new JarvisVoiceAgent({
       switchView: () => {},
-      askAI: async (prompt) => {
-        seenPrompt = prompt;
-        return 'Gravity curves spacetime, sir.';
+      askAI: async (query, options) => {
+        seenQuery = query;
+        seenHistory = (options?.history ?? []).map((t) => `${t.role}:${t.text}`);
+        options?.onPart?.('Gravity curves spacetime.');
+        options?.onPart?.('That is why things fall.');
+        return 'Gravity curves spacetime. That is why things fall.';
       },
     });
     appendJarvisTurn('user', 'prior context');
     appendJarvisTurn('assistant', 'prior answer');
-    const res = await agent.processVoiceInput('Explain gravity briefly');
+    const parts: string[] = [];
+    const res = await agent.processVoiceInput('Explain gravity briefly', (part) => parts.push(part));
     assert.equal(res.actionName, 'ai_conversation');
-    assert.match(seenPrompt, /prior context/);
-    assert.match(seenPrompt, /Explain gravity briefly/);
+    assert.equal(seenQuery, 'Explain gravity briefly', 'the question is sent as asked');
+    assert.deepEqual(seenHistory, ['user:prior context', 'assistant:prior answer'], 'earlier turns go separately, without the new question');
+    assert.deepEqual(parts, ['Gravity curves spacetime.', 'That is why things fall.']);
     const hist = getJarvisHistory();
     assert.ok(hist.some((t) => t.role === 'user' && t.text.includes('Explain gravity')));
     assert.ok(hist.some((t) => t.role === 'assistant' && t.text.includes('Gravity curves')));
     assert.match(formatJarvisHistoryForPrompt(), /Kevo: Gravity curves/);
+  });
+
+  it('answers at once, without the AI: sums, timers, repeat, help, web search, and being told to stop', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const said: string[] = [];
+    const searched: string[] = [];
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      announce: (text) => said.push(text),
+      searchWeb: async (q) => { searched.push(q); },
+      askAI: async () => { throw new Error('the AI must not be asked'); },
+    });
+    const ask = async (text: string) => (await agent.processVoiceInput(text)).speechReply;
+    assert.equal(await ask('What is 12 times 7?'), 'That is 84.');
+    assert.equal(await ask('20 percent of 150'), 'That is 30.');
+    assert.equal(await ask('100 divided by 0'), 'You cannot divide by zero.');
+    assert.equal(await ask('say that again'), 'You cannot divide by zero.');
+    assert.equal(await ask('Set a timer for five minutes.'), 'Timer set for 5 minutes.');
+    assert.equal(await ask('remind me in 10 minutes to call the parish office'), 'I will remind you in 10 minutes.');
+    t.mock.timers.tick(5 * 60_000);
+    assert.deepEqual(said, ['Your 5 minutes timer is done.']);
+    assert.equal(await ask('cancel the timer'), 'Cancelled the timer.');
+    t.mock.timers.tick(10 * 60_000);
+    assert.equal(said.length, 1, 'a cancelled reminder stays silent');
+    assert.equal(await ask('set a timer'), 'For how long? Say, for example, set a timer for five minutes.');
+    assert.equal(await ask('search the web for mass times in Haubstadt'), 'Searching the web for mass times in haubstadt.');
+    assert.deepEqual(searched, ['mass times in haubstadt']);
+    assert.match(await ask('what can you do'), /open apps/);
+    assert.equal(await ask('never mind'), '');
+    assert.equal(parseDuration('for ninety seconds')?.ms, 90_000);
+    assert.equal(parseDuration('for a while'), null);
+    assert.equal(solveArithmetic('what is the weather'), null);
+    agent.dispose();
   });
 
   it('command desk intents: music, vault, notes, briefing, time', async () => {

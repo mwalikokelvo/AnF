@@ -12,7 +12,7 @@ try{
     await page.waitForTimeout(300);
     const m=await page.evaluate(()=>{
       const desk=document.querySelector('.jarvis-command-desk').getBoundingClientRect();
-      const boxes=[...document.querySelectorAll('.jarvis-panel,.jarvis-agent-card,.jarvis-btn,.jarvis-voice-select,.jarvis-desk-title,.jarvis-desk-status,.jarvis-online-voices')].map(e=>{const r=e.getBoundingClientRect();return{c:e.className,l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),t:Math.round(r.top)};});
+      const boxes=[...document.querySelectorAll('.jarvis-panel,.jarvis-agent-card,.jarvis-btn,.jarvis-voice-select,.jarvis-desk-title,.jarvis-desk-status,.jarvis-online-voices')].map(e=>{const r=e.getBoundingClientRect();return{c:e.className,l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),t:Math.round(r.top)};}).filter(b=>b.w>0);
       return{desk:{l:Math.round(desk.left),r:Math.round(desk.right)},boxes,hscroll:document.documentElement.scrollWidth-innerWidth,deskScroll:document.querySelector('.jarvis-command-desk').scrollWidth-document.querySelector('.jarvis-command-desk').clientWidth};
     });
     assert(m.hscroll<=1&&m.deskScroll<=1,`sideways scroll at ${width}x${height}: ${JSON.stringify({h:m.hscroll,d:m.deskScroll})}`);

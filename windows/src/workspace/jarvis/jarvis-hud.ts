@@ -182,7 +182,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   const stateEl = el('p', 'kevo-state', STATE_LABEL.off);
   stateEl.setAttribute('role', 'status');
   const heardEl = el('p', 'kevo-heard');
-  const replyEl = el('p', 'kevo-reply', 'Turn the microphone on, then say “Kevo” and what you need.');
+  const replyEl = el('p', 'kevo-reply', 'Turn the microphone on and say “Kevo”, or type what you need.');
   replyEl.setAttribute('aria-live', 'polite');
   stage.append(orb, stateEl, heardEl, replyEl);
 

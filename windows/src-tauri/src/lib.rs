@@ -466,6 +466,7 @@ pub fn run() {
         .manage(Pending::default())
         .manage(Chat::default())
         .manage(Jobs::default())
+        .manage(KevoTurn::default())
         .manage(projects::Store::default())
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
@@ -514,6 +515,8 @@ pub fn run() {
             workspace_save,
             workspace_launch,
             workspace_ask,
+            kevo_ask,
+            kevo_cancel,
             workspace_begin,
             workspace_cancel,
             workspace_save_project,

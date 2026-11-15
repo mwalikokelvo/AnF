@@ -4,7 +4,7 @@
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
 
-import { appendJarvisTurn, formatJarvisHistoryForPrompt } from './jarvis-memory';
+import { appendJarvisTurn, getJarvisHistory, type JarvisTurn } from './jarvis-memory';
 
 export interface JarvisActionContext {
   switchView: (view: string) => void;
@@ -17,7 +17,14 @@ export interface JarvisActionContext {
   openApp?: (name: string) => Promise<string>;
   openQuickCapture?: () => void;
   saveQuickNote?: (text: string) => Promise<void>;
-  askAI?: (query: string) => Promise<string>;
+  /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
+  askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<string>;
+  /** Stops the answer the AI is writing. */
+  cancelAI?: () => void;
+  /** Opens a web search for the words in the owner's browser. */
+  searchWeb?: (query: string) => Promise<void>;
+  /** Says something later, on Kevo's own initiative (a timer going off). */
+  announce?: (text: string) => void;
   triageSupport?: () => number;
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
@@ -73,7 +80,60 @@ export class JarvisVoiceAgent {
     this.context = context;
   }
 
-  async processVoiceInput(spokenText: string): Promise<ActionResult> {
+  private timers = new Set<ReturnType<typeof setTimeout>>();
+  private lastSpoken = '';
+
+  /** Things Kevo can answer or do without the AI. Null when the request is not one of them. */
+  private quickAnswer(text: string): ActionResult | null {
+    const lower = text.toLowerCase().replace(/[.!?]+$/, '').trim();
+    const done = (actionName: string, speechReply: string): ActionResult => {
+      if (speechReply) this.lastSpoken = speechReply;
+      return { handled: true, actionName, speechReply };
+    };
+
+    if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
+    if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
+    if (/^(help|what can you do|what can i say|what can i ask)$/.test(lower)) {
+      return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
+    }
+
+    if (/\b(cancel|stop|clear)\b.*\btimers?\b/.test(lower)) {
+      const count = this.timers.size;
+      this.timers.forEach(clearTimeout);
+      this.timers.clear();
+      return done('timer_cancel', count ? `Cancelled ${count === 1 ? 'the timer' : `${count} timers`}.` : 'There is no timer running.');
+    }
+    if (/\btimer\b|\bremind me in\b/.test(lower)) {
+      const duration = parseDuration(lower);
+      if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
+      if (!this.context.announce) return done('timer_unavailable', 'Timers are not available here.');
+      const about = /remind me in .*? to (.+)$/.exec(lower)?.[1];
+      const timer = setTimeout(() => {
+        this.timers.delete(timer);
+        this.context.announce?.(about ? `Reminder: ${about}.` : `Your ${duration.label} timer is done.`);
+      }, duration.ms);
+      this.timers.add(timer);
+      return done('timer_set', about ? `I will remind you in ${duration.label}.` : `Timer set for ${duration.label}.`);
+    }
+
+    const sum = solveArithmetic(lower);
+    if (sum) return done('arithmetic', sum);
+
+    const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+)$/.exec(lower);
+    if (web && this.context.searchWeb) {
+      void this.context.searchWeb(web[1]);
+      return done('web_search', `Searching the web for ${web[1]}.`);
+    }
+    return null;
+  }
+
+  /** Stops timers when the view is closed. */
+  dispose(): void {
+    this.timers.forEach(clearTimeout);
+    this.timers.clear();
+  }
+
+  async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
     const text = spokenText.trim();
     if (!text) {
       return { handled: false, actionName: 'none', speechReply: 'I am listening, sir.' };
@@ -102,6 +162,10 @@ export class JarvisVoiceAgent {
     ) {
       return { handled: true, actionName: 'tell_date', speechReply: speakDate() };
     }
+
+    // Answers that need no AI, so they come at once
+    const quick = this.quickAnswer(text);
+    if (quick) return quick;
 
     // 1. Briefing command
     if (lower.includes('briefing') || lower.includes('morning update') || lower.includes('status report')) {
@@ -254,13 +318,10 @@ export class JarvisVoiceAgent {
     // 7. General AI Conversational Intelligence + memory
     if (this.context.askAI) {
       try {
-        appendJarvisTurn('user', text);
         // A short history keeps the local model quick and stops old exchanges steering new answers.
-        const history = formatJarvisHistoryForPrompt(8);
-        const prompt = history
-          ? `Prior Kevo conversation (most recent last):\n${history}\n\nRespond as Kevo to the latest user message.`
-          : text;
-        const aiAnswer = await this.context.askAI(prompt);
+        const history = getJarvisHistory(8);
+        appendJarvisTurn('user', text);
+        const aiAnswer = await this.context.askAI(text, { history, onPart });
         appendJarvisTurn('assistant', aiAnswer);
         return {
           handled: true,
@@ -271,7 +332,7 @@ export class JarvisVoiceAgent {
         return {
           handled: false,
           actionName: 'error',
-          speechReply: `I encountered an issue processing that query, sir: ${String(err)}`,
+          speechReply: /cancelled/i.test(String(err)) ? '' : `That did not work: ${String(err).replace(/^Error:\s*/, '')}`,
         };
       }
     }
@@ -282,6 +343,39 @@ export class JarvisVoiceAgent {
       speechReply: `Understood, sir: "${text}". Standing by for further commands.`,
     };
   }
+}
+
+const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fifteen: 15, twenty: 20, thirty: 30, forty: 40, 'forty five': 45, fifty: 50, sixty: 60, ninety: 90, half: 0.5 };
+
+// Longest names first, so "forty five" is not read as "five".
+const DURATION = new RegExp(`\\b(\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).sort((x, y) => y.length - x.length).join('|')})\\s*(second|sec|minute|min|hour|hr)s?\\b`);
+
+/** "5 minutes", "ninety seconds", "an hour and a half" is not handled; one number and one unit is. */
+export function parseDuration(text: string): { ms: number; label: string } | null {
+  const m = DURATION.exec(text.toLowerCase());
+  if (!m) return null;
+  const n = /^\d/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
+  if (!n || n <= 0) return null;
+  const unit = m[2].startsWith('s') ? 'second' : m[2].startsWith('m') ? 'minute' : 'hour';
+  const ms = n * { second: 1000, minute: 60_000, hour: 3_600_000 }[unit];
+  if (ms > 24 * 3_600_000) return null;
+  return { ms, label: `${n} ${unit}${n === 1 ? '' : 's'}` };
+}
+
+/** "what is 12 times 7", "15 plus 30", "100 divided by 8", "20 percent of 150". Null when it is not plain arithmetic. */
+export function solveArithmetic(text: string): string | null {
+  const t = text.toLowerCase().replace(/[?,]/g, '').replace(/^(what is|what's|whats|calculate|how much is)\s+/, '').trim();
+  const percent = /^(-?\d+(?:\.\d+)?)\s*(?:percent|%)\s+of\s+(-?\d+(?:\.\d+)?)$/.exec(t);
+  const m = percent ? null : /^(-?\d+(?:\.\d+)?)\s*(plus|\+|minus|-|times|x|\*|multiplied by|divided by|over|\/)\s*(-?\d+(?:\.\d+)?)$/.exec(t);
+  let value: number;
+  if (percent) value = (Number(percent[1]) / 100) * Number(percent[2]);
+  else if (m) {
+    const [a, b] = [Number(m[1]), Number(m[3])];
+    const op = m[2];
+    if (/divided|over|\//.test(op) && b === 0) return 'You cannot divide by zero.';
+    value = /plus|\+/.test(op) ? a + b : /minus|-/.test(op) ? a - b : /times|x|\*|multiplied/.test(op) ? a * b : a / b;
+  } else return null;
+  return `That is ${Number(value.toFixed(4)).toLocaleString('en-US', { maximumFractionDigits: 4 })}.`;
 }
 
 /** True when what the microphone heard is (part of) what Kevo itself just said. */
