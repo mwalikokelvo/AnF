@@ -28,7 +28,7 @@ import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
 import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,connectDemoSubsonic} from './subsonic';
 import {sectionIcon,wordmark} from './anf-brand';
 import {invoke} from '@tauri-apps/api/core';
-import {emitTo} from '@tauri-apps/api/event';
+import {emitTo,listen} from '@tauri-apps/api/event';
 import {h} from '../views/dom';
 import {BROWSER_APPS} from '../core/ai';
 import {createWritingEditor,renderWriting} from './writing';
@@ -244,6 +244,7 @@ let nativeMusic:Awaited<ReturnType<typeof attachDesktopSpotube>>;
 let audioStudio:ReturnType<typeof createAudioStudio>;
 const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=message;},beforePlay:async()=>{audioStudio?.stop();audioStudio?.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
 
+let kevoTurn=0;
 const jarvisCommandDesk=createJarvisCommandDesk({
   onNotify:msg=>{status.textContent=msg;},
   voiceActionContext:{
@@ -278,14 +279,16 @@ const jarvisCommandDesk=createJarvisCommandDesk({
     },
     saveQuickNote:async text=>captureDaily(`\n\n[Kevo Note] ${text}`),
     openApp:name=>invoke<string>('open_installed_app',{name}),
-    askAI:async query=>{
-      try {
-        const reply=await invoke<{text:string;notice:string}>('workspace_ask',{job,query,sources:[],history:[],memory:memory.value,model:model.value});
-        return reply.text;
-      } catch(e) {
-        return `I had trouble connecting to the model, sir: ${String(e)}`;
-      }
-    }
+    // Kevo's own short, streamed answer: no document instructions or project memory, and its own cancel,
+    // so it is quick and never interrupts (or is interrupted by) work in the other views.
+    askAI:async(query,options)=>{
+      const id=++kevoTurn;
+      const off=await listen<{id:number;text:string}>('kevo-reply-part',e=>{if(e.payload.id===id)options?.onPart?.(e.payload.text);});
+      try{return await invoke<string>('kevo_ask',{id,query,history:options?.history??[],model:model.value});}
+      finally{off();}
+    },
+    cancelAI:()=>{void invoke('kevo_cancel');},
+    searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});}
   }
 });
 section('jarvis','Kevo',jarvisCommandDesk.root);

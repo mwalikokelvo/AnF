@@ -97,6 +97,7 @@ export class JarvisSpeaker {
   private identityCue: boolean;
   private utteranceToken = 0;
   private cue: Promise<void> = Promise.resolve();
+  private streamWake: (() => void) | null = null;
 
   constructor(options?: JarvisSpeakerOptions) {
     this.onStart = options?.onStart;
@@ -105,39 +106,50 @@ export class JarvisSpeaker {
     this.identityCue = options?.identityCue === true;
   }
 
-  /**
-   * Speak a phrase out loud.
-   * Ducks background music, optional identity cue, then Web Speech utterance.
-   */
+  /** Speak a phrase out loud. */
   async speak(text: string): Promise<void> {
     if (!text || typeof window === 'undefined') return;
+    const stream = this.beginStream();
+    stream.push(text);
+    await stream.end();
+  }
 
-    // Let a wake cue that is still playing finish instead of cutting it off or talking over it.
-    const cue = this.cue;
+  /**
+   * Speaks an answer while it is still being written: `push` each finished sentence, then `end`.
+   * It is one stretch of speech (one start, one end), so the microphone stays rested between sentences.
+   */
+  beginStream(): { push: (text: string) => void; end: () => Promise<void> } {
+    const queue: string[] = [];
+    let ended = false;
     const before = this.utteranceToken;
-    await cue;
-    if (before !== this.utteranceToken) return; // stopped or replaced while waiting
-    this.stop();
-    const token = ++this.utteranceToken;
+    const done = (async () => {
+      // Let a wake cue that is still playing finish instead of cutting it off or talking over it.
+      await this.cue;
+      if (before !== this.utteranceToken) return; // stopped or replaced while waiting
+      this.stop();
+      const token = ++this.utteranceToken;
 
-    const profile = getSelectedVoiceProfile();
-    this.duckAudio?.(true);
-    this.isSpeaking = true;
-    this.onStart?.();
+      const profile = getSelectedVoiceProfile();
+      this.duckAudio?.(true);
+      this.isSpeaking = true;
+      this.onStart?.();
+      if (this.identityCue) await this.playIdentityCue(profile.filename);
 
-    if (this.identityCue) {
-      await this.playIdentityCue(profile.filename);
-    }
-
-    if ('speechSynthesis' in window) {
-      const voices = await loadVoices();
+      const canSpeak = 'speechSynthesis' in window;
+      const voices = canSpeak ? await loadVoices() : [];
       if (token !== this.utteranceToken) return; // stop() already finished this reply
-      window.speechSynthesis.cancel();
+      if (canSpeak) window.speechSynthesis.cancel();
       const voice = pickVoice(voices, profile, onlineVoicesAllowed());
       const tone = STYLE_TONE[profile.style || ''] || { rate: 1, pitch: 1 };
-      // Long replies are spoken sentence by sentence: Chromium voices stop mid-sentence after ~15 s.
-      for (const part of splitForSpeech(text)) {
-        if (token !== this.utteranceToken) break;
+      for (;;) {
+        if (token !== this.utteranceToken) return;
+        const part = queue.shift();
+        if (part === undefined) {
+          if (ended) break;
+          await new Promise<void>((resolve) => { this.streamWake = resolve; }); // the next sentence, the end, or stop()
+          continue;
+        }
+        if (!canSpeak) continue;
         await new Promise<void>((resolve) => {
           const utterance = new SpeechSynthesisUtterance(part);
           if (voice) {
@@ -152,9 +164,13 @@ export class JarvisSpeaker {
         });
       }
       if (token === this.utteranceToken) this.finishSpeaking();
-    } else {
-      this.finishSpeaking();
-    }
+    })();
+    const wake = () => { const w = this.streamWake; this.streamWake = null; w?.(); };
+    return {
+      // Long text is spoken in sentence-sized parts: Chromium voices stop mid-sentence after ~15 s.
+      push: (text) => { queue.push(...splitForSpeech(text)); wake(); },
+      end: () => { ended = true; wake(); return done; },
+    };
   }
 
   /** Play ~1s of the selected voice-pack MP3, or a Web Audio chirp on miss. */
@@ -245,6 +261,9 @@ export class JarvisSpeaker {
 
   stop(): void {
     this.utteranceToken++;
+    const waiting = this.streamWake; // a stream waiting for its next sentence must notice it was stopped
+    this.streamWake = null;
+    waiting?.();
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }

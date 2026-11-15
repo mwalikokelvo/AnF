@@ -26,7 +26,7 @@ import { JarvisVoiceListener } from './voice/jarvis-voice-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory } from './voice/jarvis-memory';
-import { isEchoOf } from './voice/jarvis-voice-agent';
+import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 
 export interface JarvisCommandDeskOptions {
@@ -137,7 +137,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   let unmuteTimer: ReturnType<typeof setTimeout> | undefined;
   let thinking = false;
   let lastReply = '';
-  let conversation = 0;
+  let turn = 0;
   /** Shows on the orb what Kevo is doing right now. */
   const refresh = () => hud.setState(kevoState({
     micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
@@ -153,7 +153,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       // A short pause lets the room echo die down; then a follow-up needs no wake word.
       clearTimeout(unmuteTimer);
       unmuteTimer = setTimeout(() => {
-        if (speaker.getIsSpeaking()) return; // a newer reply took over
+        if (speaker.getIsSpeaking() || thinking) return; // a newer request took over
         listener.setMuted(false);
         listener.keepAwake();
       }, 400);
@@ -175,6 +175,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     openQuickCapture: options?.voiceActionContext?.openQuickCapture,
     saveQuickNote: options?.voiceActionContext?.saveQuickNote,
     askAI: options?.voiceActionContext?.askAI,
+    searchWeb: options?.voiceActionContext?.searchWeb,
+    // A timer going off: said aloud unless Kevo is in the middle of something, and always listed.
+    announce: (text) => {
+      hud.pulseMessage(`Kevo: ${text}`);
+      if (thinking || speaker.getIsSpeaking()) return;
+      lastReply = text;
+      hud.setReply(text);
+      void speaker.speak(text);
+    },
     triageSupport: () => support.autoTriage(),
     runDevHealth: async () => {
       const h = await tom.checkCodeHealth();
@@ -185,6 +194,94 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       return b.summary;
     },
     notify: (msg) => notify(msg),
+  });
+
+  /** Carries out one request, spoken or typed, and answers it. */
+  async function handleCommand(request: string, typed = false): Promise<void> {
+    // Kevo's own words coming back through the microphone are not a command. Typed text is never an echo.
+    if (thinking || (!typed && isEchoOf(request, lastReply))) return;
+    const asked = ++turn;
+    hud.setHeard(request);
+    hud.pulseMessage(`You: ${request}`);
+    thinking = true;
+    stopBtn.hidden = false;
+    // One command at a time: the microphone rests until Kevo has answered.
+    clearTimeout(unmuteTimer);
+    listener.setMuted(true);
+    refresh();
+    // An AI answer is shown and spoken sentence by sentence while the rest is still being written.
+    let stream: ReturnType<JarvisSpeaker['beginStream']> | null = null;
+    let shown = '';
+    let complete = false;
+    const onPart = (part: string) => {
+      if (asked !== turn || complete) return;
+      shown = shown ? `${shown} ${part}` : part;
+      hud.setReply(shown);
+      (stream ??= speaker.beginStream()).push(part);
+    };
+    let reply: string;
+    try {
+      reply = (await voiceAgent.processVoiceInput(request, onPart)).speechReply;
+    } catch (err) {
+      reply = 'That did not work: ' + String(err).replace(/^Error:\s*/, '');
+    } finally {
+      thinking = false;
+    }
+    if (asked !== turn) {
+      // Stopped, or a new conversation was started, while Kevo was working: this answer is not wanted.
+      return;
+    }
+    lastReply = reply;
+    if (reply) {
+      hud.setReply(reply);
+      hud.pulseMessage(`Kevo: ${reply}`);
+    }
+    refresh();
+    // The whole answer is here. A last sentence whose event has not arrived yet is spoken from the answer itself.
+    complete = true;
+    const rest = unspokenRest(shown, reply);
+    const live = stream as ReturnType<JarvisSpeaker['beginStream']> | null;
+    if (live && rest) live.push(rest);
+    await (live ? live.end() : speaker.speak(reply));
+    if (asked !== turn) return; // a typed request took over while this one was being spoken
+    stopBtn.hidden = true;
+    // Nothing to say means no speech ever ends: give the microphone back here.
+    if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
+  }
+
+  /** Stops whatever Kevo is doing: the answer being written and the one being spoken. */
+  function stopNow(): void {
+    turn++;
+    thinking = false;
+    voiceAgent.abandon();
+    options?.voiceActionContext?.cancelAI?.();
+    speaker.stop();
+    stopBtn.hidden = true;
+    clearTimeout(unmuteTimer);
+    listener.setMuted(false);
+    refresh();
+  }
+  const stopBtn = makeBtn('Stop', '', stopNow);
+  stopBtn.hidden = true;
+
+  // Typing works the same as speaking, for when talking is not possible.
+  const typeBox = document.createElement('form');
+  typeBox.className = 'jarvis-type';
+  const typeInput = document.createElement('input');
+  typeInput.type = 'text';
+  typeInput.placeholder = 'Or type what you need';
+  typeInput.setAttribute('aria-label', 'Type a request for Kevo');
+  typeInput.maxLength = 500;
+  const typeSend = makeBtn('Ask', '', () => {});
+  typeSend.type = 'submit';
+  typeBox.append(typeInput, typeSend);
+  typeBox.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const request = typeInput.value.trim();
+    if (!request || thinking) return;
+    typeInput.value = '';
+    speaker.stop(); // a new request replaces what Kevo was saying
+    void handleCommand(request, true);
   });
 
   // ── Voice controls
@@ -253,40 +350,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
         listener.keepAwake();
       });
     },
-    onFinalSpeech: async (finalTranscript) => {
-      // Kevo's own words coming back through the microphone are not a command.
-      if (thinking || isEchoOf(finalTranscript, lastReply)) return;
-      const asked = conversation;
-      hud.setHeard(finalTranscript);
-      hud.pulseMessage(`You: ${finalTranscript}`);
-      thinking = true;
-      // One command at a time: the microphone rests until Kevo has answered.
-      clearTimeout(unmuteTimer);
-      listener.setMuted(true);
-      refresh();
-      let reply: string;
-      try {
-        reply = (await voiceAgent.processVoiceInput(finalTranscript)).speechReply;
-      } catch (err) {
-        reply = 'That did not work: ' + String(err).replace(/^Error:\s*/, '');
-      } finally {
-        thinking = false;
-      }
-      if (asked !== conversation) {
-        // "New conversation" was chosen while Kevo was thinking: this answer belongs to the old one.
-        clearJarvisHistory();
-        listener.setMuted(false);
-        refresh();
-        return;
-      }
-      lastReply = reply;
-      hud.setReply(reply);
-      hud.pulseMessage(`Kevo: ${reply}`);
-      refresh();
-      await speaker.speak(reply);
-      // Nothing to say means no speech ever ends: give the microphone back here.
-      if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
-    },
+    onFinalSpeech: (finalTranscript) => handleCommand(finalTranscript),
     onError: (err) => {
       speechStatusEl.textContent = err;
     },
@@ -313,15 +377,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
+    stopNow(); // also abandons an answer being written, so it is never saved into the fresh conversation
     clearJarvisHistory();
-    conversation++;
     lastReply = '';
     hud.setHeard('');
     hud.setReply('Starting fresh. Say “Kevo” and what you need.');
     hud.pulseMessage('New conversation started');
   });
 
-  voiceBar.append(micBtn, voiceSelect, previewBtn, forgetBtn, onlineToggle, speechStatusEl);
+  voiceBar.append(micBtn, stopBtn, voiceSelect, previewBtn, forgetBtn, onlineToggle, speechStatusEl);
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
@@ -334,12 +398,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   team.append(teamTitle, agentRow, briefingPanel, toolbar);
 
   // The page already shows "Kevo" as its title, so the desk does not repeat it.
-  root.append(hud.root, voiceBar, team);
+  root.append(hud.root, typeBox, voiceBar, team);
 
   function destroy(): void {
     listener.stop();
     speaker.stop();
     clearTimeout(unmuteTimer);
+    voiceAgent.dispose();
     hud.destroy();
   }
 
@@ -369,6 +434,8 @@ function injectDeskStyles(): void {
       container-type: inline-size;
       color: var(--ink, #edf4ef);
     }
+    .jarvis-type { display: flex; gap: 8px; min-width: 0; }
+    .jarvis-type input { flex: 1 1 auto; min-width: 0; }
     .jarvis-voice-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
     .jarvis-voice-select { width: auto; flex: 0 1 auto; min-width: 0; max-width: 100%; }
     .jarvis-online-voices { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted, #b0c4bd); cursor: pointer; min-width: 0; }
