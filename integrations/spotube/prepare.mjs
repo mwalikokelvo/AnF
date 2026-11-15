@@ -46,9 +46,14 @@ for(const provider of ['bonsoirProvider','connectClientsProvider'])main=main.rep
 for(const hook of ['useFixWindowStretching();','useCloseBehavior(ref);','useDeepLinking(ref, router);','useDisableBatteryOptimizations();'])main=main.replace(hook,`if (!AnfHost.embedded) ${hook}`);
 main=main.replace('if (kIsMobile) {','if (kIsMobile && !AnfHost.embedded) {');
 main=main.replace("title: 'Spotube',","title: 'AnF · Music Hub',");
+const themeHook='final themeMode =\n        ref.watch(userPreferencesProvider.select((s) => s.themeMode));';
+if(main.split(themeHook).length!==2)throw Error('Pinned Spotube theme hook changed.');
+main=main.replace(themeHook,'final hostTheme = useValueListenable(AnfHost.theme);\n    final themeMode = AnfHost.embedded && kIsDesktop ? hostTheme :\n        ref.watch(userPreferencesProvider.select((s) => s.themeMode));');
 main=main.replace('        return child;','        return AnfHost.embedded ? AnfHost.frame(child) : child;');
 await writeFile(path.join(module,'lib/main.dart'),main);
 await cp(path.join(root,'integrations/spotube/anf_host.dart'),path.join(module,'lib/anf_host.dart'));
+await mkdir(path.join(module,'test'),{recursive:true});
+await cp(path.join(root,'integrations/spotube/appearance_test.dart'),path.join(module,'test/anf_appearance_test.dart'));
 // Embedded music does not own AnF's outer window or floating mini-player.
 for(const [relative,changes] of [
   ['components/titlebar/titlebar.dart',[["import 'package:window_manager/window_manager.dart';","import 'package:window_manager/window_manager.dart';\nimport 'package:spotube/anf_host.dart';"],['if (kIsDesktop && !systemTitleBar)', 'if (!AnfHost.embedded && kIsDesktop && !systemTitleBar)'],['if (!kIsDesktop || systemTitlebar) return;', 'if (AnfHost.embedded || !kIsDesktop || systemTitlebar) return;']]],

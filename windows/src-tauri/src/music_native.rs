@@ -11,11 +11,11 @@ pub struct MusicState {
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum MusicOperation { Status, Play, Pause, Previous, Next }
+pub enum MusicOperation { Status, Play, Pause, Previous, Next, Light, Dark }
 #[cfg(all(windows, feature = "embedded-music"))]
 impl MusicOperation {
     fn name(&self) -> &'static str {
-        match self { Self::Status => "status", Self::Play => "play", Self::Pause => "pause", Self::Previous => "previous", Self::Next => "next" }
+        match self { Self::Status => "status", Self::Play => "play", Self::Pause => "pause", Self::Previous => "previous", Self::Next => "next", Self::Light => "light", Self::Dark => "dark" }
     }
 }
 impl MusicBounds {
@@ -175,6 +175,11 @@ pub fn shutdown(){#[cfg(all(windows, feature = "embedded-music"))] native::shutd
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn appearance_commands_remain_restricted() {
+        assert!(matches!(serde_json::from_str::<MusicOperation>("\"light\"").unwrap(), MusicOperation::Light));
+        assert!(matches!(serde_json::from_str::<MusicOperation>("\"dark\"").unwrap(), MusicOperation::Dark));
+        assert!(serde_json::from_str::<MusicOperation>("\"arbitrary-command\"").is_err());
+    }
     #[test] fn rejects_zero_oversized_and_overflowing_native_view_bounds(){
         for (x,width,height) in [(0,0,1),(0,1,0),(0,16385,1),(i32::MIN,100,100)] {
             assert!(MusicBounds{x,y:0,width,height}.validate().is_err());

@@ -15,6 +15,7 @@ on:
       - 'scripts/app-qa/spotube-bounds.mjs'
       - 'scripts/app-qa/spotube-source-switch.mjs'
       - 'scripts/app-qa/spotube-startup-dialogs.mjs'
+      - 'scripts/app-qa/spotube-appearance.mjs'
       - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   pull_request:
@@ -26,6 +27,7 @@ on:
       - 'scripts/app-qa/spotube-bounds.mjs'
       - 'scripts/app-qa/spotube-source-switch.mjs'
       - 'scripts/app-qa/spotube-startup-dialogs.mjs'
+      - 'scripts/app-qa/spotube-appearance.mjs'
       - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   workflow_dispatch:
@@ -116,4 +118,13 @@ jobs:
             if($LASTEXITCODE){throw 'Spotube startup/dialog browser regression failed'}
           }finally{
             if(Test-Path -LiteralPath $env:ANF_SPOTUBE_STARTUP_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_STARTUP_REPORT}
+          }
+      - name: Verify embedded music follows AnF appearance controls
+        run: |
+          $env:ANF_SPOTUBE_THEME_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-appearance.json'
+          try{
+            node scripts/app-qa/spotube-appearance.mjs
+            if($LASTEXITCODE){throw 'Spotube appearance browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_THEME_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_THEME_REPORT}
           }
