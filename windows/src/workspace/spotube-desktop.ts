@@ -8,7 +8,12 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
   let active = false;
   const bounds = () => {
     const rect = root.getBoundingClientRect(), scale = devicePixelRatio;
-    return {x:Math.round(rect.left*scale),y:Math.round(rect.top*scale),width:Math.max(1,Math.round(rect.width*scale)),height:Math.max(1,Math.round((innerHeight-rect.top-16)*scale))};
+    const heading = root.querySelector('.music-heading')!.getBoundingClientRect();
+    const footer = document.querySelector('.activity-bar')?.getBoundingClientRect().top ?? innerHeight;
+    const dock = document.querySelector('.native-music-player:not([hidden])')?.getBoundingClientRect();
+    const top = Math.max(0,rect.top,heading.bottom+12);
+    const bottom = Math.min(innerHeight,footer,dock?.height?dock.top:innerHeight)-12;
+    return {x:Math.round(rect.left*scale),y:Math.round(top*scale),width:Math.max(1,Math.round(rect.width*scale)),height:Math.max(1,Math.round((bottom-top)*scale))};
   };
   const update = async () => {
     if (!active) return;
@@ -22,6 +27,9 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
     open:async()=>{showMusic();active=true;await invoke('music_open',{bounds:bounds()});},
   });
   root.querySelector('.music-heading')!.append(h('button',{type:'button',text:'Open Spotube',onclick:()=>void player.open()}));
+  // Playback status can reveal the dock without any window resize.
+  const layout = new ResizeObserver(()=>void update());
+  for(const element of [root,root.querySelector('.music-heading')!,document.querySelector('.native-music-player')!])layout.observe(element);
   await listen('spotube-closed',()=>{active=false;void player.refresh();});
   document.addEventListener('anf-view-changed',()=>void update());
   window.addEventListener('resize',()=>void update());

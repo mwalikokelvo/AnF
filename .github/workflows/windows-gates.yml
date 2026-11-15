@@ -12,6 +12,7 @@ on:
       - 'shared/**'
       - 'scripts/check-release.mjs'
       - 'scripts/app-qa/studio-cancel.mjs'
+      - 'scripts/app-qa/spotube-bounds.mjs'
       - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   pull_request:
@@ -20,6 +21,7 @@ on:
       - 'shared/**'
       - 'scripts/check-release.mjs'
       - 'scripts/app-qa/studio-cancel.mjs'
+      - 'scripts/app-qa/spotube-bounds.mjs'
       - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   workflow_dispatch:
@@ -83,4 +85,13 @@ jobs:
             if($LASTEXITCODE){throw 'Studio cancellation browser regression failed'}
           }finally{
             if(Test-Path -LiteralPath $env:ANF_STUDIO_CANCEL_REPORT){Get-Content -LiteralPath $env:ANF_STUDIO_CANCEL_REPORT}
+          }
+      - name: Verify embedded music leaves header, status and playback controls visible
+        run: |
+          $env:ANF_SPOTUBE_BOUNDS_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-bounds.json'
+          try{
+            node scripts/app-qa/spotube-bounds.mjs
+            if($LASTEXITCODE){throw 'Spotube bounds browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_BOUNDS_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_BOUNDS_REPORT}
           }
