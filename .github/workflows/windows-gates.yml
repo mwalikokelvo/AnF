@@ -13,6 +13,7 @@ on:
       - 'scripts/check-release.mjs'
       - 'scripts/app-qa/studio-cancel.mjs'
       - 'scripts/app-qa/spotube-bounds.mjs'
+      - 'scripts/app-qa/spotube-source-switch.mjs'
       - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - 'scripts/check-release.mjs'
       - 'scripts/app-qa/studio-cancel.mjs'
       - 'scripts/app-qa/spotube-bounds.mjs'
+      - 'scripts/app-qa/spotube-source-switch.mjs'
       - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   workflow_dispatch:
@@ -94,4 +96,13 @@ jobs:
             if($LASTEXITCODE){throw 'Spotube bounds browser regression failed'}
           }finally{
             if(Test-Path -LiteralPath $env:ANF_SPOTUBE_BOUNDS_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_BOUNDS_REPORT}
+          }
+      - name: Verify return to local music after delayed native open
+        run: |
+          $env:ANF_SPOTUBE_SOURCE_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-source.json'
+          try{
+            node scripts/app-qa/spotube-source-switch.mjs
+            if($LASTEXITCODE){throw 'Spotube source switching browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_SOURCE_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_SOURCE_REPORT}
           }
