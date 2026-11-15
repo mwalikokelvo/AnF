@@ -409,6 +409,25 @@ mod tests {
         assert!(e.process.lock().unwrap().is_none());
     }
     #[test]
+    #[ignore = "streams from the real bundled model"]
+    fn streams_a_short_answer_from_the_real_model() {
+        let e = Engine::default();
+        e.configure(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../local-ai"));
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let messages = vec![json!({"role":"user","content":"Count from one to five in words, then say what 2 plus 2 is. /no_think"})];
+        // Load the model first, so the timing below is about answering, not loading.
+        rt.block_on(e.reply_profile(&[json!({"role":"user","content":"Say OK. /no_think"})], "fast")).unwrap();
+        let (started, mut first, mut pieces) = (std::time::Instant::now(), None, 0);
+        let text = rt.block_on(e.reply_stream(&messages, "fast", 160, |_| {
+            first.get_or_insert_with(|| started.elapsed());
+            pieces += 1;
+        })).unwrap();
+        assert!(pieces > 1, "the answer arrived in one piece, so nothing was streamed: {text}");
+        assert!(text.contains('4') || text.to_lowercase().contains("four"), "{text}");
+        println!("Kevo stream live check: first words after {:?}, whole answer after {:?}, {pieces} pieces", first.unwrap(), started.elapsed());
+        e.shutdown();
+    }
+    #[test]
     #[ignore = "starts and cancels real local inference"]
     fn cancellation_stops_the_owned_model_process() {
         let e = Engine::default();
