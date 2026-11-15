@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart' as material;
+import 'package:shadcn_flutter/shadcn_flutter.dart' show ThemeMode;
 import 'package:spotube/services/audio_player/audio_player.dart';
 
 /// The native AnF host owns screen navigation and the application lifetime.
@@ -8,6 +10,15 @@ import 'package:spotube/services/audio_player/audio_player.dart';
 class AnfHost {
   static const embedded = bool.fromEnvironment('ANF_EMBEDDED', defaultValue: true);
   static const channel = MethodChannel('anf/spotube');
+  static final theme = material.ValueNotifier<ThemeMode>(ThemeMode.system);
+
+  static bool applyTheme(Object? operation) {
+    switch (operation) {
+      case 'light': theme.value = ThemeMode.light; return true;
+      case 'dark': theme.value = ThemeMode.dark; return true;
+      default: return false;
+    }
+  }
 
   static void install() {
     if (!embedded) return;
@@ -19,6 +30,7 @@ class AnfHost {
         case 'status':
           return _status();
         case 'control':
+          if (applyTheme(call.arguments)) return _status();
           switch (call.arguments) {
             case 'status':
               break;
@@ -67,6 +79,8 @@ class AnfHost {
   }
 
   static material.Widget frame(material.Widget child) {
+    // Windows navigation stays in the AnF source controls above the child view.
+    if (Platform.isWindows) return child;
     return material.Column(children: [
       material.SafeArea(bottom: false, child: material.Material(
         color: const material.Color(0xff15191a),

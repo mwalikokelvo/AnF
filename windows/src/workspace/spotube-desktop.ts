@@ -41,6 +41,7 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
         if(request!==selectionEpoch)return;
         if(!state)throw Error('Spotube could not start. Try Open Spotube again.');
         connection.textContent='Spotube ready.';
+        void syncTheme();
       }catch(error){
         if(request!==selectionEpoch)return;
         ++selectionEpoch;active=false;select();connection.textContent='Spotube could not start. Try Open Spotube again.';
@@ -54,6 +55,21 @@ export async function attachDesktopSpotube(root:HTMLElement,beforePlay:()=>void|
   function select(){localButton.setAttribute('aria-pressed',String(!active));openButton.setAttribute('aria-pressed',String(active));}
   async function showLocal(){++selectionEpoch;player.suspend();active=false;select();connection.textContent='Local music.';try{await update();await invoke('music_control',{operation:'pause'});}catch(error){notify(String(error));}}
   root.querySelector('.music-heading')!.append(h('div',{class:'row',role:'group','aria-label':'Music source'},localButton,openButton,connection));
+  const appearanceRoot=document.getElementById('workspace-root');
+  const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
+  async function syncTheme(){
+    if(!active)return;
+    const request=selectionEpoch;
+    const mode=appearanceRoot?.getAttribute('data-theme')||'system';
+    const dark=mode==='dark'||(mode==='system'&&systemTheme.matches);
+    try{await invoke('music_control',{operation:dark?'dark':'light'});}
+    catch{if(active&&request===selectionEpoch)notify('Spotube appearance could not update. Reopen after updating its music pack.');}
+  }
+  const appearanceChanges=new MutationObserver(records=>{
+    if(records.some(record=>record.oldValue!==appearanceRoot?.getAttribute('data-theme')))void syncTheme();
+  });
+  if(appearanceRoot)appearanceChanges.observe(appearanceRoot,{attributes:true,attributeOldValue:true,attributeFilter:['data-theme']});
+  systemTheme.addEventListener('change',()=>{if(appearanceRoot?.getAttribute('data-theme')==='system')void syncTheme();});
   // Playback status can reveal the dock without any window resize.
   const layout = new ResizeObserver(changed);
   for(const element of [root,root.querySelector('.music-heading')!,document.querySelector('.native-music-player')!])layout.observe(element);
