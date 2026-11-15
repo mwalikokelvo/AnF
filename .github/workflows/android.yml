@@ -12,8 +12,14 @@ on:
         required: false
         default: 'AnF-Android'
         type: string
+      baseline_archive:
+        description: 'Pinned archived legacy baseline when Actions artifacts have expired'
+        required: false
+        type: choice
+        options: [none, legacy-0.1.22]
+        default: none
   pull_request:
-    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', 'scripts/sign-android.sh', 'scripts/check-styles.mjs', '.github/workflows/android.yml']
+    paths: ['android/**', 'windows/src/workspace/**', 'scripts/build-android.mjs', 'scripts/sign-android.sh', 'scripts/check-styles.mjs', 'scripts/app-qa/android_archive_baseline.py', 'scripts/app-qa/test_android_archive_baseline.py', 'scripts/app-qa/android-upgrade-baselines.json', 'scripts/app-qa/run-android-upgrade.sh', '.github/workflows/android.yml']
 
 permissions:
   contents: read
@@ -28,6 +34,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check baseline selection and archive integrity guards
+        run: python3 -m unittest discover -s scripts/app-qa -p test_android_archive_baseline.py
+      - name: Validate requested baseline source
+        env:
+          BASELINE_RUN: ${{ inputs.baseline_run || '' }}
+          BASELINE_ARCHIVE: ${{ inputs.baseline_archive || 'none' }}
+        run: python3 scripts/app-qa/android_archive_baseline.py validate-inputs
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -64,7 +77,7 @@ jobs:
           javac -d "$RUNNER_TEMP/addon-check" android/java/com/coucou/workspace/AddonRules.java android/java-test/com/coucou/workspace/AddonRulesCheck.java
           java -cp "$RUNNER_TEMP/addon-check" com.coucou.workspace.AddonRulesCheck
       - name: Build installed-release instrumentation tests
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_run != '' || inputs.baseline_archive == 'legacy-0.1.22')
         working-directory: android
         run: gradle --no-daemon assembleReleaseAndroidTest
       - name: Download previous Android package
@@ -75,21 +88,26 @@ jobs:
           run-id: ${{ inputs.baseline_run }}
           github-token: ${{ github.token }}
           path: previous-android
+      - name: Download and verify pinned archived legacy baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_archive == 'legacy-0.1.22'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/app-qa/android_archive_baseline.py download
       - name: Enable emulator hardware acceleration
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_run != '' || inputs.baseline_archive == 'legacy-0.1.22')
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Free unused native SDK toolchains for emulator storage
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_run != '' || inputs.baseline_archive == 'legacy-0.1.22')
         run: |
           # This Java app ships prebuilt native libraries; its build is complete.
           # These hosted-runner NDK installations are unused by the UI test.
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           df -h /
       - name: Verify installed Android release and saved-data retention
-        if: github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_run != '' || inputs.baseline_archive == 'legacy-0.1.22')
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
@@ -101,12 +119,13 @@ jobs:
           script: bash scripts/app-qa/run-android-upgrade.sh
       - name: Retain installed Android test evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.baseline_run != ''
+        if: always() && github.event_name == 'workflow_dispatch' && (inputs.baseline_run != '' || inputs.baseline_archive == 'legacy-0.1.22')
         with:
           name: AnF-Android-installation-tests
           path: |
             ${{ runner.temp }}/anf-android-qa/*.txt
             ${{ runner.temp }}/anf-android-qa/*.png
+            previous-android/archive-provenance.json
           if-no-files-found: ignore
           retention-days: 7
       - name: Self-test the signing step with a throwaway key
