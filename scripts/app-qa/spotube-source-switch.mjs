@@ -16,7 +16,7 @@ try{
    },music_hide:()=>{window.__musicCalls.push('hide');},
    music_control:({operation})=>{window.__musicCalls.push(operation);return{hasTrack:false,playing:false,title:'',artist:'',position:0,duration:0};}};
  });
- await page.reload();await go(page,'music');
+ await fx.reload(page);await go(page,'music');
  const local=page.getByRole('button',{name:'Local library',exact:true});
  assert.equal(await local.count(),1,'Music needs an in-app return to the local library');
  const open=page.getByRole('button',{name:'Open Spotube',exact:true});

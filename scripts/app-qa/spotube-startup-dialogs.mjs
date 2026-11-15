@@ -19,7 +19,7 @@ try{
       return window.__returnNull?null:{hasTrack:false,playing:false,title:'',artist:'',position:0,duration:0};
      }};
    },kind);
-   await page.reload();await go(page,'music');
+   await fx.reload(page);await go(page,'music');
    const open=page.getByRole('button',{name:'Open Spotube',exact:true});
    await open.click();await page.waitForFunction(()=>window.__musicCalls.includes('status'));
    if(kind==='startup'){
@@ -49,7 +49,7 @@ try{
     await page.waitForFunction(n=>window.__musicCalls.filter(s=>s==='open').length>n,opened,{timeout:2500});
    }
    result.cases.push({kind,passed:true,calls:await page.evaluate(()=>window.__musicCalls)});
-  }finally{await context.close();}
+  }finally{await fx.closeContext(context);}
  }
  assert.deepEqual(fx.problems,[]);result.passed=true;
  console.log('PASS: null startup rolls back and retries; visible dialog hides native view until dismissed. Browser/IPC fixture only.');

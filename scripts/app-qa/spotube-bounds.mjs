@@ -13,7 +13,7 @@ try{
     window.__ipc={music_available:()=>true,music_open:({bounds})=>{window.__spotubeBounds.push(bounds);},
      music_control:()=>({hasTrack:!!window.__spotubeWithTrack,playing:false,title:'Synthetic fixture',artist:'',position:0,duration:10000})};
    });
-   await page.reload();await go(page,'music');
+   await fx.reload(page);await go(page,'music');
    await page.getByRole('button',{name:'Open Spotube',exact:true}).click();
    await page.waitForFunction(()=>window.__spotubeBounds.length>0);
    const sample=await page.evaluate(()=>{
@@ -33,11 +33,9 @@ try{
     dockTop:document.querySelector('.native-music-player').getBoundingClientRect().top,scale:devicePixelRatio}));
    result.sizes.at(-1).docked=docked;
    assert((docked.bounds.y+docked.bounds.height)/docked.scale<=docked.dockTop,'Native music overlaps its playback controls');
-  }finally{await context.close();}
+  }finally{await fx.closeContext(context);}
  }
- // Ignore intermittent requestfailed for hashed live-editor assets; they are not required for bounds checks.
- const relevant=fx.problems.filter(p=>!p.includes('live-editor') && !/requestfailed: http:\/\/127\.0\.0\.1:\d+\/assets\/.*/.test(p));
- assert.deepEqual(relevant,[]);
+ assert.deepEqual(fx.problems,[]);
  result.passed=true;console.log('PASS: embedded music bounds preserve heading and status bar at three desktop sizes. Browser/IPC fixture only.');
 }catch(error){result.error=String(error);throw error;}
 finally{
