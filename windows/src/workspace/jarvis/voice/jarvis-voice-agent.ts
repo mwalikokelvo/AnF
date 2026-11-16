@@ -279,9 +279,6 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: route.action, speechReply: route.say };
     }
 
-    // A lone unknown word is a cough, a fragment or the room, not a question for the AI.
-    if (!/\s/.test(lower.trim())) return { handled: true, actionName: 'ignored', speechReply: '' };
-
     // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
     const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
     if (app && this.context.openApp) {
@@ -338,6 +335,8 @@ export class JarvisVoiceAgent {
     }
 
     // 7. General AI Conversational Intelligence + memory
+    // A lone unknown word is a cough, a fragment or the room, not a question for the AI.
+    if (!/\s/.test(lower.trim())) return { handled: true, actionName: 'ignored', speechReply: '' };
     if (this.context.askAI) {
       try {
         // A short history keeps the local model quick and stops old exchanges steering new answers.

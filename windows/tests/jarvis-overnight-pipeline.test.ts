@@ -281,6 +281,7 @@ describe('Overnight Kevo pipeline', () => {
     const agent = new JarvisVoiceAgent({
       switchView: () => {},
       showToast: () => {},
+      triageSupport: () => 2,
       askAI: async (_q, options) => { asked += 1; answer.split(/(?<=\.) /).forEach((p) => options?.onPart?.(p)); return answer; },
     });
     const parts: string[] = [];
@@ -288,6 +289,7 @@ describe('Overnight Kevo pipeline', () => {
     assert.equal(await say('Hey, Kevo.'), 'Yes?');
     assert.equal(await say('Hello'), 'Yes?');
     assert.equal(await say('Careful.'), '');
+    assert.notEqual((await agent.processVoiceInput('triage')).actionName, 'ignored', 'a one-word command still runs');
     assert.match(await say('maybe? What else can you do?'), /^I can open apps/);
     assert.equal(asked, 0);
     assert.equal(await say('Tell me about the moon'), answer);
