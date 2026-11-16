@@ -11,3 +11,5 @@ Key directives:
 
 ## Storage
 - **Clear superseded builds**: once a newer AnF build is installed and runs, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
+
+- `main` is locked (16 Nov 2026, owner's decision): never push to it. Work on your own branch and open a pull request. Kevo work follows `docs/KEVO-PLAN.md`: one phase at a time from a task brief, with the roles listed there.
