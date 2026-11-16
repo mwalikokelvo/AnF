@@ -653,3 +653,9 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - `docs/KEVO-PLAN.md` is the plan every assistant follows for Kevo: six phases, each tested on the owner's PC before the next, and a role per assistant (Antigravity builds, Codex reviews, free assistants take small tasks, Claude plans, fixes hard bugs and merges).
 - Owner's decision: `main` is locked on GitHub. No direct pushes by anyone; changes arrive by pull request. Pointers added to `AGENTS.md` and `CLAUDE.md`.
 - Next: Phase 0 (owner installs 0.1.53 and runs the five tests). No Kevo feature work before that result.
+
+## 2026-11-16 Grok: album artist on library track cards
+
+Local tracks that have a known album artist (different from the track artist) now display "Album: <name>" in the grid card metadata, matching the composer treatment. Makes album-level credit easier to spot without opening details.
+
+Tested: typecheck not run in this sandbox; change is a one-line addition parallel to the existing composerLabel.
