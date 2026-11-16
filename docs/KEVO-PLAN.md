@@ -16,7 +16,7 @@ Settled: the name and wake word are "Kevo"; the 13 voices ship inside the app; K
 | --- | --- |
 | Wake word, listening, speaking | Built. Self-answering loop fixed in 0.1.52; untested with a real microphone |
 | Quick commands (time, date, sums, timers, notes, music, opening apps, web search) | Built; opening apps has never run on Windows |
-| AI answers | Short and streamed (`kevo_ask`). CI measured 0.3 s to first words with the small model; the PC is unmeasured |
+| AI answers | Short and streamed (`kevo_ask`). CI measured 0.3 s to the model's first token, with the small model already loaded. The time until the first spoken sentence, and anything on the PC, is unmeasured |
 | Voices | 13 recordings built in. Replies are spoken by a Windows voice, not by the recordings |
 | Memory | Only the last few exchanges. Nothing lasting about the owner |
 | Scheduled work | Timers only, lost when the app closes |
@@ -30,11 +30,11 @@ Each phase ends with a test on the PC. The next phase does not start until that 
 | Phase | Delivers | Test on the PC | Done when |
 | --- | --- | --- | --- |
 | 0. Prove what exists | Nothing new. Install 0.1.53, fix what fails | Ask three things in a row, open an app, set a timer, type a request, press Stop | All five work, or each failure is fixed and retested |
-| 1. Memory | Remembers facts the owner tells it and recent requests across restarts; a screen lists them, with delete | Tell Kevo two facts, restart, ask. Delete one, ask again | Recalls after restart; forgets what was deleted |
-| 2. Scheduled work | Reminders and a daily briefing that survive a restart and fire while AnF is open | Set a 5-minute reminder, restart, wait | Fires once, on time |
-| 3. Verified actions | After opening an app, saving a note or starting music, Kevo checks it happened and reports failure plainly | Ask for an app that is not installed; save a note with the folder missing | Kevo says it failed and why, never "done" |
+| 1. Memory | Remembers facts the owner tells it and recent requests across restarts; a screen lists them, with delete | Tell Kevo two facts and make one request, restart, ask about the facts and "what did I ask you earlier?". Delete one fact, ask again | Recalls both facts and the request after restart; forgets what was deleted |
+| 2. Scheduled work | Reminders and a daily briefing that survive a restart and fire while AnF is open | Set a 5-minute reminder and a briefing time 10 minutes ahead, restart, wait | Each fires once, on time |
+| 3. Verified actions | After opening an app, saving a note or starting music, Kevo checks it happened and reports failure plainly | Open an installed app and one that is not installed; save a note and look for it in today's notes; start music with tracks and with an empty library | Each success is confirmed by Kevo checking the result; each failure is reported with the reason, never "done" |
 | 4. A better brain | The largest local model the PC runs well, plus an optional cloud model with a spending cap | Five harder questions on each setting, timed | Owner judges answers better; first sentence in under 5 s |
-| 5. Real team, real voices | Team cards show real information or are removed; replies in the pack's own voices if the voice model can be shipped | Compare a reply in "Kevo (Gentle Bass)" with the recording | Owner accepts the voice; no invented numbers remain |
+| 5. Real team, real voices | Team cards show real information or are removed; replies in the pack's own voices if the voice model can be shipped | Compare a reply in "Kevo (Gentle Bass)" with the recording | No invented numbers remain, and either the owner accepts the pack voice or, if the voice model cannot be shipped, the owner confirms keeping the Windows voices |
 
 After Phase 5: Kevo on Android, and the voices in ThingsBook.
 
@@ -56,7 +56,7 @@ After Phase 5: Kevo on Android, and the voices in ThingsBook.
 2. **One phase at a time, from a task brief.** Do not start a later phase or add features the brief does not name.
 3. **A pull request merges only when** its checks are green, Codex's review findings are answered, and Claude has reviewed it.
 4. **Say what was tested and how.** "Compiled", "automated tests", "browser fixture" and "installed on the PC" are different claims.
-5. **Append your result to `HANDOFF.md`** in the same pull request.
+5. **Builders append their result to `HANDOFF.md`** in the same pull request. Reviewers leave review comments only and push nothing.
 
 ## Open decisions (owner)
 
