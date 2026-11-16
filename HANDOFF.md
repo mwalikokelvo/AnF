@@ -6,6 +6,19 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-16 — Kevo Phase 0 fixes, Windows 0.1.54 (Claude)
+
+Phase 0 of `docs/KEVO-PLAN.md` was run by the owner on installed 0.1.53 (Gemini wrote the report from the recording). Tests 2-5 passed; test 1 (several requests in a row) failed. Fixed on `claude/kevo-phase0`:
+
+- A request the recogniser cut at pauses ("Hey, Kevo." / "set a timer" / "for one minute") is now joined: the listener waits 1.1 s of quiet before acting (`settleMs`).
+- The wake sound is a plain tone again; the first second of the voice recording sounded like a glitch.
+- A greeting or just the name answers "Yes?", "what else can you do" gets the help answer, a lone unknown word is ignored. None of these reach the AI.
+- The AI prompt no longer says the reply is "spoken" (the small model answered about voice changes), and an answer identical to the previous one clears the history instead of being repeated.
+- Recognition errors `network` and `not-allowed` say what to do.
+
+Verified here: type check, 588 node tests, 12 release checks, vite build, 152 Rust tests. NOT verified: installed app with a real microphone. The owner must rerun the five Phase 0 tests on 0.1.54 before Phase 1 starts.
+Known shortcut: a single typed unknown word is also ignored.
+
 ## Status of every line of work
 
 | Line | Where | Version | State |

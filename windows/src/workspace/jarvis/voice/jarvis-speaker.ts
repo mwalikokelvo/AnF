@@ -235,6 +235,12 @@ export class JarvisSpeaker {
     });
   }
 
+  /** The short tone Kevo plays when it hears its name. A tone, not a clip of a voice, which sounded like a glitch. */
+  playWakeTone(): Promise<void> {
+    this.cue = this.playChirpCue();
+    return this.cue;
+  }
+
   private async playChirpCue(): Promise<void> {
     try {
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;

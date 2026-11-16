@@ -17,6 +17,8 @@ export interface VoiceListenerOptions {
   requireWakeWord?: boolean;
   /** How long after a wake word, a reply or a mic tap Kevo accepts a command without the wake word. */
   followUpMs?: number;
+  /** How long a pause must last before what was heard is treated as one finished request. 0 = at once. */
+  settleMs?: number;
   /** Told when Kevo starts or stops accepting a command without its name (drives the orb). */
   onAwakeChange?: (awake: boolean) => void;
 }
@@ -38,6 +40,10 @@ export class JarvisVoiceListener {
   private awakeUntil = 0;
   private muted = false;
   private tapPending = false;
+  private settleMs: number;
+  /** Pieces of one request: the recogniser ends a phrase at every short pause ("Kevo" ... "set a timer" ... "for one minute"). */
+  private heard: string[] = [];
+  private settleTimer: ReturnType<typeof setTimeout> | undefined;
   private reported = false;
   private onAwakeChange?: (awake: boolean) => void;
   private awakeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -47,6 +53,7 @@ export class JarvisVoiceListener {
     this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo'];
     this.requireWakeWord = options?.requireWakeWord ?? true;
     this.followUpMs = options?.followUpMs ?? 8000;
+    this.settleMs = options?.settleMs ?? 1100;
     this.onAwakeChange = options?.onAwakeChange;
     this.continuous = options?.continuous ?? true;
     this.onListeningStateChange = options?.onListeningStateChange;
@@ -99,17 +106,23 @@ export class JarvisVoiceListener {
 
         if (interim) {
           this.onInterimSpeech?.(interim);
+          if (this.heard.length) this.settle(); // still talking: keep waiting for the rest
         }
 
         if (final.trim()) {
-          this.handleFinalTranscript(final.trim());
+          this.heard.push(final.trim());
+          this.settle();
         }
       };
 
       this.recognition.onerror = (e: any) => {
         // 'aborted' is Kevo resting the microphone on purpose while it talks.
         if (e.error !== 'no-speech' && e.error !== 'aborted') {
-          this.onError?.(`Speech recognition error: ${e.error}`);
+          this.onError?.(e.error === 'network'
+            ? 'Speech recognition could not reach the internet, so Kevo cannot hear you. Check the connection, then turn the microphone on again.'
+            : e.error === 'not-allowed' || e.error === 'service-not-allowed'
+              ? 'Windows is not letting AnF use the microphone. Allow it in Windows privacy settings.'
+              : `Speech recognition error: ${e.error}`);
         }
       };
 
@@ -135,6 +148,8 @@ export class JarvisVoiceListener {
   stop(): void {
     this.isRunning = false;
     this.isListening = false;
+    clearTimeout(this.settleTimer);
+    this.heard = [];
     this.muted = false; // a later start() is a fresh session; whoever muted will mute again when Kevo talks
     this.setAwakeUntil(0);
     if (this.recognition) {
@@ -170,7 +185,7 @@ export class JarvisVoiceListener {
     this.muted = muted;
     // Ignoring results is not enough: the recogniser hands over what it heard a moment after Kevo stops.
     // So the session is dropped while Kevo talks and a fresh one starts afterwards, with nothing buffered.
-    if (muted) { try { this.recognition?.abort(); } catch { /* not started */ } }
+    if (muted) { clearTimeout(this.settleTimer); this.heard = []; try { this.recognition?.abort(); } catch { /* not started */ } }
     else this.resume();
   }
 
@@ -185,6 +200,18 @@ export class JarvisVoiceListener {
     this.reported = running;
     this.onListeningStateChange?.(running);
     this.notifyStateListeners(running);
+  }
+
+  /** Acts on what was heard once the speaker has paused for long enough. */
+  private settle(): void {
+    clearTimeout(this.settleTimer);
+    const flush = () => {
+      const text = this.heard.join(' ');
+      this.heard = [];
+      if (text && !this.muted) this.handleFinalTranscript(text);
+    };
+    if (this.settleMs <= 0) flush();
+    else this.settleTimer = setTimeout(flush, this.settleMs);
   }
 
   private handleFinalTranscript(rawText: string): void {
