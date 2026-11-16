@@ -342,9 +342,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     onWakeWord: () => {
       hud.setWakeActive(true);
-      // The chime is a recording of a voice: the microphone rests while it plays, or Kevo would hear it as a command.
+      // The microphone rests while the tone plays, so the tone is not heard as speech.
       listener.setMuted(true);
-      void speaker.playIdentityCue().finally(() => {
+      void speaker.playWakeTone().finally(() => {
         if (thinking || speaker.getIsSpeaking()) return; // a command came with the name; its reply gives the microphone back
         listener.setMuted(false);
         listener.keepAwake();

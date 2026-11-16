@@ -52,7 +52,8 @@ struct KevoPart {
     id: u64,
     text: String,
 }
-const KEVO_SYSTEM: &str = "You are Kevo, a voice assistant inside the AnF app on the user's computer. Your reply is spoken aloud: answer in one to three short plain sentences, with no lists, markdown, or emoji. If you do not know, say so briefly. Do not claim web access. /no_think";
+// Kept plain for the smallest bundled model: mentioning that the reply is "spoken" made it answer about voices.
+const KEVO_SYSTEM: &str = "You are Kevo, a helpful assistant on the user's computer. Answer the user's question directly in one to three short sentences of plain text. No lists, no markdown. If you do not know, say so in one sentence. /no_think";
 
 /// The messages sent for a spoken question: the Kevo instructions, a few recent turns, then the question.
 fn kevo_messages(query: &str, history: &[Value]) -> Vec<Value> {

@@ -4,7 +4,7 @@
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
 
-import { appendJarvisTurn, getJarvisHistory, type JarvisTurn } from './jarvis-memory';
+import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, type JarvisTurn } from './jarvis-memory';
 
 export interface JarvisActionContext {
   switchView: (view: string) => void;
@@ -90,8 +90,10 @@ export class JarvisVoiceAgent {
     const done = (actionName: string, speechReply: string): ActionResult => ({ handled: true, actionName, speechReply });
 
     if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
+    // Just a greeting or its name, however the recogniser spelled it: Kevo answers that it is there.
+    if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2})?$/.test(lower)) return done('greeting', 'Yes?');
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
-    if (/^(help|what can you do|what can i say|what can i ask)$/.test(lower)) {
+    if (/^help$|\bwhat (else )?can (you|i) (do|say|ask)\b|\bwhat do you do\b/.test(lower)) {
       return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
     }
 
@@ -276,6 +278,9 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: route.action, speechReply: route.say };
     }
 
+    // A lone unknown word is a cough, a fragment or the room, not a question for the AI.
+    if (!/\s/.test(lower.trim())) return { handled: true, actionName: 'ignored', speechReply: '' };
+
     // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
     const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
     if (app && this.context.openApp) {
@@ -338,6 +343,11 @@ export class JarvisVoiceAgent {
         const asked = this.generation;
         const aiAnswer = await this.context.askAI(text, { history: getJarvisHistory(8), onPart });
         if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+        // The same answer as last time means the model is stuck on the history, not answering: start it afresh.
+        if (aiAnswer === getJarvisHistory().filter((t) => t.role === 'assistant').pop()?.text) {
+          clearJarvisHistory();
+          return { handled: true, actionName: 'ai_stuck', speechReply: 'I am not sure how to answer that. Try asking it another way.' };
+        }
         // Saved only once answered, so a question that was stopped never steers later answers.
         appendJarvisTurn('user', text);
         appendJarvisTurn('assistant', aiAnswer);
