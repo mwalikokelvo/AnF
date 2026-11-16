@@ -93,7 +93,8 @@ export class JarvisVoiceAgent {
     // Just a greeting or its name, however the recogniser spelled it: Kevo answers that it is there.
     if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2})?$/.test(lower)) return done('greeting', 'Yes?');
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
-    if (/^help$|\bwhat (else )?can (you|i) (do|say|ask)\b|\bwhat do you do\b/.test(lower)) {
+    // Up to two stray words first ("maybe? what else can you do"), nothing after: "what can I do to fix this" is a question.
+    if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)) {
       return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
     }
 
@@ -341,10 +342,24 @@ export class JarvisVoiceAgent {
       try {
         // A short history keeps the local model quick and stops old exchanges steering new answers.
         const asked = this.generation;
-        const aiAnswer = await this.context.askAI(text, { history: getJarvisHistory(8), onPart });
+        const squash = (t: string) => t.replace(/\s+/g, '');
+        const previous = squash(getJarvisHistory().filter((t) => t.role === 'assistant').pop()?.text ?? '');
+        // Sentences are held back while they only repeat the previous answer, so a stuck answer is never spoken twice.
+        let held: string[] | null = previous ? [] : null;
+        const aiAnswer = await this.context.askAI(text, {
+          history: getJarvisHistory(8),
+          onPart: onPart && ((part) => {
+            if (!held) return onPart(part);
+            held.push(part);
+            if (previous.startsWith(squash(held.join('')))) return;
+            const release = held;
+            held = null;
+            release.forEach(onPart);
+          }),
+        });
         if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
         // The same answer as last time means the model is stuck on the history, not answering: start it afresh.
-        if (aiAnswer === getJarvisHistory().filter((t) => t.role === 'assistant').pop()?.text) {
+        if (previous && squash(aiAnswer) === previous) {
           clearJarvisHistory();
           return { handled: true, actionName: 'ai_stuck', speechReply: 'I am not sure how to answer that. Try asking it another way.' };
         }

@@ -281,18 +281,24 @@ describe('Overnight Kevo pipeline', () => {
     const agent = new JarvisVoiceAgent({
       switchView: () => {},
       showToast: () => {},
-      askAI: async () => { asked += 1; return answer; },
+      askAI: async (_q, options) => { asked += 1; answer.split(/(?<=\.) /).forEach((p) => options?.onPart?.(p)); return answer; },
     });
-    const say = async (text: string) => (await agent.processVoiceInput(text)).speechReply;
+    const parts: string[] = [];
+    const say = async (text: string) => (await agent.processVoiceInput(text, (p) => parts.push(p))).speechReply;
     assert.equal(await say('Hey, Kevo.'), 'Yes?');
     assert.equal(await say('Hello'), 'Yes?');
     assert.equal(await say('Careful.'), '');
     assert.match(await say('maybe? What else can you do?'), /^I can open apps/);
     assert.equal(asked, 0);
     assert.equal(await say('Tell me about the moon'), answer);
+    assert.deepEqual(parts, [answer]);
     assert.match(await say('And what about the sun'), /Try asking it another way/);
-    answer = 'The sun is a star.';
+    assert.deepEqual(parts, [answer], 'the repeated answer is not spoken sentence by sentence either');
+    answer = 'The sun is a star. It is very hot.';
     assert.equal(await say('What is the sun'), answer);
+    assert.deepEqual(parts.slice(1), ['The sun is a star.', 'It is very hot.']);
+    await say('What can I do to lower CPU use?');
+    assert.equal(asked, 4, 'a real question that starts like the help request goes to the AI');
   });
 
   it('a last sentence that arrived late is still spoken, once', () => {
