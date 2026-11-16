@@ -288,7 +288,8 @@ const jarvisCommandDesk=createJarvisCommandDesk({
       finally{off();}
     },
     cancelAI:()=>{void invoke('kevo_cancel');},
-    searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});}
+    searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
+    openUrl:async url=>{await invoke('open_url',{url});}
   }
 });
 section('jarvis','Kevo',jarvisCommandDesk.root);

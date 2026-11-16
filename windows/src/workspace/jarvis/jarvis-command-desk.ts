@@ -138,6 +138,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   let thinking = false;
   let lastReply = '';
   let turn = 0;
+  /** Things Kevo has to say on its own (a timer going off) that came while it was busy: said once it is free. */
+  const pending: string[] = [];
+  function sayPending(): void {
+    const text = pending.splice(0).join(' ');
+    if (!text) return;
+    lastReply = text;
+    hud.setReply(text);
+    void speaker.speak(text);
+  }
   /** Shows on the orb what Kevo is doing right now. */
   const refresh = () => hud.setState(kevoState({
     micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
@@ -176,13 +185,12 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     saveQuickNote: options?.voiceActionContext?.saveQuickNote,
     askAI: options?.voiceActionContext?.askAI,
     searchWeb: options?.voiceActionContext?.searchWeb,
-    // A timer going off: said aloud unless Kevo is in the middle of something, and always listed.
+    openUrl: options?.voiceActionContext?.openUrl,
+    // A timer going off: always listed, and said aloud now or, if Kevo is busy, right after the current answer.
     announce: (text) => {
       hud.pulseMessage(`Kevo: ${text}`);
-      if (thinking || speaker.getIsSpeaking()) return;
-      lastReply = text;
-      hud.setReply(text);
-      void speaker.speak(text);
+      pending.push(text);
+      if (!thinking && !speaker.getIsSpeaking()) sayPending();
     },
     triageSupport: () => support.autoTriage(),
     runDevHealth: async () => {
@@ -245,6 +253,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     await (live ? live.end() : speaker.speak(reply));
     if (asked !== turn) return; // a typed request took over while this one was being spoken
     stopBtn.hidden = true;
+    if (pending.length) { sayPending(); return; } // its end gives the microphone back
     // Nothing to say means no speech ever ends: give the microphone back here.
     if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
   }
@@ -255,6 +264,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     thinking = false;
     voiceAgent.abandon();
     options?.voiceActionContext?.cancelAI?.();
+    pending.length = 0; // Stop means quiet; a timer that went off is still listed under Activity
     speaker.stop();
     stopBtn.hidden = true;
     clearTimeout(unmuteTimer);

@@ -123,6 +123,8 @@ export class JarvisVoiceListener {
             : e.error === 'not-allowed' || e.error === 'service-not-allowed'
               ? 'Windows is not letting AnF use the microphone. Allow it in Windows privacy settings.'
               : `Speech recognition error: ${e.error}`);
+          // Kevo cannot hear until this is fixed: show the microphone as off instead of "Say Kevo".
+          if (['network', 'not-allowed', 'service-not-allowed', 'audio-capture'].includes(e.error)) this.stop();
         }
       };
 
