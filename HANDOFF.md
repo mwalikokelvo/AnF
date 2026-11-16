@@ -648,3 +648,8 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - **No AI needed** (instant): sums, timers and reminders ("remind me in 10 minutes to ..."), "say that again", "what can you do", "search the web for ...", "stop"/"never mind". Already instant: time, date, music, notes, opening apps and places.
 - **New controls**: a Stop button while Kevo works or talks, and a box to type a request instead of speaking.
 - Version 0.1.53. Checks: `npm test` 584, `cargo test -p coucou --lib`, `check-release.mjs`, `jarvis-layout.mjs`. Not measured on a PC: the real time to first sentence depends on the owner's hardware and model; streaming against a live llama-server has not been run (only the line parser and sentence splitter are unit-tested).
+
+## 2026-11-16: Kevo plan and roles; `main` locked (Claude)
+- `docs/KEVO-PLAN.md` is the plan every assistant follows for Kevo: six phases, each tested on the owner's PC before the next, and a role per assistant (Antigravity builds, Codex reviews, free assistants take small tasks, Claude plans, fixes hard bugs and merges).
+- Owner's decision: `main` is locked on GitHub. No direct pushes by anyone; changes arrive by pull request. Pointers added to `AGENTS.md` and `CLAUDE.md`.
+- Next: Phase 0 (owner installs 0.1.53 and runs the five tests). No Kevo feature work before that result.
