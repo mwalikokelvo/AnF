@@ -21,11 +21,12 @@ The HUD track is done when, on the owner's PC, the self-test shows: the float fo
 | H.1 State bus | `team:codex` | — |
 | H.2 Micro-pill window | `team:jules` (Rust window builder may be done by Codex in the same issue if Jules asks) | H.1 |
 | H.3 Telemetry pill | `team:jules` | H.2 |
-| H.4 Approval card | `team:codex` (Rust) then `team:jules` (card) as two issues | H.2 |
+| H.4a Approval requests (Rust) | `team:codex` | H.1 |
+| H.4b Approval card (view) | `team:jules` | H.2, H.4a |
 | H.5 Drop files | `team:any` | H.2 |
 | H.6 Summary card | `team:jules` | H.3 |
 | H.7 Desk companion | written with Phase 8 | Phase 8 brief |
-| H.8 Self-test | `team:claude` | H.3, H.4, H.5, and step 0.4 of Phase 0 |
+| H.8 Self-test | `team:claude` | H.3, H.4b, H.5, and Phase 0 step 0.4b |
 
 ## H.1 State bus (Rust)
 
@@ -41,27 +42,27 @@ A second window `kevo-float` built in Rust like `companion.rs` (`WebviewWindowBu
 
 State 1, 48 × 28 px: Kevo's status dot and a small level pulse driven by `level`. On Android the same view docks into the floating bottom pill (Phase 8).
 
-Tests: a browser-fixture test that each `kevo://state` value gives the right `data-state`, that nothing runs between events (no timers left after an idle event), and that the pill folds 4 s after the last event.
+Tests: a browser-fixture test that each `kevo://state` value gives the right `data-state`, and that nothing runs between events (no timers pending after any event in this step).
 
 ## H.3 Telemetry pill
 
 State 2, 420 × 110 px: grows on wake, on hover, and while an action runs. Left: Kevo's avatar (the orb drawn small, same CSS). Right: two lines of `line` text, newest at the bottom, and the `badge`. Folds back to State 1 after 4 s of quiet. Resizing goes through one Rust command with the two fixed sizes, like `companion_compact`.
 
-Tests: browser fixture for grow/fold and for long text (two lines, ellipsis, never wider than the pill).
+Tests: browser fixture for grow on wake, hover and action; fold 4 s after the last event (the one fold timer is the only timer pending, and none is left once folded); long text (two lines, ellipsis, never wider than the pill).
 
-## H.4 Approval card
+## H.4 Approval card (H.4a requests in Rust, H.4b the card)
 
 State 3: a card slides out next to the pill when an action needs approval. Rust keeps the pending request: event `kevo://approve` `{id, action, summary}`, answer command `kevo_hud_answer(id, approved)`. Approve and Deny buttons; while the card is open, Kevo also accepts a spoken "yes" or "cancel" (through the existing listener). No answer in 60 s means **deny**. One card at a time; a second request waits.
 
 Which actions ask: sending a file to another device, deleting anything, running a script. None of today's Kevo actions does these, so this step adds the gate and its tests; Phase 5 (verified actions) and later actions must go through it.
 
-Tests: Rust tests for timeout-is-deny, one-at-a-time and unknown-id; Node tests that "yes"/"cancel" answer only while a card is open.
+Tests: H.4a, Rust tests for timeout-is-deny, one-at-a-time and unknown-id. H.4b, Node tests that "yes"/"cancel" answer only while a card is open, and a browser fixture for Approve and Deny.
 
 ## H.5 Drop files on the pill
 
-`tauri://drag-drop` on the float window. Markdown and text files go into the vault through the existing project import; EPUB and audio files go to whichever existing import or transcription command takes them; anything else, or a type with no such command yet, gets a plain "I can't take that file yet" on the pill. Files are copied, never moved. No new parser in this step.
+Use the existing HTML5 drop bridge, `onDragDrop` in `windows/src/core/bridge.ts`, not `tauri://drag-drop`: Tauri's native drop hook never fires on Windows for AnF's always-on-top windows (see the comment there), so the page receives the file's contents and Rust writes them into the inbox like any other drop. Markdown and text files go into the vault through the existing project import; EPUB and audio files go to whichever existing import or transcription command takes them; anything else, or a type with no such command yet, gets a plain "I can't take that file yet" on the pill. Files are copied, never moved. No new parser in this step.
 
-Tests: a Rust test that the drop handler only accepts paths from the drop event and refuses folders; a browser fixture for each message.
+Tests: a browser fixture that drops each file type through `onDragDrop` and checks the message shown and the ingest call made (none for refused types, none over the bridge's size limit).
 
 ## H.6 Summary card
 
