@@ -25,6 +25,10 @@ export interface JarvisActionContext {
   searchWeb?: (query: string) => Promise<void>;
   /** Opens a web page (https only) in the owner's browser. */
   openUrl?: (url: string) => Promise<void>;
+  /** Changes Kevo's voice to the named one, or to the next one when no name is given. Null when the name is not a voice. */
+  changeVoice?: (name?: string) => string | null;
+  /** The names of Kevo's voices. */
+  voiceNames?: () => string[];
   /** Says something later, on Kevo's own initiative (a timer going off). */
   announce?: (text: string) => void;
   triageSupport?: () => number;
@@ -77,6 +81,16 @@ const SITES: Record<string, { url: string; name: string }> = {
   google: { url: 'https://www.google.com', name: 'Google' },
   gmail: { url: 'https://mail.google.com', name: 'Gmail' },
 };
+
+/** "open Brave", "open browser, Brave browser", "launch the Chrome browser": every word names a browser. */
+const BROWSER_WORDS = new Set(['the', 'my', 'a', 'an', 'web', 'browser', 'brave', 'chrome', 'google', 'firefox', 'edge', 'microsoft', 'opera', 'vivaldi']);
+function opensOnlyABrowser(request: string): boolean {
+  const m = /^(?:open|launch|start)\s+(.+?)[.!?]*$/i.exec(request.trim());
+  const words = m ? m[1].toLowerCase().split(/[\s,]+/).filter(Boolean) : [];
+  return words.length > 0 && words.some((w) => w !== 'google' && w !== 'microsoft' && BROWSER_WORDS.has(w) && !['the', 'my', 'a', 'an', 'web'].includes(w)) && words.every((w) => BROWSER_WORDS.has(w));
+}
+/** Requests that open a page in the browser: a site by name, a YouTube search or a web search. */
+const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?|(?:play|search|find|look up|watch|put on|show(?: me)?)\s+.+?\s+(?:on|in|from)\s+youtube|(?:search|look up)\s+youtube\s+for\s+.+|(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+.+)[.!?]*$/i;
 
 /** The start of something Kevo can do, as opposed to a question for the AI. */
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
@@ -132,8 +146,35 @@ export class JarvisVoiceAgent {
     if (/\b(what'?s|what is) your name\b|^who are you$/.test(lower)) return done('name', 'My name is Kevo.');
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
     // Up to two stray words first ("maybe? what else can you do"), nothing after: "what can I do to fix this" is a question.
-    if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)) {
+    if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
+      // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
+      || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
       return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
+    }
+
+    // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
+    // Only failures: "why can't you respond to my voice", "why did you go silent", "how come you stopped listening".
+    // "Why did you answer that?" or "why do you listen to jazz?" are questions for the AI.
+    const why = /^(why|how come)\b/.test(lower);
+    if (/\b(keep|leave)\b.*\b(mic|microphone)\b.*\bon\b/.test(lower)
+      || (why && /\b(?:(?:can'?t|cannot|don'?t|didn'?t|won'?t|aren'?t)\s+you|you\s+(?:stopped|never|don'?t|can'?t|didn'?t|won'?t))\s+(?:(?:even|just|really)\s+)?(?:respond|answer|hear|listen|reply)/.test(lower))
+      || (why && /\byou\s+(?:\w+\s+)?(?:go|went|gone|going|stay|stayed|fall|fell|stop|stopped)\s+(?:silent|quiet|listening|responding|answering)\b/.test(lower))) {
+      return done('mic_help', 'The microphone stays on until you turn it off. Say Kevo before each request. Right after I answer, you have a few seconds to go on without my name.');
+    }
+
+    if (this.context.voiceNames && /^(what|which) voices\b|\bwhat voices (do|can) you\b/.test(lower)) {
+      return done('voice_list', `My voices are ${this.context.voiceNames().join(', ')}. Say change your voice, or change your voice to one of them.`);
+    }
+    // "Can you change your voice to another one?", "any other voice", and "just pick any" right after.
+    const voiceAsk = /\b(change|switch|swap)\s+(?:your|kevo'?s)\s+voice\b/.test(lower) && !/^(how|why|what|when|where)\b/.test(lower);
+    const anotherVoice = /^(?:\S+ ){0,2}(?:any|an)?\s*(?:other|another|different|new) voice$/.test(lower);
+    const pickAny = this.lastAction.startsWith('voice') && lower.split(/\s+/).length <= 7 && /\b(any|anyone|any one|whatever|you choose|you pick|surprise me|pick one|another one|next one)\b/.test(lower);
+    if (this.context.changeVoice && (voiceAsk || anotherVoice || pickAny)) {
+      const named = voiceAsk ? /\bvoice to (?:the |a )?(.+)$/.exec(lower)?.[1].replace(/\s+(voice|one)$/, '').trim() : undefined;
+      const name = named && !/^(another|any|any other|a different|different|something else|someone else|other)( one)?$/.test(named) ? named : undefined;
+      const chosen = this.context.changeVoice(name);
+      if (!chosen) return done('voice_unknown', `I do not have a voice called ${name}. Say change your voice and I will pick one.`);
+      return done('voice_changed', `Voice changed to ${chosen}. This is how I sound now.`);
     }
 
     if (/\b(cancel|stop|clear)\b.*\btimers?\b/.test(lower)) {
@@ -170,7 +211,15 @@ export class JarvisVoiceAgent {
 
   /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
-    const requests = splitRequests(stripLeadIn(spokenText));
+    // A typed "Hey Kevo, why…" is the question after the name.
+    // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word.
+    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|kevo\b|[kc][aeiy]{1,2}[vb][aeo]\w{0,2}(?=[,:]))[\s,.:!]+(?=\S)/i, '');
+    let requests = splitRequests(stripLeadIn(unnamed));
+    // "Open Brave and play YouTube": opening the site already opens the browser. Starting the browser as well
+    // races it, and the late browser window lands a blank New Tab over YouTube (session 3).
+    if (requests.length > 1 && requests.slice(1).some((r) => WEB_REQUEST.test(r))) {
+      requests = requests.filter((r, i) => i > 0 || !opensOnlyABrowser(r));
+    }
     let result: ActionResult;
     if (requests.length > 1) {
       // One after another, each with its own short reply. Not streamed: the replies are joined.
@@ -259,6 +308,19 @@ export class JarvisVoiceAgent {
     if (this.lastAction === 'open_app_failed' && text.split(/\s+/).length <= 3 && !COMMAND_START.test(text)) {
       text = `open ${text}`;
       lower = text.toLowerCase();
+    }
+
+    // "play any song in YouTube", "search YouTube for lofi", "play Adele on YouTube": YouTube's search, in the browser.
+    const tube = /^(?:play|search|find|look up|watch|put on|show(?: me)?)\s+(.+?)\s+(?:on|in|from)\s+youtube[.!?]*$/.exec(lower)
+      ?? /^(?:search|look up)\s+youtube\s+for\s+(.+?)[.!?]*$/.exec(lower);
+    if (tube && this.context.openUrl) {
+      const what = /^(?:any|a|some)\s+(?:song|music|track|video)s?$|^(?:something|anything|music|songs?)$/.test(tube[1]) ? 'popular songs' : tube[1];
+      try {
+        await this.context.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
+      } catch (err) {
+        return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+      }
     }
 
     const site = /^(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?[.!?]*$/.exec(lower);
@@ -441,23 +503,27 @@ export class JarvisVoiceAgent {
         const squash = (t: string) => t.replace(/\s+/g, '');
         const previous = squash(getJarvisHistory().filter((t) => t.role === 'assistant').pop()?.text ?? '');
         // Sentences are held back while they only repeat the previous answer, so a stuck answer is never spoken twice.
-        let held: string[] | null = previous ? [] : null;
-        const aiAnswer = await this.context.askAI(text, {
-          history: getJarvisHistory(8),
-          onPart: onPart && ((part) => {
+        const holding = () => {
+          let held: string[] | null = previous ? [] : null;
+          return onPart && ((part: string) => {
             if (!held) return onPart(part);
             held.push(part);
             if (previous.startsWith(squash(held.join('')))) return;
             const release = held;
             held = null;
             release.forEach(onPart);
-          }),
-        });
+          });
+        };
+        let aiAnswer = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding() });
         if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
-        // The same answer as last time means the model is stuck on the history, not answering: start it afresh.
+        // The same answer as last time means the model is stuck on the history, not answering: ask once more afresh.
         if (previous && squash(aiAnswer) === previous) {
           clearJarvisHistory();
-          return { handled: true, actionName: 'ai_stuck', speechReply: 'I am not sure how to answer that. Try asking it another way.' };
+          aiAnswer = await this.context.askAI(text, { history: [], onPart: holding() });
+          if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+          if (squash(aiAnswer) === previous) {
+            return { handled: true, actionName: 'ai_stuck', speechReply: 'I am not sure how to answer that. Try asking it another way.' };
+          }
         }
         // Saved only once answered, so a question that was stopped never steers later answers.
         appendJarvisTurn('user', text);

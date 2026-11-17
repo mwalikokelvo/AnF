@@ -45,15 +45,16 @@ describe('Kevo Phase 0 session 2', () => {
   it('"can you open Brave browser and play YouTube" opens both, without the AI', async () => {
     const { agent, opened, urls, asked } = agentWith();
     const r = await agent.processVoiceInput('In the meantime, can you open Brave browser and play YouTube?');
-    assert.deepEqual(opened, ['Brave browser']);
+    // Session 3: YouTube opens the browser itself; starting Brave as well put a blank tab over it.
+    assert.deepEqual(opened, []);
     assert.deepEqual(urls, ['https://www.youtube.com']);
     assert.deepEqual(asked, []);
-    assert.equal(r.speechReply, 'Opening Brave. Opening YouTube.');
+    assert.equal(r.speechReply, 'Opening YouTube.');
   });
 
   it('"I need you to open a Brave browser" drops the "a"', async () => {
     const { agent, opened } = agentWith();
-    await agent.processVoiceInput('I need you to open a Brave browser and play YouTube.');
+    await agent.processVoiceInput('I need you to open a Brave browser and take a note that hello.');
     assert.deepEqual(opened, ['Brave browser']);
   });
 
@@ -120,6 +121,8 @@ describe('Kevo Phase 0 session 2', () => {
       const errors: string[] = [];
       const listener = new JarvisVoiceListener({ onListeningStateChange: (s) => states.push(s), onError: (e) => errors.push(e) });
       assert.equal(listener.start(), true);
+      rec.onerror({ error: 'network' }); // session 3: one drop is retried quietly
+      assert.equal(listener.getListeningState(), true);
       rec.onerror({ error: 'network' });
       assert.equal(listener.getListeningState(), false);
       assert.deepEqual(states, [true, false]);
