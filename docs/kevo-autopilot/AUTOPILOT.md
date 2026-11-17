@@ -11,7 +11,7 @@ Owner decisions on record (16 Nov 2026):
 
 Do exactly ONE kind of action per run (the first that applies below), finish it, record it, stop. A run must end within about 90 minutes.
 
-0. **Setup.** `git clone --depth 1 https://github.com/mwalikokelvo/anf` and `git fetch --depth 1 origin kevo-autopilot-state`. Read `STATE.md` from that branch. If its `lock` is newer than 100 minutes, another run is working: stop without changes. Otherwise write `lock: <now UTC>` and push the state branch before working.
+0. **Setup.** `git clone --depth 1 https://github.com/mwalikokelvo/anf` and `git fetch --depth 1 origin kevo-autopilot-state`. Read `STATE.md` from that branch. If it says `paused: yes`, the owner has stopped the autopilot: stop without changes. If its `lock` is newer than 100 minutes, another run is working: stop without changes. Otherwise write `lock: <now UTC>` and push the state branch before working.
 1. **Read** `CLAUDE.md`, `docs/KEVO-PLAN.md`, `docs/KEVO-MAP.md`, the current phase brief in `docs/kevo-briefs/`, and the newest `HANDOFF.md` entry.
 2. **Pick the action**, in this order:
    1. An autopilot pull request (branch `claude/kevo-*`) has a failing check: find the root cause and push a fix. A failure that is also red on `main` is not this PR's: fix it in the same PR only if it is small, otherwise note it in STATE.
