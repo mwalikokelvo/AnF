@@ -125,7 +125,8 @@
       "words": "Set a timer for ten seconds",
       "seconds": 2.71,
       "expect": {
-        "action": "timer_set"
+        "action": "timer_set",
+        "seconds": 10
       },
       "check": "several_in_a_row"
     },
@@ -137,7 +138,8 @@
       "words": "Kevo, open Brave browser",
       "seconds": 2.6,
       "expect": {
-        "action": "open_app"
+        "action": "open_app",
+        "app": "Brave"
       },
       "check": "open_app"
     },
@@ -185,7 +187,8 @@
       "words": "Set a timer for ten seconds",
       "seconds": 2.25,
       "expect": {
-        "action": "timer_set"
+        "action": "timer_set",
+        "seconds": 10
       },
       "check": "several_in_a_row"
     },
@@ -197,7 +200,8 @@
       "words": "Kevo, open Brave browser",
       "seconds": 2.06,
       "expect": {
-        "action": "open_app"
+        "action": "open_app",
+        "app": "Brave"
       },
       "check": "open_app"
     },

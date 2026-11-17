@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -34,18 +35,21 @@ MODELS = {
     "en_US-ljspeech-medium": {
         "path": "en/en_US/ljspeech/medium/en_US-ljspeech-medium",
         "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+        "config_sha256": "141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860",
         "dataset": "LJ Speech (https://keithito.com/LJ-Speech-Dataset/)",
         "license": "public domain",
     },
     "en_US-libritts_r-medium": {
         "path": "en/en_US/libritts_r/medium/en_US-libritts_r-medium",
         "sha256": "10bb85e071d616fcf4071f369f1799d0491492ab3c5d552ec19fb548fac13195",
+        "config_sha256": "b471dc60d2d8335e819c393d196d6fbf792817f40051257b269878505bc9afb3",
         "dataset": "LibriTTS-R (http://www.openslr.org/141/)",
         "license": "CC BY 4.0",
     },
     "en_GB-vctk-medium": {
         "path": "en/en_GB/vctk/medium/en_GB-vctk-medium",
         "sha256": "4e9fc85ab9009385319fc6bae7f55577f8a2d7ee77fd9159a5500eb6531f41e6",
+        "config_sha256": "7f85e6391ed0f7f46e4abd19345929a16be931a0c9945086f96692dce2087fa8",
         "dataset": "VCTK (https://datashare.ed.ac.uk/handle/10283/3443)",
         "license": "CC BY 4.0",
     },
@@ -62,15 +66,16 @@ VOICES = {
 }
 
 # Step 0.5 table. Clips play in this order; the later ones of a check come
-# inside the follow-up window, without the name.
+# inside the follow-up window, without the name. `expect` holds the action and
+# the arguments it must carry.
 CHECKS = [
     ("several_in_a_row", [
-        ("time", "Kevo, what time is it?", "tell_time"),
-        ("help", "What can you do?", "help"),
-        ("timer", "Set a timer for ten seconds", "timer_set"),
+        ("time", "Kevo, what time is it?", {"action": "tell_time"}),
+        ("help", "What can you do?", {"action": "help"}),
+        ("timer", "Set a timer for ten seconds", {"action": "timer_set", "seconds": 10}),
     ]),
-    ("open_app", [("open-brave", "Kevo, open Brave browser", "open_app")]),
-    ("stop", [("black-holes", "Kevo, tell me about black holes", "ai_conversation")]),
+    ("open_app", [("open-brave", "Kevo, open Brave browser", {"action": "open_app", "app": "Brave"})]),
+    ("stop", [("black-holes", "Kevo, tell me about black holes", {"action": "ai_conversation"})]),
 ]
 REQUEST_VOICES = ["ljspeech", "libritts-3922"]
 
@@ -92,9 +97,10 @@ def fetch_model(name, cache):
         if not target.exists():
             print(f"downloading {name}{suffix}")
             urllib.request.urlretrieve(VOICE_BASE + info["path"] + suffix, target)
-    digest = hashlib.sha256(onnx.read_bytes()).hexdigest()
-    if digest != info["sha256"]:
-        sys.exit(f"{onnx}: SHA-256 {digest} does not match {info['sha256']}; delete it and retry")
+    for target, expected in ((onnx, info["sha256"]), (conf, info["config_sha256"])):
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        if digest != expected:
+            sys.exit(f"{target}: SHA-256 {digest} does not match {expected}; delete it and retry")
     return onnx
 
 
@@ -118,12 +124,12 @@ def synthesize(voices, voice_id, text, out_path, length_scale=None):
         return round(w.getnframes() / 16000, 2)
 
 
-def check_clips():
-    """Check the committed clips against the brief without remaking them."""
-    manifest = json.loads((OUT / "clips.json").read_text(encoding="utf-8"))
+def check_clips(out=OUT):
+    """Check the clips in `out` against the brief without remaking them."""
+    manifest = json.loads((out / "clips.json").read_text(encoding="utf-8"))
     problems = []
     for clip in manifest["clips"]:
-        path = OUT / clip["file"]
+        path = out / clip["file"]
         if not path.exists():
             problems.append(f"{clip['id']}: {clip['file']} is missing")
             continue
@@ -142,10 +148,10 @@ def check_clips():
     if len(by_kind("lookalike")) < 10:
         problems.append("need 10 look-alike clips")
     files = {c["file"] for c in manifest["clips"]} | {"clips.json", "README.md"}
-    stray = sorted(p.name for p in OUT.iterdir() if p.name not in files)
+    stray = sorted(p.name for p in out.iterdir() if p.name not in files)
     if stray:
         problems.append(f"files not in clips.json: {stray}")
-    total = sum(p.stat().st_size for p in OUT.iterdir() if p.is_file())
+    total = sum(p.stat().st_size for p in out.iterdir() if p.is_file())
     if total > MAX_TOTAL_BYTES:
         problems.append(f"{total} bytes is over 20 MB")
     for problem in problems:
@@ -176,15 +182,31 @@ def main():
         sid = None if speaker is None else voice.config.speaker_id_map[speaker]
         voices[vid] = (voice, sid)
 
-    OUT.mkdir(parents=True, exist_ok=True)
-    for old in OUT.glob("*.wav"):
-        old.unlink()
+    # Make everything in a new folder first; the committed clips are replaced
+    # only once the new set is complete and passes the check.
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    new = Path(tempfile.mkdtemp(prefix=".kevo-selftest-new-", dir=OUT.parent))
+    try:
+        make_clips(voices, new)
+        if (OUT / "README.md").exists():
+            shutil.copy2(OUT / "README.md", new / "README.md")
+        if check_clips(new):
+            sys.exit("the new clips failed the check; the committed clips are unchanged")
+        old = OUT.with_name(OUT.name + ".old")
+        if OUT.exists():
+            OUT.rename(old)
+        new.rename(OUT)
+        shutil.rmtree(old, ignore_errors=True)
+    finally:
+        shutil.rmtree(new, ignore_errors=True)
 
+
+def make_clips(voices, out):
     clips, checks = [], []
 
     def add(clip_id, kind, voice_id, text, expect, check=None, length_scale=None):
         file = f"{clip_id}.wav"
-        seconds = synthesize(voices, voice_id, text, OUT / file, length_scale)
+        seconds = synthesize(voices, voice_id, text, out / file, length_scale)
         clip = {"id": clip_id, "file": file, "kind": kind, "voice": voice_id,
                 "words": text.rstrip("."), "seconds": seconds, "expect": expect}
         if check:
@@ -195,8 +217,8 @@ def main():
     for voice_id in REQUEST_VOICES:
         for check, steps in CHECKS:
             ids = [add(f"req-{step}-{voice_id}", "request", voice_id, text,
-                       {"action": action}, check)
-                   for step, text, action in steps]
+                       expect, check)
+                   for step, text, expect in steps]
             checks.append({"check": check, "voice": voice_id, "clips": ids})
 
     for i in range(20):
@@ -222,10 +244,7 @@ def main():
         "checks": checks,
         "clips": clips,
     }
-    (OUT / "clips.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-
-    if check_clips():
-        sys.exit(1)
+    (out / "clips.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
