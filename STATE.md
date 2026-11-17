@@ -11,7 +11,7 @@ pc_test:
 waiting_for:
 blocked:
 last_passed_version: none yet
-owner_needed: turn on "Install Kevo test builds automatically and run Kevo's self-test" in AnF Settings once step 0.4 has shipped
+owner_needed: none yet. When step 0.4 is merged: install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
 
 ## Run log (newest last, keep 60)
 
