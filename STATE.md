@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock:
+lock: 2026-11-17T12:26Z
 phase: 0
 step: 0.1 and 0.3 with Codex (no PRs yet); 0.4a merged; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155)
 open_pr: none of ours. #156 (0.4a) merged as cb5a542 at 10:56Z, version 0.1.57.
