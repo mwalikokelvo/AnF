@@ -6,6 +6,22 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-16 — Kevo Phase 0 session 2 fixes, Windows 0.1.55 (Claude)
+
+The owner reran Phase 0 on installed 0.1.54 (Gemini's report "session 2"; its header says 0.1.53, but the greeting and stuck-answer replies only exist in 0.1.54). Tests 1-3 failed; 4 (typed request) and 5 (Stop) were not in the recording. Fixed on `claude/kevo-phase0-session2`:
+
+- "In the meantime, can you open Brave browser and play YouTube?" and "I need you to open a Brave browser…" are now commands: polite lead-ins come off when a command follows, "open X and play Y" runs as two requests, "a"/"an" is dropped, and "play/open YouTube, Google, Gmail" opens the site.
+- "Open browser" opens the first installed browser (Brave, Chrome, Firefox, Opera, Vivaldi, then Edge). After an app is not found, its name alone ("Brave browser") opens it; "open it" opens what was just talked about.
+- "Opening Brave." with no window: Explorer keeps an app it starts (or one already running in the background) behind AnF. AnF now calls `AllowSetForegroundWindow(ASFW_ANY)` before starting it. Windows-only, so compiled only by the Windows workflow.
+- A timer that goes off while Kevo is talking is said right after the answer instead of only being listed. Stop drops it from speech (still listed).
+- A recognition `network`, `not-allowed` or `audio-capture` error now turns the microphone off, so the button and orb match the message.
+- "not Kevo" / "now Kevo" is the name ("Yes?"), and "what's your name" is answered without the AI (it took 5 s).
+- The speaker no longer cancels an empty speech queue right before speaking, which can clip the first word. Unverified as the cause.
+
+Not changed: "Kevo." alone answering "Yes?" (intended in 0.1.54); the last exchange staying under the orb; the outside voice at 02:00-02:13 (not from AnF). Unexplained: in this code "not Kevo." and "Kevo." should never reach the reply step as whole text (the wake parser strips the name), but the report shows them in Activity. Worth checking against the video.
+
+Verified here: type check, 597 node tests, 12 release checks, vite build, 153 Rust tests (Linux). NOT verified: Windows compile of the foreground call, installed app with a real microphone. Owner reruns the five Phase 0 tests on 0.1.55.
+
 ## 2026-11-16 — Kevo Phase 0 fixes, Windows 0.1.54 (Claude)
 
 Phase 0 of `docs/KEVO-PLAN.md` was run by the owner on installed 0.1.53 (Gemini wrote the report from the recording). Tests 2-5 passed; test 1 (several requests in a row) failed. Fixed on `claude/kevo-phase0`:

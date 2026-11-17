@@ -80,6 +80,13 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   });
 }
 
+/** Stops speech that is playing or queued. Does nothing when there is none. */
+function cancelSpeech(): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  if (synth.speaking || synth.pending) synth.cancel();
+}
+
 export interface JarvisSpeakerOptions {
   onStart?: () => void;
   onEnd?: () => void;
@@ -138,7 +145,7 @@ export class JarvisSpeaker {
       const canSpeak = 'speechSynthesis' in window;
       const voices = canSpeak ? await loadVoices() : [];
       if (token !== this.utteranceToken) return; // stop() already finished this reply
-      if (canSpeak) window.speechSynthesis.cancel();
+      cancelSpeech(); // only when something is still queued: cancelling right before speaking clips the first word
       const voice = pickVoice(voices, profile, onlineVoicesAllowed());
       const tone = STYLE_TONE[profile.style || ''] || { rate: 1, pitch: 1 };
       for (;;) {
@@ -270,9 +277,7 @@ export class JarvisSpeaker {
     const waiting = this.streamWake; // a stream waiting for its next sentence must notice it was stopped
     this.streamWake = null;
     waiting?.();
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    cancelSpeech();
     if (this.audioEl) {
       this.audioEl.pause();
       this.audioEl = null;

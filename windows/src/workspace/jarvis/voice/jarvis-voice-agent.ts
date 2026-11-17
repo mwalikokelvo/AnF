@@ -23,6 +23,8 @@ export interface JarvisActionContext {
   cancelAI?: () => void;
   /** Opens a web search for the words in the owner's browser. */
   searchWeb?: (query: string) => Promise<void>;
+  /** Opens a web page (https only) in the owner's browser. */
+  openUrl?: (url: string) => Promise<void>;
   /** Says something later, on Kevo's own initiative (a timer going off). */
   announce?: (text: string) => void;
   triageSupport?: () => number;
@@ -69,6 +71,35 @@ for (const [names, view, action, say] of [
   for (const name of names.split('|')) WORKSPACE_PLACES[name] = { view, action, say };
 }
 
+/** Websites Kevo opens by name ("play YouTube", "open Gmail") in the owner's browser. */
+const SITES: Record<string, { url: string; name: string }> = {
+  youtube: { url: 'https://www.youtube.com', name: 'YouTube' },
+  google: { url: 'https://www.google.com', name: 'Google' },
+  gmail: { url: 'https://mail.google.com', name: 'Gmail' },
+};
+
+/** The start of something Kevo can do, as opposed to a question for the AI. */
+const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
+
+/** "In the meantime, can you open Brave browser?" is the command "open Brave browser". A question stays as it is. */
+export function stripLeadIn(text: string): string {
+  const whole = text.trim();
+  const rest = whole
+    .replace(/^(?:(?:in the meantime|meanwhile|also|now|and|ok(?:ay)?|so|then)[\s,]+)*(?:(?:can|could|would|will) you(?: please)?|please|i (?:need|want) you to|go ahead and)[\s,]+/i, '')
+    .replace(/[\s,]+please(?=[.!?]*$)/i, '')
+    .replace(/\?+$/, '');
+  return rest !== whole && COMMAND_START.test(rest) ? rest : whole;
+}
+
+/** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
+export function splitRequests(text: string): string[] {
+  return text
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip)\b)/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 export class JarvisVoiceAgent {
   private context: JarvisActionContext;
 
@@ -83,6 +114,10 @@ export class JarvisVoiceAgent {
   private timers = new Set<ReturnType<typeof setTimeout>>();
   private lastSpoken = '';
   private generation = 0;
+  /** What the previous request did, for follow-ups such as "open it" or naming the app after a miss. */
+  private lastAction = '';
+  /** The app or thing last talked about, which "open it" refers to. */
+  private lastSubject = '';
 
   /** Things Kevo can answer or do without the AI. Null when the request is not one of them. */
   private quickAnswer(text: string): ActionResult | null {
@@ -92,6 +127,9 @@ export class JarvisVoiceAgent {
     if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
     // Just a greeting or its name, however the recogniser spelled it: Kevo answers that it is there.
     if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2})?$/.test(lower)) return done('greeting', 'Yes?');
+    // "Hey Kevo" heard as "not Kevo" or "now Kevo": still just the name, not a statement for the AI.
+    if (/^(now|not|so|um|uh|oh|and)[\s,]+[kc][aeiy]{1,2}[vb][aeo]\w{0,2}$/.test(lower)) return done('greeting', 'Yes?');
+    if (/\b(what'?s|what is) your name\b|^who are you$/.test(lower)) return done('name', 'My name is Kevo.');
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
     // Up to two stray words first ("maybe? what else can you do"), nothing after: "what can I do to fix this" is a question.
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)) {
@@ -132,8 +170,37 @@ export class JarvisVoiceAgent {
 
   /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
-    const result = await this.handle(spokenText, onPart);
+    const requests = splitRequests(stripLeadIn(spokenText));
+    let result: ActionResult;
+    if (requests.length > 1) {
+      // One after another, each with its own short reply. Not streamed: the replies are joined.
+      const results: ActionResult[] = [];
+      const asked = this.generation;
+      for (const request of requests) {
+        results.push(await this.handleOne(request));
+        // Stop pressed during one part: do not go on to open, play or write the next.
+        if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      }
+      result = {
+        handled: results.some((r) => r.handled),
+        actionName: results.map((r) => r.actionName).join('+'),
+        speechReply: results.map((r) => r.speechReply).filter(Boolean).join(' '),
+      };
+    } else {
+      result = await this.handleOne(requests[0] ?? '', onPart);
+    }
     if (result.speechReply && result.actionName !== 'repeat') this.lastSpoken = result.speechReply;
+    return result;
+  }
+
+  private async handleOne(text: string, onPart?: (text: string) => void): Promise<ActionResult> {
+    const result = await this.handle(text, onPart);
+    const short = text.replace(/[.!?]+$/, '').trim();
+    // A short name that was not a command ("Brave browser") is what a following "open it" means.
+    if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
+      this.lastSubject = short;
+    }
+    this.lastAction = result.actionName;
     return result;
   }
 
@@ -142,13 +209,25 @@ export class JarvisVoiceAgent {
     this.generation++;
   }
 
+  /** A new conversation: "open it" and follow-ups must not reach back into the old one. */
+  resetConversation(): void {
+    this.lastSubject = '';
+    this.lastAction = '';
+  }
+
   private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
-    const text = spokenText.trim();
+    let text = spokenText.trim();
     if (!text) {
       return { handled: false, actionName: 'none', speechReply: 'I am listening, sir.' };
     }
 
-    const lower = text.toLowerCase();
+    // "Open it" opens what was just talked about.
+    if (/^(?:open|launch|start)\s+(?:it|that|this|that one|this one|it up)[.!?]*$/i.test(text)) {
+      if (!this.lastSubject) return { handled: true, actionName: 'open_unclear', speechReply: 'Open what? Say the name of the app.' };
+      text = `open ${this.lastSubject}`;
+    }
+
+    let lower = text.toLowerCase();
 
     // Clock / calendar (Phase 2B)
     if (
@@ -175,6 +254,23 @@ export class JarvisVoiceAgent {
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
+
+    // Right after an app was not found, a short name on its own ("Brave browser") is the app to open.
+    if (this.lastAction === 'open_app_failed' && text.split(/\s+/).length <= 3 && !COMMAND_START.test(text)) {
+      text = `open ${text}`;
+      lower = text.toLowerCase();
+    }
+
+    const site = /^(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?[.!?]*$/.exec(lower);
+    if (site && this.context.openUrl) {
+      const { url, name } = SITES[site[1]];
+      try {
+        await this.context.openUrl(url);
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
+      } catch (err) {
+        return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+      }
+    }
 
     const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+?)[.!?]*$/.exec(lower);
     if (web && this.context.searchWeb) {
@@ -280,8 +376,9 @@ export class JarvisVoiceAgent {
     }
 
     // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
-    const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
+    const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+|an?\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
     if (app && this.context.openApp) {
+      this.lastSubject = app[1];
       try {
         const opened = await this.context.openApp(app[1]);
         return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
