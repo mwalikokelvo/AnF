@@ -40,7 +40,23 @@ Microphone → **Ears** (silence detection, "Kevo" detector, offline transcripti
 | 7. Pack voices, real team | 0.6.x | Pack voices if a voice model can ship; team cards real or removed | **owner decides first** | Owner accepts the voice; no made-up numbers |
 | 8. Android, then ThingsBook | 0.7.x | Kevo on the phone; voices in ThingsBook | written when next | Phase 0 checks pass on the phone |
 
+| HUD track (parallel) | with each merge | Float pill, telemetry pill, approval card, drop files, summary card; desk companion with Phase 8 | `kevo-briefs/hud.md` | Float follows state within 100 ms, 0 % CPU idle, approvals by click and voice |
+
 No phase starts before the previous one passed on the PC, with one exception: Phases 3, 4 and 5 are built and merged one after another on CI gates alone, and one PC test after Phase 5 covers all three.
+
+The HUD track (owner, 17 Nov 2026) runs next to the phases from now on: it only shows state and asks for approval, so it does not wait for them. Its steps go on the board like phase steps.
+
+### Where the 17 Nov engineering handoff lands
+
+| Handoff item | Where |
+|---|---|
+| Streaming offline transcription, microphone state in sync, wake word | Phase 1 (sherpa-onnx streaming model; events from Rust) |
+| Talking over Kevo stops it within 300 ms, echo cancellation | Phase 1 step 1.6, after 1.1–1.5 pass |
+| Typed Rust actions instead of clicking the screen | Phase 2 (one action list, tool calling) |
+| Conversation context across turns | Phase 2 (recent turns), Phase 3 (across restarts) |
+| Timers and alerts that sound with the window minimised | Phase 4 |
+| Float HUD, approval card, summary card | HUD track |
+| Android desk companion | HUD step H.7, with Phase 8 |
 
 ## Who does what
 
@@ -69,4 +85,5 @@ No phase starts before the previous one passed on the PC, with one exception: Ph
 - Test audio uses synthetic voices, kept in the repo.
 - Autopilot may merge into `main` when every gate passes, and may test on the owner's PC when it is on.
 - Kevo test builds (unsigned; Defender has wrongly flagged AnF's installer before) are cleared to run on the owner's PC through AnF's opt-in setting. They are published only as prereleases named "not for general use"; general publishing stays paused.
+- HUD track runs in parallel with the phases (17 Nov 2026).
 - Phase 7 (pack voices, `model.safetensors`, public or private cloned voices) waits for the owner.

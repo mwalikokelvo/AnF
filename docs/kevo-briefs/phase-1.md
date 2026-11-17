@@ -40,3 +40,9 @@ A Rust test feeds them through the pipeline from WAV, with no microphone, and ch
 ## 1.5 Self-test on the PC
 
 The Phase 0 self-test gains the 20 wake clips, the look-alikes and 10 minutes of background speech without the name (the false-wake target is per 10 minutes), played through the speakers. It reports wake rate, false wakes and idle CPU (average over 60 s of silence) in `selftest-<version>.json`, as counts only (see Phase 0 step 0.4: no heard text for these clips).
+
+## 1.6 Talking over Kevo (after 1.1–1.5 pass on the PC)
+
+Added from the owner's 17 Nov 2026 engineering handoff. While Kevo speaks, the microphone keeps listening through echo cancellation (the speech Kevo is playing is subtracted from the microphone signal in Rust, for example with the WebRTC audio-processing echo canceller, pure Rust or statically linked, no new system library). If the "Kevo" detector or VAD hears the owner over Kevo's own voice, Kevo stops speaking within 300 ms and listens. Kevo's own voice must never wake it.
+
+Tests: a Rust test mixes a self-test request clip over a recording of Kevo's speech and checks that playback is told to stop within 300 ms of the clip's start; Kevo's speech alone must give no wake and no stop. The self-test adds the same check through the speakers and reports the stop delay.
