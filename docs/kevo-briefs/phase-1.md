@@ -39,4 +39,4 @@ A Rust test feeds them through the pipeline from WAV, with no microphone, and ch
 
 ## 1.5 Self-test on the PC
 
-The Phase 0 self-test gains the 20 wake clips, the look-alikes and 10 minutes of background speech without the name (the false-wake target is per 10 minutes), played through the speakers. It reports wake rate, false wakes and idle CPU (average over 60 s of silence) in `selftest-<version>.json`.
+The Phase 0 self-test gains the 20 wake clips, the look-alikes and 10 minutes of background speech without the name (the false-wake target is per 10 minutes), played through the speakers. It reports wake rate, false wakes and idle CPU (average over 60 s of silence) in `selftest-<version>.json`, as counts only (see Phase 0 step 0.4: no heard text for these clips).

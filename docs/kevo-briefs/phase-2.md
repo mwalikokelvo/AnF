@@ -30,7 +30,7 @@ Start loading the model when the microphone is turned on (and when AnF starts wi
 
 ## 2.6 Model choice and the CI gate
 
-A CI job (Linux) starts the shipped `llama-server` with the shipped model and runs the whole phrase list through the real `kevo_ask` path. It fails below 95%.
+A CI job (Linux) starts `llama-server` with the model Windows ships (the Q8_0 GGUF pinned in `model_download/policy.rs`, not the Q4_K_M that `prepare-linux.mjs` requantizes for Linux) and runs the whole phrase list through the real `kevo_ask` path. It fails below 95%.
 
 Model size: read RAM and graphics card from the newest `selftest-*.json` on the state branch. Default is Qwen3 1.7B. Use the next size up only if the PC has 16 GB RAM or more and the self-test shows the first spoken sentence within 5 s with it.
 
