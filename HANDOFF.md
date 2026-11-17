@@ -22,7 +22,7 @@ The owner reran Phase 0 on installed 0.1.55 (report file says 0.1.55; its header
 
 Not changed: "hey you didn't open youtube" at 03:29 had no wake word and came long after the follow-up window (correct). "Voice set to …" Activity lines have no prefix (system lines). If the default browser is not Brave, "open Brave and play YouTube" opens YouTube in the default browser.
 
-Verified here: type check, 611 node tests, 12 release checks, vite build. No Rust changed. NOT verified: installed app with a real microphone. Owner reruns the five Phase 0 tests on 0.1.56, including 3 (timer) and 5 (Stop).
+Codex and CodeQL review points fixed in a second commit. Verified here: type check, 617 node tests, 12 release checks, vite build; GitHub CI green on the first commit. No Rust changed. NOT verified: installed app with a real microphone. Owner reruns the five Phase 0 tests on 0.1.56, including 3 (timer) and 5 (Stop).
 
 ## 2026-11-16 — Kevo Phase 0 session 2 fixes, Windows 0.1.55 (Claude)
 
