@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-17T16:26Z
 phase: 0
 step: 0.1 (#148) and 0.3 (#150) moved to team:claude at 14:25Z (Codex stalled, no PRs); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158, listener wake aliases, team:claude) waits on #155; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155, #158)
 open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, draft): head 466cf08 fixes 3 Codex findings, 4th split to #158; all 4 threads answered and resolved; @codex review asked 14:40Z.
