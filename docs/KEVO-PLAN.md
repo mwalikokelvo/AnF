@@ -46,11 +46,12 @@ No phase starts before the previous one passed on the PC, with one exception: Ph
 
 | Who | Role |
 |---|---|
-| Claude autopilot (scheduled, every 2 hours) | Builds every step from its brief, fixes CI and review findings, merges when the gates pass, writes the next brief |
+| Claude autopilot (scheduled, every 2 hours) | Coordinates: keeps the GitHub issue board, hands steps to Codex and Jules, builds steps that join several parts, reviews, merges when the gates pass, writes the next brief (`docs/kevo-autopilot/TEAM.md`) |
+| Codex (cloud) | Builds the Rust, CI and packaging steps it is given on the board; reviews every pull request |
+| Jules (Google, cloud) | Builds the TypeScript, UI, test and script steps it is given on the board |
 | Claude "Kevo PC results" (scheduled, on the owner's PC) | Copies the self-test results to the state branch |
-| Codex | Reviews every pull request automatically |
 | Owner | Once, when step 0.4 ships: installs that build and turns on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings. Decides Phase 7. Can stop the autopilot at any time (`paused: yes` in `STATE.md` on the branch `kevo-autopilot-state`) |
-| Other assistants | Optional: any brief can be handed to Antigravity, Codex or others; they follow the same rules and open pull requests, never merging their own |
+| Antigravity, Gemini CLI, Cursor, Hermes, DeepSeek, Grok | When the owner opens one: takes an unclaimed `team:any` issue from the board, same rules, never merges its own |
 
 ## Rules for every assistant
 

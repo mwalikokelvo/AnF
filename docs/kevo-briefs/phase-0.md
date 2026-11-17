@@ -1,6 +1,17 @@
 # Phase 0 brief: close Phase 0, and make Kevo testable without the owner
 
-Version 0.1.57 onward. Each step below is one pull request, merged in order. Read `docs/KEVO-MAP.md` first.
+Version 0.1.57 onward. Each step below is one issue and one pull request. Read `docs/KEVO-MAP.md` and `docs/kevo-autopilot/TEAM.md` first.
+
+| Step | Owner | Depends on |
+|---|---|---|
+| 0.1 Kevo's log | Jules | none |
+| 0.2 Phrase list | Claude | none |
+| 0.3 Test builds | Codex | none |
+| 0.4a Test clips | Jules | none |
+| 0.4b Automatic test builds and self-test | Claude | 0.1, 0.3, 0.4a |
+| 0.5 The five checks, as self-test scripts | Claude | 0.4b |
+
+Steps 0.1, 0.2, 0.3 and 0.4a start at the same time.
 
 Phase 0 is done when the self-test on the owner's PC passes all five Phase 0 checks (step 0.5) on one build.
 
@@ -40,7 +51,9 @@ The owner cleared these test builds for their own PC on 16 Nov 2026 (`docs/KEVO-
 
 AnF's normal "Check for updates" already ignores prereleases (`updates.rs` `pick_latest`, with a test). Keep that test.
 
-## 0.4 Self-installing test builds and the self-test
+## 0.4 Automatic test builds and the self-test
+
+Step 0.4a is the test clips paragraph at the end of this section, with its generator script. Step 0.4b is everything else.
 
 A new setting in AnF Settings, **"Run Kevo test builds and Kevo's self-test automatically"**, is off by default. Only the owner turns it on, once. Nothing is installed: the owner's installed AnF stays as it is, and the test build runs from its own folder. When the setting is on:
 
@@ -60,7 +73,7 @@ A new setting in AnF Settings, **"Run Kevo test builds and Kevo's self-test auto
 - writes `~/AnF-Kevo/selftest-<version>.json` (creating the folder). It holds, per request clip: the clip's id, the expected result, what was heard while that clip played, the action, the reply and timings. For wake, look-alike and background clips it holds counts only (wakes, false wakes), never heard text. It also holds errors, `system_stats` (RAM, CPU) and the graphics card name. This file is published to the public state branch, so nothing heard outside a request clip's playback window goes into it, and the user's home folder in any path is written as `~`
 - quits when done (the helper then restarts the owner's AnF)
 
-Test clips: 16 kHz mono WAV files under `windows/src-tauri/resources/kevo-selftest/`, made with a free offline voice (for example Piper) in at least two voices, plus a `clips.json` listing each clip's words and expected result. Generate them with a script kept in `scripts/`, so they can be remade.
+Test clips (step 0.4a): 16 kHz mono WAV files under `windows/src-tauri/resources/kevo-selftest/`, made with a free offline voice (for example Piper), plus a `clips.json` listing each clip's words and expected result. Generate them with a script kept in `scripts/`, so they can be remade. Include the step 0.5 requests in at least two voices, and, for Phase 1, 20 "Kevo" and "Hey Kevo" clips in at least 4 voices and 10 look-alike words. Keep the total under 20 MB.
 
 ## 0.5 The five Phase 0 checks, as self-test scripts
 
