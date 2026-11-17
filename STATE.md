@@ -3,15 +3,15 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-17T14:25Z
+lock: 
 phase: 0
-step: 0.1 and 0.3 with Codex (no PRs yet); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155)
-open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, draft, @codex review asked 12:29Z). #156 (0.4a) merged as cb5a542, version 0.1.57.
+step: 0.1 (#148) and 0.3 (#150) moved to team:claude at 14:25Z (Codex stalled, no PRs); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158, listener wake aliases, team:claude) waits on #155; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155, #158)
+open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, draft): head 466cf08 fixes 3 Codex findings, 4th split to #158; all 4 threads answered and resolved; @codex review asked 14:40Z.
 pc_test:
-waiting_for: #157: Codex reviewed e9ff702 at 12:33Z with 4 P2 findings (time-phrase too broad, timer clarification lost after "say that again", negated skip, Calvo/Kalvo missing from the listener wake aliases); next run handles them (2b.2). Codex finished #148 (0.1, task commit a094c54) and #150 (0.3, ecc5bf6) at 08:05-08:15Z but opened no pull request: the owner has to press "Create PR" on each Codex task (asked 2026-11-17T08:33Z). Stall rule (6 h after 07:59Z hand-off, about 14:00Z): next run after 14:00Z takes them over (team:claude) if still no PR. Jules is read-only (winds down 31 Dec 2026): never hand it work.
+waiting_for: #157: CI and Codex review of 466cf08 (if no Codex review by ~17:40Z, fresh subagent review per AUTOPILOT.md). Next own work: build #148 (0.1) or #150 (0.3) as team:claude (2b.5); if a late Codex PR appears for either, close it with a link to Claude's. Jules is read-only (winds down 31 Dec 2026): never hand it work.
 blocked:
 last_passed_version: none yet
-owner_needed: press "Create PR" on the two finished Codex tasks for #148 and #150 (links in their issue comments). Later: when step 0.4 is merged, install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
+owner_needed: none now (the "Create PR" ask for #148/#150 is dropped: Claude took them over). Later: when step 0.4 is merged, install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
 
 ## Run log (newest last, keep 60)
 
@@ -23,3 +23,4 @@ owner_needed: press "Create PR" on the two finished Codex tasks for #148 and #15
 - 2026-11-17T08:44Z (Claude, interactive): merged #154 (0.2 phrase list; tests only, no version bump). Codex review clean on 5a2241a.
 - 2026-11-17T10:26Z (autopilot): 2b.3 merged #156 (0.4a test clips) after main merge + bump to 0.1.57; all checks green on 40d93a1 (Windows run 44065085283), Codex clean on d699eb9, threads resolved. Board: no Codex PRs yet for #148/#150, not stalled before ~14:00Z.
 - 2026-11-17T12:26Z (autopilot): no team:claude step ready (#152 waits on #148/#150); took #155 (team:any, unclaimed), built 0.2 fix 1, PR #157 (draft, @codex review asked). Phrase list 113/113 variants; tsc, npm test 619, build, check-release 12 pass. Codex #148/#150 not stalled before ~14:00Z.
+- 2026-11-17T14:25Z (autopilot): 2a moved stalled #148/#150 to team:claude (no Codex PRs 6 h after hand-off). 2b.2 on #157: 3 Codex findings fixed in 466cf08 with phrase-list entries (red before, 117/117 after), listener aliases split to #158; threads resolved; tsc, npm test 619, build, check-release 12 pass.
