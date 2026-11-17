@@ -110,24 +110,25 @@ export class JarvisVoiceListener {
           }
         }
 
+        if (final.trim()) {
+          const late = this.promoted && squashWords(final) === this.promoted;
+          this.promoted = '';
+          if (!interim) { this.interim = ''; clearTimeout(this.interimTimer); }
+          if (!late) { // a late confirmation of words already acted on is not run twice
+            this.heard.push(final.trim());
+            this.settle();
+          }
+        }
+
         if (interim) {
           this.onInterimSpeech?.(interim);
           // Talking inside the follow-up window: the window must not close mid-sentence.
           if (this.isAwake()) this.keepAwake();
           if (this.heard.length) this.settle(); // still talking: keep waiting for the rest
+          // Words after a confirmed part ("Hey Kevo" + "change your voice") are kept until they are confirmed too.
           this.interim = interim.trim();
           clearTimeout(this.interimTimer);
           this.interimTimer = setTimeout(() => this.promoteInterim(), this.settleMs + 1400);
-        }
-
-        if (final.trim()) {
-          this.interim = '';
-          clearTimeout(this.interimTimer);
-          const late = this.promoted && squashWords(final) === this.promoted;
-          this.promoted = '';
-          if (late) return; // already acted on as heard
-          this.heard.push(final.trim());
-          this.settle();
         }
       };
 
@@ -175,6 +176,7 @@ export class JarvisVoiceListener {
     clearTimeout(this.settleTimer);
     clearTimeout(this.interimTimer);
     this.interim = '';
+    this.promoted = '';
     this.heard = [];
     this.muted = false; // a later start() is a fresh session; whoever muted will mute again when Kevo talks
     this.setAwakeUntil(0);
@@ -211,7 +213,7 @@ export class JarvisVoiceListener {
     this.muted = muted;
     // Ignoring results is not enough: the recogniser hands over what it heard a moment after Kevo stops.
     // So the session is dropped while Kevo talks and a fresh one starts afterwards, with nothing buffered.
-    if (muted) { clearTimeout(this.settleTimer); clearTimeout(this.interimTimer); this.interim = ''; this.heard = []; try { this.recognition?.abort(); } catch { /* not started */ } }
+    if (muted) { clearTimeout(this.settleTimer); clearTimeout(this.interimTimer); this.interim = ''; this.promoted = ''; this.heard = []; try { this.recognition?.abort(); } catch { /* not started */ } }
     else this.resume();
   }
 
@@ -235,8 +237,11 @@ export class JarvisVoiceListener {
     this.interim = '';
     if (!text || this.muted || !this.isRunning) return;
     this.promoted = squashWords(text);
-    this.heard.push(text);
-    this.settle();
+    // The pause has already been waited for: act now, without a second settling delay.
+    clearTimeout(this.settleTimer);
+    const all = [...this.heard, text].join(' ');
+    this.heard = [];
+    this.handleFinalTranscript(all);
   }
 
   /** Acts on what was heard once the speaker has paused for long enough. */

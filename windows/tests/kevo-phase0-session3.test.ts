@@ -178,3 +178,101 @@ describe('Kevo listener, session 3', () => {
     }
   });
 });
+
+describe('Kevo session 3 review fixes', () => {
+  beforeEach(() => clearJarvisHistory());
+  const agentFor = () => {
+    const opened: string[] = [];
+    const urls: string[] = [];
+    const asked: string[] = [];
+    const voices: (string | undefined)[] = [];
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      openApp: async (n) => { opened.push(n); return 'Brave'; },
+      openUrl: async (u) => { urls.push(u); },
+      searchMusic: async () => true,
+      searchVault: async () => 'Found it.',
+      askAI: async (q) => { asked.push(q); return `An answer to ${q}`; },
+      changeVoice: (n) => { voices.push(n); return 'Burt'; },
+    });
+    return { agent, opened, urls, asked, voices };
+  };
+
+  it('a browser is still opened when the next request only mentions a site', async () => {
+    const { agent, opened } = agentFor();
+    await agent.processVoiceInput('Open Brave browser and play the YouTube soundtrack');
+    await agent.processVoiceInput('open Brave and search my notes for Google');
+    assert.deepEqual(opened, ['Brave browser', 'Brave']);
+  });
+
+  it('ordinary "why did you" questions reach the AI', async () => {
+    const { agent, asked } = agentFor();
+    await agent.processVoiceInput('Why did you answer that question incorrectly?');
+    await agent.processVoiceInput('Why do you listen to jazz?');
+    assert.equal(asked.length, 2);
+    assert.equal((await agent.processVoiceInput('How come you stopped listening?')).actionName, 'mic_help');
+  });
+
+  it('"change the voice on my phone" does not change Kevo', async () => {
+    const { agent, voices, asked } = agentFor();
+    await agent.processVoiceInput('Can you change the voice on my phone?');
+    assert.deepEqual(voices, []);
+    assert.equal(asked.length, 1);
+  });
+
+  it('a long run of browser words is checked quickly (CodeQL: no exponential backtracking)', async () => {
+    const t = Date.now();
+    const { agent, opened } = agentFor();
+    await agent.processVoiceInput('open edge' + '\tbrowser\tedge'.repeat(40) + '!x and play YouTube');
+    assert.equal(opened.length, 1, 'not only browser words, so it is opened');
+    assert.ok(Date.now() - t < 500);
+  });
+});
+
+describe('Kevo listener review fixes', () => {
+  function fake() {
+    const g = globalThis as any;
+    const prev = g.window;
+    const box: { rec: any } = { rec: null };
+    g.window = { SpeechRecognition: class { start() { this.onstart?.(); } stop() { this.onend?.(); } abort() {} onstart: any; onend: any; constructor() { box.rec = this; } } };
+    return { box, restore: () => { g.window = prev; } };
+  }
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const event = (...parts: [string, boolean][]) => ({ resultIndex: 0, results: parts.map(([t, f]) => Object.assign([{ transcript: t }], { isFinal: f })) });
+
+  it('a confirmed wake word with unconfirmed words after it still runs the words', async () => {
+    const { box, restore } = fake();
+    try {
+      const heard: string[] = [];
+      const listener = new JarvisVoiceListener({ settleMs: 10, onFinalSpeech: (t) => heard.push(t) });
+      listener.start();
+      listener.setMuted(false);
+      box.rec.onresult(event(['Hey Kevo', true], ['change your voice', false]));
+      await wait(1500);
+      assert.deepEqual(heard, ['change your voice']);
+      listener.stop();
+    } finally {
+      restore();
+    }
+  });
+
+  it('the same words said again after Kevo answered are not taken as a late copy', async () => {
+    const { box, restore } = fake();
+    try {
+      const heard: string[] = [];
+      const listener = new JarvisVoiceListener({ settleMs: 10, onFinalSpeech: (t) => heard.push(t) });
+      listener.start();
+      box.rec.onresult(event(['any other voice', false]));
+      await wait(1500);
+      listener.setMuted(true); // Kevo answers
+      listener.setMuted(false);
+      listener.keepAwake();
+      box.rec.onresult(event(['any other voice', true]));
+      await wait(50);
+      assert.deepEqual(heard, ['any other voice', 'any other voice']);
+      listener.stop();
+    } finally {
+      restore();
+    }
+  });
+});

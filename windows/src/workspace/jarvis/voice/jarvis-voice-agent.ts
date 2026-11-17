@@ -82,10 +82,15 @@ const SITES: Record<string, { url: string; name: string }> = {
   gmail: { url: 'https://mail.google.com', name: 'Gmail' },
 };
 
-/** "open Brave", "open browser, Brave browser", "launch the Chrome browser". */
-const OPEN_BROWSER = /^(?:open|launch|start)\s+(?:the\s+|my\s+|an?\s+)?(?:web\s+)?(?:browser|brave|chrome|google chrome|firefox|edge|microsoft edge|opera|vivaldi)(?:\s+browser)?(?:[\s,]+(?:the\s+|an?\s+)?(?:browser|brave|chrome|firefox|edge|opera|vivaldi)(?:\s+browser)?)*[.!?]*$/i;
-/** Requests that open a page in the browser. */
-const WEB_REQUEST = /\b(youtube|google|gmail)\b|^(?:search (?:the )?(?:web|internet|online)|look up)\b/i;
+/** "open Brave", "open browser, Brave browser", "launch the Chrome browser": every word names a browser. */
+const BROWSER_WORDS = new Set(['the', 'my', 'a', 'an', 'web', 'browser', 'brave', 'chrome', 'google', 'firefox', 'edge', 'microsoft', 'opera', 'vivaldi']);
+function opensOnlyABrowser(request: string): boolean {
+  const m = /^(?:open|launch|start)\s+(.+?)[.!?]*$/i.exec(request.trim());
+  const words = m ? m[1].toLowerCase().split(/[\s,]+/).filter(Boolean) : [];
+  return words.length > 0 && words.some((w) => w !== 'google' && w !== 'microsoft' && BROWSER_WORDS.has(w) && !['the', 'my', 'a', 'an', 'web'].includes(w)) && words.every((w) => BROWSER_WORDS.has(w));
+}
+/** Requests that open a page in the browser: a site by name, a YouTube search or a web search. */
+const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?|(?:play|search|find|look up|watch|put on|show(?: me)?)\s+.+?\s+(?:on|in|from)\s+youtube|(?:search|look up)\s+youtube\s+for\s+.+|(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+.+)[.!?]*$/i;
 
 /** The start of something Kevo can do, as opposed to a question for the AI. */
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
@@ -148,9 +153,12 @@ export class JarvisVoiceAgent {
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
+    // Only failures: "why can't you respond to my voice", "why did you go silent", "how come you stopped listening".
+    // "Why did you answer that?" or "why do you listen to jazz?" are questions for the AI.
+    const why = /^(why|how come)\b/.test(lower);
     if (/\b(keep|leave)\b.*\b(mic|microphone)\b.*\bon\b/.test(lower)
-      // "why can't you respond to my voice", "why did you go silent", "how come you stopped listening"
-      || /^(why|how come)\b.*\b(?:(?:can'?t|cannot|don'?t|didn'?t|did|won'?t|do|aren'?t|are)\s+you|you\s+(?:stopped|stop|went|keep|never|don'?t|can'?t|didn'?t))\s+(?:(?:go|be|stay|keep|not|even|just|really)\s+){0,2}(?:respond|answer|hear|listen|reply|silent|quiet)/.test(lower)) {
+      || (why && /\b(?:(?:can'?t|cannot|don'?t|didn'?t|won'?t|aren'?t)\s+you|you\s+(?:stopped|never|don'?t|can'?t|didn'?t|won'?t))\s+(?:(?:even|just|really)\s+)?(?:respond|answer|hear|listen|reply)/.test(lower))
+      || (why && /\byou\s+(?:\w+\s+)?(?:go|went|gone|going|stay|stayed|fall|fell|stop|stopped)\s+(?:silent|quiet|listening|responding|answering)\b/.test(lower))) {
       return done('mic_help', 'The microphone stays on until you turn it off. Say Kevo before each request. Right after I answer, you have a few seconds to go on without my name.');
     }
 
@@ -158,7 +166,7 @@ export class JarvisVoiceAgent {
       return done('voice_list', `My voices are ${this.context.voiceNames().join(', ')}. Say change your voice, or change your voice to one of them.`);
     }
     // "Can you change your voice to another one?", "any other voice", and "just pick any" right after.
-    const voiceAsk = /\b(change|switch|swap)\s+(?:your|the|kevo'?s)\s+voice\b/.test(lower) && !/^(how|why|what|when|where)\b/.test(lower);
+    const voiceAsk = /\b(change|switch|swap)\s+(?:your|kevo'?s)\s+voice\b/.test(lower) && !/^(how|why|what|when|where)\b/.test(lower);
     const anotherVoice = /^(?:\S+ ){0,2}(?:any|an)?\s*(?:other|another|different|new) voice$/.test(lower);
     const pickAny = this.lastAction.startsWith('voice') && lower.split(/\s+/).length <= 7 && /\b(any|anyone|any one|whatever|you choose|you pick|surprise me|pick one|another one|next one)\b/.test(lower);
     if (this.context.changeVoice && (voiceAsk || anotherVoice || pickAny)) {
@@ -210,7 +218,7 @@ export class JarvisVoiceAgent {
     // "Open Brave and play YouTube": opening the site already opens the browser. Starting the browser as well
     // races it, and the late browser window lands a blank New Tab over YouTube (session 3).
     if (requests.length > 1 && requests.slice(1).some((r) => WEB_REQUEST.test(r))) {
-      requests = requests.filter((r, i) => i > 0 || !OPEN_BROWSER.test(r));
+      requests = requests.filter((r, i) => i > 0 || !opensOnlyABrowser(r));
     }
     let result: ActionResult;
     if (requests.length > 1) {
