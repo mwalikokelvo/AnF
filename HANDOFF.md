@@ -6,6 +6,12 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo 0.2 phrase list (Claude)
+
+Issue #149. `windows/tests/kevo-phrases.json` holds 136 requests: 23 in the owner's exact words from sessions 1-3 (5, 7 and 11, taken from `kevo-phase0-session2/3.test.ts` and the session 1 cases in `jarvis-overnight-pipeline.test.ts`) and 113 variants (polite lead-ins, chains with "and", follow-ups, misheard "Kevo", questions about Kevo, timers, YouTube, voices, microphone, the five Phase 0 check requests). Entries are `{ say, expect, source }`; follow-ups add an optional `before` list of what was said just before. `windows/tests/kevo-phrases.test.ts` runs each through a fresh `JarvisVoiceAgent` with fake actions (two app names are "not installed" so the not-found follow-up can be tried), prints the pass rate per source, and needs 100% on owner phrases and 90% on variants.
+
+Result: owner phrases 23/23 (100%), variants 109/113 (96.5%). No app code changed. Variants Kevo does not handle yet (kept with the right expected action): "Can you skip this song?" (goes to the AI, should be `next_track`), "Please tell me the time." (AI, should be `tell_time`), "five minutes" right after "set a timer" (AI, should be `timer_set`), "Calvo, what is 12 times 8?" (misheard name not stripped, AI instead of `arithmetic`). Checks: type check, 619 node tests, vite build, 12 release checks. No version bump.
+
 ## 2026-11-17 — Kevo team mode (Claude)
 
 The owner asked for the assistants to work together at the same time. `docs/kevo-autopilot/TEAM.md` sets up a GitHub issue board (label `kevo`, owner labels `team:claude|codex|jules|any`). The autopilot now coordinates: it hands ready steps to Codex (`@codex` comment) and Jules (`jules` label), builds steps that join several parts, routes review findings back to authors, and merges. Phase 0 steps 0.1, 0.2, 0.3 and 0.4a start in parallel. Docs only.
