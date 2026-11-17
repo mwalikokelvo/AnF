@@ -3075,6 +3075,15 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   else if(e.key==='-'||e.key==='_'||e.key==='ArrowDown'&&e.ctrlKey){e.preventDefault();const v=Math.max(0,prefs.volume-0.05);stopFade();audio.volume=prefs.volume=v;volume.value=String(v);volumeLabel.textContent=Math.round(v*100)+'%';save();}
   else if(e.key==='ArrowRight'&&e.ctrlKey){e.preventDefault();void step(1);}
   else if(e.key==='ArrowLeft'&&e.ctrlKey){e.preventDefault();void step(-1);}
+  else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
+    if(!audio.duration||!isFinite(audio.duration))return;
+    e.preventDefault();
+    const step=e.shiftKey?30:5;
+    const delta=e.key==='ArrowRight'?step:-step;
+    audio.currentTime=Math.max(0,Math.min(audio.duration,audio.currentTime+delta));
+    paint();
+    save();
+  }
   else if(e.key==='r'||e.key==='R'){e.preventDefault();prefs.repeat=({off:'all',all:'track',track:'off'} as const)[prefs.repeat];save();paint();}
   else if(e.key==='s'||e.key==='S'){e.preventDefault();prefs.shuffle=!prefs.shuffle;if(prefs.shuffle){prefs.originalQueue=[...queue];queue=[...(current?[current.id]:[]),...shuffled(queue.filter(id=>id!==current?.id))];}else queue=reconcileQueue(prefs.originalQueue,tracks.map(t=>t.id),false);save();paint();renderQueue();}
   else if(e.key==='l'||e.key==='L'){if(current){e.preventDefault();const liked=prefs.favorites.includes(current.id);prefs.favorites=liked?prefs.favorites.filter(id=>id!==current!.id):[...prefs.favorites,current.id];save();paint();report(liked?'Removed from favorites: '+current.title:'Added to favorites: '+current.title);}}
