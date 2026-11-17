@@ -708,3 +708,9 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - `docs/KEVO-PLAN.md` is the plan every assistant follows for Kevo: six phases, each tested on the owner's PC before the next, and a role per assistant (Antigravity builds, Codex reviews, free assistants take small tasks, Claude plans, fixes hard bugs and merges).
 - Owner's decision: `main` is locked on GitHub. No direct pushes by anyone; changes arrive by pull request. Pointers added to `AGENTS.md` and `CLAUDE.md`.
 - Next: Phase 0 (owner installs 0.1.53 and runs the five tests). No Kevo feature work before that result.
+
+## 2026-11-17: Kevo 0.4a, self-test clips (Claude autopilot)
+- `scripts/make-kevo-selftest-clips.py` makes 40 synthetic clips with Piper (free, offline once the three voice models are downloaded; their SHA-256 is pinned): the five step 0.5 requests in two voices (10 clips), 20 "Kevo"/"Hey Kevo" clips in five voices (said both "KEE-vo" and "KEH-vo"), 10 look-alike words. 16 kHz mono 16-bit, 1.83 MB, in `windows/src-tauri/resources/kevo-selftest/` with `clips.json` (words, expected action or wake, and the clip order per check) and a README with the voice licences (LJ Speech public domain; LibriTTS-R and VCTK CC BY 4.0).
+- `--check` verifies the committed clips against the brief (format, two voices per request, 20 wake clips in 4+ voices, 10 look-alikes, no stray files, under 20 MB) without Piper.
+- Heard back with Whisper base.en as a rough sanity check: every request is clear; the name alone is often heard as "Kivo", "Hevo", "Kebo" and the like, which is what Phase 1 measures. The clips are not bundled into the app yet (step 0.4b). Not played through a PC speaker and microphone.
+- Checks: `npx tsc --noEmit`, `npm test` 617 pass, `npm run build`, `check-release.mjs` 12 pass. No Rust changed. No version bump (done at merge).

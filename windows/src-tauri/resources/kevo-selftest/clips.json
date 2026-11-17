@@ -1,0 +1,557 @@
+{
+  "version": 1,
+  "about": "Kevo self-test clips, Phase 0 step 0.4a. Remake with scripts/make-kevo-selftest-clips.py.",
+  "format": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "bits": 16
+  },
+  "voices": {
+    "ljspeech": {
+      "model": "en_US-ljspeech-medium",
+      "speaker": null,
+      "dataset": "LJ Speech (https://keithito.com/LJ-Speech-Dataset/)",
+      "license": "public domain"
+    },
+    "libritts-3922": {
+      "model": "en_US-libritts_r-medium",
+      "speaker": "3922",
+      "dataset": "LibriTTS-R (http://www.openslr.org/141/)",
+      "license": "CC BY 4.0"
+    },
+    "libritts-8699": {
+      "model": "en_US-libritts_r-medium",
+      "speaker": "8699",
+      "dataset": "LibriTTS-R (http://www.openslr.org/141/)",
+      "license": "CC BY 4.0"
+    },
+    "vctk-p239": {
+      "model": "en_GB-vctk-medium",
+      "speaker": "p239",
+      "dataset": "VCTK (https://datashare.ed.ac.uk/handle/10283/3443)",
+      "license": "CC BY 4.0"
+    },
+    "vctk-p236": {
+      "model": "en_GB-vctk-medium",
+      "speaker": "p236",
+      "dataset": "VCTK (https://datashare.ed.ac.uk/handle/10283/3443)",
+      "license": "CC BY 4.0"
+    },
+    "vctk-p264": {
+      "model": "en_GB-vctk-medium",
+      "speaker": "p264",
+      "dataset": "VCTK (https://datashare.ed.ac.uk/handle/10283/3443)",
+      "license": "CC BY 4.0"
+    }
+  },
+  "checks": [
+    {
+      "check": "several_in_a_row",
+      "voice": "ljspeech",
+      "clips": [
+        "req-time-ljspeech",
+        "req-help-ljspeech",
+        "req-timer-ljspeech"
+      ]
+    },
+    {
+      "check": "open_app",
+      "voice": "ljspeech",
+      "clips": [
+        "req-open-brave-ljspeech"
+      ]
+    },
+    {
+      "check": "stop",
+      "voice": "ljspeech",
+      "clips": [
+        "req-black-holes-ljspeech"
+      ]
+    },
+    {
+      "check": "several_in_a_row",
+      "voice": "libritts-3922",
+      "clips": [
+        "req-time-libritts-3922",
+        "req-help-libritts-3922",
+        "req-timer-libritts-3922"
+      ]
+    },
+    {
+      "check": "open_app",
+      "voice": "libritts-3922",
+      "clips": [
+        "req-open-brave-libritts-3922"
+      ]
+    },
+    {
+      "check": "stop",
+      "voice": "libritts-3922",
+      "clips": [
+        "req-black-holes-libritts-3922"
+      ]
+    }
+  ],
+  "clips": [
+    {
+      "id": "req-time-ljspeech",
+      "file": "req-time-ljspeech.wav",
+      "kind": "request",
+      "voice": "ljspeech",
+      "words": "Kevo, what time is it?",
+      "seconds": 2.02,
+      "expect": {
+        "action": "tell_time"
+      },
+      "check": "several_in_a_row"
+    },
+    {
+      "id": "req-help-ljspeech",
+      "file": "req-help-ljspeech.wav",
+      "kind": "request",
+      "voice": "ljspeech",
+      "words": "What can you do?",
+      "seconds": 1.63,
+      "expect": {
+        "action": "help"
+      },
+      "check": "several_in_a_row"
+    },
+    {
+      "id": "req-timer-ljspeech",
+      "file": "req-timer-ljspeech.wav",
+      "kind": "request",
+      "voice": "ljspeech",
+      "words": "Set a timer for ten seconds",
+      "seconds": 2.71,
+      "expect": {
+        "action": "timer_set"
+      },
+      "check": "several_in_a_row"
+    },
+    {
+      "id": "req-open-brave-ljspeech",
+      "file": "req-open-brave-ljspeech.wav",
+      "kind": "request",
+      "voice": "ljspeech",
+      "words": "Kevo, open Brave browser",
+      "seconds": 2.6,
+      "expect": {
+        "action": "open_app"
+      },
+      "check": "open_app"
+    },
+    {
+      "id": "req-black-holes-ljspeech",
+      "file": "req-black-holes-ljspeech.wav",
+      "kind": "request",
+      "voice": "ljspeech",
+      "words": "Kevo, tell me about black holes",
+      "seconds": 3.33,
+      "expect": {
+        "action": "ai_conversation"
+      },
+      "check": "stop"
+    },
+    {
+      "id": "req-time-libritts-3922",
+      "file": "req-time-libritts-3922.wav",
+      "kind": "request",
+      "voice": "libritts-3922",
+      "words": "Kevo, what time is it?",
+      "seconds": 1.58,
+      "expect": {
+        "action": "tell_time"
+      },
+      "check": "several_in_a_row"
+    },
+    {
+      "id": "req-help-libritts-3922",
+      "file": "req-help-libritts-3922.wav",
+      "kind": "request",
+      "voice": "libritts-3922",
+      "words": "What can you do?",
+      "seconds": 1.38,
+      "expect": {
+        "action": "help"
+      },
+      "check": "several_in_a_row"
+    },
+    {
+      "id": "req-timer-libritts-3922",
+      "file": "req-timer-libritts-3922.wav",
+      "kind": "request",
+      "voice": "libritts-3922",
+      "words": "Set a timer for ten seconds",
+      "seconds": 2.25,
+      "expect": {
+        "action": "timer_set"
+      },
+      "check": "several_in_a_row"
+    },
+    {
+      "id": "req-open-brave-libritts-3922",
+      "file": "req-open-brave-libritts-3922.wav",
+      "kind": "request",
+      "voice": "libritts-3922",
+      "words": "Kevo, open Brave browser",
+      "seconds": 2.06,
+      "expect": {
+        "action": "open_app"
+      },
+      "check": "open_app"
+    },
+    {
+      "id": "req-black-holes-libritts-3922",
+      "file": "req-black-holes-libritts-3922.wav",
+      "kind": "request",
+      "voice": "libritts-3922",
+      "words": "Kevo, tell me about black holes",
+      "seconds": 2.31,
+      "expect": {
+        "action": "ai_conversation"
+      },
+      "check": "stop"
+    },
+    {
+      "id": "wake-01",
+      "file": "wake-01.wav",
+      "kind": "wake",
+      "voice": "ljspeech",
+      "words": "Kevo",
+      "seconds": 1.44,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-02",
+      "file": "wake-02.wav",
+      "kind": "wake",
+      "voice": "libritts-3922",
+      "words": "Hey Kevo",
+      "seconds": 1.27,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-03",
+      "file": "wake-03.wav",
+      "kind": "wake",
+      "voice": "libritts-8699",
+      "words": "Kevo",
+      "seconds": 1.04,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-04",
+      "file": "wake-04.wav",
+      "kind": "wake",
+      "voice": "vctk-p239",
+      "words": "Hey Kevo",
+      "seconds": 1.3,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-05",
+      "file": "wake-05.wav",
+      "kind": "wake",
+      "voice": "vctk-p236",
+      "words": "Kevo",
+      "seconds": 1.3,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-06",
+      "file": "wake-06.wav",
+      "kind": "wake",
+      "voice": "ljspeech",
+      "words": "Hey Kevo",
+      "seconds": 1.58,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-07",
+      "file": "wake-07.wav",
+      "kind": "wake",
+      "voice": "libritts-3922",
+      "words": "Kevo",
+      "seconds": 1.11,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-08",
+      "file": "wake-08.wav",
+      "kind": "wake",
+      "voice": "libritts-8699",
+      "words": "Hey Kevo",
+      "seconds": 1.23,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-09",
+      "file": "wake-09.wav",
+      "kind": "wake",
+      "voice": "vctk-p239",
+      "words": "Kevo",
+      "seconds": 1.18,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-10",
+      "file": "wake-10.wav",
+      "kind": "wake",
+      "voice": "vctk-p236",
+      "words": "Hey Kevo",
+      "seconds": 1.44,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-11",
+      "file": "wake-11.wav",
+      "kind": "wake",
+      "voice": "ljspeech",
+      "words": "Kevo",
+      "seconds": 1.2,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-12",
+      "file": "wake-12.wav",
+      "kind": "wake",
+      "voice": "libritts-3922",
+      "words": "Hey Kevo",
+      "seconds": 1.28,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-13",
+      "file": "wake-13.wav",
+      "kind": "wake",
+      "voice": "libritts-8699",
+      "words": "Kevo",
+      "seconds": 1.09,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-14",
+      "file": "wake-14.wav",
+      "kind": "wake",
+      "voice": "vctk-p239",
+      "words": "Hey Kevo",
+      "seconds": 1.35,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-15",
+      "file": "wake-15.wav",
+      "kind": "wake",
+      "voice": "vctk-p236",
+      "words": "Kevo",
+      "seconds": 1.24,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-16",
+      "file": "wake-16.wav",
+      "kind": "wake",
+      "voice": "ljspeech",
+      "words": "Hey Kevo",
+      "seconds": 1.47,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-17",
+      "file": "wake-17.wav",
+      "kind": "wake",
+      "voice": "libritts-3922",
+      "words": "Kevo",
+      "seconds": 1.12,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-18",
+      "file": "wake-18.wav",
+      "kind": "wake",
+      "voice": "libritts-8699",
+      "words": "Hey Kevo",
+      "seconds": 1.28,
+      "expect": {
+        "wake": true
+      }
+    },
+    {
+      "id": "wake-19",
+      "file": "wake-19.wav",
+      "kind": "wake",
+      "voice": "vctk-p239",
+      "words": "Kevo",
+      "seconds": 1.19,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "wake-20",
+      "file": "wake-20.wav",
+      "kind": "wake",
+      "voice": "vctk-p236",
+      "words": "Hey Kevo",
+      "seconds": 1.35,
+      "expect": {
+        "wake": true
+      },
+      "note": "said KEH-vo"
+    },
+    {
+      "id": "lookalike-01",
+      "file": "lookalike-01.wav",
+      "kind": "lookalike",
+      "voice": "ljspeech",
+      "words": "Cave",
+      "seconds": 1.23,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-02",
+      "file": "lookalike-02.wav",
+      "kind": "lookalike",
+      "voice": "libritts-3922",
+      "words": "Kevin",
+      "seconds": 1.1,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-03",
+      "file": "lookalike-03.wav",
+      "kind": "lookalike",
+      "voice": "libritts-8699",
+      "words": "Carbo",
+      "seconds": 1.11,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-04",
+      "file": "lookalike-04.wav",
+      "kind": "lookalike",
+      "voice": "vctk-p239",
+      "words": "Heavy",
+      "seconds": 1.17,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-05",
+      "file": "lookalike-05.wav",
+      "kind": "lookalike",
+      "voice": "vctk-p236",
+      "words": "Kevlar",
+      "seconds": 1.27,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-06",
+      "file": "lookalike-06.wav",
+      "kind": "lookalike",
+      "voice": "ljspeech",
+      "words": "Gravy",
+      "seconds": 1.26,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-07",
+      "file": "lookalike-07.wav",
+      "kind": "lookalike",
+      "voice": "libritts-3922",
+      "words": "Chevy",
+      "seconds": 1.18,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-08",
+      "file": "lookalike-08.wav",
+      "kind": "lookalike",
+      "voice": "libritts-8699",
+      "words": "Hey Kevin",
+      "seconds": 1.34,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-09",
+      "file": "lookalike-09.wav",
+      "kind": "lookalike",
+      "voice": "vctk-p239",
+      "words": "Navy",
+      "seconds": 1.33,
+      "expect": {
+        "wake": false
+      }
+    },
+    {
+      "id": "lookalike-10",
+      "file": "lookalike-10.wav",
+      "kind": "lookalike",
+      "voice": "vctk-p236",
+      "words": "Clever",
+      "seconds": 1.22,
+      "expect": {
+        "wake": false
+      }
+    }
+  ]
+}
