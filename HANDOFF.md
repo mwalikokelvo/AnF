@@ -6,6 +6,10 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo master plan and autopilot (Claude)
+
+The owner approved a new Kevo plan (`docs/KEVO-PLAN.md`) and asked for it to run without them. Added `docs/kevo-autopilot/AUTOPILOT.md` (the runbook a Claude scheduled task follows every 2 hours) and briefs for Phases 0 to 2 in `docs/kevo-briefs/`. State lives on the branch `kevo-autopilot-state` (`STATE.md`, `pc-results/`). A second scheduled task on the owner's PC copies self-test results there. Docs only; nothing in the app changed.
+
 ## 2026-11-17 — Kevo Phase 0 session 3 fixes, Windows 0.1.56 (Claude)
 
 The owner reran Phase 0 on installed 0.1.55 (report file says 0.1.55; its header says 0.1.53). Tests 1 and 2 failed, 4 passed, 3 (timer) and 5 (Stop) were not in the recording. Fixed on `claude/kevo-phase0-session3`:

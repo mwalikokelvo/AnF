@@ -1,65 +1,70 @@
 # Kevo plan
 
-Owner-approved on 16 November 2026. Every assistant working on Kevo follows this plan and the roles below.
-The owner's working copy lives in Claude; this file is the copy all assistants read. Update it by pull request.
+Owner-approved on 16 November 2026 (replaces the plan of the same morning). The owner's copy is the "Kevo master plan" doc in Claude; this file is the copy every assistant reads. It runs on autopilot: `docs/kevo-autopilot/AUTOPILOT.md`.
 
-## Summary
+## Goal
 
-Kevo becomes a personal assistant that remembers, acts on a schedule, and checks its own work. It is built in six
-phases, and **nothing new is built until the previous phase has run on the owner's PC with a real microphone**.
+Kevo becomes a personal assistant that hears its name reliably, understands everyday phrasing, does what was asked and checks it happened, remembers, acts on a schedule, and answers in the pack's voices. Windows first, then Android, then ThingsBook. Kevo's hearing and understanding move onto the PC and are rebuilt once, properly, instead of being patched after every test.
 
-Settled: the name and wake word are "Kevo"; the 13 voices ship inside the app; Kevo's everyday brain runs on the PC.
+Finished means, on the owner's PC (targets, measured from Kevo's log and self-test):
+- wakes for "Kevo" at least 19 times in 20; at most 1 false wake in 10 minutes of TV or talk
+- everything except web pages and the optional cloud model works offline
+- at least 95% of the phrase list handled correctly
+- a command starts its reply within 1.5 s, an AI answer within 5 s
+- never says "done" when an action failed
+- facts and reminders survive a restart
+- the owner accepts the voice, or keeps Windows voices
 
-## Where Kevo stands (0.1.53)
+## Why Phase 0 kept failing
 
-| Area | State |
-| --- | --- |
-| Wake word, listening, speaking | Built. Self-answering loop fixed in 0.1.52; untested with a real microphone |
-| Quick commands (time, date, sums, timers, notes, music, opening apps, web search) | Built; opening apps has never run on Windows |
-| AI answers | Short and streamed (`kevo_ask`). CI measured 0.3 s to the model's first token, with the small model already loaded. The time until the first spoken sentence, and anything on the PC, is unmeasured |
-| Voices | 13 recordings built in. Replies are spoken by a Windows voice, not by the recordings |
-| Memory | Only the last few exchanges. Nothing lasting about the owner |
-| Scheduled work | Timers only, lost when the app closes |
-| Team cards (Tom, Scout, Support) | Show made-up numbers |
-| Android | No Kevo screen |
+1. Hearing is rented: the browser's recogniser in WebView2 uses Microsoft's online service, fails with "network" errors, has no wake-word engine, and sometimes never confirms words.
+2. Understanding is a pattern list: every new phrasing needs new code.
+3. The AI is never told what Kevo can do.
+4. Evidence is second-hand: a video and a write-up, no log.
+
+## Design
+
+Microphone → **Ears** (silence detection, "Kevo" detector, offline transcription: sherpa-onnx in Rust) → **Understanding** (instant commands first, else the local model choosing from a fixed action list by tool calling) → **Hands** (each action checks its result) → **Voice**. **Memory and schedule** are read and written by actions. Every step goes into **Kevo's log**.
 
 ## Phases
 
-Each phase ends with a test on the PC. The next phase does not start until that test passes.
+| Phase | Version | Delivers | Brief | Done when (on the PC) |
+|---|---|---|---|---|
+| 0. Close Phase 0 | 0.1.57+ | Log, phrase list, test-build prereleases, self-installing test builds, self-test | `kevo-briefs/phase-0.md` | Self-test passes the five Phase 0 checks |
+| 1. Ears | 0.2.x | Listening on the PC, offline, real wake-word detector | `kevo-briefs/phase-1.md` | 19/20 wakes, at most 1 false wake, Phase 0 checks pass, no network used |
+| 2. Understanding | 0.3.x | Tool calling with one action list; Kevo knows itself; instant commands | `kevo-briefs/phase-2.md` | Phrase list 95% in CI; 18/20 varied requests on the PC; commands within 1.5 s |
+| 3. Memory | 0.4.x | Facts and recent requests across restarts; list with delete | written when next | Recalls after restart, forgets what was deleted |
+| 4. Schedule | 0.4.x | Reminders and a daily briefing that survive a restart | written when next | Each fires once, on time |
+| 5. Verified actions | 0.4.x | Each action checks its result | written when next | Never "done" when it failed; reason said |
+| 6. Better answers | 0.5.x | Largest local model the PC runs within 5 s | written when next | First sentence within 5 s; harder questions answered better |
+| 7. Pack voices, real team | 0.6.x | Pack voices if a voice model can ship; team cards real or removed | **owner decides first** | Owner accepts the voice; no made-up numbers |
+| 8. Android, then ThingsBook | 0.7.x | Kevo on the phone; voices in ThingsBook | written when next | Phase 0 checks pass on the phone |
 
-| Phase | Delivers | Test on the PC | Done when |
-| --- | --- | --- | --- |
-| 0. Prove what exists | Nothing new. Install 0.1.53, fix what fails | Ask three things in a row, open an app, set a timer, type a request, press Stop | All five work, or each failure is fixed and retested |
-| 1. Memory | Remembers facts the owner tells it and recent requests across restarts; a screen lists them, with delete | Tell Kevo two facts and make one request, restart, ask about the facts and "what did I ask you earlier?". Delete one fact, ask again | Recalls both facts and the request after restart; forgets what was deleted |
-| 2. Scheduled work | Reminders and a daily briefing that survive a restart and fire while AnF is open | Set a 5-minute reminder and a briefing time 10 minutes ahead, restart, wait | Each fires once, on time |
-| 3. Verified actions | After opening an app, saving a note or starting music, Kevo checks it happened and reports failure plainly | Open an installed app and one that is not installed; save a note and look for it in today's notes; start music with tracks and with an empty library | Each success is confirmed by Kevo checking the result; each failure is reported with the reason, never "done" |
-| 4. A better brain | The largest local model the PC runs well, plus an optional cloud model with a spending cap | Five harder questions on each setting, timed | Owner judges answers better; first sentence in under 5 s |
-| 5. Real team, real voices | Team cards show real information or are removed; replies in the pack's own voices if the voice model can be shipped | Compare a reply in "Kevo (Gentle Bass)" with the recording | No invented numbers remain, and either the owner accepts the pack voice or, if the voice model cannot be shipped, the owner confirms keeping the Windows voices |
-
-After Phase 5: Kevo on Android, and the voices in ThingsBook.
+Phases 3, 4 and 5 are built one after another but tested in one PC session. No phase starts before the previous one passed on the PC.
 
 ## Who does what
 
-| Assistant | Role for Kevo |
-| --- | --- |
-| Claude | Plans each phase, hard bugs, final review and merge |
-| Antigravity (Google Pro) | Main builder of each phase, from Claude's task brief |
-| Gemini Pro | Watches the owner's screen recordings and writes up what went wrong; research |
-| Codex (ChatGPT Business) | Reviews every pull request; second builder for Rust and TypeScript |
-| Cursor (free, via OmniRoute), Hermes, DeepSeek | Small, clearly defined tasks: tests, wording, renames |
-| Grok bot | Second opinions and ideas. No pushes |
-| GitHub bot | Suggestions inside pull requests |
+| Who | Role |
+|---|---|
+| Claude autopilot (scheduled, every 2 hours) | Builds every step from its brief, fixes CI and review findings, merges when the gates pass, writes the next brief |
+| Claude "Kevo PC results" (scheduled, on the owner's PC) | Copies the self-test results to the state branch |
+| Codex | Reviews every pull request automatically |
+| Owner | Turns on "Install Kevo test builds" in AnF once; decides Phase 7; can stop the autopilot at any time |
+| Other assistants | Optional: any brief can be handed to Antigravity, Codex or others; they follow the same rules and open pull requests, never merging their own |
 
 ## Rules for every assistant
 
-1. **Never push to `main`.** It is locked on GitHub. Work on your own branch (`<assistant>/<topic>`) and open a pull request.
-2. **One phase at a time, from a task brief.** Do not start a later phase or add features the brief does not name.
-3. **A pull request merges only when** its checks are green, Codex's review findings are answered, and Claude has reviewed it.
-4. **Say what was tested and how.** "Compiled", "automated tests", "browser fixture" and "installed on the PC" are different claims.
-5. **Builders append their result to `HANDOFF.md`** in the same pull request. Reviewers leave review comments only and push nothing.
+1. Never push to `main` directly. Branch, pull request, merge only when the gates in `AUTOPILOT.md` pass.
+2. One brief step per pull request. Nothing the brief does not name.
+3. Every fixed request gets a test with the owner's words, and goes into the phrase list.
+4. Say what was tested: "compiled", "automated tests", "audio tests" and "installed on the PC" are different claims.
+5. Add a `HANDOFF.md` entry; add lessons to `docs/KEVO-MAP.md`.
 
-## Open decisions (owner)
+## Decisions on record (owner, 16 Nov 2026)
 
-- PC memory (RAM) and graphics card, to choose the local model for Phase 4
-- Phase 4: whether an optional cloud model is wanted, and its monthly spending cap
-- Phase 5 and ThingsBook: the folder holding `model.safetensors`, and whether cloned voices go into public or private builds only
+- Hearing moves onto the PC (Phase 1).
+- RAM and graphics card are read by the self-test.
+- No cloud model, no paid services.
+- Test audio uses synthetic voices, kept in the repo.
+- Autopilot may merge into `main` when every gate passes, and may test on the owner's PC when it is on.
+- Phase 7 (pack voices, `model.safetensors`, public or private cloned voices) waits for the owner.

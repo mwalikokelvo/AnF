@@ -33,7 +33,7 @@ Windows and Linux: `cd windows && npm install && npm run tauri dev`
 - New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
 
 - Storage: once a newer build is installed and runs, clear the older build's files from the owner's devices (see `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds"). Keep the newest build, the source checkout, user data backups and signing keys.
-- `main` is locked: never push to it. Branch, open a pull request, merge only when checks are green and it has been reviewed. Kevo work follows `docs/KEVO-PLAN.md` (phases and who does what).
+- `main` is locked: never push to it. Branch, open a pull request, merge only when checks are green and it has been reviewed. Kevo work follows `docs/KEVO-PLAN.md` (phases and who does what). Kevo runs on autopilot (owner decision, 16 Nov 2026): the Claude autopilot merges its own Kevo pull requests when every gate in `docs/kevo-autopilot/AUTOPILOT.md` passes.
 - Kevo files, checks and Phase 0 lessons: `docs/KEVO-MAP.md`. Read it before touching Kevo.
 - Start here: read `docs/BUILDER-RUNBOOK.md` and `HANDOFF.md` before any work (shared build/test/delivery recipe and state); append your result to `HANDOFF.md` when done.
 - Multi-LLM Buildup Protocol: Always inspect existing continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) before beginning new work. Identify what previous agents completed, verify their tests and commits, reconcile any pending improvements or fixes, and build continuously forward from that verified state rather than starting over or overwriting previous work.
