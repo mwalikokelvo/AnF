@@ -29,24 +29,29 @@ A node test runs every entry through `JarvisVoiceAgent` with fake actions and pr
 
 ## 0.3 Test builds
 
-In `.github/workflows/windows.yml`, add a job that runs only on a push to `main`. After the build, it publishes a GitHub prerelease tagged `kevo-test-v<version>` with `AnF-Windows-<version>-setup.exe` and `SHA256SUMS-Windows`. Give it `contents: write` for that job only.
+In `.github/workflows/windows.yml`, add a `push` trigger for `main`, and a job that runs only on that push. When no release tagged `kevo-test-v<version>` exists yet (so docs-only merges and merges without a version bump publish nothing), it publishes a GitHub prerelease with that tag, pointing at the merge commit. It carries the portable build (`AnF-Windows-<version>-portable.zip`) and its SHA-256. Give it `contents: write` for that job only. Title the release "Kevo test build <version>, not for general use", and say in its notes that Windows Defender may wrongly flag the unsigned build (see the `PUBLISH` note in the workflow).
+
+The owner cleared these test builds for their own PC on 16 Nov 2026 (`docs/KEVO-PLAN.md`, "Decisions on record"). General publishing stays paused (`PUBLISH: 'false'`) until the installer is signed or the Defender detection is cleared.
 
 AnF's normal "Check for updates" already ignores prereleases (`updates.rs` `pick_latest`). Keep it that way, and add a test that proves it.
 
 ## 0.4 Self-installing test builds and the self-test
 
-A new setting in AnF Settings, **"Install Kevo test builds automatically and run Kevo's self-test"**, is off by default. Only the owner turns it on, once. When it is on:
+A new setting in AnF Settings, **"Run Kevo test builds and Kevo's self-test automatically"**, is off by default. Only the owner turns it on, once. Nothing is installed: the owner's installed AnF stays as it is, and the test build runs from its own folder. When the setting is on:
 
-1. Every 2 hours, and at start, ask GitHub's public releases API for the newest `kevo-test-v*` prerelease newer than the running version.
-2. Download its setup file and `SHA256SUMS-Windows` from that release only (`https://github.com/mwalikokelvo/AnF/releases/download/...`). Check the SHA-256, and stop on a mismatch.
-3. Run the installer silently (Tauri's NSIS installer takes `/S`; confirm in the Windows CI job), then start AnF with `--kevo-selftest`.
+1. Every 2 hours, and at start, ask GitHub's public releases API for the newest `kevo-test-v*` prerelease newer than the last one tested.
+2. Accept it only if its tag points at a commit on `main` (compare API) and its asset was uploaded by `github-actions[bot]`. Download the portable zip and its SHA-256 from that release only (`https://github.com/mwalikokelvo/AnF/releases/download/...`). Check the SHA-256, and stop on a mismatch.
+3. Extract to `~/AnF-Kevo/builds/<version>/`, keeping only the newest two builds there.
+4. Start a small detached helper and exit AnF (with its `llama-server`): AnF is a single-instance app. The helper waits until both have exited, starts the test build with `--kevo-selftest`, waits for it to finish and exit, then starts the owner's installed AnF again.
+5. If the test build cannot start (for example Windows Defender quarantined it), write `selftest-<version>.json` with `"result": "could_not_start"` and the reason, so the autopilot can tell the owner.
 
 `--kevo-selftest` (also a "Run self-test" button on the Kevo screen):
 - opens Kevo and turns the microphone on
 - turns on **dry-run**: actions are logged as what they would do, never carried out (no app or site opens, no note is saved, no music plays)
 - plays each test clip through the speakers while listening with the real microphone. In self-test mode the microphone stays on while a clip plays (it is not Kevo's own voice)
 - waits for Kevo's answer, and records what was heard, the action, the reply and timings
-- writes `~/AnF-Kevo/selftest-<version>.json` (creating the folder) and copies the log beside it as `kevo-log-<version>.jsonl`. The JSON also holds `system_stats` (RAM, CPU) and the graphics card name
+- writes `~/AnF-Kevo/selftest-<version>.json` (creating the folder). It holds, per clip: the clip's id, the expected result, what was heard while that clip played, the action, the reply and timings; plus errors, `system_stats` (RAM, CPU) and the graphics card name. Nothing heard outside a clip's playback window goes into it, because this file is published to the public state branch
+- quits when done (the helper then restarts the owner's AnF)
 
 Test clips: 16 kHz mono WAV files under `windows/src-tauri/resources/kevo-selftest/`, made with a free offline voice (for example Piper) in at least two voices, plus a `clips.json` listing each clip's words and expected result. Generate them with a script kept in `scripts/`, so they can be remade.
 

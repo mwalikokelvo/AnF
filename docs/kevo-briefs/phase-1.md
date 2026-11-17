@@ -33,10 +33,10 @@ The microphone still rests while Kevo speaks (`setMuted`). The settle and follow
 
 ## 1.4 Audio tests in CI
 
-Extend the synthetic clips (Phase 0 step 0.4): 20 "Kevo" and "Hey Kevo" clips in at least 4 voices, 10 look-alike words ("cave", "Kevin", "carbo", "heavy"…), 3 minutes of ordinary speech without the name, and the 10 Phase 0 requests.
+Extend the synthetic clips (Phase 0 step 0.4): 20 "Kevo" and "Hey Kevo" clips in at least 4 voices, 10 look-alike words ("cave", "Kevin", "carbo", "heavy"…), 10 minutes of ordinary speech without the name, and the 10 Phase 0 requests.
 
-A Rust test feeds them through the pipeline from WAV, with no microphone, and checks: wake rate, false wakes, transcription of the requests against `clips.json`, and that no network call is made (for example run with no proxy and an unreachable network, and confirm it still works). Tune the keyword boosting and threshold here, and record the chosen values and the measured rates in the pull request.
+A Rust test feeds them through the pipeline from WAV, with no microphone, and checks: wake rate, false wakes, and transcription of the requests against `clips.json`. On Linux CI it also runs under `strace -f -e trace=connect,sendto` and fails if any connection to a non-loopback address is attempted. Working offline is not enough: the test must show that no attempt was made. Tune the keyword boosting and threshold here, and record the chosen values and the measured rates in the pull request.
 
 ## 1.5 Self-test on the PC
 
-The Phase 0 self-test gains the 20 wake clips, the look-alikes and 1 minute of background speech, played through the speakers. It reports wake rate, false wakes and idle CPU (average over 60 s of silence) in `selftest-<version>.json`.
+The Phase 0 self-test gains the 20 wake clips, the look-alikes and 10 minutes of background speech without the name (the false-wake target is per 10 minutes), played through the speakers. It reports wake rate, false wakes and idle CPU (average over 60 s of silence) in `selftest-<version>.json`.

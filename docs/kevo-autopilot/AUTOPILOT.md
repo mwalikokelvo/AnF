@@ -17,7 +17,7 @@ Do exactly ONE kind of action per run (the first that applies below), finish it,
    1. An autopilot pull request (branch `claude/kevo-*`) has a failing check: find the root cause and push a fix. A failure that is also red on `main` is not this PR's: fix it in the same PR only if it is small, otherwise note it in STATE.
    2. An autopilot pull request has unresolved review findings (Codex, CodeQL, a subagent): check each against the code. Fix the real ones, with a test. Answer the rest in the thread with what you checked. Resolve what you fixed.
    3. An autopilot pull request passes every merge gate: merge it (merge commit).
-   4. A merged build is waiting for its PC test and `pc-results/<version>.json` has arrived on the state branch: judge it against the brief's "Done when". Pass: mark the round passed and move to the next step or phase. Fail: start a fix round (next item) using the result and its log.
+   4. A merged build is waiting for its PC test and `pc-results/selftest-<version>.json` has arrived on the state branch: judge it against the brief's "Done when". Pass: mark the round passed and move to the next step or phase. Fail: start a fix round (next item) using the result and its log.
    5. Start the next step of the current phase: branch `claude/kevo-<phase>-<step>` from `main`, build it as the brief says, run every check in `docs/KEVO-MAP.md` "Checks", bump the version, add a `HANDOFF.md` entry, open the pull request, record it in STATE.
    6. The current phase has no brief yet: write it (docs only, same shape as `phase-0.md`) as its own pull request.
    7. Nothing to do (waiting for CI, a review or the PC): update STATE's `waiting_for` and stop.
@@ -34,13 +34,17 @@ Do exactly ONE kind of action per run (the first that applies below), finish it,
 
 ## After a merge
 
-Check that the `Windows` workflow on `main` went green and (from Phase 0 step 0.3) that the test build `kevo-test-v<version>` was published as a prerelease. Then set STATE `pc_test: pending <version> since <time>`.
+Until Phase 0 step 0.3 is merged, `main` has no Windows build of its own: the pull request's green `Windows` run is the build, and there is no PC test. Steps 0.1 to 0.3 are judged by CI alone.
+
+From step 0.3 on, check that the `Windows` workflow on `main` went green and published the test build `kevo-test-v<version>` as a prerelease. From step 0.4 on, also set STATE `pc_test: pending <version> since <time>`.
+
+Phases 3, 4 and 5 are the one exception to "no phase before the previous PC pass": they are built and merged one after another on CI gates alone, and one PC test after Phase 5 covers all three. Phase 6 starts only after that combined test passes.
 
 A PC result that has not arrived after 24 hours: send one push notification ("Kevo's PC test is waiting: turn the PC on with the Claude app open, and turn on 'Install Kevo test builds' in AnF Settings if it is off"). Keep doing cloud-only work for the same phase. Never start the next phase without a passed PC test.
 
 ## PC results
 
-The scheduled task "Kevo PC results" runs on the owner's PC every 2 hours. It reads `~/AnF-Kevo/` (written by AnF's self-test, Phase 0 step 0.4) and copies any new `selftest-*.json` and `kevo-log-*.jsonl` to `pc-results/` on the state branch. It changes nothing else.
+The scheduled task "Kevo PC results" runs on the owner's PC every 2 hours. It reads `~/AnF-Kevo/` (written by AnF's self-test, Phase 0 step 0.4) and copies any new `selftest-<version>.json` to `pc-results/` on the state branch. It changes nothing else. The repository is public, so only the self-test result goes there, never Kevo's full log (which can hold anything said in the room).
 
 ## Stop and escalate
 

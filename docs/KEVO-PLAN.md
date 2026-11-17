@@ -30,7 +30,7 @@ Microphone → **Ears** (silence detection, "Kevo" detector, offline transcripti
 
 | Phase | Version | Delivers | Brief | Done when (on the PC) |
 |---|---|---|---|---|
-| 0. Close Phase 0 | 0.1.57+ | Log, phrase list, test-build prereleases, self-installing test builds, self-test | `kevo-briefs/phase-0.md` | Self-test passes the five Phase 0 checks |
+| 0. Close Phase 0 | 0.1.57+ | Log, phrase list, test-build prereleases, automatic test builds and self-test | `kevo-briefs/phase-0.md` | Self-test passes the five Phase 0 checks |
 | 1. Ears | 0.2.x | Listening on the PC, offline, real wake-word detector | `kevo-briefs/phase-1.md` | 19/20 wakes, at most 1 false wake, Phase 0 checks pass, no network used |
 | 2. Understanding | 0.3.x | Tool calling with one action list; Kevo knows itself; instant commands | `kevo-briefs/phase-2.md` | Phrase list 95% in CI; 18/20 varied requests on the PC; commands within 1.5 s |
 | 3. Memory | 0.4.x | Facts and recent requests across restarts; list with delete | written when next | Recalls after restart, forgets what was deleted |
@@ -40,7 +40,7 @@ Microphone → **Ears** (silence detection, "Kevo" detector, offline transcripti
 | 7. Pack voices, real team | 0.6.x | Pack voices if a voice model can ship; team cards real or removed | **owner decides first** | Owner accepts the voice; no made-up numbers |
 | 8. Android, then ThingsBook | 0.7.x | Kevo on the phone; voices in ThingsBook | written when next | Phase 0 checks pass on the phone |
 
-Phases 3, 4 and 5 are built one after another but tested in one PC session. No phase starts before the previous one passed on the PC.
+No phase starts before the previous one passed on the PC, with one exception: Phases 3, 4 and 5 are built and merged one after another on CI gates alone, and one PC test after Phase 5 covers all three.
 
 ## Who does what
 
@@ -67,4 +67,5 @@ Phases 3, 4 and 5 are built one after another but tested in one PC session. No p
 - No cloud model, no paid services.
 - Test audio uses synthetic voices, kept in the repo.
 - Autopilot may merge into `main` when every gate passes, and may test on the owner's PC when it is on.
+- Kevo test builds (unsigned; Defender has wrongly flagged AnF's installer before) are cleared to run on the owner's PC through AnF's opt-in setting. They are published only as prereleases named "not for general use"; general publishing stays paused.
 - Phase 7 (pack voices, `model.safetensors`, public or private cloned voices) waits for the owner.

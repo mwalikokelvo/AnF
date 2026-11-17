@@ -24,12 +24,16 @@ The system prompt gains a short capability sheet generated from the action list 
 
 Before the model is asked, a fast path handles: stop, repeat, time, date, timers, sums, "open <exact installed app or AnF place>", and the help, name and microphone answers. It works with no model loaded. Everything else goes to the model.
 
-## 2.5 Model choice and the CI gate
+## 2.5 No cold start
+
+Start loading the model when the microphone is turned on (and when AnF starts with the microphone on), not at the first question. The self-test measures the first model-routed command after a fresh start separately: it must start its reply within 5 s. Later model-routed commands must start within 1.5 s.
+
+## 2.6 Model choice and the CI gate
 
 A CI job (Linux) starts the shipped `llama-server` with the shipped model and runs the whole phrase list through the real `kevo_ask` path. It fails below 95%.
 
 Model size: read RAM and graphics card from the newest `selftest-*.json` on the state branch. Default is Qwen3 1.7B. Use the next size up only if the PC has 16 GB RAM or more and the self-test shows the first spoken sentence within 5 s with it.
 
-## 2.6 Remove what the model now covers
+## 2.7 Remove what the model now covers
 
 Delete the regex branches in `jarvis-voice-agent.ts` that the action list and the model now handle. Keep every existing test passing; move phrase-level tests into the phrase list. Remove the browser hearing option (Phase 1 step 1.3).
