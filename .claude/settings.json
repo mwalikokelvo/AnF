@@ -5,7 +5,6 @@
       "Read(./**/node_modules/**)",
       "Read(./graphify-out/**)",
       "Read(./.codebase-memory/**)",
-      "Read(./continuations/**)",
       "Read(./archive/**)",
       "Read(./**/*.onnx)",
       "Read(./**/*.gguf)",

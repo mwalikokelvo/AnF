@@ -78,12 +78,11 @@ Checked by tests where the code exists; a pull request that touches the path kee
 node scripts/check-release.mjs                     # repo root
 node scripts/verify-contracts.mjs && node scripts/check-styles.mjs
 cd windows && npm ci && npx tsc --noEmit && npm test
-cd windows && npm run build && cd src-tauri && cargo test --lib   # Linux needs the apt packages in BUILDER-RUNBOOK.md
-cargo clippy --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings
-graphify update .
+cd windows && npm run build && cd src-tauri && cargo test --locked --lib   # Linux needs the apt packages in BUILDER-RUNBOOK.md
+cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings
 ```
 
-Claude Code hands these to the `verifier` agent. Say exactly what was tested: "compiled", "automated tests", "browser fixture", "audio test" and "installed on the PC" are different claims. `#[cfg(windows)]` code is compiled only by the GitHub `Windows` workflow.
+Claude Code hands these to the `verifier` agent; the controller then runs `graphify update .` (it writes files, so the verifier never does). A change under `NotchBuddy/` also needs the `macos-review.yml` workflow dispatched for the branch, since Linux cannot build Swift. Say exactly what was tested: "compiled", "automated tests", "browser fixture", "audio test" and "installed on the PC" are different claims. `#[cfg(windows)]` code is compiled only by the GitHub `Windows` workflow.
 
 ## 9. Delivery
 

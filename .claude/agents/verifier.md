@@ -12,8 +12,12 @@ Run from the repository root, in this order, and stop at the first failure:
 1. `node scripts/check-release.mjs`
 2. `node scripts/verify-contracts.mjs && node scripts/check-styles.mjs`
 3. `cd windows && npm ci && npx tsc --noEmit && npm test`
-4. `cd windows && npm run build && cd src-tauri && cargo test --lib` (Linux: skip with `NOT RUN` if `pkg-config --exists webkit2gtk-4.1` fails; see `docs/BUILDER-RUNBOOK.md`)
-5. `cargo clippy --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path crates/anf-vault/Cargo.toml`
+4. `cd windows && npm run build && cd src-tauri && cargo test --locked --lib` (Linux: skip with `NOT RUN` if `pkg-config --exists webkit2gtk-4.1` fails; see `docs/BUILDER-RUNBOOK.md`)
+5. `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings && cargo test --locked --manifest-path crates/anf-vault/Cargo.toml`
+
+6. If the branch changes anything under `NotchBuddy/`: `NOT RUN (needs macOS)`. Say that the controller must dispatch `.github/workflows/macos-review.yml` for this branch and wait for it.
+
+Never run `graphify update .` (it writes files): it is the controller's step after you report.
 
 If a step fails, run it once more. If it fails twice, stop.
 
