@@ -367,7 +367,13 @@ fn best_app_match<'a>(spoken: &str, names: &'a [String]) -> Option<&'a String> {
     let wanted: Vec<&String> = all.iter().filter(|w| !APP_FILLER.contains(&w.as_str())).collect();
     if all.iter().any(|w| w == "browser") && wanted.iter().all(|w| w.as_str() == "web") {
         // Just "browser": the first web browser installed, Edge last because every PC has it.
-        return BROWSERS.iter().find_map(|b| names.iter().find(|n| n.eq_ignore_ascii_case(b)));
+        // Exact name first, then a variant such as "Brave Beta" or "Opera Browser".
+        return BROWSERS.iter().find_map(|b| {
+            let b = b.to_lowercase();
+            names.iter().find(|n| n.to_lowercase() == b).or_else(|| {
+                names.iter().find(|n| n.to_lowercase().starts_with(&format!("{b} ")))
+            })
+        });
     }
     let wanted: Vec<&String> = if wanted.is_empty() { all.iter().collect() } else { wanted };
     if wanted.is_empty() {
@@ -483,6 +489,8 @@ mod open_app_tests {
         assert_eq!(best_app_match("the browser", &n).unwrap(), "Brave");
         let edge_only: Vec<String> = ["Microsoft Edge", "Word"].iter().map(|s| s.to_string()).collect();
         assert_eq!(best_app_match("web browser", &edge_only).unwrap(), "Microsoft Edge");
+        let variants: Vec<String> = ["Brave Beta", "Opera Browser", "Microsoft Edge"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(best_app_match("browser", &variants).unwrap(), "Brave Beta");
         let none: Vec<String> = vec!["Word".to_string()];
         assert!(best_app_match("browser", &none).is_none());
     }

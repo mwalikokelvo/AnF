@@ -75,6 +75,27 @@ describe('Kevo Phase 0 session 2', () => {
     assert.equal(r.speechReply, 'Opening Brave.');
   });
 
+  it('Stop during the first of two requests does not carry out the second', async () => {
+    let agent!: JarvisVoiceAgent;
+    const urls: string[] = [];
+    agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      openUrl: async (url) => { urls.push(url); },
+      askAI: async () => { agent.abandon(); return 'Half an answer.'; }, // Stop pressed while it was answering
+    });
+    const r = await agent.processVoiceInput('explain black holes and then open YouTube');
+    assert.equal(r.actionName, 'abandoned');
+    assert.deepEqual(urls, []);
+  });
+
+  it('a new conversation forgets what "open it" meant', async () => {
+    const { agent, opened } = agentWith();
+    await agent.processVoiceInput('Brave browser.');
+    agent.resetConversation();
+    assert.equal((await agent.processVoiceInput('open it')).actionName, 'open_unclear');
+    assert.deepEqual(opened, []);
+  });
+
   it('"open it" with nothing talked about asks which app', async () => {
     const { agent, opened } = agentWith();
     const r = await agent.processVoiceInput('open it');

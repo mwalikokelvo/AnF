@@ -175,7 +175,12 @@ export class JarvisVoiceAgent {
     if (requests.length > 1) {
       // One after another, each with its own short reply. Not streamed: the replies are joined.
       const results: ActionResult[] = [];
-      for (const request of requests) results.push(await this.handleOne(request));
+      const asked = this.generation;
+      for (const request of requests) {
+        results.push(await this.handleOne(request));
+        // Stop pressed during one part: do not go on to open, play or write the next.
+        if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      }
       result = {
         handled: results.some((r) => r.handled),
         actionName: results.map((r) => r.actionName).join('+'),
@@ -202,6 +207,12 @@ export class JarvisVoiceAgent {
   /** Forget the answer being worked out: it was stopped, so it must not be saved or repeated. */
   abandon(): void {
     this.generation++;
+  }
+
+  /** A new conversation: "open it" and follow-ups must not reach back into the old one. */
+  resetConversation(): void {
+    this.lastSubject = '';
+    this.lastAction = '';
   }
 
   private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {

@@ -145,7 +145,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (!text) return;
     lastReply = text;
     hud.setReply(text);
-    void speaker.speak(text);
+    // A timer that went off while this was being said is said next.
+    void speaker.speak(text).then(() => { if (pending.length && !thinking && !speaker.getIsSpeaking()) sayPending(); });
   }
   /** Shows on the orb what Kevo is doing right now. */
   const refresh = () => hud.setState(kevoState({
@@ -389,6 +390,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const forgetBtn = makeBtn('New conversation', '', () => {
     stopNow(); // also abandons an answer being written, so it is never saved into the fresh conversation
     clearJarvisHistory();
+    voiceAgent.resetConversation();
     lastReply = '';
     hud.setHeard('');
     hud.setReply('Starting fresh. Say “Kevo” and what you need.');
