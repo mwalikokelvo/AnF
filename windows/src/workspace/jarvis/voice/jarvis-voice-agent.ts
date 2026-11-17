@@ -291,7 +291,8 @@ export class JarvisVoiceAgent {
       lower === 'time' ||
       lower.includes('current time') ||
       // Only the clock: "tell me the time complexity of quicksort" is a question for the AI.
-      /(?<!\b(?:not|don'?t|do not|never)\s+)\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) ||
+      // A negation anywhere earlier in the same clause ("please don't ever tell me the time") keeps it quiet.
+      (/\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) && !/\b(?:not|don'?t|never)\b[^,.;!?]*\btell me\b/.test(lower)) ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -432,9 +433,10 @@ export class JarvisVoiceAgent {
       }
     }
 
-    // "Can you not skip this song?" and "please don't skip that track" keep it playing; "should I skip this song?" is a question.
-    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower) && !/\b(?:not|don'?t|do not|never)\s+(?:\w+\s+)?(?:skip|next)\b/.test(lower)
-      && !/^(?:should|shall|what|why|how|when|is|does)\b|\bif (?:i|we|you)\b/.test(lower)) {
+    // A negation earlier in the same clause ("please do not try to skip this song") keeps it playing;
+    // "should I skip this song?" and "can I skip this track?" are questions, "can you skip this song?" is a request.
+    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower) && !/\b(?:not|don'?t|never)\b[^,.;!?]*\b(?:skip|next)\b/.test(lower)
+      && !/^(?:should|shall|what|why|how|when|is|does|do you think)\b|^(?:can|could|may|might) (?:i|we)\b|\b(?:should|shall) (?:i|we)\b|\bif (?:i|we|you)\b/.test(lower)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
