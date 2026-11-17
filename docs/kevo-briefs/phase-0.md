@@ -1,6 +1,17 @@
 # Phase 0 brief: close Phase 0, and make Kevo testable without the owner
 
-Version 0.1.57 onward. Each step below is one pull request, merged in order. Read `docs/KEVO-MAP.md` first.
+Version 0.1.57 onward. Each step below is one issue and one pull request. Read `docs/KEVO-MAP.md` and `docs/kevo-autopilot/TEAM.md` first.
+
+| Step | Owner | Depends on |
+|---|---|---|
+| 0.1 Kevo's log | Jules | none |
+| 0.2 Phrase list | Claude | none |
+| 0.3 Test builds | Codex | none |
+| 0.4a Test clips | Jules | none |
+| 0.4b Automatic test builds and self-test | Claude | 0.1, 0.3, 0.4a |
+| 0.5 The five checks, as self-test scripts | Claude | 0.4b |
+
+Steps 0.1, 0.2, 0.3 and 0.4a start at the same time.
 
 Phase 0 is done when the self-test on the owner's PC passes all five Phase 0 checks (step 0.5) on one build.
 
@@ -40,7 +51,9 @@ The owner cleared these test builds for their own PC on 16 Nov 2026 (`docs/KEVO-
 
 AnF's normal "Check for updates" already ignores prereleases (`updates.rs` `pick_latest`, with a test). Keep that test.
 
-## 0.4 Self-installing test builds and the self-test
+## 0.4 Automatic test builds and the self-test
+
+Step 0.4a is the test clips paragraph at the end of this section, with its generator script. Step 0.4b is everything else.
 
 A new setting in AnF Settings, **"Run Kevo test builds and Kevo's self-test automatically"**, is off by default. Only the owner turns it on, once. Nothing is installed: the owner's installed AnF stays as it is, and the test build runs from its own folder. When the setting is on:
 

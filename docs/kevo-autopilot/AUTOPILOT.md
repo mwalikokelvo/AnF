@@ -1,6 +1,6 @@
 # Kevo autopilot
 
-The owner authorised this on 16 November 2026: the Kevo plan (`docs/KEVO-PLAN.md`) is built, reviewed, merged and released without asking them. A Claude scheduled task runs this runbook every 2 hours. A second scheduled task on the owner's PC collects Kevo's self-test results (see "PC results" below).
+The owner authorised this on 16 November 2026: the Kevo plan (`docs/KEVO-PLAN.md`) is built, reviewed, merged and released without asking them. On 17 November they added: the assistants work together at the same time. A Claude scheduled task runs this runbook every 2 hours as the **coordinator**: it hands steps to Codex and Jules through GitHub issues, builds its own share, reviews, and merges. How the team works: `docs/kevo-autopilot/TEAM.md` (read it every run). A second scheduled task on the owner's PC collects Kevo's self-test results (see "PC results" below).
 
 Owner decisions on record (16 Nov 2026):
 - Merge into `main` when every gate below passes. No owner review needed.
@@ -9,16 +9,22 @@ Owner decisions on record (16 Nov 2026):
 
 ## Each run
 
-Do exactly ONE kind of action per run (the first that applies below), finish it, record it, stop. A run must end within about 90 minutes.
+Every run first keeps the board moving (step 2a, quick), then does ONE piece of its own work (step 2b, the first that applies), records it, and stops. A run must end within about 90 minutes.
 
 0. **Setup.** `git clone --depth 1 https://github.com/mwalikokelvo/anf` and `git fetch --depth 1 origin kevo-autopilot-state`. Read `STATE.md` from that branch. If it says `paused: yes`, the owner has stopped the autopilot: stop without changes. If its `lock` is newer than 100 minutes, another run is working: stop without changes. Otherwise write `lock: <now UTC>` and push the state branch before working.
 1. **Read** `CLAUDE.md`, `docs/KEVO-PLAN.md`, `docs/KEVO-MAP.md`, the current phase brief in `docs/kevo-briefs/`, and the newest `HANDOFF.md` entry.
-2. **Pick the action**, in this order:
-   1. An autopilot pull request (branch `claude/kevo-*`) has a failing check: find the root cause and push a fix. A failure that is also red on `main` is not this PR's: fix it in the same PR if it is small; otherwise open a separate fix pull request (`claude/kevo-fix-main-*`) for it, which then goes through these same steps. The 3-strikes `blocked` rule applies to both.
-   2. An autopilot pull request has unresolved review findings (Codex, CodeQL, a subagent): check each against the code. Fix the real ones, with a test. Answer the rest in the thread with what you checked. Resolve what you fixed.
-   3. An autopilot pull request passes every merge gate: merge it (merge commit).
+2a. **Keep the board moving** (every run, before 2b):
+   - Make sure every step of the current phase's brief has its issue (`TEAM.md`, "The board"), with owner labels and `Depends on` lines. Create the missing ones.
+   - Hand every **ready**, unclaimed issue to its owner: `team:jules` → add the label `jules`; `team:codex` → comment `@codex ...` as `TEAM.md` shows. At most 2 open tasks per cloud assistant.
+   - Reassign stalled tasks to `team:claude` as `TEAM.md` "When a task stalls" says.
+   - Pass review findings on other assistants' pull requests back to their author (`TEAM.md`, "Cross-review").
+
+2b. **Pick your own work**, in this order. "A Kevo pull request" is any open pull request that closes a `kevo` issue, whoever wrote it.
+   1. A Kevo pull request you wrote (branch `claude/kevo-*`), or one you took over, has a failing check: find the root cause and push a fix. A failure that is also red on `main` is not this PR's: fix it in the same PR if it is small; otherwise open a separate fix pull request (`claude/kevo-fix-main-*`) for it, which then goes through these same steps. The 3-strikes `blocked` rule applies to both.
+   2. A Kevo pull request you wrote or took over has unresolved review findings (Codex, CodeQL, a subagent): check each against the code. Fix the real ones, with a test. Answer the rest in the thread with what you checked. Resolve what you fixed.
+   3. A Kevo pull request (anyone's) passes every merge gate: bring it up to date with `main` (merge), add the version bump on its branch, wait for the checks to pass again, then merge it (merge commit). One merge per run.
    4. A merged build is waiting for its PC test and `pc-results/selftest-<version>.json` has arrived on the state branch: judge it against the brief's "Done when". Pass: mark the round passed and move to the next step or phase. Fail: start a fix round (next item) using the result. A result of `"result": "could_not_start"` (for example Windows Defender blocked the test build) is not a code failure: set `owner_needed` with the reason it gives, send a notification, and do not start a fix round for it.
-   5. Start the next step of the current phase: branch `claude/kevo-<phase>-<step>` from `main`, build it as the brief says, run every check in `docs/KEVO-MAP.md` "Checks", bump the version, add a `HANDOFF.md` entry, open the pull request, record it in STATE.
+   5. Build the next ready issue labelled `team:claude`: branch `claude/kevo-<step>` from `main`, build it as the brief says, run every check in `docs/KEVO-MAP.md` "Checks", add a `HANDOFF.md` entry, open the pull request with `Closes #N`, record it in STATE. (The version is bumped at merge time, 2b.3.)
    6. The current phase has no brief yet: write it (docs only, same shape as `phase-0.md`) as its own pull request.
    7. Nothing to do (waiting for CI, a review or the PC): update STATE's `waiting_for` and stop.
 3. **Record.** Append one line to STATE's run log (time, action, PR, result; keep the last 60 lines), clear `lock`, push the state branch.
@@ -26,10 +32,10 @@ Do exactly ONE kind of action per run (the first that applies below), finish it,
 ## Merge gates (all of them)
 
 - Every check run on the head commit has finished, and each is success, neutral or skipped. CodeQL reports no new alerts.
-- Codex has reviewed the head commit with no unresolved findings. If Codex has not reviewed it 3 hours after the last push, start a fresh subagent with no context from this run to review the diff, and fix what it finds. That review then counts.
+- An assistant that did not write it has reviewed it (`TEAM.md`, "Cross-review"): Codex has reviewed the head commit with no unresolved findings, and a pull request written by Codex also has a fresh Claude subagent review with its findings fixed. If Codex has not reviewed it 3 hours after the last push, start a fresh subagent with no context from this run to review the diff, and fix what it finds. That review then counts.
 - Phases 1 and 2 also need a second fresh-subagent review of the design: does it match the brief, and is anything unsafe?
 - `npx tsc --noEmit`, `npm test` (including the phrase list), `node scripts/check-release.mjs` and `npm run build` pass locally. When Rust changed, `cargo test --lib` also passes.
-- The version is bumped in `windows/Cargo.toml`, `windows/package.json`, `windows/src-tauri/tauri.conf.json` and the `coucou` and `coucou-hook` entries in `windows/Cargo.lock`. Docs-only pull requests skip this.
+- The version is bumped (by you, at merge time) in `windows/Cargo.toml`, `windows/package.json`, `windows/src-tauri/tauri.conf.json` and the `coucou` and `coucou-hook` entries in `windows/Cargo.lock`. Docs-only pull requests skip this.
 - The pull request touches only what its brief step names, plus always-allowed files: `HANDOFF.md`, `docs/KEVO-MAP.md`, `windows/tests/kevo-phrases.json`, the version files above, and (for brief-writing pull requests) `docs/kevo-briefs/`.
 
 ## After a merge

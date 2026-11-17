@@ -68,7 +68,7 @@ The repository contains 232 specialized domain personas. Whenever an agent or de
 
 ## 3. Multi-Agent Handover & Token Quota Protection
 - **`main` is locked (16 Nov 2026, owner's decision)**: never push to `main`. Work on your own branch and open a pull request; it merges only with green checks, Codex's findings answered and Claude's review.
-- **Kevo work follows `docs/KEVO-PLAN.md`**: one phase at a time, from a task brief, with the roles listed there. Do not start a later phase or add features the brief does not name.
+- **Kevo work follows `docs/KEVO-PLAN.md`**: one phase at a time, from a task brief, with the roles listed there. Do not start a later phase or add features the brief does not name. Kevo is built by several assistants at once from the GitHub issue board (label `kevo`): read `docs/kevo-autopilot/TEAM.md` first, take only an issue assigned to you or an unclaimed `team:any` one, and never merge your own pull request.
 - **Check State First**: Read `HANDOFF.md` and `docs/BUILDUP-STATUS.md` before starting any task.
 - **Clear superseded builds**: once a newer AnF build is installed and runs, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
 - **Continuous Buildup**: Never discard or overwrite working code from other partner agents. Inspect recent commits on `origin/` and continuation checkpoints.
