@@ -140,4 +140,31 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     assert.equal(view, 'home');
     assert.equal(opened, true);
   });
+
+  it('handles weather request with Open-Meteo style summary', async () => {
+    let requested = '';
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      getWeather: async (loc) => {
+        requested = loc || 'default';
+        return 'In London it is 12 degrees, partly cloudy. Today high 15, low 8.';
+      },
+    });
+    const res = await agent.processVoiceInput("What's the weather in London?");
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'weather');
+    assert.ok(res.speechReply.includes('London'));
+    assert.strictEqual(requested, 'London');
+  });
+
+  it('handles plain weather request', async () => {
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      getWeather: async () => 'In Berlin it is 8 degrees, clear sky.',
+    });
+    const res = await agent.processVoiceInput('tell me the weather');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'weather');
+    assert.ok(res.speechReply.includes('Berlin'));
+  });
 });

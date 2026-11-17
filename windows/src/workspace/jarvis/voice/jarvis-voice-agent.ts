@@ -38,6 +38,8 @@ export interface JarvisActionContext {
   triageSupport?: () => number;
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
+  /** Fetches current weather summary via free Open-Meteo (no key). Location optional; defaults to a sensible place. */
+  getWeather?: (location?: string) => Promise<string>;
   notify?: (msg: string) => void;
 }
 
@@ -153,7 +155,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -369,6 +371,21 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Weather (free Open-Meteo, no key). "what's the weather", "weather in London", "how's the weather"
+    if (/\b(what'?s|what is|how'?s|how is|check|tell me)\b.*\bweather\b|\bweather\b.*(in|for|at)\b|\bweather\b$/.test(lower) && !/\b(song|music|app)\b/.test(lower)) {
+      if (this.context.getWeather) {
+        const locMatch = /\b(?:in|for|at)\s+([a-z0-9\s,.-]+?)(?:\s+(?:please|now|today))?$/i.exec(text) || /weather\s+(?:in|for|at)\s+(.+)/i.exec(text);
+        const location = locMatch ? locMatch[1].trim() : undefined;
+        try {
+          const summary = await this.context.getWeather(location);
+          return { handled: true, actionName: 'weather', speechReply: summary };
+        } catch (err) {
+          return { handled: true, actionName: 'weather_failed', speechReply: `I could not get the weather: ${String(err).replace(/^Error:\s*/, '')}` };
+        }
+      }
+      return { handled: true, actionName: 'weather_unavailable', speechReply: 'Weather is not available right now.' };
+    }
+
     // 1. Briefing command
     if (lower.includes('briefing') || lower.includes('morning update') || lower.includes('status report')) {
       if (this.context.getBriefing) {
@@ -581,6 +598,55 @@ const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, thre
 const DURATION = new RegExp(`\\b(\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).sort((x, y) => y.length - x.length).join('|')})\\s*(second|sec|minute|min|hour|hr)s?\\b`);
 
 /** "5 minutes", "ninety seconds", "an hour and a half" is not handled; one number and one unit is. */
+
+/** Free weather via Open-Meteo (https://open-meteo.com, no API key, non-commercial). */
+export async function fetchWeather(location?: string): Promise<string> {
+  const loc = (location || 'Berlin').trim();
+  // Geocode first if named place
+  let lat = 52.52, lon = 13.41, name = loc;
+  if (location) {
+    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(loc)}&count=1&language=en&format=json`);
+    if (geo.ok) {
+      const data = await geo.json() as { results?: { latitude: number; longitude: number; name: string }[] };
+      if (data.results?.[0]) {
+        lat = data.results[0].latitude;
+        lon = data.results[0].longitude;
+        name = data.results[0].name;
+      }
+    }
+  }
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`weather service answered ${res.status}`);
+  const data = await res.json() as {
+    current?: { temperature_2m?: number; weather_code?: number; wind_speed_10m?: number };
+    daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+  };
+  const temp = data.current?.temperature_2m;
+  const code = data.current?.weather_code ?? 0;
+  const wind = data.current?.wind_speed_10m;
+  const hi = data.daily?.temperature_2m_max?.[0];
+  const lo = data.daily?.temperature_2m_min?.[0];
+  const desc = weatherCodeToText(code);
+  const parts = [`In ${name} it is ${temp !== undefined ? Math.round(temp) + ' degrees' : 'unknown temperature'}, ${desc}.`];
+  if (hi !== undefined && lo !== undefined) parts.push(`Today high ${Math.round(hi)}, low ${Math.round(lo)}.`);
+  if (wind !== undefined) parts.push(`Wind ${Math.round(wind)} kilometers per hour.`);
+  return parts.join(' ');
+}
+
+function weatherCodeToText(code: number): string {
+  if (code === 0) return 'clear sky';
+  if (code <= 3) return 'mainly clear or partly cloudy';
+  if (code <= 48) return 'fog or depositing rime fog';
+  if (code <= 57) return 'drizzle';
+  if (code <= 67) return 'rain';
+  if (code <= 77) return 'snow';
+  if (code <= 82) return 'rain showers';
+  if (code <= 86) return 'snow showers';
+  if (code <= 99) return 'thunderstorm';
+  return 'unknown conditions';
+}
+
 export function parseDuration(text: string): { ms: number; label: string } | null {
   const m = DURATION.exec(text.toLowerCase());
   if (!m) return null;
