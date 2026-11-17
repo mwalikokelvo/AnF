@@ -725,3 +725,7 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - Owner chose (17 Nov) to run the master handoff's float HUD as a parallel track: `docs/kevo-briefs/hud.md` (H.1 state bus `kevo://state`, H.2 48×28 micro-pill window below the island, H.3 420×110 telemetry pill, H.4 approval card with 60 s timeout-is-deny and spoken yes/cancel, H.5 drop files onto the pill, H.6 three-line summary card, H.7 Android desk companion with Phase 8, H.8 self-test). Owners and dependencies per step are in the brief.
 - `docs/KEVO-PLAN.md`: HUD track row, a table of where each handoff item lands (streaming transcription and mic sync in Phase 1, typed actions in Phase 2, minimised-window timers in Phase 4), decision on record. `phase-1.md` gains step 1.6, talking over Kevo with echo cancellation, stop within 300 ms, after 1.1–1.5 pass. `AUTOPILOT.md` 2a now also files HUD steps whose start condition is met.
 - Not taken: moving the mouse pointer onto screen elements (would need reading other apps' windows); left out until the owner asks. Docs only.
+
+## 2026-11-17 Grok: weather capability
+Added free Open-Meteo weather queries to Kevo voice agent (no key). Intent for 'what's the weather' / 'weather in City'. Tests added. fetchWeather helper included.
+
