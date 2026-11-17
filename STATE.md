@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock:
+lock: 2026-11-17T10:26Z
 phase: 0
 step: 0.1, 0.2, 0.3, 0.4a in parallel (board: issues #148-#153)
 open_pr: #156 (0.4a, claude/kevo-0.4a): CI green and Codex clean on head d699eb9 at 09:24Z, ready for review; next run: merge per 2b.3 (merge main, version bump, wait for checks). #154 (0.2) belongs to the interactive Claude session.
