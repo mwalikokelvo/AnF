@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./**/target/**)",
+      "Read(./**/node_modules/**)",
+      "Read(./graphify-out/**)",
+      "Read(./.codebase-memory/**)",
+      "Read(./continuations/**)",
+      "Read(./archive/**)",
+      "Read(./**/*.onnx)",
+      "Read(./**/*.gguf)",
+      "Read(./**/*.safetensors)",
+      "Read(./**/*.epub)",
+      "Read(./**/*.db)",
+      "Read(./**/*.sqlite)",
+      "Read(./windows/local-ai/**)",
+      "Read(./windows/media/**)"
+    ]
+  }
+}

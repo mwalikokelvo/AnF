@@ -112,7 +112,10 @@ pub fn validate(p: &Project) -> Result<(), String> {
             || t.content.len() != 1
             || t.content[0].text.len() > 2_000_000
             || !matches!(t.label.as_deref(), None | Some("pc") | Some("browser"))
-    }) || p.sources.iter().any(|s| s.text.len() > 2_000_000 || s.name.len() > 2000)
+    }) || p
+        .sources
+        .iter()
+        .any(|s| s.text.len() > 2_000_000 || s.name.len() > 2000)
     {
         return Err("Project contains invalid conversation or sources.".into());
     }
