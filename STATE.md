@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock:
+lock: 2026-11-17T06:04Z (interactive setup of team mode)
 phase: 0
 step: 0.1 (Kevo's log)
 open_pr:
