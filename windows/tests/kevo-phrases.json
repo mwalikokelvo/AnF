@@ -6,9 +6,9 @@
   { "say": "Set a timer for one minute.", "expect": "timer_set", "source": "session 1" },
 
   { "say": "In the meantime, can you open Brave browser and play YouTube?", "expect": "open_site", "source": "session 2" },
-  { "say": "I need you to open a Brave browser please.", "expect": "open_app", "source": "session 2" },
-  { "say": "Open browser.", "expect": "open_app", "source": "session 2" },
-  { "say": "Brave browser.", "expect": "ai_conversation", "source": "session 2" },
+  { "say": "I need you to open a Brave browser and take a note that hello.", "expect": "open_app+take_note", "source": "session 2" },
+  { "say": "Open browser.", "expect": "open_app_failed", "source": "session 2" },
+  { "say": "Brave browser.", "before": ["Open browser."], "expect": "open_app", "source": "session 2" },
   { "say": "Open it.", "before": ["Brave browser."], "expect": "open_app", "source": "session 2" },
   { "say": "not Kevo.", "expect": "greeting", "source": "session 2" },
   { "say": "Just tell me what's your name?", "expect": "name", "source": "session 2" },

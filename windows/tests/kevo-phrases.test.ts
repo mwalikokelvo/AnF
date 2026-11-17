@@ -15,7 +15,7 @@ const PHRASES = JSON.parse(readFileSync(new URL('./kevo-phrases.json', import.me
 const SOURCES = ['session 1', 'session 2', 'session 3', 'variant'] as const;
 const VOICES = ['Nath', 'Burt', 'Kevo', 'Jean'];
 /** Apps the fake computer does not have, so the "not found" follow-ups can be tried. */
-const NOT_INSTALLED = /^(photoshop|bravo browser)$/i;
+const NOT_INSTALLED = /^(photoshop|bravo browser|browser)$/i; // the owner's PC (session 2): plain "browser" is not an app, so "Open browser." fails and its follow-up is tested
 
 function freshAgent(): JarvisVoiceAgent {
   let at = 0;
