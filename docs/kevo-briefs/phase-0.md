@@ -73,7 +73,7 @@ A new setting in AnF Settings, **"Run Kevo test builds and Kevo's self-test auto
 - writes `~/AnF-Kevo/selftest-<version>.json` (creating the folder). It holds, per request clip: the clip's id, the expected result, what was heard while that clip played, the action, the reply and timings. For wake, look-alike and background clips it holds counts only (wakes, false wakes), never heard text. It also holds errors, `system_stats` (RAM, CPU) and the graphics card name. This file is published to the public state branch, so nothing heard outside a request clip's playback window goes into it, and the user's home folder in any path is written as `~`
 - quits when done (the helper then restarts the owner's AnF)
 
-Test clips: 16 kHz mono WAV files under `windows/src-tauri/resources/kevo-selftest/`, made with a free offline voice (for example Piper) in at least two voices, plus a `clips.json` listing each clip's words and expected result. Generate them with a script kept in `scripts/`, so they can be remade.
+Test clips (step 0.4a): 16 kHz mono WAV files under `windows/src-tauri/resources/kevo-selftest/`, made with a free offline voice (for example Piper), plus a `clips.json` listing each clip's words and expected result. Generate them with a script kept in `scripts/`, so they can be remade. Include the step 0.5 requests in at least two voices, and, for Phase 1, 20 "Kevo" and "Hey Kevo" clips in at least 4 voices and 10 look-alike words. Keep the total under 20 MB.
 
 ## 0.5 The five Phase 0 checks, as self-test scripts
 
