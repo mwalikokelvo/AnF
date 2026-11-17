@@ -3,12 +3,12 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-17T18:41Z
+lock: 
 phase: 0
 step: 0.1 (#148) and 0.3 (#150) team:claude since 14:25Z (Codex stalled); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158 listener aliases), fix 3 (#159 binding phrase entries) and fix 4 (#160 follow-up expiry), all team:claude, wait on #155; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155, #158-#160)
-open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, draft): head 78e425f fixes the 1 Codex finding on b19721e (standalone "Calvo"/"Hey Calvo" greeting); all 12 threads resolved; @codex review asked 18:29Z. Also open, not yet looked at by the autopilot: #163 (Kevo HUD track brief, issue #162, owner account).
+open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, ready for review): version 0.1.58 added at merge time (3b2e46f, all checks green); Codex then found 1 issue on 3b2e46f ("play five minutes" after "set a timer" set a timer), fixed in c3c615a; all 13 threads resolved; @codex review asked 19:3xZ. Also open, not yet looked at by the autopilot: #163 (Kevo HUD track brief, issue #162, owner account).
 pc_test:
-waiting_for: #157: CI and Codex review of 78e425f (if no Codex review by ~21:30Z, fresh subagent review per AUTOPILOT.md); merge when gates pass. Next own work after that: build #148 (0.1) or #150 (0.3) as team:claude (2b.5); if a late Codex PR appears for either, close it with a link to Claude's. Jules is read-only (winds down 31 Dec 2026): never hand it work.
+waiting_for: #157: CI and Codex review of c3c615a (if no Codex review by ~22:40Z, fresh subagent review per AUTOPILOT.md); branch already has the 0.1.58 bump and is level with main, so merge when gates pass (re-merge main and re-check if main moved). Next own work after that: build #148 (0.1) or #150 (0.3) as team:claude (2b.5); if a late Codex PR appears for either, close it with a link to Claude's. Jules is read-only (winds down 31 Dec 2026): never hand it work.
 blocked:
 last_passed_version: none yet
 owner_needed: none now (the "Create PR" ask for #148/#150 is dropped: Claude took them over). Later: when step 0.4 is merged, install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
@@ -26,3 +26,4 @@ owner_needed: none now (the "Create PR" ask for #148/#150 is dropped: Claude too
 - 2026-11-17T14:25Z (autopilot): 2a moved stalled #148/#150 to team:claude (no Codex PRs 6 h after hand-off). 2b.2 on #157: 3 Codex findings fixed in 466cf08 with phrase-list entries (red before, 117/117 after), listener aliases split to #158; threads resolved; tsc, npm test 619, build, check-release 12 pass.
 - 2026-11-17T16:26Z (autopilot): 2b.2 on #157: Codex review of 466cf08 had 7 findings; 5 fixed in b19721e with 6 phrase-list entries (red before, 123/123 after), 2 split to new issues #159 (binding fixed entries) and #160 (follow-up expiry); threads answered and resolved, @codex review asked. tsc, npm test 619, build, check-release 12 pass.
 - 2026-11-17T18:26Z (autopilot): 2b.2 on #157: Codex review of b19721e had 1 finding (standalone "Calvo"/"Hey Calvo" not greeted); fixed in 78e425f, 3 phrase-list entries red before, 126/126 after; thread answered and resolved, @codex review asked. tsc, npm test 619, build, check-release 12 pass. Board: nothing to hand out; new #162/#163 (HUD brief) seen.
+- 2026-11-17T18:41Z (autopilot): 2b.3 on #157 started: level with main, version bump 0.1.58 (3b2e46f), local tsc/npm test 619/check-release 12/build pass, all CI green; marked ready. Codex review of 3b2e46f then had 1 finding, so gate failed and run switched to 2b.2: fixed in c3c615a ("play five minutes" after "set a timer" no longer sets a timer; entry red before, variants 129/129), thread resolved, @codex review asked. Not merged.
