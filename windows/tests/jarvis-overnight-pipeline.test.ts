@@ -300,7 +300,7 @@ describe('Overnight Kevo pipeline', () => {
     assert.equal(await say('What is the sun'), answer);
     assert.deepEqual(parts.slice(1), ['The sun is a star.', 'It is very hot.']);
     await say('What can I do to lower CPU use?');
-    assert.equal(asked, 4, 'a real question that starts like the help request goes to the AI');
+    assert.equal(asked, 6, 'stuck answers are asked once more afresh (twice here); a real question that starts like the help request goes to the AI');
   });
 
   it('a last sentence that arrived late is still spoken, once', () => {

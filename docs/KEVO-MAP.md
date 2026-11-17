@@ -46,6 +46,13 @@ Session 2 (0.1.54 → fixed in 0.1.55):
 - When the mic can't work, the button and orb must say so, not "Say Kevo".
 - The test report is written by Gemini from the video. Check its version label and odd lines against the video before building on them.
 
+Session 3 (0.1.55 → fixed in 0.1.56):
+- Opening a browser and a page in the same breath races: open only the page.
+- "on YouTube" means YouTube, not Music Hub.
+- Questions about Kevo itself (its tasks, voices, microphone) are answered locally; the small model does not know them and gets stuck repeating itself.
+- People keep talking past the follow-up window, and the recogniser sometimes never confirms words. Extend the window while speech is heard; use unconfirmed words after a pause.
+- A preview cut at 1 s sounds broken. Play the whole recording or none.
+
 ## Rules
 
 Smallest complete change. Every fixed request gets a test with the owner's own words. Branch, PR, green checks; never push to `main`. Add your result to `HANDOFF.md`.

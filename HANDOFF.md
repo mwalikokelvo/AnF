@@ -6,6 +6,24 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo Phase 0 session 3 fixes, Windows 0.1.56 (Claude)
+
+The owner reran Phase 0 on installed 0.1.55 (report file says 0.1.55; its header says 0.1.53). Tests 1 and 2 failed, 4 passed, 3 (timer) and 5 (Stop) were not in the recording. Fixed on `claude/kevo-phase0-session3`:
+
+- "Open browser, Brave browser and play YouTube": Kevo started Brave and opened YouTube at once; the late Brave window put a blank New Tab over YouTube. When a request opens a browser and then a web page, only the page is opened (it opens the default browser).
+- "Open brave browser and play any song in youtube" went to Music Hub. "play/search X on/in YouTube" now opens YouTube's search for X; "any song" searches "popular songs".
+- "Which task can you do?" and "With you, so just pick any." got "I am not sure how to answer that": the small model repeated its previous answer. Wider help match; a stuck answer is asked once more with no history before giving up.
+- Voice by voice: "change your voice (to Jean)", "any other voice", "pick any" right after, and "what voices do you have". Same as choosing it in the list.
+- "Can you keep the microphone on?" and "why can't you respond to my voice commands" are answered locally with how the microphone and the wake word work.
+- "any other voice" was shown under the orb but never answered: the 8 s follow-up window closed while the owner was still talking, and the recogniser never confirmed the words. Talking now keeps the window open, and unconfirmed words are used after 2.5 s or when the recogniser ends (a late confirmation is not run twice).
+- Choosing a voice in the list played only 1.1 s of its recording, which sounded cut off. It now plays the whole recording with the microphone resting; Stop or another choice ends it.
+- One recognition `network` error is retried quietly; a second within 30 s turns the microphone off as before (it switched off on its own at 01:44).
+- The Activity list scrolls back to the newest line when one is added.
+
+Not changed: "hey you didn't open youtube" at 03:29 had no wake word and came long after the follow-up window (correct). "Voice set to …" Activity lines have no prefix (system lines). If the default browser is not Brave, "open Brave and play YouTube" opens YouTube in the default browser.
+
+Verified here: type check, 611 node tests, 12 release checks, vite build. No Rust changed. NOT verified: installed app with a real microphone. Owner reruns the five Phase 0 tests on 0.1.56, including 3 (timer) and 5 (Stop).
+
 ## 2026-11-16 — Kevo Phase 0 session 2 fixes, Windows 0.1.55 (Claude)
 
 The owner reran Phase 0 on installed 0.1.54 (Gemini's report "session 2"; its header says 0.1.53, but the greeting and stuck-answer replies only exist in 0.1.54). Tests 1-3 failed; 4 (typed request) and 5 (Stop) were not in the recording. Fixed on `claude/kevo-phase0-session2`:

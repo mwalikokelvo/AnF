@@ -228,6 +228,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
     text.textContent = msg;
     item.append(time, text);
     logEl.prepend(item);
+    logEl.scrollTop = 0; // newest first: show it, even after the owner scrolled down to older lines
     while (logEl.children.length > maxLogLines) logEl.lastElementChild!.remove();
   }
 

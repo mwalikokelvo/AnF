@@ -187,6 +187,20 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     askAI: options?.voiceActionContext?.askAI,
     searchWeb: options?.voiceActionContext?.searchWeb,
     openUrl: options?.voiceActionContext?.openUrl,
+    // "Change your voice": the same as choosing it in the list, without the recording (Kevo answers in the new voice).
+    changeVoice: (name) => {
+      const short = (v: (typeof JARVIS_VOICE_PACK)[number]) => v.name.replace(/\s*\(.*$/, '').toLowerCase();
+      const at = JARVIS_VOICE_PACK.findIndex((v) => v.id === voiceSelect.value);
+      const next = name
+        ? JARVIS_VOICE_PACK.find((v) => short(v) === name.toLowerCase()) ?? JARVIS_VOICE_PACK.find((v) => name.toLowerCase().includes(short(v)) || v.name.toLowerCase().includes(name.toLowerCase()))
+        : JARVIS_VOICE_PACK[(at + 1) % JARVIS_VOICE_PACK.length];
+      if (!next) return null;
+      voiceSelect.value = next.id;
+      setSelectedVoiceId(next.id);
+      hud.pulseMessage(`Voice set to ${next.name}`);
+      return next.name.replace(/\s*\(.*$/, '');
+    },
+    voiceNames: () => JARVIS_VOICE_PACK.map((v) => v.name.replace(/\s*\(.*$/, '')),
     // A timer going off: always listed, and said aloud now or, if Kevo is busy, right after the current answer.
     announce: (text) => {
       hud.pulseMessage(`Kevo: ${text}`);
@@ -320,7 +334,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     setSelectedVoiceId(voiceSelect.value);
     const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
     hud.pulseMessage(`Voice set to ${prof?.name || voiceSelect.value}`);
-    void speaker.playIdentityCue(prof?.filename);
+    // The whole recording, with the microphone resting: a 1-second cue sounded cut off (session 3).
+    // Choosing another voice stops this one; Stop stops it too.
+    if (prof) { stopBtn.hidden = false; void speaker.playSample(prof.filename).finally(() => { if (!thinking) stopBtn.hidden = true; }); }
   });
 
   // The built-in recording of the chosen voice, in full.
