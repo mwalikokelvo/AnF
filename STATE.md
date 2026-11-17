@@ -8,7 +8,7 @@ phase: 0
 step: 0.1 and 0.3 with Codex (no PRs yet); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155)
 open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, draft, @codex review asked 12:29Z). #156 (0.4a) merged as cb5a542, version 0.1.57.
 pc_test:
-waiting_for: CI and Codex review on #157. Codex finished #148 (0.1, task commit a094c54) and #150 (0.3, ecc5bf6) at 08:05-08:15Z but opened no pull request: the owner has to press "Create PR" on each Codex task (asked 2026-11-17T08:33Z). Stall rule (6 h after 07:59Z hand-off, about 14:00Z): next run after 14:00Z takes them over (team:claude) if still no PR. Jules is read-only (winds down 31 Dec 2026): never hand it work.
+waiting_for: #157: Codex reviewed e9ff702 at 12:33Z with 4 P2 findings (time-phrase too broad, timer clarification lost after "say that again", negated skip, Calvo/Kalvo missing from the listener wake aliases); next run handles them (2b.2). Codex finished #148 (0.1, task commit a094c54) and #150 (0.3, ecc5bf6) at 08:05-08:15Z but opened no pull request: the owner has to press "Create PR" on each Codex task (asked 2026-11-17T08:33Z). Stall rule (6 h after 07:59Z hand-off, about 14:00Z): next run after 14:00Z takes them over (team:claude) if still no PR. Jules is read-only (winds down 31 Dec 2026): never hand it work.
 blocked:
 last_passed_version: none yet
 owner_needed: press "Create PR" on the two finished Codex tasks for #148 and #150 (links in their issue comments). Later: when step 0.4 is merged, install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
