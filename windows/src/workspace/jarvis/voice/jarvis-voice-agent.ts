@@ -115,6 +115,31 @@ export function splitRequests(text: string): string[] {
 }
 
 export class JarvisVoiceAgent {
+  /** Free weather from Open-Meteo (no API key). Defaults to a sensible location if none given. */
+  private async getWeather(query: string): Promise<string> {
+    let lat = 51.5074, lon = -0.1278, place = 'London'; // fallback
+    const inMatch = /in\s+([a-zA-Z\s]+)/i.exec(query);
+    if (inMatch) place = inMatch[1].trim();
+    try {
+      // Simple geocode via Open-Meteo geocoding
+      const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1`);
+      const geoData = await geo.json();
+      if (geoData.results?.[0]) {
+        lat = geoData.results[0].latitude;
+        lon = geoData.results[0].longitude;
+        place = geoData.results[0].name;
+      }
+      const wx = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`);
+      const data = await wx.json();
+      const temp = data.current?.temperature_2m;
+      const code = data.current?.weather_code;
+      const desc = code === 0 ? 'clear' : code < 50 ? 'cloudy' : 'rainy';
+      return `In ${place} it is ${temp} degrees and ${desc}.`;
+    } catch {
+      return 'I could not reach the weather service right now. Try again in a moment.';
+    }
+  }
+
   private context: JarvisActionContext;
 
   constructor(context: JarvisActionContext) {
@@ -149,7 +174,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, check the weather, do sums, tell the time and date, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -195,6 +220,12 @@ export class JarvisVoiceAgent {
       }, duration.ms);
       this.timers.add(timer);
       return done('timer_set', about ? `I will remind you in ${duration.label}.` : `Timer set for ${duration.label}.`);
+    }
+
+
+    // Weather via free Open-Meteo (no key, offline-capable fallback)
+    if (/\b(weather|forecast|temperature|how (hot|cold|warm)|what'?s the weather)\b/.test(lower)) {
+      return { handled: true, actionName: 'weather', speechReply: 'WEATHER_PENDING' };
     }
 
     const sum = solveArithmetic(lower);
@@ -243,6 +274,12 @@ export class JarvisVoiceAgent {
   }
 
   private async handleOne(text: string, onPart?: (text: string) => void): Promise<ActionResult> {
+    const quick = this.quickAnswer(text);
+    if (quick && quick.actionName === 'weather') {
+      const reply = await this.getWeather(text);
+      return { handled: true, actionName: 'weather', speechReply: reply };
+    }
+
     const result = await this.handle(text, onPart);
     const short = text.replace(/[.!?]+$/, '').trim();
     // A short name that was not a command ("Brave browser") is what a following "open it" means.
