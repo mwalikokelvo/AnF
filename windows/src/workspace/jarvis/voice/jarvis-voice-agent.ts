@@ -184,7 +184,9 @@ export class JarvisVoiceAgent {
       return done('timer_cancel', count ? `Cancelled ${count === 1 ? 'the timer' : `${count} timers`}.` : 'There is no timer running.');
     }
     // Only a request to start one: "how does a timer work?" is a question for the AI.
-    if (/\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
+    // "five minutes" right after "For how long?" is the timer's length.
+    const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null;
+    if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
       if (!this.context.announce) return done('timer_unavailable', 'Timers are not available here.');
@@ -212,8 +214,8 @@ export class JarvisVoiceAgent {
   /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
     // A typed "Hey Kevo, why…" is the question after the name.
-    // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word.
-    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|kevo\b|[kc][aeiy]{1,2}[vb][aeo]\w{0,2}(?=[,:]))[\s,.:!]+(?=\S)/i, '');
+    // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word. "Calvo," is Kevo misheard.
+    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+[kc][aeiy]{1,2}l?[vb][aeo]\w{0,2}|kevo\b|[kc][aeiy]{1,2}l?[vb][aeo]\w{0,2}(?=[,:]))[\s,.:!]+(?=\S)/i, '');
     let requests = splitRequests(stripLeadIn(unnamed));
     // "Open Brave and play YouTube": opening the site already opens the browser. Starting the browser as well
     // races it, and the late browser window lands a blank New Tab over YouTube (session 3).
@@ -283,6 +285,7 @@ export class JarvisVoiceAgent {
       lower.includes('what time') ||
       lower === 'time' ||
       lower.includes('current time') ||
+      lower.includes('tell me the time') ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -423,7 +426,7 @@ export class JarvisVoiceAgent {
       }
     }
 
-    if (lower.includes('next song') || lower.includes('next track') || lower.includes('skip song') || lower.includes('skip track')) {
+    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
