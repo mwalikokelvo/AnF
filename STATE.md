@@ -6,7 +6,7 @@ paused: no
 lock:
 phase: 0
 step: 0.1, 0.2, 0.3, 0.4a in parallel (board: issues #148-#153)
-open_pr: #156 (0.4a, claude/kevo-0.4a, draft, waiting for CI and Codex review; mark ready for review when green). #154 (0.2) belongs to the interactive Claude session.
+open_pr: #156 (0.4a, claude/kevo-0.4a): CI green and Codex clean on head d699eb9 at 09:24Z, ready for review; next run: merge per 2b.3 (merge main, version bump, wait for checks). #154 (0.2) belongs to the interactive Claude session.
 pc_test:
 waiting_for: Codex finished #148 (0.1, task commit a094c54) and #150 (0.3, ecc5bf6) at 08:05-08:15Z but opened no pull request: the owner has to press "Create PR" on each Codex task (asked 2026-11-17T08:33Z). Stall rule (6 h after 07:59Z hand-off, about 14:00Z): take them over if still no PR. #154 (0.2) merged. #156 (0.4a): CI and Codex review. Jules is read-only (winds down 31 Dec 2026): never hand it work.
 blocked:
