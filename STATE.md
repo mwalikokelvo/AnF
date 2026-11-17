@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-17T18:41Z
 phase: 0
 step: 0.1 (#148) and 0.3 (#150) team:claude since 14:25Z (Codex stalled); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158 listener aliases), fix 3 (#159 binding phrase entries) and fix 4 (#160 follow-up expiry), all team:claude, wait on #155; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155, #158-#160)
 open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, draft): head 78e425f fixes the 1 Codex finding on b19721e (standalone "Calvo"/"Hey Calvo" greeting); all 12 threads resolved; @codex review asked 18:29Z. Also open, not yet looked at by the autopilot: #163 (Kevo HUD track brief, issue #162, owner account).
