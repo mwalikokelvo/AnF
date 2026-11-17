@@ -3,12 +3,12 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-17T10:26Z
+lock:
 phase: 0
-step: 0.1, 0.2, 0.3, 0.4a in parallel (board: issues #148-#153)
-open_pr: #156 (0.4a, claude/kevo-0.4a): CI green and Codex clean on head d699eb9 at 09:24Z, ready for review; next run: merge per 2b.3 (merge main, version bump, wait for checks). #154 (0.2) belongs to the interactive Claude session.
+step: 0.1 and 0.3 with Codex (no PRs yet); 0.4a merged; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155)
+open_pr: none of ours. #156 (0.4a) merged as cb5a542 at 10:56Z, version 0.1.57.
 pc_test:
-waiting_for: Codex finished #148 (0.1, task commit a094c54) and #150 (0.3, ecc5bf6) at 08:05-08:15Z but opened no pull request: the owner has to press "Create PR" on each Codex task (asked 2026-11-17T08:33Z). Stall rule (6 h after 07:59Z hand-off, about 14:00Z): take them over if still no PR. #154 (0.2) merged. #156 (0.4a): CI and Codex review. Jules is read-only (winds down 31 Dec 2026): never hand it work.
+waiting_for: Codex finished #148 (0.1, task commit a094c54) and #150 (0.3, ecc5bf6) at 08:05-08:15Z but opened no pull request: the owner has to press "Create PR" on each Codex task (asked 2026-11-17T08:33Z). Stall rule (6 h after 07:59Z hand-off, about 14:00Z): next run after 14:00Z takes them over (team:claude) if still no PR. #155 (0.2 fix 1, team:any) unclaimed. Jules is read-only (winds down 31 Dec 2026): never hand it work.
 blocked:
 last_passed_version: none yet
 owner_needed: press "Create PR" on the two finished Codex tasks for #148 and #150 (links in their issue comments). Later: when step 0.4 is merged, install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
@@ -21,3 +21,4 @@ owner_needed: press "Create PR" on the two finished Codex tasks for #148 and #15
 - 2026-11-17T08:02Z (Claude, interactive): Codex environment published by the owner; #148 and #150 handed to Codex (it reacted); Claude started #149.
 - 2026-11-17T08:33Z (autopilot): built #151 (0.4a), PR #156 opened (draft, @codex review asked); 40 clips, 1.83 MB, all local checks pass. Board: Codex done on #148/#150 but no PRs, owner asked to press Create PR.
 - 2026-11-17T08:44Z (Claude, interactive): merged #154 (0.2 phrase list; tests only, no version bump). Codex review clean on 5a2241a.
+- 2026-11-17T10:26Z (autopilot): 2b.3 merged #156 (0.4a test clips) after main merge + bump to 0.1.57; all checks green on 40d93a1 (Windows run 44065085283), Codex clean on d699eb9, threads resolved. Board: no Codex PRs yet for #148/#150, not stalled before ~14:00Z.
