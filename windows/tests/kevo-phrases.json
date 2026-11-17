@@ -41,8 +41,11 @@
   { "say": "Also, could you search the web for the weather in Evansville?", "expect": "web_search", "source": "variant" },
   { "say": "Now please pause the music.", "expect": "pause_music", "source": "variant" },
   { "say": "Can you skip this song?", "expect": "next_track", "source": "variant" },
+  { "say": "Can you not skip this song?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Please don't skip that track", "expect": "ai_conversation", "source": "variant" },
   { "say": "Could you take a note that the meeting moved to Friday?", "expect": "take_note", "source": "variant" },
   { "say": "Please tell me the time.", "expect": "tell_time", "source": "variant" },
+  { "say": "Tell me the time complexity of quicksort", "expect": "ai_conversation", "source": "variant" },
   { "say": "I need you to open a Brave browser and take a note that hello.", "expect": "open_app+take_note", "source": "variant" },
 
   { "say": "Open Spotify and then set a timer for five minutes", "expect": "open_app+timer_set", "source": "variant" },
@@ -70,6 +73,7 @@
   { "say": "say that again", "before": ["what time is it"], "expect": "repeat", "source": "variant" },
   { "say": "cancel the timer", "before": ["Set a timer for five minutes"], "expect": "timer_cancel", "source": "variant" },
   { "say": "five minutes", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
+  { "say": "five minutes", "before": ["set a timer", "say that again"], "expect": "timer_set", "source": "variant" },
   { "say": "Open browser, Brave browser.", "expect": "open_app", "source": "variant" },
 
   { "say": "Kevin, what time is it?", "expect": "tell_time", "source": "variant" },

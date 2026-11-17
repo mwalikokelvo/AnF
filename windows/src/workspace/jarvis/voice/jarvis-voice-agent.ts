@@ -251,7 +251,8 @@ export class JarvisVoiceAgent {
     if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
     }
-    this.lastAction = result.actionName;
+    // "Say that again" repeats the last answer, so what that answer was waiting for ("For how long?") still stands.
+    if (result.actionName !== 'repeat') this.lastAction = result.actionName;
     return result;
   }
 
@@ -285,7 +286,8 @@ export class JarvisVoiceAgent {
       lower.includes('what time') ||
       lower === 'time' ||
       lower.includes('current time') ||
-      lower.includes('tell me the time') ||
+      // Only the clock: "tell me the time complexity of quicksort" is a question for the AI.
+      /\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -426,7 +428,8 @@ export class JarvisVoiceAgent {
       }
     }
 
-    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower)) {
+    // "Can you not skip this song?" and "please don't skip that track" keep it playing.
+    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower) && !/\b(?:not|don'?t|do not|never)\s+(?:\w+\s+)?(?:skip|next)\b/.test(lower)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
