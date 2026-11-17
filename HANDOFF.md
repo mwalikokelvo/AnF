@@ -720,3 +720,8 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - `--check` verifies the committed clips against the brief (format, two voices per request, 20 wake clips in 4+ voices, 10 look-alikes, no stray files, under 20 MB) without Piper.
 - Heard back with Whisper base.en as a rough sanity check: every request is clear; the name alone is often heard as "Kivo", "Hevo", "Kebo" and the like, which is what Phase 1 measures. The clips are not bundled into the app yet (step 0.4b). Not played through a PC speaker and microphone.
 - Checks: `npx tsc --noEmit`, `npm test` 617 pass, `npm run build`, `check-release.mjs` 12 pass. No Rust changed. No version bump (done at merge).
+
+## 2026-11-17: vault search speed gate and fix (Claude)
+- New test `vault::tests::fts5_search_p95_under_50ms`: 2,000 encrypted projects (~2 KB each), five queries, 100 timed runs, p95 must stay under 50 ms (the handoff's budget). It runs in the existing Linux `cargo test --workspace` step.
+- It found a real slowdown: a search matching every project took ~300 ms (p95 503 ms) because SQLite built a snippet for every match. Search now returns the 100 best matches (snippets only for those) and reads the name from the search index instead of parsing each project's JSON. SQLite/SQLCipher is also compiled optimised in debug/test builds (`[profile.dev.package.libsqlite3-sys] opt-level = 3`) so the test measures what users get. Now p95 34 ms on the Linux container. Empty search (the full list) is unchanged.
+- Checks: `cargo test --lib` 154 pass (Linux), rustfmt clean, no new clippy warnings. Not measured on the PC.

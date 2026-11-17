@@ -171,11 +171,14 @@ pub fn list(query: &str) -> Result<Vec<Entry>, String> {
     if query.len() > 1024 {
         return Err("Use a shorter search phrase.".into());
     }
-    let db = open()?;
+    search(&open()?, query)
+}
+fn search(db: &Connection, query: &str) -> Result<Vec<Entry>, String> {
     let sql = if query.trim().is_empty() {
         "SELECT id,json_extract(json,'$.name'),updated,substr(json_extract(json,'$.draft'),1,160) FROM projects ORDER BY updated DESC"
     } else {
-        "SELECT p.id,json_extract(p.json,'$.name'),p.updated,snippet(project_search,2,'','', '…',24) FROM project_search JOIN projects p ON p.id=project_search.id WHERE project_search MATCH ?1 ORDER BY rank,p.updated DESC"
+        // The 100 best matches only: snippets cost about 0.1 ms each, and the list shows every result as a button.
+        "SELECT p.id,project_search.title,p.updated,snippet(project_search,2,'','', '…',24) FROM project_search JOIN projects p ON p.id=project_search.id WHERE project_search MATCH ?1 AND project_search.rowid IN (SELECT rowid FROM project_search WHERE project_search MATCH ?1 ORDER BY rank LIMIT 100) ORDER BY rank,p.updated DESC"
     };
     let term = query
         .split_whitespace()
@@ -431,6 +434,63 @@ mod tests {
             .windows(b"private-token-74328 ".len())
             .any(|b| b == b"private-token-74328 "));
         std::fs::remove_file(file).unwrap();
+    }
+    #[test]
+    fn fts5_search_p95_under_50ms() {
+        // Speed budget from the 17 Nov 2026 engineering handoff: vault search < 50 ms p95.
+        let file =
+            std::env::temp_dir().join(format!("coucou-vault-speed-{}.db", random_key().unwrap()));
+        let db = connect(&file, &random_key().unwrap(), true).unwrap();
+        schema(&db).unwrap();
+        let words = [
+            "river", "garden", "lecture", "homily", "budget", "travel", "kenya", "music",
+        ];
+        db.execute_batch("BEGIN").unwrap();
+        for i in 0..2_000usize {
+            let mut p = project();
+            p.id = format!("{i:064x}");
+            p.name = format!("Project {i}");
+            p.draft = format!(
+                "{} notes {i}. {}",
+                words[i % words.len()],
+                "A long paragraph of ordinary writing about the week. ".repeat(40)
+            );
+            write_at(&db, &p, i as i64).unwrap();
+        }
+        db.execute_batch("COMMIT").unwrap();
+        let queries = [
+            "river",
+            "garden notes",
+            "ordinary writing",
+            "kenya week",
+            "missing",
+        ];
+        for q in queries {
+            search(&db, q).unwrap();
+        }
+        let broad = search(&db, "ordinary writing").unwrap();
+        assert_eq!(broad.len(), 100, "only the 100 best matches");
+        assert!(broad[0].snippet.contains("ordinary writing"));
+        let mut times: Vec<_> = (0..100)
+            .map(|i| {
+                let start = std::time::Instant::now();
+                let found = search(&db, queries[i % queries.len()]).unwrap();
+                assert!(queries[i % queries.len()] == "missing" || !found.is_empty());
+                start.elapsed()
+            })
+            .collect();
+        times.sort();
+        let p95 = times[95];
+        println!(
+            "vault FTS5 search p95: {:.2} ms (budget 50 ms)",
+            p95.as_secs_f64() * 1e3
+        );
+        drop(db);
+        std::fs::remove_file(file).unwrap();
+        assert!(
+            p95 < std::time::Duration::from_millis(50),
+            "vault search over budget"
+        );
     }
     #[test]
     #[ignore = "Requires an isolated Coucou data directory and OS credential store"]
