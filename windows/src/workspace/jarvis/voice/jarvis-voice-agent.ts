@@ -140,9 +140,10 @@ export class JarvisVoiceAgent {
 
     if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
     // Just a greeting or its name, however the recogniser spelled it: Kevo answers that it is there.
-    if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2})?$/.test(lower)) return done('greeting', 'Yes?');
+    // "Calvo" is the name misheard too (see processVoiceInput).
+    if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)?$/.test(lower)) return done('greeting', 'Yes?');
     // "Hey Kevo" heard as "not Kevo" or "now Kevo": still just the name, not a statement for the AI.
-    if (/^(now|not|so|um|uh|oh|and)[\s,]+[kc][aeiy]{1,2}[vb][aeo]\w{0,2}$/.test(lower)) return done('greeting', 'Yes?');
+    if (/^(now|not|so|um|uh|oh|and)[\s,]+(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)$/.test(lower)) return done('greeting', 'Yes?');
     if (/\b(what'?s|what is) your name\b|^who are you$/.test(lower)) return done('name', 'My name is Kevo.');
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
     // Up to two stray words first ("maybe? what else can you do"), nothing after: "what can I do to fix this" is a question.

@@ -96,6 +96,9 @@
   { "say": "Kevo. Open Brave browser.", "expect": "open_app", "source": "variant" },
   { "say": "Hey Kevin, what can you do?", "expect": "help", "source": "variant" },
   { "say": "Calvo, what is 12 times 8?", "expect": "arithmetic", "source": "variant" },
+  { "say": "Calvo", "expect": "greeting", "source": "variant" },
+  { "say": "Hey Calvo", "expect": "greeting", "source": "variant" },
+  { "say": "Calvo.", "expect": "greeting", "source": "variant" },
 
   { "say": "Who are you?", "expect": "name", "source": "variant" },
   { "say": "What's your name?", "expect": "name", "source": "variant" },
