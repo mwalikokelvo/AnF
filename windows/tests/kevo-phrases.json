@@ -78,6 +78,9 @@
   { "say": "five minutes", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
   { "say": "five minutes", "before": ["set a timer", "say that again"], "expect": "timer_set", "source": "variant" },
   { "say": "not five minutes", "before": ["set a timer"], "expect": "ai_conversation", "source": "variant" },
+  { "say": "play five minutes", "before": ["set a timer"], "expect": "search_play_music", "source": "variant" },
+  { "say": "For five minutes please", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
+  { "say": "Um, ten minutes.", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
   { "say": "Do you know any jokes?", "before": ["change your voice", "say that again"], "expect": "ai_conversation", "source": "variant" },
   { "say": "Open browser, Brave browser.", "expect": "open_app", "source": "variant" },
 

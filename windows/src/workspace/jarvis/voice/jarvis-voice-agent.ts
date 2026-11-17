@@ -186,8 +186,9 @@ export class JarvisVoiceAgent {
     }
     // Only a request to start one: "how does a timer work?" is a question for the AI.
     // "five minutes" right after "For how long?" is the timer's length.
-    // "Not five minutes" is not an answer.
-    const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower);
+    // "Not five minutes" is not an answer, and "play five minutes" is another command: only a length, with filler words.
+    const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower)
+      && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|make it|like)\b[\s,]*)*$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
     if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
