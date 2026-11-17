@@ -14,7 +14,7 @@ Every run first keeps the board moving (step 2a, quick), then does ONE piece of 
 0. **Setup.** `git clone --depth 1 https://github.com/mwalikokelvo/anf` and `git fetch --depth 1 origin kevo-autopilot-state`. Read `STATE.md` from that branch. If it says `paused: yes`, the owner has stopped the autopilot: stop without changes. If its `lock` is newer than 100 minutes, another run is working: stop without changes. Otherwise write `lock: <now UTC>` and push the state branch before working.
 1. **Read** `CLAUDE.md`, `docs/KEVO-PLAN.md`, `docs/KEVO-MAP.md`, the current phase brief in `docs/kevo-briefs/`, and the newest `HANDOFF.md` entry.
 2a. **Keep the board moving** (every run, before 2b):
-   - Make sure every step of the current phase's brief has its issue (`TEAM.md`, "The board"), with owner labels and `Depends on` lines. Create the missing ones.
+   - Make sure every step of the current phase's brief, and every HUD track step whose start condition is met (`docs/kevo-briefs/hud.md`; H.7 waits for Phase 8), has its issue (`TEAM.md`, "The board"), with owner labels and `Depends on` lines. Create the missing ones.
    - Hand every **ready** issue that has never been handed out to its owner: `team:jules` → add the label `jules`; `team:codex` → comment `@codex ...` as `TEAM.md` shows. The hand-off is the claim (`TEAM.md`); never repeat it. At most 2 open tasks per cloud assistant.
    - Reassign stalled tasks to `team:claude` as `TEAM.md` "When a task stalls" says.
    - Pass review findings on other assistants' pull requests back to their author (`TEAM.md`, "Cross-review").

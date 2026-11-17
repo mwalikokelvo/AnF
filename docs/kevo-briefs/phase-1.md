@@ -4,7 +4,7 @@ Version 0.2.x. Starts only after Phase 0 has passed on the owner's PC. Each step
 
 Why: the browser's recogniser sends audio to Microsoft's online service, fails with "network" errors, has no wake-word engine (11 misheard spellings of "Kevo" in the code), and sometimes never confirms words. See `docs/KEVO-PLAN.md`.
 
-Phase 1 is done when, on the owner's PC, the self-test shows: at least 19 of 20 "Kevo" clips wake Kevo; at most 1 false wake in the look-alike and background clips; the five Phase 0 checks pass; and listening makes no network request (step 1.4).
+Phase 1 is done when, on the owner's PC, the self-test shows: at least 19 of 20 "Kevo" clips wake Kevo; at most 1 false wake in the look-alike and background clips; the five Phase 0 checks pass; listening makes no network request (step 1.4); and talking over Kevo stops it within 300 ms without Kevo's own voice waking it (step 1.6).
 
 ## 1.1 Build check
 
@@ -40,3 +40,9 @@ A Rust test feeds them through the pipeline from WAV, with no microphone, and ch
 ## 1.5 Self-test on the PC
 
 The Phase 0 self-test gains the 20 wake clips, the look-alikes and 10 minutes of background speech without the name (the false-wake target is per 10 minutes), played through the speakers. It reports wake rate, false wakes and idle CPU (average over 60 s of silence) in `selftest-<version>.json`, as counts only (see Phase 0 step 0.4: no heard text for these clips).
+
+## 1.6 Talking over Kevo (built after 1.1–1.5 pass on the PC; part of Phase 1's "done when")
+
+Added from the owner's 17 Nov 2026 engineering handoff. While Kevo speaks, the microphone keeps listening through echo cancellation (the speech Kevo is playing is subtracted from the microphone signal in Rust, for example with the WebRTC audio-processing echo canceller, pure Rust or statically linked, no new system library). If the "Kevo" detector or VAD hears the owner over Kevo's own voice, Kevo stops speaking within 300 ms and listens. Kevo's own voice must never wake it.
+
+Tests: a Rust test mixes a self-test request clip over a recording of Kevo's speech and checks that playback is told to stop within 300 ms of the first speech in the clip (the clips start with 0.3 s of silence, so measure from the first non-silent sample, not the start of the file); Kevo's speech alone must give no wake and no stop. The self-test adds the same check through the speakers and reports the stop delay.
