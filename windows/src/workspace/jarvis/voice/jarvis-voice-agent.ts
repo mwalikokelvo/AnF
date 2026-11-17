@@ -185,7 +185,8 @@ export class JarvisVoiceAgent {
     }
     // Only a request to start one: "how does a timer work?" is a question for the AI.
     // "five minutes" right after "For how long?" is the timer's length.
-    const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null;
+    // "Not five minutes" is not an answer.
+    const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower);
     if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
@@ -214,8 +215,9 @@ export class JarvisVoiceAgent {
   /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
     // A typed "Hey Kevo, why…" is the question after the name.
-    // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word. "Calvo," is Kevo misheard.
-    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+[kc][aeiy]{1,2}l?[vb][aeo]\w{0,2}|kevo\b|[kc][aeiy]{1,2}l?[vb][aeo]\w{0,2}(?=[,:]))[\s,.:!]+(?=\S)/i, '');
+    // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word.
+    // "Calvo," is Kevo misheard; only that spelling, so "Calves, cows are livestock" keeps its first word.
+    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo\b)|kevo\b|(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)(?=[,:]))[\s,.:!]+(?=\S)/i, '');
     let requests = splitRequests(stripLeadIn(unnamed));
     // "Open Brave and play YouTube": opening the site already opens the browser. Starting the browser as well
     // races it, and the late browser window lands a blank New Tab over YouTube (session 3).
@@ -251,8 +253,8 @@ export class JarvisVoiceAgent {
     if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
     }
-    // "Say that again" repeats the last answer, so what that answer was waiting for ("For how long?") still stands.
-    if (result.actionName !== 'repeat') this.lastAction = result.actionName;
+    // "Say that again" repeats the last answer, so a pending "For how long?" still stands. Nothing else carries over.
+    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') this.lastAction = result.actionName;
     return result;
   }
 
@@ -287,7 +289,7 @@ export class JarvisVoiceAgent {
       lower === 'time' ||
       lower.includes('current time') ||
       // Only the clock: "tell me the time complexity of quicksort" is a question for the AI.
-      /\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) ||
+      /(?<!\b(?:not|don'?t|do not|never)\s+)\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -428,8 +430,9 @@ export class JarvisVoiceAgent {
       }
     }
 
-    // "Can you not skip this song?" and "please don't skip that track" keep it playing.
-    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower) && !/\b(?:not|don'?t|do not|never)\s+(?:\w+\s+)?(?:skip|next)\b/.test(lower)) {
+    // "Can you not skip this song?" and "please don't skip that track" keep it playing; "should I skip this song?" is a question.
+    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower) && !/\b(?:not|don'?t|do not|never)\s+(?:\w+\s+)?(?:skip|next)\b/.test(lower)
+      && !/^(?:should|shall|what|why|how|when|is|does)\b|\bif (?:i|we|you)\b/.test(lower)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
