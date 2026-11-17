@@ -6,6 +6,24 @@ This repository (`AnF`) is fully outfitted with shared team agent skills, agency
 
 ---
 
+## 0. Team and duties (owner's decision, 17 Nov 2026)
+
+Who does what. Kevo work follows `docs/kevo-autopilot/TEAM.md` (the issue board); this table covers everything else.
+
+| Agent | Duty |
+|---|---|
+| **Claude** | Lead. Writes briefs, hands out jobs, reviews every pull request, takes hard bugs and work that joins several parts, builds releases, keeps `HANDOFF.md` current. |
+| **Cursor** (desktop, Premium, Auto model) | Main builder for AnF on the owner's PC: features and multi-file changes. Use Cloud mode for long jobs. Branch `cursor/<topic>`. |
+| **Codex** (cloud, school account) | Rust, CI workflows, build and packaging. Reviews every pull request automatically. |
+| **Jules** (cloud) | TypeScript, UI, tests and scripts (Kevo board label `jules`). |
+| **Antigravity / Gemini** | Design and UI passes, reading big logs and files, testing Android and Windows builds. |
+| **Hermes** (free OpenRouter model) | Small jobs only: docs, changelog lines, simple tests, tidy-ups, summaries. It has about 50 free requests a day. |
+| **DeepSeek harness, Grok** | Research and second opinions. No code changes. |
+
+Every agent: take only work assigned to you (or unclaimed `team:any`), one branch per job, never push to `main`, never merge your own pull request, and add a dated line to `HANDOFF.md` when you finish.
+
+---
+
 ## 1. Mandatory Skills, Connectors & Agency Personas
 
 **Do NOT wait for the developer to call out specific skills, slash commands, or roles.** Agents and developers must autonomously identify, adopt, and apply matching resources from `.agents/` and `.cursor/`:
