@@ -35,6 +35,8 @@ export interface JarvisActionContext {
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
   notify?: (msg: string) => void;
+  /** When true, actions are simulated without performing real side effects (Phase 0 step 0.4b). */
+  dryRun?: boolean;
   /** Injectable clock for tests; returns timestamp in milliseconds. Defaults to Date.now. */
   now?: () => number;
   /** Expiration time for follow-up questions/subjects in milliseconds. Defaults to 30,000 (30 s). */
@@ -391,10 +393,13 @@ export class JarvisVoiceAgent {
     // "play any song in YouTube", "search YouTube for lofi", "play Adele on YouTube": YouTube's search, in the browser.
     const tube = /^(?:play|search|find|look up|watch|put on|show(?: me)?)\s+(.+?)\s+(?:on|in|from)\s+youtube[.!?]*$/.exec(lower)
       ?? /^(?:search|look up)\s+youtube\s+for\s+(.+?)[.!?]*$/.exec(lower);
-    if (tube && this.context.openUrl) {
+    if (tube && (this.context.openUrl || this.context.dryRun)) {
       const what = /^(?:any|a|some)\s+(?:song|music|track|video)s?$|^(?:something|anything|music|songs?)$/.test(tube[1]) ? 'popular songs' : tube[1];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
+      }
       try {
-        await this.context.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
+        await this.context.openUrl!(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
         return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -402,10 +407,13 @@ export class JarvisVoiceAgent {
     }
 
     const site = /^(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?[.!?]*$/.exec(lower);
-    if (site && this.context.openUrl) {
+    if (site && (this.context.openUrl || this.context.dryRun)) {
       const { url, name } = SITES[site[1]];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
+      }
       try {
-        await this.context.openUrl(url);
+        await this.context.openUrl!(url);
         return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -413,9 +421,12 @@ export class JarvisVoiceAgent {
     }
 
     const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+?)[.!?]*$/.exec(lower);
-    if (web && this.context.searchWeb) {
+    if (web && (this.context.searchWeb || this.context.dryRun)) {
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
+      }
       try {
-        await this.context.searchWeb(web[1]);
+        await this.context.searchWeb!(web[1]);
         return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
       } catch (err) {
         return { handled: true, actionName: 'web_search_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -518,11 +529,14 @@ export class JarvisVoiceAgent {
 
     // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
     const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+|an?\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
-    if (app && this.context.openApp) {
+    if (app && (this.context.openApp || this.context.dryRun)) {
       this.lastSubject = app[1];
       this.lastSubjectTime = this.now();
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${app[1]}.` };
+      }
       try {
-        const opened = await this.context.openApp(app[1]);
+        const opened = await this.context.openApp!(app[1]);
         return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_app_failed', speechReply: String(err).replace(/^Error:\s*/, '') };
@@ -539,8 +553,10 @@ export class JarvisVoiceAgent {
       const noteContent = text
         .replace(/^(take a note(:|\s+that)?|note that|remember that|write this down(:|\s+that)?)\s*/i, '')
         .trim();
-      if (noteContent && this.context.saveQuickNote) {
-        await this.context.saveQuickNote(noteContent);
+      if (noteContent && (this.context.saveQuickNote || this.context.dryRun)) {
+        if (!this.context.dryRun) {
+          await this.context.saveQuickNote!(noteContent);
+        }
         return {
           handled: true,
           actionName: 'take_note',

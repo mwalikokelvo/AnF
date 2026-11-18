@@ -29,6 +29,8 @@ import { clearJarvisHistory } from './voice/jarvis-memory';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
+import { Bridge } from '../../core/bridge';
+import { runKevoSelfTest } from './kevo-selftest';
 
 export interface JarvisCommandDeskOptions {
   onNotify?: (msg: string) => void;
@@ -452,7 +454,45 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       }),
     );
   }
-  voiceBar.append(onlineToggle, speechStatusEl);
+  // "Run self-test" button on the Kevo screen (Phase 0 step 0.4b)
+  const btnRunSelfTest = makeBtn('Run self-test', '', async () => {
+    btnRunSelfTest.disabled = true;
+    speechStatusEl.textContent = 'Running self-test...';
+    try {
+      if (options?.voiceActionContext) options.voiceActionContext.dryRun = true;
+      const report = await runKevoSelfTest({
+        agent: voiceAgent,
+        listener,
+        onProgress: (step) => { speechStatusEl.textContent = step; },
+      });
+      if (options?.voiceActionContext) options.voiceActionContext.dryRun = false;
+      speechStatusEl.textContent = `Self-test complete: ${report.result}`;
+      hud.pulseMessage(`Self-test complete: ${report.result}`);
+    } catch (err) {
+      speechStatusEl.textContent = `Self-test error: ${String(err)}`;
+    } finally {
+      btnRunSelfTest.disabled = false;
+    }
+  });
+
+  voiceBar.append(btnRunSelfTest, onlineToggle, speechStatusEl);
+
+  // When launched with --kevo-selftest, start listening in dry-run, execute the self-test, and quit
+  void Bridge.isKevoSelftest().then(async (selftestActive) => {
+    if (selftestActive) {
+      if (options?.voiceActionContext) options.voiceActionContext.dryRun = true;
+      listener.start();
+      try {
+        await runKevoSelfTest({
+          agent: voiceAgent,
+          listener,
+          onProgress: (step) => { speechStatusEl.textContent = step; },
+        });
+      } finally {
+        await Bridge.quitApp();
+      }
+    }
+  });
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
