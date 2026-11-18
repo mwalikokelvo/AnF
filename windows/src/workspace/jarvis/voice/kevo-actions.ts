@@ -32,6 +32,7 @@
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
+import { createReminder, listReminders, cancelReminder } from './jarvis-schedule';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -556,6 +557,114 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: false,
           actionName: 'forget_fact',
           speechReply: `Failed to forget memory: ${String(err)}`,
+        };
+      }
+    },
+  },
+  {
+    name: 'create_reminder',
+    description: 'Schedule a persistent reminder with a message and delay or target time.',
+    parameters: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'What to remind the user about' },
+        delay_seconds: { type: 'number', description: 'Delay in seconds until the reminder triggers' },
+        recurring: { type: 'string', description: 'Optional recurrence cadence, e.g. "daily"' },
+      },
+      required: ['message'],
+    },
+    execute: async (args: { message: string; delay_seconds?: number; recurring?: string }, ctx: JarvisActionContext) => {
+      const clean = (args?.message || '').trim();
+      if (!clean) {
+        return { handled: false, actionName: 'create_reminder', speechReply: 'What would you like to be reminded about, sir?' };
+      }
+      try {
+        const delay = typeof args?.delay_seconds === 'number' && args.delay_seconds > 0 ? args.delay_seconds * 1000 : 60000;
+        const triggerAt = Date.now() + delay;
+        if (ctx.createReminder) {
+          await ctx.createReminder(clean, triggerAt, args?.recurring);
+        } else {
+          await createReminder(clean, triggerAt, args?.recurring);
+        }
+        const delayMin = Math.round(delay / 60000);
+        const timeDesc = delayMin >= 1 ? `in ${delayMin} minute${delayMin === 1 ? '' : 's'}` : 'shortly';
+        return {
+          handled: true,
+          actionName: 'create_reminder',
+          speechReply: `Reminder set for ${clean} ${timeDesc}, sir.`,
+        };
+      } catch (err) {
+        return {
+          handled: false,
+          actionName: 'create_reminder',
+          speechReply: `Failed to set reminder: ${String(err)}`,
+        };
+      }
+    },
+  },
+  {
+    name: 'list_reminders',
+    description: 'List upcoming active scheduled reminders.',
+    parameters: {
+      type: 'object',
+      properties: {
+        include_fired: { type: 'boolean', description: 'Whether to include previously fired reminders' },
+      },
+    },
+    execute: async (args: { include_fired?: boolean }, ctx: JarvisActionContext) => {
+      try {
+        const reminders = ctx.listReminders ? await ctx.listReminders(args?.include_fired) : await listReminders(args?.include_fired);
+        if (!reminders || reminders.length === 0) {
+          return {
+            handled: true,
+            actionName: 'list_reminders',
+            speechReply: 'You have no upcoming reminders, sir.',
+            data: [],
+          };
+        }
+        const summary = reminders.slice(-5).map((r: any) => r.message).join(', ');
+        return {
+          handled: true,
+          actionName: 'list_reminders',
+          speechReply: `You have ${reminders.length === 1 ? 'one upcoming reminder' : `${reminders.length} upcoming reminders`}: ${summary}.`,
+          data: reminders,
+        };
+      } catch (err) {
+        return {
+          handled: false,
+          actionName: 'list_reminders',
+          speechReply: `Failed to retrieve reminders: ${String(err)}`,
+        };
+      }
+    },
+  },
+  {
+    name: 'cancel_reminder',
+    description: 'Cancel a scheduled reminder by ID or matching keyword.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Text or keyword of the reminder to cancel' },
+        id: { type: 'string', description: 'Specific ID of the reminder to cancel' },
+      },
+    },
+    execute: async (args: { query?: string; id?: string }, ctx: JarvisActionContext) => {
+      try {
+        const target = (args?.id || args?.query || '').trim();
+        if (!target) {
+          return { handled: false, actionName: 'cancel_reminder', speechReply: 'Which reminder would you like to cancel, sir?' };
+        }
+        const ok = ctx.cancelReminder ? await ctx.cancelReminder(target) : await cancelReminder(target);
+        return {
+          handled: true,
+          actionName: 'cancel_reminder',
+          speechReply: ok ? `Cancelled reminder for ${target}, sir.` : `Could not find a reminder matching ${target}, sir.`,
+        };
+      } catch (err) {
+        return {
+          handled: false,
+          actionName: 'cancel_reminder',
+          speechReply: `Failed to cancel reminder: ${String(err)}`,
         };
       }
     },

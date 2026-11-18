@@ -5,6 +5,7 @@
  */
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
+import { createReminder, listReminders, cancelReminder, clearReminders } from './jarvis-schedule';
 
 export type JarvisAskAiResult = string | { text: string; actionName?: string };
 
@@ -29,6 +30,14 @@ export interface JarvisActionContext {
   deleteFact?: (id: string) => Promise<boolean>;
   /** Clears all remembered facts. */
   clearFacts?: () => Promise<boolean>;
+  /** Schedules a reminder in persistent schedule store. */
+  createReminder?: (message: string, trigger_at: number, recurring?: string) => Promise<unknown>;
+  /** Lists reminders from persistent schedule store. */
+  listReminders?: (include_fired?: boolean) => Promise<unknown[]>;
+  /** Cancels a scheduled reminder by ID or query keyword. */
+  cancelReminder?: (idOrQuery: string) => Promise<boolean>;
+  /** Clears all reminders. */
+  clearReminders?: () => Promise<boolean>;
   /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
   askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
@@ -168,7 +177,7 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
   return asked;
 }
 
-const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind|forget)\b/i;
+const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind|forget|remind me)\b/i;
 
 /** "In the meantime, can you open Brave browser?" is the command "open Brave browser". A question stays as it is. */
 export function stripLeadIn(text: string): string {
@@ -300,6 +309,11 @@ export class JarvisVoiceAgent {
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
       if (!this.context.announce) return done('timer_unavailable', 'Timers are not available here.');
       const about = /remind me in .*? to (.+)$/.exec(lower)?.[1];
+      if (about) {
+        const triggerAt = this.now() + duration.ms;
+        if (this.context.createReminder) this.context.createReminder(about, triggerAt).catch(() => {});
+        else createReminder(about, triggerAt).catch(() => {});
+      }
       const timer = setTimeout(() => {
         this.timers.delete(timer);
         this.context.announce?.(about ? `Reminder: ${about}.` : `Your ${duration.label} timer is done.`);
@@ -501,6 +515,55 @@ export class JarvisVoiceAgent {
           return { handled: true, actionName: 'forget_fact', speechReply: `I have forgotten that: ${(matching[0] as any).fact}` };
         }
         return { handled: true, actionName: 'forget_fact', speechReply: `I do not remember anything about ${target}, sir.` };
+      }
+    }
+
+    // Fast path for reminder listing (Phase 4 Step 4.2)
+    if (/^(what (are my reminders|reminders do i have)|list (my |all )?reminders|show (my |all )?reminders)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
+      const reminders = this.context.listReminders ? await this.context.listReminders() : await listReminders();
+      if (!reminders || reminders.length === 0) {
+        return { handled: true, actionName: 'list_reminders', speechReply: 'You have no upcoming reminders, sir.' };
+      }
+      const summary = reminders.map((r: any) => r.message).join(', ');
+      return { handled: true, actionName: 'list_reminders', speechReply: `You have ${reminders.length === 1 ? 'one upcoming reminder' : `${reminders.length} upcoming reminders`}: ${summary}.` };
+    }
+
+    // Fast path for reminder cancelling (Phase 4 Step 4.2)
+    const cancelRemMatch = /^(?:please\s+)?(?:cancel|clear|delete|remove)\s+(?:the\s+|my\s+)?reminder(?:\s+for|\s+to|\s+about)?\s*(.+)?$/i.exec(text.trim());
+    if (cancelRemMatch && !/\btimers?\b/i.test(lower)) {
+      const q = cancelRemMatch[1]?.trim().replace(/[.!?]+$/, '');
+      if (!q || q.toLowerCase() === 'all' || q.toLowerCase() === 'everything') {
+        if (this.context.clearReminders) await this.context.clearReminders();
+        else await clearReminders();
+        return { handled: true, actionName: 'cancel_reminder', speechReply: 'All reminders cleared, sir.' };
+      }
+      const ok = this.context.cancelReminder ? await this.context.cancelReminder(q) : await cancelReminder(q);
+      return {
+        handled: true,
+        actionName: 'cancel_reminder',
+        speechReply: ok ? `Cancelled reminder for ${q}, sir.` : `Could not find a reminder matching ${q}, sir.`,
+      };
+    }
+
+    // Fast path for reminder setting ("remind me to call Mom", "set a reminder to buy milk")
+    const setRemMatch = /^(?:please\s+)?(?:set a reminder|create a reminder|remind me)(?:\s+to|\s+for|\s+about)?\s+(.+)$/i.exec(text.trim());
+    if (setRemMatch && !/\btimer\b/i.test(lower) && !/\bremind me in\b/i.test(lower)) {
+      const remText = setRemMatch[1].trim().replace(/[.!?]+$/, '');
+      if (remText && !/^(?:what|who|where|when|why|how)\b/i.test(remText)) {
+        const duration = parseDuration(lower);
+        const delayMs = duration ? duration.ms : 60000;
+        const triggerAt = this.now() + delayMs;
+        const cleanMsg = remText.replace(/\s+(?:in|after|for)\s+\d+\s*(?:seconds?|minutes?|hours?)$/i, '').trim();
+        if (this.context.createReminder) {
+          await this.context.createReminder(cleanMsg || remText, triggerAt);
+        } else {
+          await createReminder(cleanMsg || remText, triggerAt);
+        }
+        return {
+          handled: true,
+          actionName: 'create_reminder',
+          speechReply: `Reminder set for ${cleanMsg || remText}, sir.`,
+        };
       }
     }
 

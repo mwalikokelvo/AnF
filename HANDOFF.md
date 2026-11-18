@@ -4,7 +4,31 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 4.1: persistent schedule and reminder store).
+Last updated: 2026-11-18 by Antigravity (Kevo 4.2: reminder action and tool calling).
+
+## 2026-11-18 — Kevo 4.2: reminder action and tool calling (Antigravity)
+
+Phase 4 Step 4.2 (`docs/kevo-briefs/phase-4.md`, "4.2 Reminder action and tool calling"):
+- Unified Action Definitions & Execution (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Added `create_reminder`, `list_reminders`, and `cancel_reminder` actions to the single source of truth action registry.
+  - Specified OpenAI tool parameter schemas (`message`, `delay_seconds`, `query`).
+  - Executed actions against active schedule context or native schedule bridge.
+- Fast Path Instant Handlers (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Added `remind me` to `COMMAND_START` regex for immediate command dispatch.
+  - Added instant fast-path handlers with zero model dependency:
+    - `list_reminders`: "what are my reminders?", "list reminders", "show reminders".
+    - `cancel_reminder`: "cancel reminder for <x>", "clear all reminders".
+    - `create_reminder`: "remind me to <x>", "set a reminder to <x>".
+  - Injected reminder persistence into `timer_set` action when reminder text is provided.
+- Main Workspace Context Integration (`windows/src/workspace/main.ts`):
+  - Wired `createReminder`, `listReminders`, `cancelReminder`, and `clearReminders` into `jarvisActionContext`.
+- Verification:
+  - 4/4 Rust unit tests in `kevo_schedule` PASS (`cargo test --lib kevo_schedule`).
+  - Unit tests in `kevo-actions.test.ts` verifying tool schemas, prompt injection, and action execution PASS.
+  - Unit tests in `kevo-fastpath.test.ts` verifying instant zero-model handling of reminder queries PASS.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 724/724 tests passed across 102 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 4.1: persistent schedule and reminder store (Antigravity)
 
