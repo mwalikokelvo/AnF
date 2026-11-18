@@ -63,6 +63,8 @@ export const Bridge = {
   kevoSelftestSaveResult: (resultJson: string) => call<string>("kevo_selftest_save_result", { resultJson }),
   kevoGraphicsCard: () => call<string>("kevo_graphics_card"),
   systemStats: () => call<Record<string, unknown>>("system_stats"),
+  kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),
+  kevoHudAnswer: (id: number | string, approved: boolean) => call<void>("kevo_hud_answer", { id, approved }),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),

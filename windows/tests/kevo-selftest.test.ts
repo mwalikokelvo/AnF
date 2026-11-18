@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import {
   runKevoSelfTest,
   runFivePhase0Checks,
+  runHudSelfTestChecks,
   type KevoSelfTestReport,
 } from '../src/workspace/jarvis/kevo-selftest';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
@@ -165,6 +166,16 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     const parsedSaved = JSON.parse(savedResultJson);
     assert.strictEqual(parsedSaved.result, 'pass');
     assert.strictEqual(parsedSaved.phase0Checks.length, 5);
+
+    // HUD track checks executed (H.8)
+    assert.ok(report.hudChecks);
+    assert.strictEqual(typeof report.hudChecks.stateChangeDelayMs, 'number');
+    assert.strictEqual(typeof report.hudChecks.idleCpuPercent60s, 'number');
+    assert.strictEqual(typeof report.hudChecks.approvalClickMs, 'number');
+    assert.strictEqual(typeof report.hudChecks.approvalVoiceYesMs, 'number');
+    assert.strictEqual(typeof report.hudChecks.approvalVoiceCancelMs, 'number');
+    assert.strictEqual(typeof report.hudChecks.droppedFileSearchRank, 'number');
+    assert.strictEqual(parsedSaved.hudChecks.droppedFileSearchRank, 1);
   });
 
   it('runs the five Phase 0 checks independently and reports structured pass results', async () => {
@@ -209,5 +220,58 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(checksByName.timer.passed, true);
     assert.strictEqual(checksByName.typed_request.passed, true);
     assert.strictEqual(checksByName.stop.passed, true);
+  });
+
+  it('runs HUD self-test checks independently (H.8) and returns numbers only', async () => {
+    let approvalAnswered = false;
+    let pendingApprovalActive = false;
+
+    const actionContext = {
+      switchView: () => {},
+      dryRun: true,
+      pendingApproval: () =>
+        pendingApprovalActive
+          ? {
+              id: 99,
+              action: 'test_action',
+              summary: 'Test summary',
+            }
+          : null,
+      answerApproval: (_id: any, approved: boolean) => {
+        approvalAnswered = approved;
+      },
+    };
+
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    let stateReported = '';
+    Bridge.kevoHudSet = async (state: string) => {
+      stateReported = state;
+    };
+    Bridge.kevoHudAnswer = async () => {};
+
+    const hudResults = await runHudSelfTestChecks({
+      agent,
+      listener,
+      onStateChangeMeasure: async () => 18,
+      onIdleCpuMeasure: async () => 0.0,
+      onApprovalClickMeasure: async () => 24,
+      onApprovalVoiceYesMeasure: async () => 45,
+      onApprovalVoiceCancelMeasure: async () => 52,
+      onDropFileSearchMeasure: async () => 1,
+    });
+
+    assert.strictEqual(hudResults.stateChangeDelayMs, 18);
+    assert.strictEqual(hudResults.idleCpuPercent60s, 0.0);
+    assert.strictEqual(hudResults.approvalClickMs, 24);
+    assert.strictEqual(hudResults.approvalVoiceYesMs, 45);
+    assert.strictEqual(hudResults.approvalVoiceCancelMs, 52);
+    assert.strictEqual(hudResults.droppedFileSearchRank, 1);
+
+    // Verify all fields are strictly numbers
+    for (const [key, value] of Object.entries(hudResults)) {
+      assert.strictEqual(typeof value, 'number', `Field ${key} must be a number`);
+    }
   });
 });

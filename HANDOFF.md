@@ -4,7 +4,22 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 0.5: the five Phase 0 checks as self-test scripts).
+Last updated: 2026-11-18 by Antigravity (Kevo H.8: self-test on the PC).
+
+## 2026-11-18 — Kevo H.8: self-test on the PC (Antigravity)
+
+Issue #173 (`docs/kevo-briefs/hud.md`, "H.8 Self-test on the PC"):
+- Implemented `runHudSelfTestChecks` in `windows/src/workspace/jarvis/kevo-selftest.ts` to execute and record the HUD track "Done when" metrics:
+  1. `stateChangeDelayMs`: Float follows state changes within 100 ms (measured via `Bridge.kevoHudSet` or injected listener).
+  2. `idleCpuPercent60s`: Float window 60s idle CPU usage (0.0%).
+  3. `approvalClickMs`: Pending approval answered by click via `Bridge.kevoHudAnswer`.
+  4. `approvalVoiceYesMs`: Pending approval answered by spoken "yes" while card is open.
+  5. `approvalVoiceCancelMs`: Pending approval answered by spoken "cancel" while card is open.
+  6. `droppedFileSearchRank`: Dropped Markdown file indexed and found by vault search afterwards.
+- Added `hudChecks` (`HudSelfTestNumbers`) to `KevoSelfTestReport`: outputs all metrics into `selftest-<version>.json` as numbers only.
+- Added `kevoHudSet` and `kevoHudAnswer` to `Bridge` in `windows/src/core/bridge.ts`.
+- Automated tests in `windows/tests/kevo-selftest.test.ts` (Phase 0 and HUD checks pass; fields validated as numbers only).
+- Passed all checks: `tsc --noEmit`, full `npm test` (653 tests pass across 92 suites), `npm run build`, `cargo test --locked --lib kevo_` (17 tests pass), `check-release.mjs`, `verify-contracts.mjs`, `check-styles.mjs`.
 
 ## 2026-11-18 — Kevo 0.5: five Phase 0 checks as self-test scripts (Antigravity)
 
