@@ -270,6 +270,72 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Summary card under the pill (H.6) */
+.summary-card {
+  box-sizing: border-box;
+  margin-top: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: var(--ink);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 420px;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.summary-body {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.summary-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* Three-line clamp when compact */
+.summary-card[data-expanded="false"] .summary-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Full text when expanded */
+.summary-card[data-expanded="true"] .summary-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.summary-actions {
+  flex: none;
+}
+
+.summary-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.summary-close-btn:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* CSS animations stop when Kevo is idle or asleep */
 [data-state="idle"] *,
 [data-state="sleeping"] * {

@@ -594,3 +594,48 @@ describe('Kevo float file drop (H.5)', () => {
     assert.ok(messageShown.includes('File exceeds 200 MB limit'));
   });
 });
+
+describe('Kevo float summary card (H.6)', () => {
+  beforeEach(() => {
+    setupMockDom();
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { document?: unknown }).document;
+  });
+
+  it('displays three-line clamped summary card when summary arrives', () => {
+    const root = document.createElement('div');
+    const float = createKevoFloat(root);
+
+    assert.equal(float.summaryCard.style.display, 'none');
+
+    const multiLineSummary = 'Line 1: Search completed.\nLine 2: Found 3 relevant articles.\nLine 3: First key takeaway.\nLine 4: Extra background detail.';
+    float.applyState({
+      state: 'idle',
+      summary: multiLineSummary,
+    });
+
+    assert.equal(float.summaryCard.style.display, 'flex');
+    assert.equal(float.summaryCard.getAttribute('data-expanded'), 'false', 'defaults to compact three-line clamp');
+    assert.equal(float.summaryTextEl.textContent, multiLineSummary);
+  });
+
+  it('expands on click to full text and closes on close button', () => {
+    const root = document.createElement('div');
+    const float = createKevoFloat(root);
+
+    float.setSummary('Long background analysis results from research agent...');
+    assert.equal(float.summaryCard.getAttribute('data-expanded'), 'false');
+    assert.equal(float.summaryCard.style.display, 'flex');
+
+    // Click on summary text expands to full text
+    float.summaryTextEl.dispatchEvent('click');
+    assert.equal(float.summaryCard.getAttribute('data-expanded'), 'true');
+
+    // Click on close button closes the card
+    float.summaryCloseBtn.dispatchEvent('click');
+    assert.equal(float.summaryCard.style.display, 'none');
+    assert.equal(float.summaryTextEl.textContent, '');
+  });
+});
