@@ -4,7 +4,7 @@
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
 
-import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, type JarvisTurn } from './jarvis-memory';
+import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, type JarvisTurn } from './jarvis-memory';
 
 export type JarvisAskAiResult = string | { text: string; actionName?: string };
 
@@ -23,6 +23,8 @@ export interface JarvisActionContext {
   saveQuickNote?: (text: string) => Promise<void>;
   /** Remembers a persistent fact in Kevo memory. */
   rememberFact?: (fact: string, category?: string) => Promise<unknown>;
+  /** Lists remembered facts from Kevo memory. */
+  listFacts?: (query?: string) => Promise<unknown[]>;
   /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
   askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
@@ -464,6 +466,16 @@ export class JarvisVoiceAgent {
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
+
+    // Fast path for memory recall (Phase 3 Step 3.3)
+    if (/^(what do you (remember|know)( about (me|myself))?|list (your |my )?memories)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
+      const allFacts = this.context.listFacts ? await this.context.listFacts() : await listFacts();
+      if (!allFacts || allFacts.length === 0) {
+        return { handled: true, actionName: 'recall_facts', speechReply: 'I have not remembered any facts yet, sir.' };
+      }
+      const summary = allFacts.slice(-5).map((f: any) => f.fact).join('. ');
+      return { handled: true, actionName: 'recall_facts', speechReply: `Here is what I remember: ${summary}.` };
+    }
 
     // Right after an app was not found, a short name on its own ("Brave browser") is the app to open.
     if (this.lastAction === 'open_app_failed' && text.split(/\s+/).length <= 3 && !COMMAND_START.test(text)) {

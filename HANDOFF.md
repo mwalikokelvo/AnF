@@ -4,7 +4,25 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 3.2: remember action and tool calling).
+Last updated: 2026-11-18 by Antigravity (Kevo 3.3: context injection and recall).
+
+## 2026-11-18 — Kevo 3.3: context injection and recall (Antigravity)
+
+Phase 3 Step 3.3 (`docs/kevo-briefs/phase-3.md`, "3.3 Context injection and recall"):
+- Context Injection & System Prompt (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Updated `getCapabilitySheet(facts)` and `getKevoSystemPrompt(facts)` to format and inject active remembered facts into system prompt under `# Remembered Facts:` (bounded to 15 most recent facts).
+  - Updated `main.ts` `askAI` to retrieve facts and inject them into system prompt.
+- Recall Tool Calling (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Added `recall_facts` action with optional `query` parameter.
+  - Queries remembered facts by keyword or retrieves recent memories with clean speech responses.
+- Fast-Path Instant Memory Recall (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Fast-path execution for "What do you remember about me?", "What do you know about me?", "List your memories", answering instantly with zero model loaded.
+- Verification:
+  - Unit tests in `kevo-actions.test.ts` verifying `recall_facts` execution and system prompt injection.
+  - Unit tests in `kevo-fastpath.test.ts` verifying fast-path instant recall.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 713/713 tests passed across 101 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 3.2: remember action and tool calling (Antigravity)
 

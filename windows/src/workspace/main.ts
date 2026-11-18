@@ -39,6 +39,7 @@ import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
 import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
+import {listFacts,rememberFact} from './jarvis/voice/jarvis-memory';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -300,7 +301,8 @@ const jarvisActionContext: JarvisActionContext = {
       const off=await listen<{id:number;text:string}>('kevo-reply-part',e=>{if(e.payload.id===id)options?.onPart?.(e.payload.text);});
       try{
         const tools = getOpenAITools();
-        const system = getKevoSystemPrompt();
+        const facts = await listFacts().catch(() => []);
+        const system = getKevoSystemPrompt(facts);
         const res = await invoke<KevoAskReply | string>('kevo_ask',{
           id,
           query,
@@ -319,6 +321,8 @@ const jarvisActionContext: JarvisActionContext = {
       finally{off();}
     },
     cancelAI:()=>{void invoke('kevo_cancel');},
+    rememberFact:async(fact,category)=>rememberFact(fact,category),
+    listFacts:async query=>listFacts(query),
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
 };
