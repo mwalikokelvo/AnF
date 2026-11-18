@@ -124,7 +124,7 @@ const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd l
 // Inside a sentence: a fresh start that cancels a hanging "don't", a hypothetical quotation lead, a question word.
 const CORRECTION = /^(?:on second thought|actually|now|instead|no wait|wait)\b/;
 // "what if I say, ..." and "did you say, ..." quote a command; "I said, ..." and "as I was saying, ..." restate one.
-const QUOTE_LEAD = /^(?:what|why|how|if|when|whenever|suppose|imagine|did|do|does|would|could|should|can|will)\b.*\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
+const QUOTE_LEAD = /^(?:what|why|how|if|when|whenever|suppose|imagine|did|do|does|would|could|should|can|will|are|is|was|were|am)\b.*\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
 const QUESTION_WORD = /^(?:why|what|how|when|where|who|which)\b(?!\s+about\b|\s+you(?:'re| are) ready\b)/;
 // All that may follow the command in its sentence: anything else ("skip this song if I later say go") is a condition.
 const POLITE_TAIL = /^(?:[\s,]*(?:please|now|for me|if you (?:can|could)|thanks|thank you|kevo|sir))*[\s,]*$/;
@@ -149,7 +149,8 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
       const clause = part.replace(REQUEST_LEAD, '');
       const command = verb.exec(clause);
       if (!command) {
-        if (/\b(?:not|don'?t|never)\b/.test(part.slice(0, found.index))) asked = false;
+        const slice = part.slice(0, found.index);
+        if (/\b(?:not|don'?t|never)\b/.test(slice) && !/\b(?:know|sure|matter|care|mind|wonder|think|believe)\b/i.test(slice)) asked = false;
         return;
       }
       asked = POLITE_TAIL.test([clause.slice(command[0].length), ...parts.slice(at + 1)].join(','));
@@ -174,7 +175,7 @@ export function stripLeadIn(text: string): string {
 /** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
 export function splitRequests(text: string): string[] {
   return text
-    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?weather|weather (?:in|for|today|tomorrow|now))\b)/i)
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock)\b)/i)
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3);
