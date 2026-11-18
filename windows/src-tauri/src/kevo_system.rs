@@ -8,7 +8,7 @@
 //
 // Depends on the `sysinfo` crate for cross-platform system information.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::{Disk, Disks, System};
 use std::process::Command as StdCommand;
 
@@ -79,6 +79,19 @@ pub struct Diagnostics {
     pub memory_usage_percent: f32,
     pub process_count: u64,
     pub disks: Vec<DiskInfo>,
+}
+
+/// Detailed hardware profile used by Phase 6 model tiering.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoHardwareProfile {
+    pub total_ram_gb: f32,
+    pub available_ram_gb: f32,
+    pub cpu_cores: u32,
+    pub arch: String,
+    pub recommended_tier: String,
+    pub recommended_threads: u32,
+    pub avx2_supported: bool,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -337,6 +350,64 @@ pub fn diagnostics() -> Result<Diagnostics, String> {
     })
 }
 
+/// Computes the recommended tier and thread allocation based on raw hardware parameters.
+pub fn compute_hardware_profile(
+    total_ram_gb: f32,
+    available_ram_gb: f32,
+    cpu_cores: u32,
+    arch: String,
+    avx2: bool,
+) -> KevoHardwareProfile {
+    let recommended_tier = if total_ram_gb >= 15.5 && avx2 {
+        "quality".to_string()
+    } else if total_ram_gb >= 7.5 {
+        "balanced".to_string()
+    } else {
+        "fast".to_string()
+    };
+
+    let recommended_threads = cpu_cores.min(8).max(1);
+
+    KevoHardwareProfile {
+        total_ram_gb,
+        available_ram_gb,
+        cpu_cores,
+        arch,
+        recommended_tier,
+        recommended_threads,
+        avx2_supported: avx2,
+    }
+}
+
+/// Evaluates host hardware (RAM, CPU cores, AVX2 support) and returns the recommended local AI tier (Phase 6 Step 6.1).
+#[tauri::command]
+pub fn kevo_hardware_profile() -> Result<KevoHardwareProfile, String> {
+    let mut system = System::new_all();
+    system.refresh_memory();
+    system.refresh_cpu_usage();
+
+    let total_bytes = system.total_memory();
+    let avail_bytes = system.available_memory();
+    let total_ram_gb = (total_bytes as f64 / 1_073_741_824.0) as f32;
+    let available_ram_gb = (avail_bytes as f64 / 1_073_741_824.0) as f32;
+    let cpu_cores = system.cpus().len() as u32;
+
+    #[cfg(target_arch = "x86_64")]
+    let avx2_supported = is_x86_feature_detected!("avx2");
+    #[cfg(not(target_arch = "x86_64"))]
+    let avx2_supported = true;
+
+    let arch = System::cpu_arch().unwrap_or_else(|| "unknown".to_string());
+
+    Ok(compute_hardware_profile(
+        total_ram_gb,
+        available_ram_gb,
+        cpu_cores,
+        arch,
+        avx2_supported,
+    ))
+}
+
 // ---------------------------------------------------------------------------
 // Opening an installed app by name ("Kevo, open Brave browser")
 // ---------------------------------------------------------------------------
@@ -493,5 +564,29 @@ mod open_app_tests {
         assert_eq!(best_app_match("browser", &variants).unwrap(), "Brave Beta");
         let none: Vec<String> = vec!["Word".to_string()];
         assert!(best_app_match("browser", &none).is_none());
+    }
+
+    #[test]
+    fn hardware_profile_tier_allocation() {
+        use super::compute_hardware_profile;
+
+        // Low RAM (< 8GB) maps to fast tier
+        let low = compute_hardware_profile(4.0, 2.0, 2, "x86_64".into(), true);
+        assert_eq!(low.recommended_tier, "fast");
+        assert_eq!(low.recommended_threads, 2);
+
+        // Mid RAM (8-16GB) maps to balanced tier
+        let mid = compute_hardware_profile(12.0, 6.0, 6, "x86_64".into(), true);
+        assert_eq!(mid.recommended_tier, "balanced");
+        assert_eq!(mid.recommended_threads, 6);
+
+        // High RAM (>= 16GB) with AVX2 maps to quality tier
+        let high = compute_hardware_profile(16.0, 10.0, 12, "x86_64".into(), true);
+        assert_eq!(high.recommended_tier, "quality");
+        assert_eq!(high.recommended_threads, 8); // clamped to 8
+
+        // High RAM without AVX2 falls back to balanced tier
+        let high_no_avx = compute_hardware_profile(32.0, 20.0, 8, "x86_64".into(), false);
+        assert_eq!(high_no_avx.recommended_tier, "balanced");
     }
 }

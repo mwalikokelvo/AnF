@@ -29,6 +29,16 @@ export interface BootInfo {
   cursorPoll: boolean;
 }
 
+export interface KevoHardwareProfile {
+  totalRamGb: number;
+  availableRamGb: number;
+  cpuCores: number;
+  arch: string;
+  recommendedTier: 'fast' | 'balanced' | 'quality';
+  recommendedThreads: number;
+  avx2Supported: boolean;
+}
+
 export const Bridge = {
   boot: () => call<BootInfo>("boot"),
 
@@ -105,6 +115,8 @@ export const Bridge = {
     ),
   kevoScheduleTriggerAlert: (title: string, message: string) =>
     call<void>("kevo_schedule_trigger_alert", { title, message }),
+
+  kevoHardwareProfile: () => call<KevoHardwareProfile>("kevo_hardware_profile"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),
