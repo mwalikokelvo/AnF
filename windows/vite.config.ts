@@ -107,6 +107,7 @@ export default defineConfig({
         settings: resolve(__dirname, "settings.html"),
         workspace: resolve(__dirname, "workspace.html"),
         companion: resolve(__dirname, "companion.html"),
+        "kevo-float": resolve(__dirname, "kevo-float.html"),
       },
     },
   },

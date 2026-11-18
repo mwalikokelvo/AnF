@@ -6,6 +6,26 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo H.4b approval card view (Antigravity)
+
+Added HUD approval card view with Approve and Deny buttons (`kevo-float.css`, `float.ts`), voice approval handling ("yes"/"sure"/"approve" -> true, "cancel"/"no"/"deny" -> false only while a card is open in `jarvis-voice-agent.ts`), wired to Rust command `kevo_hud_answer`, with unit tests in `kevo_approval.rs`, browser fixture tests in `kevo-float.test.ts`, and voice tests in `jarvis-voice.test.ts`. Left: self-test (H.8) and remaining HUD integration.
+
+## 2026-11-17 — Kevo H.6 summary card (Antigravity)
+
+Added summary card under the pill for longer answers and background searches with 3-line clamp, click-to-expand full text, close button, and browser tests; left: H.4 (approval card).
+
+## 2026-11-17 — Kevo H.5 drop files on the pill (Antigravity)
+
+Added HTML5 file drop handling on the pill via `onDragDrop` bridge (Markdown/txt to vault, EPUB to book import, audio to transcription, refusal "I can't take that file yet" for unsupported types, 200 MB limit check without ingesting), and browser tests; left: H.4 (approval card).
+
+## 2026-11-17 — Kevo H.3 telemetry pill (Antigravity)
+
+Added State 2 (420x110 px) telemetry pill with avatar orb, two-line text (newest at bottom, ellipsis), badge, grow on wake/action/hover, fold after 4 s of quiet (1 timer during transition, 0 once folded), Rust `kevo_float_resize` command, and browser tests; left: H.4 (approval card).
+
+## 2026-11-17 — Kevo H.2 micro-pill window (Antigravity)
+
+Added kevo-float window (48x28 non-activating, no taskbar, always on top), dragging capability, view driven purely by kevo://state events with 0 timers/polling, and browser tests; left: H.3 (telemetry pill) and H.4 (approval card).
+
 ## 2026-11-17 — Kevo 0.2 phrase list (Claude)
 
 Issue #149. `windows/tests/kevo-phrases.json` holds 136 requests: 23 in the owner's exact words from sessions 1-3 (5, 7 and 11, taken from `kevo-phase0-session2/3.test.ts` and the session 1 cases in `jarvis-overnight-pipeline.test.ts`) and 113 variants (polite lead-ins, chains with "and", follow-ups, misheard "Kevo", questions about Kevo, timers, YouTube, voices, microphone, the five Phase 0 check requests). Entries are `{ say, expect, source }`; follow-ups add an optional `before` list of what was said just before. `windows/tests/kevo-phrases.test.ts` runs each through a fresh `JarvisVoiceAgent` with fake actions (two app names are "not installed" so the not-found follow-up can be tried), prints the pass rate per source, and needs 100% on owner phrases and 90% on variants.

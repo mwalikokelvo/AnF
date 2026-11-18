@@ -33,6 +33,7 @@ mod integrations;
 mod island;
 // Public: the gate has no caller until Phase 5's actions, and pub keeps it from reading as dead code.
 pub mod kevo_approval;
+mod kevo_float;
 mod kevo_hud;
 mod kevo_system;
 mod log;
@@ -522,6 +523,7 @@ pub fn run() {
             workspace_ask,
             kevo_ask,
             kevo_cancel,
+            kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
             kevo_hud::kevo_hud_set,
             kevo_approval::kevo_hud_answer,
             workspace_begin,
