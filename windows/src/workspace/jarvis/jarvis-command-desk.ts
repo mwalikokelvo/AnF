@@ -577,13 +577,18 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (prof) { stopBtn.hidden = false; void speaker.playSample(prof.filename).finally(() => { if (!thinking) stopBtn.hidden = true; }); }
   });
 
-  // The built-in recording of the chosen voice, in full.
+  // The built-in recording of the chosen voice, with graceful fallback (Phase 7 Step 7.3).
   const previewBtn = makeBtn('Hear this voice', '', async () => {
     const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
     if (!prof) return;
     previewBtn.disabled = true;
     try {
-      if (!await speaker.playSample(prof.filename)) speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+      const res = await speaker.playVoicePreview(prof.id);
+      if (res.fallbackUsed) {
+        speechStatusEl.textContent = 'Voice recording unavailable; native speech synthesis previewed.';
+      } else if (!res.success) {
+        speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+      }
     } finally {
       previewBtn.disabled = false;
     }

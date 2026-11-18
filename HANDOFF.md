@@ -4,7 +4,25 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers).
+Last updated: 2026-11-18 by Antigravity (Kevo 7.3: Voice Pack Pipeline & Local Audio Previews).
+
+## 2026-11-18 — Kevo 7.3: Voice Pack Pipeline & Local Audio Previews (Antigravity)
+
+Phase 7 Step 7.3 (`docs/kevo-briefs/phase-7.md`, "7.3 Pack Voices & Preview Capability"):
+- Voice Pack Profile Integrity (`windows/src/workspace/jarvis/voice/jarvis-voice-pack.ts`):
+  - Verified all 13 voice profiles against `windows/voice-pack/` directory and `SOURCES.txt`.
+  - Added `verifyVoicePackRegistry()` and `getVoicePackStats()` for automated verification of on-disk assets vs registry.
+  - Added `playVoicePreview(id, options)` with graceful fallback to browser/native speech synthesis or Web Audio preview chirp when local audio assets are absent or running in non-desktop environments.
+- Speaker Voice Pack Integration (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Added `previewVoicePack(id)` method to `JarvisSpeaker`.
+  - Integrated voice pack registry checks and previews with speaker fallback handling.
+- Command Desk Preview Button (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Wired `previewBtn` click listener to invoke `speaker.previewVoicePack(selectedId)` with dynamic playing state and visual feedback.
+- Verification & Unit Tests:
+  - Added `windows/tests/kevo-voice-pack.test.ts` (7 tests verifying registry integrity, default Kelvin profile, audio previews, and stats).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 805/805 tests passed across 123 suites (`node scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers (Antigravity)
 
