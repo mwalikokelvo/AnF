@@ -36,7 +36,6 @@ export interface JarvisActionContext {
   /** Says something later, on Kevo's own initiative (a timer going off). */
   announce?: (text: string) => void;
   triageSupport?: () => number;
-  runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
   getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
@@ -651,18 +650,6 @@ export class JarvisVoiceAgent {
           handled: true,
           actionName: 'take_note',
           speechReply: `Note captured: ${noteContent.slice(0, 40)}...`,
-        };
-      }
-    }
-
-    // 5. Code Health / Tom Agent Commands
-    if (lower.includes('code health') || lower.includes('run tests') || lower.includes('check build') || /\btom\b/.test(lower)) {
-      if (this.context.runDevHealth) {
-        const devStatus = await this.context.runDevHealth();
-        return {
-          handled: true,
-          actionName: 'dev_health',
-          speechReply: devStatus || 'All tests passing. Build is clean, sir.',
         };
       }
     }

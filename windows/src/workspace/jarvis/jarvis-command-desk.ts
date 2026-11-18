@@ -37,7 +37,6 @@ import { runKevoSelfTest } from './kevo-selftest';
 export interface JarvisCommandDeskOptions {
   onNotify?: (msg: string) => void;
   voiceActionContext?: Partial<JarvisActionContext>;
-  hearing?: 'pc' | 'browser';
   /** Kevo's log on this PC; adds "Save log" and "Open log folder" to the voice bar. */
   log?: KevoLogStore;
 }
@@ -230,10 +229,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       if (!thinking && !speaker.getIsSpeaking()) sayPending();
     },
     triageSupport: () => support.autoTriage(),
-    runDevHealth: async () => {
-      const h = await tom.checkCodeHealth();
-      return `Build status is ${h.buildStatus}. ${h.testsPassing} of ${h.testsTotal} tests passing with zero errors.`;
-    },
     getBriefing: async () => {
       const b = await executive.generateBriefing();
       return b.summary;
@@ -431,8 +426,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
   };
 
-  const usePcHearing = (options?.hearing ?? (typeof localStorage !== 'undefined' ? (localStorage.getItem('kevo-hearing') ?? 'pc') : 'pc')) !== 'browser';
-  const listener: JarvisVoiceListener | KevoEarsListener = usePcHearing && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  // In the desktop app on PC, Kevo Ears (sherpa-onnx) is the sole hearing pipeline.
+  const listener: JarvisVoiceListener | KevoEarsListener = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
     ? new KevoEarsListener(listenerOptions)
     : new JarvisVoiceListener(listenerOptions);
 
