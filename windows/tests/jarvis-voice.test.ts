@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId, getSelectedVoiceProfile } from '../src/workspace/jarvis/voice/jarvis-voice-pack';
-import { JarvisVoiceAgent, parseVolumeRequest, isWeatherRequest, weatherPlace, placeReply, fetchWeather, type VolumeRequest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceAgent, parseVolumeRequest, isWeatherRequest, weatherPlace, placeReply, fetchWeather, parseWeatherSwitch, splitRequests, type VolumeRequest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 
 describe('Kevo Voice Pack & Profiles', () => {
   it('loads voice pack items including all user provided voices', () => {
@@ -145,6 +145,7 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     let requested = '';
     const agent = new JarvisVoiceAgent({
       switchView: () => {},
+      weatherEnabled: () => true,
       getWeather: async (loc) => {
         requested = loc || 'default';
         return 'In London it is 12 degrees, partly cloudy. Today high 15, low 8.';
@@ -160,6 +161,7 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
   it('handles plain weather request', async () => {
     const agent = new JarvisVoiceAgent({
       switchView: () => {},
+      weatherEnabled: () => true,
       getWeather: async () => 'In Berlin it is 8 degrees, clear sky.',
     });
     const res = await agent.processVoiceInput('tell me the weather');
@@ -240,6 +242,7 @@ describe('Kevo weather', () => {
     const places: (string | undefined)[] = [];
     const agent = new JarvisVoiceAgent({
       switchView: () => {},
+      weatherEnabled: () => true,
       getWeather: async (place) => { places.push(place); return place ? `In ${place} it is 50 degrees and clear.` : null; },
     });
     const first = await agent.processVoiceInput("What's the weather?");
@@ -258,7 +261,8 @@ describe('Kevo weather', () => {
 
   it('asks for tomorrow when tomorrow is said', async () => {
     const days: (number | undefined)[] = [];
-    const agent = new JarvisVoiceAgent({ switchView: () => {}, getWeather: async (place, day) => { days.push(day); return `Tomorrow in ${place}: clear, high 70, low 50.`; } });
+    const agent = new JarvisVoiceAgent({ switchView: () => {}, weatherEnabled: () => true,
+      getWeather: async (place, day) => { days.push(day); return `Tomorrow in ${place}: clear, high 70, low 50.`; } });
     assert.equal((await agent.processVoiceInput("What's the weather tomorrow in Nairobi?")).actionName, 'weather');
     assert.deepEqual(days, [1]);
   });
@@ -288,6 +292,42 @@ describe('Kevo weather', () => {
     assert.equal(line, "In Haubstadt it is 49 degrees and raining. Today's high is 52, low 40. Wind 9 miles per hour.");
     assert.match(urls[0], /^https:\/\/geocoding-api\.open-meteo\.com\/v1\/search\?name=Haubstadt&/);
     assert.match(urls[1], /^https:\/\/api\.open-meteo\.com\/v1\/forecast\?latitude=38\.2&longitude=-87\.57&.*temperature_unit=fahrenheit/);
+  });
+
+  it('stays off until the owner turns it on, and sends nothing until then', async () => {
+    let on = false;
+    let asked = 0;
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      weatherEnabled: () => on,
+      setWeatherEnabled: (value) => { on = value; },
+      getWeather: async (place) => { asked++; return `In ${place} it is 20 degrees and clear.`; },
+    });
+    const off = await agent.processVoiceInput("What's the weather in Nairobi?");
+    assert.equal(off.actionName, 'weather_off');
+    assert.match(off.speechReply, /Open-Meteo/);
+    assert.equal(asked, 0);
+    assert.equal((await agent.processVoiceInput('Please turn on weather.')).actionName, 'weather_on');
+    assert.equal((await agent.processVoiceInput("What's the weather in Nairobi?")).actionName, 'weather');
+    assert.equal(asked, 1);
+    assert.equal((await agent.processVoiceInput('turn the weather off')).actionName, 'weather_off');
+    assert.equal(on, false);
+  });
+
+  it('reads the on and off switch', () => {
+    assert.equal(parseWeatherSwitch('turn on weather'), true);
+    assert.equal(parseWeatherSwitch('can you enable the weather please'), true);
+    assert.equal(parseWeatherSwitch('switch weather off'), false);
+    assert.equal(parseWeatherSwitch('disable weather'), false);
+    for (const no of ['turn on the lights', "what's the weather", 'open weather']) assert.equal(parseWeatherSwitch(no), null, no);
+  });
+
+  it('splits chains that include weather or volume', () => {
+    assert.deepEqual(splitRequests('play music and turn it up'), ['play music', 'turn it up']);
+    assert.deepEqual(splitRequests('weather in London and turn it down'), ['weather in London', 'turn it down']);
+    assert.deepEqual(splitRequests('set a timer for 5 minutes and check the weather'), ['set a timer for 5 minutes', 'check the weather']);
+    assert.deepEqual(splitRequests('play rock and roll'), ['play rock and roll']);
+    assert.deepEqual(splitRequests('play thunder and weather'), ['play thunder and weather']);
   });
 
   it('says so when the place is unknown, instead of another city\'s weather', async () => {

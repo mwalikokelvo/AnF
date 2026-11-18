@@ -181,6 +181,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     nextTrack: options?.voiceActionContext?.nextTrack,
     setMusicVolume: options?.voiceActionContext?.setMusicVolume,
     getWeather: options?.voiceActionContext?.getWeather,
+    weatherEnabled: options?.voiceActionContext?.weatherEnabled,
+    setWeatherEnabled: options?.voiceActionContext?.setWeatherEnabled,
     searchMusic: options?.voiceActionContext?.searchMusic,
     searchVault: options?.voiceActionContext?.searchVault,
     openApp: options?.voiceActionContext?.openApp,

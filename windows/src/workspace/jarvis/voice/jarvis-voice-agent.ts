@@ -38,6 +38,10 @@ export interface JarvisActionContext {
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
   getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
+  /** Whether the owner turned weather on by saying "turn on weather". Off until then: weather sends the city to Open-Meteo. */
+  weatherEnabled?: () => boolean;
+  /** Turns weather on or off, remembered on this computer. */
+  setWeatherEnabled?: (on: boolean) => void;
   notify?: (msg: string) => void;
 }
 
@@ -112,7 +116,7 @@ export function stripLeadIn(text: string): string {
 /** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
 export function splitRequests(text: string): string[] {
   return text
-    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip)\b)/i)
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?weather|weather (?:in|for|today|tomorrow|now))\b)/i)
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3);
@@ -361,9 +365,19 @@ export class JarvisVoiceAgent {
 
     // Weather (free Open-Meteo, no key): "what's the weather", "weather in Nairobi", "how's the weather in Haubstadt today".
     // Right after "Which city?", a short place name on its own is the answer.
+    const weatherSwitch = parseWeatherSwitch(lower);
+    if (weatherSwitch !== null && this.context.setWeatherEnabled) {
+      this.context.setWeatherEnabled(weatherSwitch);
+      return weatherSwitch
+        ? { handled: true, actionName: 'weather_on', speechReply: 'Weather is on. Ask, for example, what is the weather in Nairobi.' }
+        : { handled: true, actionName: 'weather_off', speechReply: 'Weather is off.' };
+    }
     const answeredPlace = this.lastAction === 'weather_needs_place' ? placeReply(text) : undefined;
     if (answeredPlace || isWeatherRequest(lower)) {
       if (!this.context.getWeather) return { handled: true, actionName: 'weather_unavailable', speechReply: 'Weather is not available right now.' };
+      if (!this.context.weatherEnabled?.()) {
+        return { handled: true, actionName: 'weather_off', speechReply: 'Weather is off. It asks the free Open-Meteo service, which gets the city you name. Say turn on weather to allow it.' };
+      }
       const place = answeredPlace ?? weatherPlace(text);
       try {
         const summary = await this.context.getWeather(place, /\btomorrow\b/.test(lower) ? 1 : 0);
@@ -625,6 +639,15 @@ const MONTHS = /\b(?:january|february|march|april|may|june|july|august|september
 export function isWeatherRequest(lower: string): boolean {
   const said = withoutPoliteWords(lower.replace(/[\u2018\u2019]/g, "'").replace(/[.!?]+$/, '').trim());
   return WEATHER_REQUEST.test(said) && !MONTHS.test(said);
+}
+
+/** "turn on weather" is true, "turn off weather" false, anything else null. */
+export function parseWeatherSwitch(lower: string): boolean | null {
+  const said = withoutPoliteWords(lower.replace(/[.!?]+$/, '').trim());
+  const m = /^(?:(?:turn|switch) (on|off) (?:the )?weather|(?:turn|switch) (?:the )?weather (on|off)|(enable|allow|disable) (?:the )?weather)$/.exec(said);
+  if (!m) return null;
+  const word = m[1] ?? m[2] ?? m[3];
+  return word === 'on' || word === 'enable' || word === 'allow';
 }
 
 /** The place in a weather request, as said ("in New York today" gives "New York"), or undefined. */
