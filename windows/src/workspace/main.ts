@@ -38,7 +38,7 @@ import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
-import {getOpenAITools,executeKevoToolCalls,type KevoAskReply} from './jarvis/voice/kevo-actions';
+import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -300,12 +300,14 @@ const jarvisActionContext: JarvisActionContext = {
       const off=await listen<{id:number;text:string}>('kevo-reply-part',e=>{if(e.payload.id===id)options?.onPart?.(e.payload.text);});
       try{
         const tools = getOpenAITools();
+        const system = getKevoSystemPrompt();
         const res = await invoke<KevoAskReply | string>('kevo_ask',{
           id,
           query,
           history:options?.history??[],
           model:model.value,
           tools,
+          system,
         });
         if (typeof res === 'string') return res;
         if (res.tool_calls && res.tool_calls.length > 0) {

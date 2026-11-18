@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.2: tool calling).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.3: what Kevo knows about itself).
+
+## 2026-11-18 — Kevo 2.3: what Kevo knows about itself (Antigravity)
+
+Phase 2 Step 2.3 (`docs/kevo-briefs/phase-2.md`, "2.3 What Kevo knows about itself"):
+- Capability sheet & system prompt (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Expanded `getCapabilitySheet()` and `getKevoSystemPrompt()`:
+    - Lists full dynamic capabilities from all 19 defined actions.
+    - Explicitly describes limitations (no unauthorized private cloud access, no unvetted arbitrary shell execution, fully functional offline).
+    - Documents voice interaction flow: wake word ("Kevo"), 5-second follow-up window after replies, barge-in / speech-over capability.
+    - Documents voice changing procedures ("change voice", "switch voice to <name>") across available voices (Nath, Burt, Kevo, Jean).
+    - Preserved instant commands for help, name, and microphone in `jarvis-voice-agent.ts`.
+- Rust backend (`windows/src-tauri/src/workspace_commands.rs`):
+  - Updated `KEVO_SYSTEM` default system prompt with self-knowledge, capabilities, wake word, follow-up window, and voice changing instructions.
+  - Added `system: Option<String>` parameter to `kevo_ask` and `kevo_messages` allowing dynamic prompt overrides.
+- Integration:
+  - `windows/src/workspace/main.ts`: wired `askAI` to pass `system: getKevoSystemPrompt()`.
+  - `windows/src/core/bridge.ts`: exposed `system?: string` parameter on `Bridge.kevoAsk`.
+- Verification:
+  - Unit tests: `workspace_commands::kevo_tests::custom_system_prompt_overrides_default_kevo_system` (3/3 PASS), `kevo-actions.test.ts` (9/9 PASS).
+  - 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS.
 
 ## 2026-11-18 — Kevo 2.2: tool calling (Antigravity)
 
