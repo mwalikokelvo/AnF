@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { clearJarvisHistory } from '../src/workspace/jarvis/voice/jarvis-memory';
 
-type Phrase = { say: string; expect: string; source: 'session 1' | 'session 2' | 'session 3' | 'variant'; before?: string[] };
+type Phrase = { say: string; expect: string; source: 'session 1' | 'session 2' | 'session 3' | 'variant'; before?: string[]; fixed?: string };
 
 const PHRASES = JSON.parse(readFileSync(new URL('./kevo-phrases.json', import.meta.url), 'utf8')) as Phrase[];
 const SOURCES = ['session 1', 'session 2', 'session 3', 'variant'] as const;
@@ -59,29 +59,42 @@ describe('Kevo phrase list', () => {
       assert.ok(typeof p.say === 'string' && p.say.trim(), JSON.stringify(p));
       assert.match(p.expect, /^[a-z_]+(\+[a-z_]+)*$/, JSON.stringify(p));
       assert.ok((SOURCES as readonly string[]).includes(p.source), JSON.stringify(p));
+      if (p.fixed !== undefined) {
+        assert.ok(typeof p.fixed === 'string' && p.fixed.trim(), JSON.stringify(p));
+      }
     }
     assert.ok(PHRASES.filter((p) => p.source === 'variant').length >= 60);
+    assert.ok(PHRASES.some((p) => Boolean(p.fixed)), 'must contain fixed entries');
     for (const source of SOURCES.slice(0, 3)) assert.ok(PHRASES.some((p) => p.source === source), source);
   });
 
-  it('owner phrases pass 100%, variants at least 90%', async () => {
+  it('owner phrases pass 100%, fixed entries pass 100%, variants at least 90%', async () => {
     const failures: Record<string, string[]> = {};
+    const fixedFailures: string[] = [];
     const lines: string[] = [];
     for (const source of SOURCES) {
       const group = PHRASES.filter((p) => p.source === source);
       failures[source] = [];
       for (const p of group) {
         const got = await actionFor(p);
-        if (got !== p.expect) failures[source].push(`"${p.say}": expected ${p.expect}, got ${got}`);
+        if (got !== p.expect) {
+          const failMsg = `"${p.say}"${p.before ? ` (after ${JSON.stringify(p.before)})` : ''}: expected ${p.expect}, got ${got}`;
+          failures[source].push(failMsg);
+          if (p.fixed) {
+            fixedFailures.push(`[${p.fixed}] ${failMsg}`);
+          }
+        }
       }
       const passed = group.length - failures[source].length;
       lines.push(`${source}: ${passed}/${group.length} (${((100 * passed) / group.length).toFixed(1)}%)`);
     }
     console.log(`Kevo phrase list pass rate\n  ${lines.join('\n  ')}`);
     if (failures.variant.length) console.log(`Variants Kevo does not handle yet:\n  ${failures.variant.join('\n  ')}`);
+    if (fixedFailures.length) console.log(`Fixed entries that failed:\n  ${fixedFailures.join('\n  ')}`);
 
     const owner = [...failures['session 1'], ...failures['session 2'], ...failures['session 3']];
     assert.deepEqual(owner, [], 'every owner phrase from sessions 1-3 must pass');
+    assert.deepEqual(fixedFailures, [], `fixed entries must keep passing (100% required):\n${fixedFailures.join('\n')}`);
     const variants = PHRASES.filter((p) => p.source === 'variant').length;
     assert.ok((variants - failures.variant.length) / variants >= 0.9, `variants below 90%:\n${failures.variant.join('\n')}`);
   });

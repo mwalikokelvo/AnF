@@ -6,6 +6,18 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo 0.2 fix 4: follow-up questions expire (#160) (Antigravity)
+
+Issue #160. Added expiration tracking for follow-up state (`lastAction`, `lastSubject`) with injectable clock `context.now` (defaulting to 30 s expiry via `followUpExpiryMs`) in `windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`. Added tests in `windows/tests/jarvis-voice.test.ts` verifying that after 30 s elapsed, "five minutes" routes to AI conversation instead of timer and "open it" fails with `open_unclear`. Checks: npx tsc --noEmit, jarvis-voice.test.ts, kevo-phrases.test.ts, 12 release checks passed. No version bump.
+
+## 2026-11-17 — Kevo 0.2 fix 3: fixed phrase-list entries (#159) (Antigravity)
+
+Issue #159. Added `"fixed": "#155"` marker to repaired phrase-list entries in `windows/tests/kevo-phrases.json`. Updated `windows/tests/kevo-phrases.test.ts` to require 100% pass rate on marked fixed entries while keeping the 90% threshold for general variants and printing any failing fixed entries. Checks: npx tsc --noEmit, kevo-phrases.test.ts, 12 release checks passed. No version bump.
+
+## 2026-11-17 — Kevo 0.2 fix 2: Calvo and Kalvo in listener (#158) (Antigravity)
+
+Issue #158. Added `calvo` and `kalvo` to `JarvisVoiceListener` default `wakeWords` list in `windows/src/workspace/jarvis/voice/jarvis-voice-listener.ts`. Added test in `windows/tests/jarvis-voice.test.ts` driving listener while not awake with "Calvo, what is 12 times 8?" and "Kalvo, what is 12 times 8?" verifying requests come through and unrecognized names are dropped. Checks: npx tsc --noEmit, 620 node tests, vite build, 12 release checks passed. No version bump.
+
 ## 2026-11-17 — Kevo 0.2 phrase list (Claude)
 
 Issue #149. `windows/tests/kevo-phrases.json` holds 136 requests: 23 in the owner's exact words from sessions 1-3 (5, 7 and 11, taken from `kevo-phase0-session2/3.test.ts` and the session 1 cases in `jarvis-overnight-pipeline.test.ts`) and 113 variants (polite lead-ins, chains with "and", follow-ups, misheard "Kevo", questions about Kevo, timers, YouTube, voices, microphone, the five Phase 0 check requests). Entries are `{ say, expect, source }`; follow-ups add an optional `before` list of what was said just before. `windows/tests/kevo-phrases.test.ts` runs each through a fresh `JarvisVoiceAgent` with fake actions (two app names are "not installed" so the not-found follow-up can be tried), prints the pass rate per source, and needs 100% on owner phrases and 90% on variants.
@@ -731,7 +743,6 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - New `Rust core` workflow: `cargo fmt --check`, `clippy -D warnings`, tests for `crates/anf-vault` (formatted once; no logic change).
 - Checks: `check-release.mjs` 12 pass, contracts and styles pass, `tsc`, `npm test` 619 pass, `anf-vault` clippy/tests pass. No app code changed.
 
-
 ## 2026-11-17: vault search speed gate and fix (Claude)
 - New test `vault::tests::fts5_search_p95_under_50ms`: 2,000 encrypted projects (~2 KB each), five queries, 100 timed runs, p95 must stay under 50 ms (the handoff's budget). It runs in the existing Linux `cargo test --workspace` step.
 - It found a real slowdown: a search matching every project took ~300 ms (p95 503 ms) because SQLite built a snippet for every match. Search now returns the 100 best matches (snippets only for those) and reads the name from the search index instead of parsing each project's JSON. SQLite/SQLCipher is also compiled optimised in debug/test builds (`[profile.dev.package.libsqlite3-sys] opt-level = 3`) so the test measures what users get. After Codex's review: the timed loop opens and unlocks the vault for every search, as `list` does (`open_at`, split out of `open`); ties at the 100-match cut keep the most recently saved (search-index rowid, since every save re-inserts the row; test `fts5_search_keeps_newest_of_equal_matches`); release builds also compile SQLite at opt-level 3. Now p95 38 ms on the Linux container. Empty search (the full list) is unchanged.
@@ -757,3 +768,7 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - `JarvisVoiceListener` gains `onIgnored(text, reason)` (`no_wake_word`, `window_closed` = within 10 s after the follow-up window closed, `muted`) and passes the recogniser's error code to `onError`. `handleCommand` in `jarvis-command-desk.ts` reports `own_voice`.
 - Events: `mic` (on/off), `recognition_error` (code, message), `wake`, `ignored` (text, reason), `request` (text, typed, actionName, reply, ms from heard to first word spoken; a timer set is actionName `timer_set`), `timer_fired`, `stop`. "Save log" and "Open log folder" buttons in the voice bar (existing `jarvis-btn` style).
 - Tested: automated tests (`tests/kevo-log.test.ts`: answered request and ignored phrases each write one line, through the real command desk with a stand-in DOM; Rust `log::tests` for appending and trimming), compiled on Linux. Not run on the PC with a real microphone.
+
+## 2026-11-18: Kevo 0.3, test builds (Claude autopilot)
+
+Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.yml` now also runs on pushes to `main`, keeps the setup and portable uploads on those pushes, and gives every push to `main` its own concurrency group, so back-to-back merges each build. Code signing runs only on `windows-v*` tags and manual runs from `main`, so a push to `main` never gets the signing secrets. A new `kevo-test` job (push to `main` only, `contents: write` for that job only, one at a time) publishes prerelease `kevo-test-v<version>` at the merge commit when that merge changed the version and the release does not exist yet, with `AnF-Windows-<version>-kevo-test.zip` (the portable folder without `local-ai/model.gguf` and `model-fast.gguf`) and its `.sha256`. `PUBLISH` stays `'false'`; `updates.rs` and its prerelease test are unchanged. Tested: workflow YAML parses; type check, node tests, vite build and release checks pass. The publish job itself first runs on the merge into `main`.

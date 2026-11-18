@@ -65,7 +65,7 @@ export class JarvisVoiceListener {
 
   constructor(options?: VoiceListenerOptions) {
     // Recognisers often hear "Kevo" as one of these.
-    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo'];
+    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo', 'calvo', 'kalvo'];
     this.requireWakeWord = options?.requireWakeWord ?? true;
     this.followUpMs = options?.followUpMs ?? 8000;
     this.settleMs = options?.settleMs ?? 1100;
