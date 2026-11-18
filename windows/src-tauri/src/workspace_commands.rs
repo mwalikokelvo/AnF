@@ -94,11 +94,13 @@ pub async fn kevo_ask(
     let mut changed = turn.0.subscribe();
     let messages = kevo_messages(query.trim(), &history, system.as_deref());
     let started = std::time::Instant::now();
+    let first_sentence_ms = AtomicU64::new(0);
     let mut unsent = String::new();
     let answer = async {
         let reply = chat.local.reply_tools(&messages, tools.as_deref(), &model, 160, |piece| {
             unsent.push_str(piece);
             if let Some(text) = local_ai::take_streamable_sentences(&mut unsent) {
+                let _ = first_sentence_ms.compare_exchange(0, started.elapsed().as_millis() as u64, Ordering::SeqCst, Ordering::Relaxed);
                 let _ = app.emit("kevo-reply-part", KevoPart { id, text });
             }
         }).await?;
@@ -111,9 +113,17 @@ pub async fn kevo_ask(
     };
     let rest = unsent.trim();
     if !rest.is_empty() && !rest.starts_with('<') {
+        let _ = first_sentence_ms.compare_exchange(0, started.elapsed().as_millis() as u64, Ordering::SeqCst, Ordering::Relaxed);
         let _ = app.emit("kevo-reply-part", KevoPart { id, text: rest.to_string() });
     }
-    crate::kevo_hud::set_badge(&app, format!("Local model · {:.1} s", started.elapsed().as_secs_f32()));
+    let recorded_ms = first_sentence_ms.load(Ordering::SeqCst);
+    let ttfs_sec = if recorded_ms > 0 {
+        recorded_ms as f32 / 1000.0
+    } else {
+        started.elapsed().as_secs_f32()
+    };
+    let badge = crate::kevo_hud::format_ttfs_badge(ttfs_sec, &model);
+    crate::kevo_hud::set_badge(&app, badge);
     serde_json::to_value(reply).map_err(|e| e.to_string())
 }
 /// Stops the answer Kevo is writing, if any.
@@ -946,5 +956,11 @@ mod kevo_tests {
         let assistant_msg = &messages[2];
         assert_eq!(assistant_msg["role"], "assistant");
         assert_eq!(assistant_msg["content"].as_str().unwrap().len(), 300);
+    }
+
+    #[test]
+    fn ttfs_badge_reflects_model_and_timing() {
+        let badge = crate::kevo_hud::format_ttfs_badge(1.4, "fast");
+        assert_eq!(badge, "First sentence: 1.4 s (Model: Qwen 0.6B Q8)");
     }
 }

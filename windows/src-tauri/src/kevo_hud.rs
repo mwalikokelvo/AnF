@@ -120,6 +120,37 @@ pub fn kevo_hud_set(
     send(&app, event);
 }
 
+/// Formats the TTFS (Time-To-First-Sentence) badge string.
+pub fn format_ttfs_badge(sec: f32, model_id: &str) -> String {
+    let model_display = if model_id.contains("deepseek") {
+        "DeepSeek R1"
+    } else if model_id.contains("kimi") {
+        "Kimi Linear"
+    } else if model_id.contains("0.6b") || model_id == "fast" {
+        "Qwen 0.6B Q8"
+    } else if model_id.contains("1.7b") || model_id == "balanced" || model_id.is_empty() {
+        "Qwen 1.7B Q8"
+    } else if model_id.contains("3b") {
+        "Qwen 3B Q4"
+    } else if model_id.contains("7b") {
+        "Qwen 7B Q4"
+    } else {
+        model_id
+    };
+    format!("First sentence: {:.1} s (Model: {})", sec, model_display)
+}
+
+/// Sets the HUD badge directly via Tauri command.
+#[tauri::command]
+pub fn kevo_hud_set_badge(hud: State<KevoHud>, app: AppHandle, badge: String) {
+    let event = hud
+        .0
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .set_badge(badge, Instant::now());
+    send(&app, event);
+}
+
 /// Shows which engine answered and how long it took ("Local model · 1.2 s").
 pub fn set_badge(app: &AppHandle, badge: String) {
     let event = app
@@ -227,5 +258,21 @@ mod tests {
             )
             .is_some_and(|e| e.level == 0.3));
         assert!(bus.set(Thinking, None, None, later).is_some());
+    }
+
+    #[test]
+    fn formats_ttfs_badge_truthfully() {
+        assert_eq!(
+            format_ttfs_badge(1.82, "balanced"),
+            "First sentence: 1.8 s (Model: Qwen 1.7B Q8)"
+        );
+        assert_eq!(
+            format_ttfs_badge(0.94, "fast"),
+            "First sentence: 0.9 s (Model: Qwen 0.6B Q8)"
+        );
+        assert_eq!(
+            format_ttfs_badge(2.5, "deepseek-r1-distill-qwen-1.5b"),
+            "First sentence: 2.5 s (Model: DeepSeek R1)"
+        );
     }
 }

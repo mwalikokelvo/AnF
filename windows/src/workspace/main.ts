@@ -356,6 +356,8 @@ const jarvisActionContext: JarvisActionContext = {
     scheduleDailyBriefing:async(timeStr:string)=>scheduleDailyBriefing(timeStr),
     getDailyBriefingSchedule:async()=>getDailyBriefingSchedule(),
     cancelDailyBriefing:async()=>cancelDailyBriefingSchedule(),
+    getActiveModel: () => model.value === 'fast' ? 'Qwen 0.6B Q8' : 'Qwen 1.7B Q8',
+    setFloatBadge: (badge: string) => { void invoke('kevo_hud_set_badge', { badge }).catch(() => {}); },
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
 };
@@ -363,7 +365,8 @@ const jarvisCommandDesk=createJarvisCommandDesk({
   onNotify:msg=>{status.textContent=msg;},
   // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
   log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
-  voiceActionContext:jarvisActionContext
+  voiceActionContext:jarvisActionContext,
+  activeModel: () => model.value === 'fast' ? 'Qwen 0.6B Q8' : 'Qwen 1.7B Q8',
 });
 void listen<KevoReminder>('kevo://reminder-triggered', async (event) => {
   const rem = event.payload;
