@@ -4,7 +4,33 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 8.1: Android Desk Companion View & UI Components).
+Last updated: 2026-11-18 by Antigravity (Kevo 8.2: Wi-Fi State Bus & Pairing RPC).
+
+## 2026-11-18 — Kevo 8.2: Wi-Fi State Bus & Pairing RPC (Antigravity)
+
+Phase 8 Step 8.2 (`docs/kevo-briefs/phase-8.md`, "8.2 Wi-Fi State Bus & Pairing RPC"):
+- Rust Local Link Companion Endpoints (`windows/src-tauri/src/local_link.rs`):
+  - Added HTTP POST route handlers in `local_link.rs` for encrypted local Wi-Fi pairing:
+    - `/v1/kevo/state`: Returns live Kevo companion state (`state`, `line`, `badge`, `level`).
+    - `/v1/kevo/command`: Accepts remote voice/typed commands from phone and dispatches to PC Kevo.
+    - `/v1/kevo/approve`: Resolves pending action approval cards from phone.
+  - Added Rust unit test `kevo_companion_rpc_routes` verifying all three endpoints with strict assertion.
+- Kevo Link Bus (`windows/src/workspace/jarvis/kevo-link-bus.ts`):
+  - Created `KevoLinkBus` singleton with state streaming, speech loudness level broadcasting with jitter suppression (< 0.02 delta filtering), remote command dispatching, and approval card lifecycle handling.
+- Command Desk Link Integration (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Connected `refresh()` to mirror live state changes to `kevoLinkBus`.
+  - Registered `kevoLinkBus.setCommandHandler` to route incoming remote commands to `handleCommand(request, true)`.
+- Android Web Sync Integration (`android/web/main.ts`):
+  - Added `syncCompanionState()` querying `/v1/kevo/state` on companion view navigation and pairing.
+  - Wired `onHoldToTalkEnd` to trigger `/v1/kevo/command`.
+  - Wired `onApprove` to dispatch `/v1/kevo/approve`.
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-link-bus.test.ts` (5 tests covering state subscription, level clamping/jitter, pending approval transition/resolution, and command dispatching).
+  - Cargo test: `test local_link::tests::kevo_companion_rpc_routes ... ok` (PASS).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 826/826 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 8.1: Android Desk Companion View & UI Components (Antigravity)
 

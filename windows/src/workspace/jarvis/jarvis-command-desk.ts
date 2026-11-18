@@ -30,6 +30,7 @@ import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } 
 import { listReminders, cancelReminder, clearReminders, getDailyBriefingSchedule, type KevoReminder } from './voice/jarvis-schedule';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
+import { kevoLinkBus } from './kevo-link-bus';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
 import { Bridge } from '../../core/bridge';
 import { runKevoSelfTest } from './kevo-selftest';
@@ -304,6 +305,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     });
     hud.setState(state);
     reportState(state);
+    kevoLinkBus.setState({
+      state: state === 'listening' ? 'listening' : state === 'thinking' ? 'thinking' : state === 'speaking' ? 'speaking' : state === 'off' ? 'off' : 'idle',
+      line: state === 'listening' ? 'Listening…' : state === 'thinking' ? 'Thinking…' : state === 'speaking' ? 'Speaking…' : 'Kevo Online',
+    });
   };
   const speaker = new JarvisSpeaker({
     onStart: () => {
@@ -514,6 +519,11 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     // Nothing to say means no speech ever ends: give the microphone back here.
     if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
   }
+
+  kevoLinkBus.setCommandHandler(async (request: string) => {
+    await handleCommand(request, true);
+    return lastReply;
+  });
 
   /** Stops whatever Kevo is doing: the answer being written and the one being spoken. */
   function stopNow(): void {
@@ -987,6 +997,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root.append(hud.root, typeBox, voiceBar, actionSection, memorySection, scheduleSection, team);
 
   function destroy(): void {
+    kevoLinkBus.setCommandHandler(async () => {});
     listener.stop();
     speaker.stop();
     clearTimeout(unmuteTimer);

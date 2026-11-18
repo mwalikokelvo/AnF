@@ -77,7 +77,7 @@ const modeLabels={read:'Reader',ask:'Assistant',listen:'Music'} as const;
 let workspaceMode:'read'|'ask'|'listen'='read';
 const modeRail=h('div',{class:'mode-rail',role:'tablist','aria-label':'Workspace modes'});
 function paintModes(){for(const b of modeRail.querySelectorAll('button'))b.setAttribute('aria-selected',b.getAttribute('data-mode')===workspaceMode?'true':'false');for(const b of nav.querySelectorAll('button')){const group=b.getAttribute('data-mode');b.hidden=group!=='keep'&&group!==workspaceMode;}}
-function show(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');active=id;if(id==='home')void dashboard.refresh();for(const [key,panel]of panels)panel.hidden=key!==id;nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===id?'page':'false'));host.scrollTop=0;}
+function show(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');active=id;if(id==='home')void dashboard.refresh();if(id==='companion')void syncCompanionState();for(const [key,panel]of panels)panel.hidden=key!==id;nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===id?'page':'false'));host.scrollTop=0;}
 function section(id:string,label:string,...children:Node[]){const p=h('section',{'aria-label':label,class:'panel'},...children);panels.set(id,p);host.append(p);const b=button(label,()=>show(id));b.replaceChildren(sectionIcon(id),h('span',{text:label}));b.dataset.view=id;b.dataset.mode=modeOf[id]||'keep';nav.append(b);paintModes();}
 for(const id of ['read','ask','listen'] as const){const tab=h('button',{type:'button',role:'tab',text:modeLabels[id],'data-mode':id,'aria-selected':id==='read'?'true':'false'});tab.addEventListener('click',()=>show(id==='read'?'documents':id==='ask'?'chat':'music'));modeRail.append(tab);}
 const file=h('input',{type:'file',accept:'.pdf,.epub,.docx,.txt,.md,.csv,.json,.log','aria-label':'Choose a document'});
@@ -110,9 +110,15 @@ const deskCompanion = createDeskCompanionView({
     notify('Listening… Speak to Kevo');
   },
   onHoldToTalkEnd: () => {
+    if (pairing.value.trim()) {
+      linkCall<{ ok: boolean }>('/v1/kevo/command', { query: 'voice_command' }).catch(() => {});
+    }
     notify('Voice command dispatched');
   },
   onApprove: (id, approved) => {
+    if (pairing.value.trim()) {
+      linkCall<{ ok: boolean }>('/v1/kevo/approve', { id, approved }).catch(() => {});
+    }
     notify(`Action ${approved ? 'approved' : 'denied'}.`);
   },
   notify,
@@ -160,6 +166,17 @@ const syncDocuments=h('input',{type:'checkbox','aria-label':'Include document te
 let linkSequence=0;const linkPending=new Map<string,{resolve:(v:any)=>void;reject:(e:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
 window.linkResult=(id,value,error)=>{const pending=linkPending.get(id);if(!pending)return;clearTimeout(pending.timer);linkPending.delete(id);try{if(error)throw Error(error);const result=JSON.parse(value);if(result.error)throw Error(result.error);connectionStatus.textContent='PC responded at '+new Date().toLocaleTimeString()+'.';pending.resolve(result.ok);}catch(e){connectionStatus.textContent='Connection needs attention. Check the message below.';pending.reject(e instanceof Error?e:Error(String(e)));}};
 function linkCall<T>(path:string,value:unknown):Promise<T>{return new Promise((resolve,reject)=>{if(!native){reject(Error('Install the Android app to connect to Windows.'));return;}const id=String(++linkSequence);const timer=setTimeout(()=>{linkPending.delete(id);connectionStatus.textContent='Connection timed out. Check Windows sharing and Wi-Fi.';reject(Error('Connection timed out. Keep Windows awake and sharing, then try Sync now again.'));},path==='/v1/ask'?940000:45000);linkPending.set(id,{resolve,reject,timer});native.linkRequest(id,pairing.value.trim(),path,JSON.stringify(value));});}
+async function syncCompanionState():Promise<void>{
+  if(!pairing.value.trim()){deskCompanion.setConnected(false);return;}
+  try{
+    const res=await linkCall<{state:'off'|'idle'|'listening'|'thinking'|'speaking'|'alert';line?:string;level?:number;pendingApproval?:{id:string;action:string;summary:string}|null}>('/v1/kevo/state',{});
+    deskCompanion.setConnected(true);
+    if(res?.state)deskCompanion.setState(res.state,res.line);
+    if(typeof res?.level==='number')deskCompanion.setLevel(res.level);
+    if(res?.pendingApproval)deskCompanion.showApprovalRequest(res.pendingApproval);
+    else deskCompanion.dismissApproval();
+  }catch{deskCompanion.setConnected(false);}
+}
 async function putProjects(items:Project[]){await repository.put(items);}
 async function syncNow(){
   await save();const documents=syncDocuments.checked;const currentId=project.id;let count=0,conflicts=0;
