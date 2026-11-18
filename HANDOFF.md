@@ -4,7 +4,23 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 1.6: talking over Kevo with echo cancellation).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.1: one action list).
+
+## 2026-11-18 — Kevo 2.1: one action list (Antigravity)
+
+Phase 2 Step 2.1 (`docs/kevo-briefs/phase-2.md`, "2.1 One action list"):
+- Centralized all Jarvis actions into `windows/src/workspace/jarvis/voice/kevo-actions.ts`:
+  - Defined unified action schema with types, descriptions, parameters, and execution logic.
+  - Covers all `JarvisActionContext` capabilities: `open_app`, `open_site`, `youtube_search`, `web_search`, `music_play`, `music_pause`, `next_track`, `timer_set`, `timer_cancel`, `take_note`, `search_notes`, `change_voice`, `list_voices`, `switch_view`, `briefing`, `help`, `tell_time`, `tell_date`, `audius_search`.
+  - Fixes Issue #175 gaps by including `next_track` and `tell_time`.
+  - Exports `getOpenAITools()` for OpenAI-compatible function calling (ready for `llama-server` in 2.2).
+  - Exports `getCapabilitySheet()` for the system prompt (ready for 2.3).
+  - Implements `executeKevoAction(name, args, context)`.
+- Unit tests (`windows/tests/kevo-actions.test.ts`):
+  - Validates all action schemas and OpenAI tool translation.
+  - Verifies capability sheet contents.
+  - Verifies execution of application launch, URL opening, track skip, time telling, timers, and notes.
+- Verification: 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS, `kevo-actions.test.ts` 7/7 PASS.
 
 ## 2026-11-18 — Kevo 1.6: talking over Kevo with echo cancellation (Antigravity)
 

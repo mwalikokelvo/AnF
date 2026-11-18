@@ -1,0 +1,165 @@
+/**
+ * Kevo Actions Unit Tests (Phase 2 Step 2.1).
+ * Verifies single action list definition, OpenAI tool schema generation, and action execution.
+ */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  KEVO_ACTIONS,
+  getAllActions,
+  getActionByName,
+  getOpenAITools,
+  getCapabilitySheet,
+  executeKevoAction,
+} from '../src/workspace/jarvis/voice/kevo-actions';
+import type { JarvisActionContext } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+
+function mockContext(overrides?: Partial<JarvisActionContext>): JarvisActionContext {
+  return {
+    switchView: () => {},
+    playMusic: () => {},
+    pauseMusic: () => {},
+    nextTrack: () => {},
+    openApp: async (name) => name,
+    openUrl: async () => {},
+    searchWeb: async () => {},
+    searchMusic: async () => true,
+    searchVault: async () => 'Found note',
+    saveQuickNote: async () => {},
+    changeVoice: (name) => name || 'Kevo',
+    voiceNames: () => ['Kevo', 'Nath'],
+    announce: () => {},
+    getBriefing: async () => 'Briefing text',
+    dryRun: true,
+    ...overrides,
+  };
+}
+
+describe('Kevo Actions (Step 2.1: One action list)', () => {
+  it('defines all required actions with valid schemas', () => {
+    const requiredActions = [
+      'open_app',
+      'open_site',
+      'youtube_search',
+      'web_search',
+      'music_play',
+      'music_pause',
+      'next_track',
+      'timer_set',
+      'timer_cancel',
+      'take_note',
+      'search_notes',
+      'change_voice',
+      'list_voices',
+      'switch_view',
+      'briefing',
+      'help',
+      'tell_time',
+      'tell_date',
+      'audius_search',
+    ];
+
+    const actions = getAllActions();
+    assert.ok(actions.length >= requiredActions.length);
+
+    for (const req of requiredActions) {
+      const def = getActionByName(req);
+      assert.ok(def, `Action ${req} must be defined`);
+      assert.ok(def.description && def.description.length > 5);
+      assert.strictEqual(def.parameters.type, 'object');
+      assert.strictEqual(typeof def.execute, 'function');
+    }
+  });
+
+  it('exports valid OpenAI tool schemas for all actions', () => {
+    const tools = getOpenAITools();
+    assert.strictEqual(tools.length, KEVO_ACTIONS.length);
+
+    for (const t of tools) {
+      assert.strictEqual(t.type, 'function');
+      assert.ok(t.function.name);
+      assert.ok(t.function.description);
+      assert.strictEqual(t.function.parameters.type, 'object');
+    }
+  });
+
+  it('generates a capability sheet mentioning all actions', () => {
+    const sheet = getCapabilitySheet();
+    assert.ok(sheet.includes('open_app'));
+    assert.ok(sheet.includes('tell_time'));
+    assert.ok(sheet.includes('next_track'));
+    assert.ok(sheet.includes('timer_set'));
+  });
+
+  it('executes app opening and URL actions', async () => {
+    let openedApp = '';
+    let openedUrl = '';
+    const ctx = mockContext({
+      dryRun: false,
+      openApp: async (name) => {
+        openedApp = name;
+        return name;
+      },
+      openUrl: async (url) => {
+        openedUrl = url;
+      },
+    });
+
+    const resApp = await executeKevoAction('open_app', { name: 'Brave' }, ctx);
+    assert.strictEqual(resApp.handled, true);
+    assert.strictEqual(resApp.actionName, 'open_app');
+    assert.strictEqual(openedApp, 'Brave');
+
+    const resSite = await executeKevoAction('open_site', { url: 'github.com' }, ctx);
+    assert.strictEqual(resSite.handled, true);
+    assert.strictEqual(openedUrl, 'https://github.com'); // url is prepended with https
+    assert.match(resSite.speechReply, /github\.com/);
+  });
+
+  it('executes next_track and tell_time (#175)', async () => {
+    let skipped = false;
+    const ctx = mockContext({
+      dryRun: false,
+      nextTrack: () => {
+        skipped = true;
+      },
+    });
+
+    const resTrack = await executeKevoAction('next_track', {}, ctx);
+    assert.strictEqual(resTrack.handled, true);
+    assert.strictEqual(resTrack.actionName, 'next_track');
+    assert.strictEqual(skipped, true);
+
+    const resTime = await executeKevoAction('tell_time', {}, ctx);
+    assert.strictEqual(resTime.handled, true);
+    assert.strictEqual(resTime.actionName, 'tell_time');
+    assert.match(resTime.speechReply, /It is \d+:\d+/);
+  });
+
+  it('executes timer and notes actions', async () => {
+    let noteSaved = '';
+    const ctx = mockContext({
+      dryRun: false,
+      saveQuickNote: async (t) => {
+        noteSaved = t;
+      },
+    });
+
+    const resNote = await executeKevoAction('take_note', { text: 'buy groceries' }, ctx);
+    assert.strictEqual(resNote.handled, true);
+    assert.strictEqual(noteSaved, 'buy groceries');
+
+    const resTimer = await executeKevoAction('timer_set', { seconds: 60 }, ctx);
+    assert.strictEqual(resTimer.handled, true);
+    assert.strictEqual(resTimer.actionName, 'timer_set');
+    assert.match(resTimer.speechReply, /1 minute|60 seconds/);
+  });
+
+  it('returns graceful unhandled result for unknown action', async () => {
+    const ctx = mockContext();
+    const res = await executeKevoAction('non_existent_action', {}, ctx);
+    assert.strictEqual(res.handled, false);
+    assert.match(res.speechReply, /not recognized/);
+  });
+});
