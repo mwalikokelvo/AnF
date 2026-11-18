@@ -10,7 +10,7 @@ license.workspace = true
 embedded-music = []
 # Kevo's ears (Phase 1): on-PC hearing with sherpa-onnx, linked statically.
 # On in release builds (`npm run pack`) and in the Windows and Linux CI tests.
-kevo-ears = ["dep:sherpa-onnx"]
+kevo-ears = ["dep:sherpa-onnx", "dep:cpal"]
 
 [lib]
 name = "coucou_lib"
@@ -43,6 +43,7 @@ ring = "0.17"
 # Exact pin: its build script downloads the matching prebuilt static libraries
 # from github.com/k2-fsa/sherpa-onnx/releases (see src/kevo_ears.rs).
 sherpa-onnx = { version = "=2.0.1", optional = true }
+cpal = { version = "0.15", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }

@@ -80,6 +80,14 @@ export const Bridge = {
   /** "Nobody can act on this" — Claude Code asks in the terminal right away. */
   approvalDecline: (requestId: string) => call<void>("approval_decline", { requestId }),
 
+  // ── Kevo Ears (Phase 1 listening pipeline) ──────────────────────────────
+  kevoEarsStart: () => call<void>("kevo_ears_start"),
+  kevoEarsStop: () => call<void>("kevo_ears_stop"),
+  kevoEarsMute: (muted: boolean) => call<void>("kevo_ears_mute", { muted }),
+  kevoEarsStatus: () => call<{ running: boolean; muted: boolean }>("kevo_ears_status"),
+  kevoEarsModelsInstalled: () => call<boolean>("kevo_ears_models_installed"),
+  kevoEarsInstallModels: () => call<void>("kevo_ears_install_models"),
+
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */
   chatSend: (query: string, context: ChatContext | null) =>

@@ -22,7 +22,8 @@ import { AdsConnector } from './connectors/ads-connector';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
-import { JarvisVoiceListener } from './voice/jarvis-voice-listener';
+import { JarvisVoiceListener, type VoiceListenerOptions } from './voice/jarvis-voice-listener';
+import { KevoEarsListener } from './voice/kevo-ears-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory } from './voice/jarvis-memory';
@@ -32,12 +33,13 @@ import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voi
 export interface JarvisCommandDeskOptions {
   onNotify?: (msg: string) => void;
   voiceActionContext?: Partial<JarvisActionContext>;
+  hearing?: 'pc' | 'browser';
 }
 
 export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root: HTMLElement;
   destroy: () => void;
-  listener: JarvisVoiceListener;
+  listener: JarvisVoiceListener | KevoEarsListener;
   speaker: JarvisSpeaker;
   agent: JarvisVoiceAgent;
 } {
@@ -355,7 +357,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   speechStatusEl.className = 'jarvis-speech-status';
   speechStatusEl.setAttribute('role', 'status');
 
-  const listener = new JarvisVoiceListener({
+  const listenerOptions: VoiceListenerOptions = {
     onAwakeChange: () => refresh(),
     onListeningStateChange: (listening) => {
       micBtn.classList.toggle('active', listening);
@@ -381,7 +383,12 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     onError: (err) => {
       speechStatusEl.textContent = err;
     },
-  });
+  };
+
+  const usePcHearing = (options?.hearing ?? (typeof localStorage !== 'undefined' ? (localStorage.getItem('kevo-hearing') ?? 'pc') : 'pc')) !== 'browser';
+  const listener: JarvisVoiceListener | KevoEarsListener = usePcHearing && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+    ? new KevoEarsListener(listenerOptions)
+    : new JarvisVoiceListener(listenerOptions);
 
   micBtn.addEventListener('click', () => {
     if (listener.getListeningState()) {
