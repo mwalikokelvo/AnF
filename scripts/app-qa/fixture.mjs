@@ -2,6 +2,8 @@
 // tauri.conf.json (so violations surface), stubs Tauri IPC with inert answers, and collects problems.
 // Browser fixture only: not the installed app. Run `npm run build` in windows/ first.
 // Tests add IPC answers with context.addInitScript(()=>{window.__ipc={command:args=>...}}).
+// Use fx.reload(page)/fx.closeContext(context) for explicit navigation/teardown:
+// only already-pending Request objects ending in ERR_ABORTED are classified as expected.
 // Env: CHROMIUM_BIN=<path> picks a browser (default: the msedge channel, like the other app-qa scripts); DIST_DIR=<dir> serves another build.
 import {chromium} from 'playwright-core';
 import {createServer} from 'node:http';
@@ -41,14 +43,17 @@ export async function retitleTrack(page,id,fields){
     await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();
   },{id,fields});
 }
-export async function start(){
+export async function start({beforeResponse}={}){
   const conf=JSON.parse(await readFile(path.join(root,'windows/src-tauri/tauri.conf.json'),'utf8'));
   const csp=conf.app.security.csp;
   const base=path.resolve(process.env.DIST_DIR||path.join(root,'windows/dist'));
-  const server=createServer(async(req,res)=>{if(req.url==='/favicon.ico'){res.statusCode=204;return res.end();}try{const file=path.resolve(base,decodeURIComponent(new URL(req.url,'http://x').pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');if(file.endsWith('.html'))res.setHeader('Content-Security-Policy',csp);res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
+  const server=createServer(async(req,res)=>{if(req.url==='/favicon.ico'){res.statusCode=204;return res.end();}try{await beforeResponse?.(req.url);if(res.destroyed)return;const file=path.resolve(base,decodeURIComponent(new URL(req.url,'http://x').pathname.slice(1)));if(!file.startsWith(base+path.sep))throw Error('Path');res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');if(file.endsWith('.html'))res.setHeader('Content-Security-Policy',csp);res.end(await readFile(file));}catch{res.statusCode=404;res.end();}});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{channel:'msedge'}),args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
-  const problems=[];
+  const problems=[],requests=new Map(),expectedAborts=new WeakSet(),ignoredCancellations=[];
+  const markCancelled=page=>{for(const request of requests.get(page)||[])expectedAborts.add(request);};
+  const reload=(page,options)=>{markCancelled(page);return page.reload(options);};
+  const closeContext=async context=>{context.pages().forEach(markCancelled);await context.close();};
   async function open({width=1280,height=800}={}){
     const context=await browser.newContext({viewport:{width,height},colorScheme:'dark'});
     await context.addInitScript(()=>{
@@ -69,13 +74,24 @@ export async function start(){
         default:if(window.__ipc&&window.__ipc[command])return window.__ipc[command](args);return null;}}};
     });
     const page=await context.newPage();
+    const pending=new Set();requests.set(page,pending);
     page.on('console',m=>{if(m.type()==='error')problems.push('console.error: '+m.text())});
     page.on('pageerror',e=>problems.push('pageerror: '+e.message));
     page.on('response',r=>{if(r.status()>=400)problems.push(`http ${r.status()}: ${r.url()}`)});
-    page.on('requestfailed',r=>problems.push('requestfailed: '+r.url()));
+    page.on('request',r=>pending.add(r));
+    page.on('requestfinished',r=>pending.delete(r));
+    page.on('requestfailed',r=>{
+      pending.delete(r);const reason=r.failure()?.errorText;
+      if(expectedAborts.has(r)&&reason==='net::ERR_ABORTED')ignoredCancellations.push({url:r.url(),reason});
+      else problems.push('requestfailed: '+r.url()+' ('+reason+')');
+    });
+    page.on('close',()=>requests.delete(page));
     await page.goto(`http://127.0.0.1:${server.address().port}/workspace.html`);
     await page.locator('[data-view="home"]').waitFor({state:'attached'});
     return{context,page};
   }
-  return{open,problems,close:async()=>{await browser.close();await new Promise(r=>server.close(r));}};
+  return{open,problems,reload,closeContext,ignoredCancellations,close:async()=>{
+    for(const context of browser.contexts())context.pages().forEach(markCancelled);
+    await browser.close();await new Promise(r=>server.close(r));
+  }};
 }

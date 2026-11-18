@@ -21,7 +21,7 @@ try{
    return null;
   }};
  });
- await seedTracks(page);await page.reload();
+ await seedTracks(page);await fx.reload(page);
  await go(page,'audio');
  const studio=page.locator('.audio-studio');
  await page.locator('.audio-playlist button').filter({hasText:'Morning Light'}).first().click();

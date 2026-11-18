@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: csv-export-feature
+expected_outcome: |
+  The agent runs the full loop without asking questions: writes a spec with success
+  criteria and logged decisions, a sliced plan, builds the export test-first in
+  small commits on a feature branch, handles CSV escaping (commas, quotes, newlines)
+  so the file opens correctly in Excel, documents the command, and finishes with
+  the test suite green and a short final report. Nothing is pushed or merged.
+context:
+  scaffold_script: place-files.sh
