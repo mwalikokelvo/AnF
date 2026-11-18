@@ -34,6 +34,7 @@ export interface KevoFloatView {
   lineCurrEl: HTMLElement;
   badgeEl: HTMLElement;
   applyState: (event: KevoStateEvent) => void;
+  showMessage: (msg: string) => void;
   getState: () => KevoHudState;
   isExpanded: () => boolean;
   setHover: (hovering: boolean) => void;
@@ -216,6 +217,14 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
     evaluateExpansion();
   }
 
+  function showMessage(msg: string): void {
+    currLine = msg;
+    lineCurrEl.textContent = currLine;
+    clearFoldTimer();
+    setExpanded(true);
+    scheduleFold();
+  }
+
   function destroy(): void {
     clearFoldTimer();
     pill.remove();
@@ -233,6 +242,7 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
     lineCurrEl,
     badgeEl,
     applyState,
+    showMessage,
     getState: () => currentState,
     isExpanded: () => expanded,
     setHover,
