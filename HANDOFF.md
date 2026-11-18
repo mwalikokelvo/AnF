@@ -4,7 +4,26 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 6.4: Time-To-First-Sentence (TTFS) telemetry & HUD badge).
+Last updated: 2026-11-18 by Antigravity (Kevo 6.5: Performance Benchmarking & Reasoning Evaluation Suite).
+
+## 2026-11-18 — Kevo 6.5: Performance Benchmarking & Reasoning Evaluation Suite (Antigravity)
+
+Phase 6 Step 6.5 (`docs/kevo-briefs/phase-6.md`, "6.5 Performance Benchmarking & Reasoning Evaluation Suite"):
+- Automated Benchmarking Suite (`windows/tests/kevo-performance.test.ts`):
+  - Comprehensive suite testing TTFS and reasoning quality across 4 categories:
+    1. Factual and common knowledge questions (clock, date, capital of France, renewable energy).
+    2. Multi-step reasoning queries (deductive reasoning Alice/Bob/Charlie, sheep math riddle, molecular density of ice, 15% tip calculation).
+    3. Complex instructions with memory and tools (fact remembering, 10-minute timer, navigate music hub, vault search).
+    4. Multi-turn reasoning latency preservation.
+  - Enforces TTFS <= 5.0 s deadline on all queries, verifies spoken response non-emptiness, keyword grounding, and zero tag leakages (`<tool_call>`, `</tool_call>`, `/no_think`).
+  - Added timer cleanup (`agent.dispose()`) to prevent Node test runner timeout.
+- Gate Integration (`windows/scripts/kevo-ci-gate.mjs`):
+  - Added step 2 to `kevo-ci-gate.mjs` running the performance benchmarking suite (`kevo-performance.test.ts`) in addition to the phrase list gate.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 checks).
+  - 789/789 tests passed across 121 suites (`npm test` PASS).
+  - `node scripts/kevo-ci-gate.mjs` PASS.
 
 ## 2026-11-18 — Kevo 6.4: Time-To-First-Sentence (TTFS) telemetry & HUD badge (Antigravity)
 
