@@ -152,23 +152,55 @@ function createBenchmarkAgent(memoryStore: Map<string, string>): {
             tools,
             temperature: 0.1,
             max_tokens: 180,
+            stream: true,
           }),
         });
         if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-        const data: any = await resp.json();
-        const choice = data.choices?.[0]?.message;
-        const toolCalls = choice?.tool_calls;
-        if (toolCalls && toolCalls.length > 0) {
-          return {
-            text: choice.content || '',
-            actionName: toolCalls[0].function?.name || 'tool_call',
-          };
+        let fullText = '';
+        let firstSentenceEmitted = false;
+        let toolCallName = '';
+        const reader = resp.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const payload = trimmed.slice(5).trim();
+              if (payload === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(payload);
+                const delta = parsed.choices?.[0]?.delta;
+                if (delta?.content) {
+                  fullText += delta.content;
+                  if (!firstSentenceEmitted && options?.onPart) {
+                    const match = fullText.match(/^([^.!?]+[.!?]+(?:\s+|$))/);
+                    if (match) {
+                      firstSentenceEmitted = true;
+                      options.onPart(match[1].trim());
+                    }
+                  }
+                }
+                if (delta?.tool_calls?.[0]?.function?.name) {
+                  toolCallName = delta.tool_calls[0].function.name;
+                }
+              } catch {}
+            }
+          }
         }
-        const text = choice?.content || '';
-        if (options?.onPart && text) {
-          options.onPart(text);
+        if (!firstSentenceEmitted && options?.onPart && fullText.trim()) {
+          options.onPart(fullText.trim());
         }
-        return { text, actionName: 'ai_conversation' };
+        if (toolCallName) {
+          return { text: fullText, actionName: toolCallName };
+        }
+        return { text: fullText, actionName: 'ai_conversation' };
       }
 
       // Offline deterministic simulation when llama-server is not spawned
