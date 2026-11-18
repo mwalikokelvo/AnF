@@ -143,6 +143,85 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
   });
 });
 
+describe('Kevo 0.2 fix 4: follow-up questions expire (#160)', () => {
+  it('expires follow-up state (timer prompt) past the limit so "five minutes" goes to the AI, but sets timer inside limit', async () => {
+    let fakeNow = 1_000_000;
+    let aiCalled = false;
+
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      now: () => fakeNow,
+      announce: () => {},
+      askAI: async (q) => {
+        aiCalled = true;
+        return `AI answered: ${q}`;
+      },
+    });
+
+    try {
+      // 1. "set a timer" prompts "For how long?" (timer_unclear)
+      const prompt1 = await agent.processVoiceInput('set a timer');
+      assert.equal(prompt1.actionName, 'timer_unclear');
+      assert.match(prompt1.speechReply, /For how long/);
+
+      // 2. Inside the limit (15 s elapsed <= 30 s default limit): "five minutes" sets the timer
+      fakeNow += 15_000;
+      const answerInside = await agent.processVoiceInput('five minutes');
+      assert.equal(answerInside.actionName, 'timer_set');
+      assert.match(answerInside.speechReply, /5 minutes/);
+      assert.equal(aiCalled, false);
+
+      // 3. Ask "set a timer" again
+      const prompt2 = await agent.processVoiceInput('set a timer');
+      assert.equal(prompt2.actionName, 'timer_unclear');
+
+      // 4. Past the limit (35 s elapsed > 30 s limit): "five minutes" must go to the AI
+      fakeNow += 35_000;
+      const answerOutside = await agent.processVoiceInput('five minutes');
+      assert.equal(answerOutside.actionName, 'ai_conversation');
+      assert.equal(aiCalled, true);
+    } finally {
+      agent.dispose();
+    }
+  });
+
+  it('expires lastSubject past the limit so "open it" fails with open_unclear', async () => {
+    let fakeNow = 2_000_000;
+    const opened: string[] = [];
+
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      now: () => fakeNow,
+      openApp: async (name) => {
+        opened.push(name);
+        return name;
+      },
+    });
+
+    try {
+      // Talk about an app name
+      await agent.processVoiceInput('Brave browser.');
+
+      // Inside limit (10 s elapsed): "open it" opens Brave browser
+      fakeNow += 10_000;
+      const resInside = await agent.processVoiceInput('open it');
+      assert.equal(resInside.actionName, 'open_app');
+      assert.deepEqual(opened, ['Brave browser']);
+
+      // Talk about another subject
+      await agent.processVoiceInput('Spotify.');
+
+      // Past limit (31 s elapsed): "open it" fails with open_unclear
+      fakeNow += 31_000;
+      const resOutside = await agent.processVoiceInput('open it');
+      assert.equal(resOutside.actionName, 'open_unclear');
+      assert.match(resOutside.speechReply, /Open what/);
+    } finally {
+      agent.dispose();
+    }
+  });
+});
+
 describe('Kevo 0.2 fix 2: Calvo and Kalvo wake words in listener (#158)', () => {
   function fakeRecogniser() {
     const g = globalThis as any;
@@ -213,4 +292,3 @@ describe('Kevo 0.2 fix 2: Calvo and Kalvo wake words in listener (#158)', () => 
     }
   });
 });
-
