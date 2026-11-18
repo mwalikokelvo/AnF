@@ -60,6 +60,17 @@ fn weather_summary(code: i32) -> &'static str {
     }
 }
 
+/// Simple percent-encode for place names (spaces and basic chars).
+fn percent_encode_place(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            ' ' => "%20".to_string(),
+            c if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' => c.to_string(),
+            c => format!("%{:02X}", c as u32),
+        })
+        .collect()
+}
+
 /// Fetches current weather for a place name using Open-Meteo (free, no key).
 /// Returns a spoken-friendly summary. Safe for voice assistants.
 pub async fn fetch_weather(place: &str) -> Result<WeatherReport, String> {
@@ -73,9 +84,10 @@ pub async fn fetch_weather(place: &str) -> Result<WeatherReport, String> {
         .build()
         .map_err(|e| e.to_string())?;
 
+    let encoded = percent_encode_place(place);
     let geo_url = format!(
         "https://geocoding-api.open-meteo.com/v1/search?name={}&count=1&language=en&format=json",
-        urlencoding::encode(place)
+        encoded
     );
     let geo: GeoResult = client
         .get(&geo_url)
@@ -113,18 +125,18 @@ pub async fn fetch_weather(place: &str) -> Result<WeatherReport, String> {
     let summary = weather_summary(current.weather_code);
 
     Ok(WeatherReport {
-        location: loc,
+        location: loc.clone(),
         temperature_c: current.temperature_2m,
         humidity_percent: current.relative_humidity_2m,
         wind_speed_kmh: current.wind_speed_10m,
         weather_code: current.weather_code,
         summary: format!(
-            "In {loc} it is {temp:.0}°C with {summary}. Humidity {hum:.0} percent, wind {wind:.0} km/h.",
-            loc = loc,
-            temp = current.temperature_2m,
-            summary = summary,
-            hum = current.relative_humidity_2m,
-            wind = current.wind_speed_10m
+            "In {} it is {:.0}°C with {}. Humidity {:.0} percent, wind {:.0} km/h.",
+            loc,
+            current.temperature_2m,
+            summary,
+            current.relative_humidity_2m,
+            current.wind_speed_10m
         ),
     })
 }
@@ -142,10 +154,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_empty_or_long_place() {
-        // These are sync checks; the async fetch is not called.
-        assert!(fetch_weather("").await.is_err()); // will fail to compile if not async, but we test the guard separately
+    fn percent_encode_handles_spaces() {
+        assert_eq!(percent_encode_place("New York"), "New%20York");
+        assert_eq!(percent_encode_place("London"), "London");
     }
 }
-
-// Note: full async tests would need tokio runtime; the pure summary test is sufficient for CI.
