@@ -11,7 +11,7 @@ pc_test:
 waiting_for: Windows run 44273650347 on 24506fd (#199 merge) to publish kevo-test-v0.1.60. main is red again from #200: audio_tests_in_ci wake rate 5/20 (target 19/20), reproduced on Linux; sweeping keywords_threshold/score reaches at most 9/20 with 0/10 look-alikes, so the stock gigaspeech KWS model is the limit (Phase 1 design work). Owner asked whether to revert #200-#202 to get main green; do not merge or revert anything for this until they answer
 blocked:
 last_passed_version: none yet
-owner_needed: after #199 merges: install kevo-test-v0.1.60 once (AnF-Windows-setup) and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
+owner_needed: kevo-test publish gets HTTP 403 "Resource not accessible by integration" since ~09:54Z (0.1.59 published fine 06:01Z with the same job permissions; rerun failed the same way): a repo setting changed; owner to check Settings > Actions > General > Workflow permissions and any new release/tag rules. Meanwhile install 0.1.60 once from run 44273650347 artifact AnF-Windows-setup and turn on the self-test setting
 last_main: e93195a (Windows red since d1aa9f4 / #195)
 chain: 0
 next_due:
@@ -45,3 +45,4 @@ quiet_fingerprint:
 - 2026-11-18T08:33Z (Claude, interactive): state caught up with the 03:03-07:31Z sprint (all Phase 0 and HUD H.1-H.6/H.8 merged, Phase 1 1.1-1.3 merged early). main Windows red since #195 (2 compile errors in kevo_ears.rs); fix + 0.1.60 in PR #199.
 - 2026-11-18T09:15Z (Claude, interactive): #199 green on c20e9e9 (adds libasound2-dev to linux.yml; clears the ears handle when the mic stream ends), two fresh-subagent reviews clean of P1; merge was refused for this session, left for the autopilot. Lock cleared.
 - 2026-11-18T09:49Z (Claude, interactive): #199 merged by owner account 09:11Z; #200-#202 and #196 merged right after with checks unfinished. main red from #200 (wake 5/20, same on Linux; tuning tops out at 9/20). Asked owner about reverting 1.4-1.6.
+- 2026-11-18T10:28Z (Claude, interactive check-in): 0.1.60 build green (run 44273650347) but kevo-test publish 403 twice (setting, not code). main now at e88ca23 (#209 agy/kevo-2.7, Phase 2 merging too); ad5b909 Windows failure. Revert question unanswered.
