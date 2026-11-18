@@ -96,16 +96,26 @@ const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:y
 // What may come before a command in its clause: filler, "please", or a polite "can you".
 const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:please\s+|just\s+)?)?/;
 
+// Inside a sentence: a fresh start that cancels a hanging "don't", a quotation lead, a question word.
+const CORRECTION = /^(?:on second thought|actually|now|instead|no wait|wait)\b/;
+const QUOTE_LEAD = /\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
+const QUESTION_WORD = /^(?:why|what|how|when|where|who|which)\b/;
+
 /**
- * True when the clause holding `phrase` is a request to Kevo: after the lead it starts with `verb`.
+ * True when the clause holding `phrase` is a request to Kevo: after the lead it matches `verb`.
  * Questions ("do I need to skip this song?") and negations ("can you not skip it?") start otherwise.
- * A negation left hanging before a comma ("please don't, under any circumstances, skip it") reaches past it.
+ * Within its sentence, a negation left hanging before a comma ("please don't, under any circumstances, skip it")
+ * reaches it unless a correction comes between; a quoted request ("what if I say, tell me the time?") is not one.
  */
 function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
-  const clauses = lower.split(/[,.;!?]+/);
-  const at = clauses.findIndex((c) => phrase.test(c));
-  return at >= 0 && verb.test(clauses[at].trim().replace(REQUEST_LEAD, ''))
-    && !clauses.slice(0, at).some((c) => /\b(?:not|don'?t|never)\s*$/.test(c));
+  const sentence = lower.split(/[.;!?]+/).find((s) => phrase.test(s));
+  if (!sentence) return false;
+  const parts = sentence.split(',').map((p) => p.trim());
+  const at = parts.findIndex((p) => phrase.test(p));
+  if (at < 0 || !verb.test(parts[at].replace(REQUEST_LEAD, ''))) return false;
+  if (QUOTE_LEAD.test(parts[at - 1] ?? '') || (lower.trim().endsWith('?') && parts.slice(0, at).some((p) => QUESTION_WORD.test(p)))) return false;
+  for (let i = at - 1; i >= 0 && !CORRECTION.test(parts[i]); i--) if (/\b(?:not|don'?t|never)$/.test(parts[i])) return false;
+  return true;
 }
 
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
@@ -448,7 +458,7 @@ export class JarvisVoiceAgent {
     }
 
     // "Can you skip this song?" is a request; "should I skip this song?" and "please don't skip it" are not.
-    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:skip|next|go|jump|move|play|switch)\b/)) {
+    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play)(?: on)?(?: to)?(?: the)? )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }

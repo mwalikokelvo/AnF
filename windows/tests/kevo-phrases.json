@@ -183,5 +183,11 @@
   { "say": "Skip this song if you can", "expect": "next_track", "source": "variant" },
   { "say": "Hello Calvo, open YouTube", "expect": "open_site", "source": "variant" },
   { "say": "Yo Calvo, open YouTube", "expect": "open_site", "source": "variant" },
-  { "say": "in five minutes", "before": ["set a timer"], "expect": "timer_set", "source": "variant" }
+  { "say": "in five minutes", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
+  { "say": "Play a video explaining how to skip this song", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Why would someone say, tell me the time?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "What happens if I say, tell me the time?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Don't. On second thought, skip this song.", "expect": "next_track", "source": "variant" },
+  { "say": "I said don't. Now tell me the time.", "expect": "tell_time", "source": "variant" },
+  { "say": "Skip to the next track", "expect": "next_track", "source": "variant" }
 ]
