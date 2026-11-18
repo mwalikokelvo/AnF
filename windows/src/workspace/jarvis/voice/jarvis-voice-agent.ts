@@ -692,11 +692,10 @@ export class JarvisVoiceAgent {
     if (
       lower.startsWith('take a note') ||
       lower.startsWith('note that') ||
-      lower.startsWith('remember that') ||
       lower.startsWith('write this down')
     ) {
       const noteContent = text
-        .replace(/^(take a note(:|\s+that)?|note that|remember that|write this down(:|\s+that)?)\s*/i, '')
+        .replace(/^(take a note(:|\s+that)?|note that|write this down(:|\s+that)?)\s*/i, '')
         .trim();
       if (noteContent && (this.context.saveQuickNote || this.context.dryRun)) {
         if (!this.context.dryRun) {

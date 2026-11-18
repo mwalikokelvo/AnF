@@ -222,5 +222,13 @@
   { "say": "five minutes from now", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
   { "say": "Are you asking me to say, skip this song?", "expect": "ai_conversation", "source": "variant", "fixed": "issue-175" },
   { "say": "Skip this song. I do not know whether the next song is any better.", "expect": "next_track", "source": "variant", "fixed": "issue-175" },
-  { "say": "Skip this song and tell me the time", "expect": "next_track+tell_time", "source": "variant", "fixed": "issue-175" }
+  { "say": "Skip this song and tell me the time", "expect": "next_track+tell_time", "source": "variant", "fixed": "issue-175" },
+  { "say": "Remember that I like jazz", "expect": "remember_fact", "source": "variant", "fixed": "phase-3" },
+  { "say": "Remember: my favorite language is TypeScript", "expect": "remember_fact", "source": "variant", "fixed": "phase-3" },
+  { "say": "Keep in mind that my desk is by the window", "expect": "remember_fact", "source": "variant", "fixed": "phase-3" },
+  { "say": "What do you remember about me?", "expect": "recall_facts", "source": "variant", "fixed": "phase-3" },
+  { "say": "What do you know about me?", "expect": "recall_facts", "source": "variant", "fixed": "phase-3" },
+  { "say": "List your memories", "expect": "recall_facts", "source": "variant", "fixed": "phase-3" },
+  { "say": "Forget that I like jazz", "expect": "forget_fact", "source": "variant", "fixed": "phase-3" },
+  { "say": "Forget all memories", "expect": "forget_fact", "source": "variant", "fixed": "phase-3" }
 ]

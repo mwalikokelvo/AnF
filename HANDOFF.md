@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 3.4: forget action and memory card in UI).
+Last updated: 2026-11-18 by Antigravity (Kevo 3.5: restart survival and memory test suite — Phase 3 complete).
+
+## 2026-11-18 — Kevo 3.5: restart survival and memory test suite (Antigravity)
+
+Phase 3 Step 3.5 (`docs/kevo-briefs/phase-3.md`, "3.5 Restart survival and test suite"):
+- Rust Persistence & Restart Survival Tests (`windows/src-tauri/src/kevo_memory.rs`):
+  - Added unit test `persists_across_restart_and_purges_deleted` verifying facts and turns survive fresh store re-instantiations from disk.
+  - Verified permanently deleted facts do not survive or reappear after simulated application restarts.
+  - 5/5 Rust memory unit tests pass (`cargo test kevo_memory`).
+- TypeScript Persistence & Recovery Tests (`windows/tests/jarvis-memory.test.ts`):
+  - Added test verifying facts survive simulated memory reload and deleted facts are permanently purged and never appear in system prompt formatting (`formatRememberedFactsForPrompt`).
+  - Added test verifying graceful recovery and empty-state fallback when native memory bridge fails or returns corrupted data.
+- Phrase List Verification (`windows/tests/kevo-phrases.json`):
+  - Added 8 test phrases covering `remember_fact`, `recall_facts`, and `forget_fact` commands.
+  - Cleaned up legacy `remember that` in note-taking (`jarvis-voice-agent.ts`) to ensure clean routing.
+  - Verified 100% of owner sessions and 100% of memory requests pass in CI test runner.
+- Verification:
+  - 5/5 Rust unit tests in `kevo_memory` PASS (`cargo test kevo_memory`).
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 717/717 tests passed across 101 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 3.4: forget action and memory card in UI (Antigravity)
 
