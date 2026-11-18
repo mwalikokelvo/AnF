@@ -38,6 +38,7 @@ mod kevo_hud;
 mod kevo_system;
 mod kevo_ears;
 pub mod kevo_autotest;
+pub mod kevo_memory;
 mod log;
 mod pipe;
 mod platform;
@@ -529,6 +530,13 @@ pub fn run() {
             kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
             kevo_hud::kevo_hud_set,
             kevo_approval::kevo_hud_answer,
+            kevo_memory::kevo_memory_remember_fact,
+            kevo_memory::kevo_memory_list_facts,
+            kevo_memory::kevo_memory_delete_fact,
+            kevo_memory::kevo_memory_clear_facts,
+            kevo_memory::kevo_memory_load_history,
+            kevo_memory::kevo_memory_save_turn,
+            kevo_memory::kevo_memory_clear_history,
             log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,

@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Phase 3 brief: Memory).
+Last updated: 2026-11-18 by Antigravity (Kevo 3.1: persistent memory store).
+
+## 2026-11-18 — Kevo 3.1: persistent memory store (Antigravity)
+
+Phase 3 Step 3.1 (`docs/kevo-briefs/phase-3.md`, "3.1 Persistent memory store"):
+- Persistent Native Memory Engine (`windows/src-tauri/src/kevo_memory.rs`):
+  - Structured facts (`KevoFact`: `id`, `fact`, `category`, `created_at`, `updated_at`) and conversation turns (`KevoTurn`: `id`, `role`, `text`, `at`).
+  - Thread-safe storage with mutex and atomic file write in `settings::local_dir()/kevo/kevo-memory.json`.
+  - Automatic bounds enforcement (max 500 facts, max 50 turns).
+  - Corrupt file healing without crashes.
+  - Tauri commands: `kevo_memory_remember_fact`, `kevo_memory_list_facts`, `kevo_memory_delete_fact`, `kevo_memory_clear_facts`, `kevo_memory_load_history`, `kevo_memory_save_turn`, `kevo_memory_clear_history`.
+- Tauri Bridge Integration (`windows/src/core/bridge.ts`):
+  - Exposed typed methods on `Bridge` interface.
+- Conversational Memory Synchronization (`windows/src/workspace/jarvis/voice/jarvis-memory.ts`):
+  - Wired `appendJarvisTurn`, `clearJarvisHistory`, and added `syncJarvisHistoryFromNative`.
+  - Added fact lifecycle APIs: `rememberFact`, `listFacts`, `deleteFact`, `clearFacts`, and `formatRememberedFactsForPrompt`.
+- Verification:
+  - Rust tests in `kevo_memory.rs`: 4/4 passed (remember/list, delete/clear, bounds, corrupt file healing).
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 709/709 tests passed across 101 suites (`npm test` PASS).
 
 ## 2026-11-18 — Phase 3 brief: Memory (Antigravity)
 
