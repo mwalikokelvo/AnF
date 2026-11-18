@@ -4,7 +4,28 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 6.3: context prefill optimization & prompt compaction).
+Last updated: 2026-11-18 by Antigravity (Kevo 6.4: Time-To-First-Sentence (TTFS) telemetry & HUD badge).
+
+## 2026-11-18 — Kevo 6.4: Time-To-First-Sentence (TTFS) telemetry & HUD badge (Antigravity)
+
+Phase 6 Step 6.4 (`docs/kevo-briefs/phase-6.md`, "6.4 Time-To-First-Sentence (TTFS) Telemetry & HUD Badge"):
+- TTFS Measurement & Telemetry (`windows/src/workspace/jarvis/jarvis-command-desk.ts`, `windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - In `handleCommand`, accurately measures TTFS: interval from speech recognition completion (`onFinalSpeech` / `heardAt`) to the first synthesized audio chunk or first sentence delivered.
+  - Logs TTFS in Kevo's local JSON log (`log('ttfs', { type: 'ttfs', ms: elapsed, model: activeModel, text: request })`).
+  - Added `formatModelDisplayName` mapping model ids (`fast`, `balanced`, `deepseek-r1-distill-qwen-1.5b`, `kimi-linear-a3b`, etc.) to clean display names.
+  - Added `formatTtfsBadge` generating `"First sentence: 1.8 s (Model: Qwen 1.7B Q8)"`.
+- Live Badge on Command Desk HUD & Float HUD (`windows/src/workspace/jarvis/jarvis-hud.ts`, `windows/src-tauri/src/kevo_hud.rs`, `windows/src-tauri/src/workspace_commands.rs`, `windows/src-tauri/src/lib.rs`):
+  - In `jarvis-hud.ts`, added `.kevo-badge` styling and `setBadge` method to `createJarvisHud`, displaying live TTFS status under the orb state.
+  - In `kevo_hud.rs`, added `format_ttfs_badge` helper and exposed `kevo_hud_set_badge` Tauri command for updating Float HUD dynamically.
+  - In `workspace_commands.rs`, hooked `first_sentence_ms` atomic timing into `kevo_ask` stream handler to record TTFS and update the float badge.
+- Test Suite (`windows/tests/kevo-ttfs.test.ts`):
+  - Added unit test suite covering `formatModelDisplayName`, `formatTtfsBadge`, `createJarvisHud().setBadge` element visibility and text updates, and streaming command TTFS telemetry logging.
+- Verification:
+  - 18/18 Rust unit tests in `workspace_commands` PASS (`cargo test --lib workspace_commands`).
+  - 4/4 Rust unit tests in `kevo_hud` PASS (`cargo test --lib kevo_hud`).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 12/12 `check-release.mjs` PASS.
+  - 776/776 tests passed across 120 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 6.3: context prefill optimization & prompt compaction (Antigravity)
 

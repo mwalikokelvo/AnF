@@ -74,6 +74,10 @@ export interface JarvisActionContext {
   changeVoice?: (name?: string) => string | null;
   /** The names of Kevo's voices. */
   voiceNames?: () => string[];
+  /** Active local AI model label/id (e.g. "fast", "balanced", "Qwen 1.7B Q8"). */
+  getActiveModel?: () => string;
+  /** Sets the float HUD badge. */
+  setFloatBadge?: (badge: string) => void;
   /** Says something later, on Kevo's own initiative (a timer going off). */
   announce?: (text: string) => void;
   triageSupport?: () => number;

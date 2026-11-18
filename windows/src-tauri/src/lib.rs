@@ -529,6 +529,7 @@ pub fn run() {
             kevo_preload_model,
             kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
             kevo_hud::kevo_hud_set,
+            kevo_hud::kevo_hud_set_badge,
             kevo_approval::kevo_hud_answer,
             kevo_memory::kevo_memory_remember_fact,
             kevo_memory::kevo_memory_list_facts,

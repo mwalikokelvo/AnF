@@ -40,6 +40,24 @@ export interface JarvisCommandDeskOptions {
   voiceActionContext?: Partial<JarvisActionContext>;
   /** Kevo's log on this PC; adds "Save log" and "Open log folder" to the voice bar. */
   log?: KevoLogStore;
+  activeModel?: () => string;
+}
+
+export function formatModelDisplayName(modelId?: string): string {
+  if (!modelId) return 'Qwen 1.7B Q8';
+  const lower = modelId.toLowerCase();
+  if (lower.includes('deepseek')) return 'DeepSeek R1';
+  if (lower.includes('kimi')) return 'Kimi Linear';
+  if (lower.includes('0.6b') || lower === 'fast') return 'Qwen 0.6B Q8';
+  if (lower.includes('1.7b') || lower === 'balanced') return 'Qwen 1.7B Q8';
+  if (lower.includes('3b')) return 'Qwen 3B Q4';
+  if (lower.includes('7b')) return 'Qwen 7B Q4';
+  return modelId;
+}
+
+export function formatTtfsBadge(elapsedMs: number, modelName: string): string {
+  const sec = (elapsedMs / 1000).toFixed(1);
+  return `First sentence: ${sec} s (Model: ${modelName})`;
 }
 
 export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
@@ -259,6 +277,24 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     markSpoken = () => { spokenAt ||= Date.now(); };
     let actionName = 'none';
     let reply = '';
+    let firstSentenceAt = 0;
+
+    const recordTtfs = () => {
+      if (firstSentenceAt) return;
+      firstSentenceAt = Date.now();
+      const elapsedMs = firstSentenceAt - heardAt;
+      const rawModel = options?.activeModel?.() ?? options?.voiceActionContext?.getActiveModel?.() ?? 'Qwen 1.7B Q8';
+      const activeModel = formatModelDisplayName(rawModel);
+      log('ttfs', { type: 'ttfs', ms: elapsedMs, model: activeModel, text: request });
+      const badge = formatTtfsBadge(elapsedMs, activeModel);
+      hud.setBadge(badge);
+      if (typeof options?.voiceActionContext?.setFloatBadge === 'function') {
+        options.voiceActionContext.setFloatBadge(badge);
+      } else {
+        try { void invoke('kevo_hud_set_badge', { badge }).catch(() => {}); } catch {}
+      }
+    };
+
     // One line per request; a timer that was set shows as actionName "timer_set".
     const record = () => log('request', {
       text: request, typed, actionName, reply: reply.slice(0, 2000), ms: spokenAt ? spokenAt - heardAt : null,
@@ -277,6 +313,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     let complete = false;
     const onPart = (part: string) => {
       if (asked !== turn || complete) return;
+      recordTtfs();
       shown = shown ? `${shown} ${part}` : part;
       hud.setReply(shown);
       (stream ??= speaker.beginStream()).push(part);
@@ -299,6 +336,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       actionReason = 'EXECUTION_FAILED';
     } finally {
       thinking = false;
+    }
+    if (actionName === 'ai_conversation' && reply && reply.trim()) {
+      recordTtfs();
     }
     const elapsed = Date.now() - heardAt;
     actionHistory.unshift({

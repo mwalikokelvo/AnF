@@ -99,6 +99,21 @@ function injectHudStyles(): void {
       background: var(--accent-ink, #10392e);
     }
     .kevo-state { margin: 6px 0 0; font-size: 20px; font-weight: 600; color: var(--ink, #edf4ef); }
+    .kevo-badge {
+      margin: 4px 0 0;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--kevo) 15%, transparent);
+      color: var(--kevo);
+      border: 1px solid color-mix(in srgb, var(--kevo) 35%, transparent);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: fit-content;
+    }
     .kevo-heard, .kevo-reply { margin: 0; max-width: 46ch; overflow-wrap: anywhere; }
     /* A long answer stays readable without pushing the controls off the screen */
     .kevo-reply { max-height: 7.3em; overflow-y: auto; }
@@ -171,6 +186,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   setState: (state: KevoState) => void;
   setHeard: (text: string) => void;
   setReply: (text: string) => void;
+  setBadge: (text: string) => void;
   pulseMessage: (msg: string) => void;
   setWakeActive: (active: boolean) => void;
   destroy: () => void;
@@ -191,10 +207,12 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   orb.append(el('span', 'kevo-ring'), el('span', 'kevo-ring'), el('span', 'kevo-ring'), el('span', 'kevo-arc'), core);
   const stateEl = el('p', 'kevo-state', STATE_LABEL.off);
   stateEl.setAttribute('role', 'status');
+  const badgeEl = el('span', 'kevo-badge');
+  badgeEl.hidden = true;
   const heardEl = el('p', 'kevo-heard');
   const replyEl = el('p', 'kevo-reply', 'Turn the microphone on and say “Kevo”, or type what you need.');
   replyEl.setAttribute('aria-live', 'polite');
-  stage.append(orb, stateEl, heardEl, replyEl);
+  stage.append(orb, stateEl, badgeEl, heardEl, replyEl);
 
   // ── Activity: what Kevo heard and did, newest first
   const activity = el('section', 'jarvis-panel kevo-activity');
@@ -225,6 +243,13 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   function setReply(text: string): void {
     replyEl.textContent = text;
     replay(replyEl);
+  }
+
+  function setBadge(text: string): void {
+    const trimmed = text.trim();
+    badgeEl.textContent = trimmed;
+    badgeEl.hidden = !trimmed;
+    if (trimmed) replay(badgeEl);
   }
 
   /** Adds a line to the activity list. */
@@ -258,5 +283,5 @@ export function createJarvisHud(options?: JarvisHudOptions): {
     root.remove();
   }
 
-  return { root, setState, setHeard, setReply, pulseMessage, setWakeActive, destroy };
+  return { root, setState, setHeard, setReply, setBadge, pulseMessage, setWakeActive, destroy };
 }
