@@ -49,7 +49,7 @@ When a newer build of AnF replaces an older one, remove the older build's files 
 ## 3. CI facts
 
 - `tauri build`/`cargo test` need `../dist`: run `npm run build` (in `windows\`) before `cargo test`.
-- The Linux container can compile and test the Tauri crate after `apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libgtk-layer-shell-dev libdbus-1-dev` (checked 2026-11-14). It needs the bundled resources to exist: placeholder files in the ignored `windows/local-ai/`, `windows/media/` and `windows/target/release/coucou-hook*` are enough for `cargo test`. Windows-only code (`#[cfg(windows)]`) still needs the GitHub `Windows` workflow.
+- The Linux container can compile and test the Tauri crate after `apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libgtk-layer-shell-dev libdbus-1-dev libasound2-dev` (checked 2026-11-14). It needs the bundled resources to exist: placeholder files in the ignored `windows/local-ai/`, `windows/media/` and `windows/target/release/coucou-hook*` are enough for `cargo test`. Windows-only code (`#[cfg(windows)]`) still needs the GitHub `Windows` workflow.
 - From cloud sessions: code-scanning API returns 403; creating a GitHub release returns 403; artifact downloads are blocked, but job logs are readable (2026-11-14): `gh api repos/mwalikokelvo/AnF/actions/jobs/<job-id>/logs` shows the real compiler error. GraphQL is blocked: use `gh api repos/mwalikokelvo/AnF/...` REST only.
 - Local gates (Linux, quick): `node scripts/check-release.mjs`; `cd windows && npm ci && npx tsc --noEmit && npm test`.
 - Hook "Fact-Forcing Gate" blocks destructive commands unless you state the facts first; state them, never circumvent.

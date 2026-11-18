@@ -295,6 +295,7 @@ mod ears_impl {
         let muted = Arc::new(AtomicBool::new(false));
         let worker_stop = Arc::clone(&stop_flag);
         let worker_muted = Arc::clone(&muted);
+        let own_stop = Arc::clone(&stop_flag);
         let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel::<Result<(), String>>(1);
 
         std::thread::Builder::new()
@@ -308,8 +309,17 @@ mod ears_impl {
                     }
                 };
                 let _ = ready_tx.send(Ok(()));
-                run_ears_pipeline(rx, worker_stop, worker_muted, app, vad, kws, asr);
+                run_ears_pipeline(rx, worker_stop, worker_muted, app.clone(), vad, kws, asr);
                 drop(stream);
+                // Ended without kevo_ears_stop (the microphone went away): forget this
+                // handle so the status is honest and kevo_ears_start works again.
+                if let Ok(mut state) = EARS.get_or_init(|| Mutex::new(None)).lock() {
+                    if state.as_ref().is_some_and(|h| Arc::ptr_eq(&h.stop_flag, &own_stop)) {
+                        *state = None;
+                        use tauri::Emitter;
+                        let _ = app.emit("kevo-ears-error", "Kevo stopped listening: the microphone stream ended");
+                    }
+                }
             })
             .map_err(|e| format!("Failed to spawn pipeline thread: {e}"))?;
 
