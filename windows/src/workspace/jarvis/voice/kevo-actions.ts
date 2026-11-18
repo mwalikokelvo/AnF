@@ -109,6 +109,16 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       if (ctx.openApp) {
         try {
           const opened = ctx.dryRun ? app : await ctx.openApp(app);
+          if (!opened) {
+            return {
+              handled: false,
+              actionName: 'open_app',
+              speechReply: `I could not find or launch ${app}, sir.`,
+              status: 'failure',
+              verified: false,
+              reason: 'NOT_FOUND',
+            };
+          }
           return {
             handled: true,
             actionName: 'open_app',
@@ -499,7 +509,14 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { seconds: number; label?: string }, ctx: JarvisActionContext) => {
       const sec = Math.round(Number(args?.seconds) || 0);
       if (sec <= 0) {
-        return { handled: false, actionName: 'timer_set', speechReply: 'Please specify a valid timer duration in seconds, sir.' };
+        return {
+          handled: false,
+          actionName: 'timer_set',
+          speechReply: 'Please specify a valid timer duration in seconds, sir.',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       if (ctx.announce) {
         if (!ctx.dryRun) {
@@ -511,9 +528,22 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           }
         }
         const desc = sec >= 60 ? `${Math.round(sec / 60)} minute${Math.round(sec / 60) > 1 ? 's' : ''}` : `${sec} seconds`;
-        return { handled: true, actionName: 'timer_set', speechReply: `Timer set for ${desc}, sir.` };
+        return {
+          handled: true,
+          actionName: 'timer_set',
+          speechReply: `Timer set for ${desc}, sir.`,
+          status: 'success',
+          verified: true,
+        };
       }
-      return { handled: false, actionName: 'timer_set', speechReply: 'Timers are not supported.' };
+      return {
+        handled: false,
+        actionName: 'timer_set',
+        speechReply: 'Timers are not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -1462,6 +1492,7 @@ export async function executeKevoToolCalls(
 
   const allVerified = results.length > 0 && results.every((r) => r.verified === true);
   const anyFailed = results.some((r) => r.status === 'failure' || !r.handled);
+  const firstFail = results.find((r) => r.status === 'failure' || !r.handled);
 
   return {
     handled: allHandled && toolCalls.length > 0,
@@ -1469,6 +1500,8 @@ export async function executeKevoToolCalls(
     speechReply: replies.join(' '),
     status: anyFailed ? 'failure' : (allVerified ? 'success' : 'unverified'),
     verified: allVerified,
+    reason: firstFail?.reason,
+    error: firstFail?.error,
     data: results,
   };
 }

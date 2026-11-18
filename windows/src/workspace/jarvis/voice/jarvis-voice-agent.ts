@@ -848,6 +848,9 @@ export class JarvisVoiceAgent {
       }
       try {
         const opened = await this.context.openApp!(app[1]);
+        if (!opened) {
+          return { handled: true, actionName: 'open_app_failed', speechReply: `I could not find or launch ${app[1]}, sir.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        }
         return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.`, status: 'success', verified: true, verificationDetails: `Opened ${opened}` };
       } catch (err) {
         const errorMsg = String(err).replace(/^Error:\s*/, '');
