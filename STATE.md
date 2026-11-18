@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-18T03:03Z (Claude interactive sprint, owner-requested; refreshed while working)
+lock: 2026-11-18T08:16Z (Claude interactive: fixing main's red Windows build from #195)
 phase: 0
 step: 0.1 (#148) team:claude, not started; 0.3 (#150) team:claude since 2026-11-17T14:25Z (Codex stalled), built in PR #174; 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158), fix 3 (#159), fix 4 (#160), all team:claude, wait on #155; 0.4b (#152) waits on 0.1 and 0.3. HUD track board #166-#173 created 2026-11-18T00:28Z: H.1 (#166, team:codex) handed to Codex 00:28Z (stall check 06:28Z); H.2/H.3/H.4b/H.6 are team:any (brief says Jules, Jules read-only); H.4a (#169) team:codex waits on H.1; H.5 team:any; H.8 (#173) team:claude waits on H.3, H.4b, H.5, 0.4b. H.7 waits for Phase 8.
 open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, ready for review): head d9d5615 fixes 6 findings on e3da96b (4 Codex, 2 Cursor Bugbot); all threads resolved; @codex review asked 02:51Z. Level with main 532a664 (merged at 2a93b42); merge main again at 2b.3 if it moves. Version bump 0.1.58 already on the branch. #174 (0.3, claude/kevo-0.3, draft): head 8d439ec (fixes Codex findings on f1691f1 and 9a55f9d; Codex clean on 8d439ec at 00:57Z, all threads resolved), workflow-only (windows.yml + HANDOFF.md), @codex review asked again 00:44Z; no version bump yet (add at 2b.3, after #157 merges).
