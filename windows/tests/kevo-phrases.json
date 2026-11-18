@@ -206,5 +206,18 @@
   { "say": "The next song", "expect": "next_track", "source": "variant" },
   { "say": "I want you to tell me the time", "expect": "tell_time", "source": "variant" },
   { "say": "Go ahead and tell me the time", "expect": "tell_time", "source": "variant" },
-  { "say": "I need you to tell me the time", "expect": "tell_time", "source": "variant" }
+  { "say": "I need you to tell me the time", "expect": "tell_time", "source": "variant" },
+  { "say": "Did you say, skip this song?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Would you say, tell me the time?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Skip this song. Is the next song any good?", "expect": "next_track", "source": "variant" },
+  { "say": "Don't skip this song, actually, skip this song", "expect": "next_track", "source": "variant" },
+  { "say": "Don't tell me the time, actually, tell me the time", "expect": "tell_time", "source": "variant" },
+  { "say": "Skip this song, actually, don't skip this song", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Imagine I say, please, skip this song", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Put on the next song", "expect": "next_track", "source": "variant" },
+  { "say": "Give me the next track", "expect": "next_track", "source": "variant" },
+  { "say": "Advance to the next track", "expect": "next_track", "source": "variant" },
+  { "say": "five minutes is fine", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
+  { "say": "five minutes will do", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
+  { "say": "five minutes from now", "before": ["set a timer"], "expect": "timer_set", "source": "variant" }
 ]

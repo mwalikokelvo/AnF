@@ -98,30 +98,40 @@ const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd l
 
 // Inside a sentence: a fresh start that cancels a hanging "don't", a hypothetical quotation lead, a question word.
 const CORRECTION = /^(?:on second thought|actually|now|instead|no wait|wait)\b/;
-// "what if I say, ..." quotes a command; "I said, ..." and "as I was saying, ..." restate one.
-const QUOTE_LEAD = /^(?:what|why|how|if|when|whenever|suppose|imagine)\b.*\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
+// "what if I say, ..." and "did you say, ..." quote a command; "I said, ..." and "as I was saying, ..." restate one.
+const QUOTE_LEAD = /^(?:what|why|how|if|when|whenever|suppose|imagine|did|do|does|would|could|should|can|will)\b.*\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
 const QUESTION_WORD = /^(?:why|what|how|when|where|who|which)\b(?!\s+about\b|\s+you(?:'re| are) ready\b)/;
 // All that may follow the command in its sentence: anything else ("skip this song if I later say go") is a condition.
 const POLITE_TAIL = /^(?:[\s,]*(?:please|now|for me|if you (?:can|could)|thanks|thank you|kevo|sir))*[\s,]*$/;
 
 /**
- * True when the clause holding `phrase` is a request to Kevo: after the lead it matches `verb`.
- * Questions ("do I need to skip this song?") and negations ("can you not skip it?") start otherwise.
- * The last sentence naming it decides ("skip it. Actually, don't"), and the command must end the sentence.
+ * True when the last clause that decides about `phrase` is a request to Kevo: after the lead it matches `verb`
+ * and nothing but politeness follows in its sentence ("skip this song if I later say go" is a condition).
+ * A clause decides when it requests or refuses the action; one that only mentions it ("is the next song good?"),
+ * a question ("do I need to skip this song?") or a quotation ("what if I say, tell me the time?") does not.
  * Within its sentence, a negation left hanging before a comma ("please don't, under any circumstances, skip it")
- * reaches it unless a correction comes between; a quoted request ("what if I say, tell me the time?") is not one.
+ * reaches it unless a correction comes between ("don't skip it, actually, skip it").
  */
 function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
-  const sentence = (lower.match(/[^.;!?]+[.;!?]*/g) ?? []).filter((s) => phrase.test(s)).pop();
-  if (!sentence) return false;
-  const parts = sentence.replace(/[.;!?]+$/, '').split(',').map((p) => p.trim());
-  const at = parts.findIndex((p) => phrase.test(p));
-  const clause = at < 0 ? '' : parts[at].replace(REQUEST_LEAD, '');
-  const command = verb.exec(clause);
-  if (!command || !POLITE_TAIL.test([clause.slice(command[0].length), ...parts.slice(at + 1)].join(','))) return false;
-  if (QUOTE_LEAD.test(parts[at - 1] ?? '') || (sentence.trim().endsWith('?') && parts.slice(0, at).some((p) => QUESTION_WORD.test(p)))) return false;
-  for (let i = at - 1; i >= 0 && !CORRECTION.test(parts[i]); i--) if (/\b(?:not|don'?t|never)$/.test(parts[i])) return false;
-  return true;
+  let asked = false;
+  for (const sentence of lower.match(/[^.;!?]+[.;!?]*/g) ?? []) {
+    const parts = sentence.replace(/[.;!?]+$/, '').split(',').map((p) => p.trim());
+    parts.forEach((part, at) => {
+      const found = phrase.exec(part);
+      if (!found) return;
+      const before = parts.slice(0, at);
+      if (before.some((p) => QUOTE_LEAD.test(p)) || (sentence.trim().endsWith('?') && before.some((p) => QUESTION_WORD.test(p)))) return;
+      const clause = part.replace(REQUEST_LEAD, '');
+      const command = verb.exec(clause);
+      if (!command) {
+        if (/\b(?:not|don'?t|never)\b/.test(part.slice(0, found.index))) asked = false;
+        return;
+      }
+      asked = POLITE_TAIL.test([clause.slice(command[0].length), ...parts.slice(at + 1)].join(','));
+      for (let i = at - 1; asked && i >= 0 && !CORRECTION.test(parts[i]); i--) if (/\b(?:not|don'?t|never)$/.test(parts[i])) asked = false;
+    });
+  }
+  return asked;
 }
 
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
@@ -219,7 +229,7 @@ export class JarvisVoiceAgent {
     // "five minutes" right after "For how long?" is the timer's length.
     // "Not five minutes" is not an answer, and "play five minutes" is another command: only a length, with filler words.
     const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower)
-      && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|in|make it|like)\b[\s,]*)*$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
+      && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|in|make it|like)\b[\s,]*)*(?:(?:is fine|is good|will do|works|from now)\b[\s,]*)?$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
     if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
@@ -464,7 +474,7 @@ export class JarvisVoiceAgent {
     }
 
     // "Can you skip this song?" is a request; "should I skip this song?" and "please don't skip it" are not.
-    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play)(?: on| ahead| forward)?(?: to)? )?(?:the )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
+    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play|put on|give me|advance)(?: on| ahead| forward)?(?: to)? )?(?:the )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
