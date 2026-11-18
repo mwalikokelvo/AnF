@@ -87,9 +87,9 @@ describe("Kevo's log", () => {
     root.find((el) => el.className === 'jarvis-mic-btn')!.fire('click'); // mic on: no wake word needed yet
     lines.length = 0;
     await new Promise((r) => setTimeout(r, 1200)); // the listener waits for a pause before acting
-    rec.say('play or pause music search your notes');
+    rec.say('play or pause music change the volume');
     await new Promise((r) => setTimeout(r, 1200));
-    assert.deepEqual(lines.map((l) => [l.event, l.reason, l.text]), [['ignored', 'own_voice', 'play or pause music search your notes']]);
+    assert.deepEqual(lines.map((l) => [l.event, l.reason, l.text]), [['ignored', 'own_voice', 'play or pause music change the volume']]);
     desk.destroy();
   });
 
