@@ -33,7 +33,7 @@ Microphone → **Ears** (silence detection, "Kevo" detector, offline transcripti
 | 0. Close Phase 0 | 0.1.57+ | Log, phrase list, test-build prereleases, automatic test builds and self-test | `kevo-briefs/phase-0.md` | Self-test passes the five Phase 0 checks |
 | 1. Ears | 0.2.x | Listening on the PC, offline, real wake-word detector | `kevo-briefs/phase-1.md` | 19/20 wakes, at most 1 false wake, Phase 0 checks pass, no network used |
 | 2. Understanding | 0.3.x | Tool calling with one action list; Kevo knows itself; instant commands | `kevo-briefs/phase-2.md` | Phrase list 95% in CI; 18/20 varied requests on the PC; commands within 1.5 s |
-| 3. Memory | 0.4.x | Facts and recent requests across restarts; list with delete | written when next | Recalls after restart, forgets what was deleted |
+| 3. Memory | 0.4.x | Facts and recent requests across restarts; list with delete | `kevo-briefs/phase-3.md` | Recalls after restart, forgets what was deleted |
 | 4. Schedule | 0.4.x | Reminders and a daily briefing that survive a restart | written when next | Each fires once, on time |
 | 5. Verified actions | 0.4.x | Each action checks its result | written when next | Never "done" when it failed; reason said |
 | 6. Better answers | 0.5.x | Largest local model the PC runs within 5 s | written when next | First sentence within 5 s; harder questions answered better |

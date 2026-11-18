@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo Phase 2: phrase cases from #157 / #175).
+Last updated: 2026-11-18 by Antigravity (Phase 3 brief: Memory).
+
+## 2026-11-18 — Phase 3 brief: Memory (Antigravity)
+
+Phase 3 brief created in `docs/kevo-briefs/phase-3.md`:
+- Version 0.4.x, delivered on CI gates per `docs/KEVO-PLAN.md` (Phases 3, 4, 5 merged consecutively, validated in one PC test after Phase 5).
+- Steps:
+  - 3.1 Persistent memory store (`kevo_memory.rs`, Bridge, turns and facts).
+  - 3.2 Remember action and tool calling (`remember_fact` in `kevo-actions.ts`).
+  - 3.3 Context injection and recall (`recall_facts`, `# Remembered Facts` in system prompt).
+  - 3.4 Forget action and list with delete (`forget_fact`, Command Desk / Settings Memory card).
+  - 3.5 Restart survival and test suite (unit tests in Rust & TS, persistence verification).
 
 ## 2026-11-18 — Kevo Phase 2: phrase cases from #157 (#175) (Antigravity)
 
