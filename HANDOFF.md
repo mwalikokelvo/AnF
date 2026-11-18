@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 3.1: persistent memory store).
+Last updated: 2026-11-18 by Antigravity (Kevo 3.2: remember action and tool calling).
+
+## 2026-11-18 — Kevo 3.2: remember action and tool calling (Antigravity)
+
+Phase 3 Step 3.2 (`docs/kevo-briefs/phase-3.md`, "3.2 Remember action and tool calling"):
+- Unified Action List Addition (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Added `remember_fact` action with schema parameters `{ fact: string, category?: string }`.
+  - Dispatches execution to `ctx.rememberFact` or native fallback `rememberFact()` from `jarvis-memory.ts`.
+  - Speaks concise confirmation ("I will remember that: ...").
+- Fast Path Support (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Fast-path execution for "remember that ...", "remember: ...", "keep in mind that ...", executing immediately with zero model loaded.
+  - Added `remember` and `keep in mind` to `COMMAND_START` so lead-ins and multi-request chains split cleanly.
+- Verification:
+  - Unit tests in `kevo-actions.test.ts` testing `remember_fact` tool calling.
+  - Fast-path tests in `kevo-fastpath.test.ts` verifying instant execution without model.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 711/711 tests passed across 101 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 3.1: persistent memory store (Antigravity)
 

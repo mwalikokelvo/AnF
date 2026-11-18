@@ -171,6 +171,24 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.match(resTimer.speechReply, /1 minute|60 seconds/);
   });
 
+  it('executes remember_fact action (Step 3.2)', async () => {
+    let remembered = '';
+    let category = '';
+    const ctx = mockContext({
+      rememberFact: async (f, c) => {
+        remembered = f;
+        category = c || '';
+      },
+    });
+
+    const res = await executeKevoAction('remember_fact', { fact: 'I like jazz', category: 'music' }, ctx);
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'remember_fact');
+    assert.strictEqual(remembered, 'I like jazz');
+    assert.strictEqual(category, 'music');
+    assert.match(res.speechReply, /I will remember that: I like jazz/);
+  });
+
   it('returns graceful unhandled result for unknown action', async () => {
     const ctx = mockContext();
     const res = await executeKevoAction('non_existent_action', {}, ctx);

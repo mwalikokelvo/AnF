@@ -31,6 +31,7 @@
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
+import { rememberFact } from './jarvis-memory';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -426,6 +427,42 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       const results = await searchAudiusTracks(q, 5);
       const reply = formatAudiusResults(results);
       return { handled: true, actionName: 'audius_search', speechReply: reply, data: results };
+    },
+  },
+  {
+    name: 'remember_fact',
+    description: 'Remember a personal fact, preference, rule, or instruction about the user or environment.',
+    parameters: {
+      type: 'object',
+      properties: {
+        fact: { type: 'string', description: 'The fact, rule, or preference to remember' },
+        category: { type: 'string', description: 'Optional category (e.g. personal, work, diet, tech, general)' },
+      },
+      required: ['fact'],
+    },
+    execute: async (args: { fact: string; category?: string }, ctx: JarvisActionContext) => {
+      const clean = (args?.fact || '').trim();
+      if (!clean) {
+        return { handled: false, actionName: 'remember_fact', speechReply: 'What would you like me to remember, sir?' };
+      }
+      try {
+        if (ctx.rememberFact) {
+          await ctx.rememberFact(clean, args?.category);
+        } else {
+          await rememberFact(clean, args?.category);
+        }
+        return {
+          handled: true,
+          actionName: 'remember_fact',
+          speechReply: `I will remember that: ${clean}`,
+        };
+      } catch (err) {
+        return {
+          handled: false,
+          actionName: 'remember_fact',
+          speechReply: `Failed to remember: ${String(err)}`,
+        };
+      }
     },
   },
 ];

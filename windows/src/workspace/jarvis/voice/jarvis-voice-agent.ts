@@ -4,7 +4,7 @@
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
 
-import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, type JarvisTurn } from './jarvis-memory';
+import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, type JarvisTurn } from './jarvis-memory';
 
 export type JarvisAskAiResult = string | { text: string; actionName?: string };
 
@@ -21,6 +21,8 @@ export interface JarvisActionContext {
   openApp?: (name: string) => Promise<string>;
   openQuickCapture?: () => void;
   saveQuickNote?: (text: string) => Promise<void>;
+  /** Remembers a persistent fact in Kevo memory. */
+  rememberFact?: (fact: string, category?: string) => Promise<unknown>;
   /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
   askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
@@ -160,7 +162,7 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
   return asked;
 }
 
-const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
+const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind)\b/i;
 
 /** "In the meantime, can you open Brave browser?" is the command "open Brave browser". A question stays as it is. */
 export function stripLeadIn(text: string): string {
@@ -245,6 +247,20 @@ export class JarvisVoiceAgent {
       || (why && /\b(?:(?:can'?t|cannot|don'?t|didn'?t|won'?t|aren'?t)\s+you|you\s+(?:stopped|never|don'?t|can'?t|didn'?t|won'?t))\s+(?:(?:even|just|really)\s+)?(?:respond|answer|hear|listen|reply)/.test(lower))
       || (why && /\byou\s+(?:\w+\s+)?(?:go|went|gone|going|stay|stayed|fall|fell|stop|stopped)\s+(?:silent|quiet|listening|responding|answering)\b/.test(lower))) {
       return done('mic_help', 'The microphone stays on until you turn it off. Say Kevo before each request. Right after I answer, you have a few seconds to go on without my name.');
+    }
+
+    // Remember fact fast path ("Remember: I prefer TypeScript", "Remember that I like jazz", "Keep in mind that my dog is Milo")
+    const remMatch = /^(?:please\s+)?(?:remember(?:\s+that|:)?|keep in mind(?:\s+that)?)\s+(.+)$/i.exec(text.trim());
+    if (remMatch && remMatch[1]) {
+      const fact = remMatch[1].trim().replace(/[.!?]+$/, '');
+      if (fact && !/^(?:what|who|where|when|why|how)\b/i.test(fact)) {
+        if (this.context.rememberFact) {
+          this.context.rememberFact(fact).catch(() => {});
+        } else {
+          rememberFact(fact).catch(() => {});
+        }
+        return done('remember_fact', `I will remember that: ${fact}`);
+      }
     }
 
     if (this.context.voiceNames && /^(what|which) voices\b|\bwhat voices (do|can) you\b/.test(lower)) {
