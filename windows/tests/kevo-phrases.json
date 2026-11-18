@@ -230,5 +230,13 @@
   { "say": "What do you know about me?", "expect": "recall_facts", "source": "variant", "fixed": "phase-3" },
   { "say": "List your memories", "expect": "recall_facts", "source": "variant", "fixed": "phase-3" },
   { "say": "Forget that I like jazz", "expect": "forget_fact", "source": "variant", "fixed": "phase-3" },
-  { "say": "Forget all memories", "expect": "forget_fact", "source": "variant", "fixed": "phase-3" }
+  { "say": "Forget all memories", "expect": "forget_fact", "source": "variant", "fixed": "phase-3" },
+  { "say": "Remind me to call Mom", "expect": "create_reminder", "source": "variant", "fixed": "phase-4" },
+  { "say": "Set a reminder to buy groceries", "expect": "create_reminder", "source": "variant", "fixed": "phase-4" },
+  { "say": "What are my reminders?", "expect": "list_reminders", "source": "variant", "fixed": "phase-4" },
+  { "say": "List my reminders", "expect": "list_reminders", "source": "variant", "fixed": "phase-4" },
+  { "say": "Cancel reminder for call Mom", "expect": "cancel_reminder", "source": "variant", "fixed": "phase-4" },
+  { "say": "Schedule daily briefing at 8 AM", "expect": "schedule_briefing", "source": "variant", "fixed": "phase-4" },
+  { "say": "Turn off daily briefing", "expect": "schedule_briefing", "source": "variant", "fixed": "phase-4" },
+  { "say": "When is my daily briefing?", "expect": "schedule_briefing", "source": "variant", "fixed": "phase-4" }
 ]
