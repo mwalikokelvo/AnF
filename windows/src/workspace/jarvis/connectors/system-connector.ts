@@ -1,5 +1,5 @@
 /**
- * JARVIS System Telemetry Connector
+ * Kevo System Telemetry Connector
  * Polls real-time CPU, memory, battery, network, and audio engine status.
  * Falls back gracefully in Node test environments (all APIs shimmed).
  */

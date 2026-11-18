@@ -28,7 +28,7 @@ import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
 import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,connectDemoSubsonic} from './subsonic';
 import {sectionIcon,wordmark} from './anf-brand';
 import {invoke} from '@tauri-apps/api/core';
-import {emitTo} from '@tauri-apps/api/event';
+import {emitTo,listen} from '@tauri-apps/api/event';
 import {h} from '../views/dom';
 import {BROWSER_APPS} from '../core/ai';
 import {createWritingEditor,renderWriting} from './writing';
@@ -37,6 +37,7 @@ import {createOpdsPanel} from './opds-panel';
 import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
+import {fetchWeather} from './jarvis/voice/jarvis-voice-agent';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -223,7 +224,7 @@ const modeLabels={read:'Reader',ask:'Assistant',listen:'Music'} as const;
 let workspaceMode:'read'|'ask'|'listen'='ask';
 const modeRail=h('div',{class:'mode-rail',role:'tablist','aria-label':'Workspace modes'});
 function paintModes(){for(const b of modeRail.querySelectorAll('button'))b.setAttribute('aria-selected',b.getAttribute('data-mode')===workspaceMode?'true':'false');for(const b of navigation.querySelectorAll('button'))b.hidden=false;}
-function showView(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
+function showView(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id==='jarvis'?'Kevo':id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
 document.addEventListener('anf-switch-view',(e:Event)=>{const target=(e as CustomEvent<string>).detail;if(typeof target==='string'&&panels.has(target))showView(target);});
 function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-mode':modeOf[id]||'keep','data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);paintModes();}
 for(const id of ['read','ask','listen'] as const){const tab=h('button',{type:'button',role:'tab',text:modeLabels[id],'data-mode':id,'aria-selected':id==='ask'?'true':'false'});tab.addEventListener('click',()=>showView(id==='read'?'documents':id==='ask'?'chat':'music'));modeRail.append(tab);}
@@ -244,13 +245,30 @@ let nativeMusic:Awaited<ReturnType<typeof attachDesktopSpotube>>;
 let audioStudio:ReturnType<typeof createAudioStudio>;
 const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=message;},beforePlay:async()=>{audioStudio?.stop();audioStudio?.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
 
+let kevoTurn=0;
 const jarvisCommandDesk=createJarvisCommandDesk({
   onNotify:msg=>{status.textContent=msg;},
+  // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
+  log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
   voiceActionContext:{
     switchView:view=>showView(view),
     pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},
     playMusic:()=>{void musicHub.play();},
     nextTrack:()=>{void musicHub.step(1);},
+    setMusicVolume:change=>musicHub.changeVolume(change),
+    // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
+    weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},
+    setWeatherEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-weather-on','1');else localStorage.removeItem('anf-kevo-weather-on');}catch{/* Stays as it was. */}},
+    // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
+    getWeather:async (place,day)=>{
+     const key='anf-kevo-weather-place';
+     let saved:string|null=null;try{saved=localStorage.getItem(key);}catch{/* No saved place. */}
+     const where=place?.trim()||saved;
+     if(!where)return null;
+     const summary=await fetchWeather(where,{fahrenheit:/-US$/i.test(navigator.language),day});
+     try{localStorage.setItem(key,where);}catch{/* Next time Kevo asks again. */}
+     return summary;
+    },
     searchMusic:async (query:string)=>{
       showView('music');
       return await musicHub.searchAndPlay(query);
@@ -276,18 +294,22 @@ const jarvisCommandDesk=createJarvisCommandDesk({
       showView('home');
       quickNote.open();
     },
-    saveQuickNote:async text=>captureDaily(`\n\n[JARVIS Note] ${text}`),
-    askAI:async query=>{
-      try {
-        const reply=await invoke<{text:string;notice:string}>('workspace_ask',{job,query,sources:[],history:[],memory:memory.value,model:model.value});
-        return reply.text;
-      } catch(e) {
-        return `I had trouble connecting to the model, sir: ${String(e)}`;
-      }
-    }
+    saveQuickNote:async text=>captureDaily(`\n\n[Kevo Note] ${text}`),
+    openApp:name=>invoke<string>('open_installed_app',{name}),
+    // Kevo's own short, streamed answer: no document instructions or project memory, and its own cancel,
+    // so it is quick and never interrupts (or is interrupted by) work in the other views.
+    askAI:async(query,options)=>{
+      const id=++kevoTurn;
+      const off=await listen<{id:number;text:string}>('kevo-reply-part',e=>{if(e.payload.id===id)options?.onPart?.(e.payload.text);});
+      try{return await invoke<string>('kevo_ask',{id,query,history:options?.history??[],model:model.value});}
+      finally{off();}
+    },
+    cancelAI:()=>{void invoke('kevo_cancel');},
+    searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
+    openUrl:async url=>{await invoke('open_url',{url});}
   }
 });
-section('jarvis','JARVIS',jarvisCommandDesk.root);
+section('jarvis','Kevo',jarvisCommandDesk.root);
 section('documents','Documents',h('h2',{text:'Your source material'}),h('p',{class:'hint',text:'Add PDFs, EPUB books, Word documents, text, or images. Up to four sources. PDFs support 600 pages, 50 MB per file, and 2 MB of extracted text. Saved web pages keep the article and leave out menus, banners, and footers. Answers use selected excerpts; scanned text may contain OCR errors.'}),file,webResearch,h('div',{class:'row'},url,button('Read webpage',async active=>{await addWebSource(url.value,active);})),opds.root,libraryControls(sourceList),sourceList);
 section('writing','Writing',h('h2',{text:'Writing'}),title,writing.root,h('div',{class:'row'},button('Improve clarity and flow',a=>task(a,'Edit the current draft for clarity and natural flow. Preserve facts, meaning, and the writer’s voice.')),button('Review writing style',a=>task(a,'Review the current draft. Identify vague, repetitive, impersonal, or unsupported language. Suggest specific improvements.'))),h('p',{class:'hint',text:'For long drafts, select a section of up to about 500 words. Suggestions never replace your draft until you accept them.'}),h('div',{class:'export-tools'},exportFormat,button('Export writing',async()=>{if(!draft.value.trim()){status.textContent='Write or generate text first.';return;}if(exportFormat.value==='pdf'){printDraftPdf();return;}if(exportFormat.value==='article-html'){const {parseFrontmatter,exportArticleHtml}=await import('./article-publishing');const {metadata,body}=parseFrontmatter(draft.value);if(!metadata.title||metadata.title==='Untitled Draft')metadata.title=title.value||'Untitled Draft';const html=exportArticleHtml({id:projectId||'draft',metadata,markdown:body,updatedAt:Date.now()});status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:(metadata.title||title.value)+'-article',text:html,format:'html'})}`;return;}if(exportFormat.value==='article-rss'){const {parseFrontmatter,exportArticleRss}=await import('./article-publishing');const {metadata,body}=parseFrontmatter(draft.value);if(!metadata.title||metadata.title==='Untitled Draft')metadata.title=title.value||'Untitled Draft';const rss=exportArticleRss({title:name.value||'My Publication',link:'https://localhost/publications',description:'Published from AnF Workspace',author:metadata.author},[{id:projectId||'draft',metadata,markdown:body,updatedAt:Date.now()}]);status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:(name.value||'publication')+'-feed',text:rss,format:'xml'})}`;return;}status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:title.value,text:draft.value,format:exportFormat.value})}`;}),button('Open saved documents',async()=>{await invoke('workspace_launch',{app:'documents'});})),h('details',{},h('summary',{text:'Read this draft aloud'}),speechVoice,button('Read aloud',async()=>readAloud()),button('Stop reading',async()=>stopReading())));
 audioStudio=createAudioStudio(message=>{status.textContent=message;},undefined,{convert:async(id,blob,format,preset)=>{if(blob.size>16_000_000)throw Error('Native conversion accepts files up to 16 MB.');return invoke<string>('audio_convert',{id,bytes:Array.from(new Uint8Array(await blob.arrayBuffer())),format,preset});},cancel:async id=>{await invoke('audio_conversion_cancel',{id});}},async()=>{musicHub.suspend();await nativeMusic?.suspend();await invoke('music_pause');},async(name,content)=>{try{const savedPath=await invoke<string>('workspace_save',{title:name.replace(/\.md$/,''),text:content,format:'md'});status.textContent=`Transcript saved to documents: ${savedPath}`;}catch{await captureDaily(`\n\n${content}`);status.textContent=`Transcript appended to daily note (${name}).`;}});
@@ -295,24 +317,23 @@ void attachDesktopSpotube(musicHub.root,()=>{musicHub.suspend();audioStudio.stop
 section('music','Music Hub',musicHub.root);
 section('audio','Audio Studio',audioStudio.root);
 
-// Global floating JARVIS Voice Companion pill
+// Global floating Kevo Voice Companion pill
 const globalJarvisPill=document.createElement('div');
 globalJarvisPill.className='jarvis-global-pill';
-globalJarvisPill.title='JARVIS Autonomous Voice Companion (Click to toggle voice, or say "Hey Jarvis")';
+globalJarvisPill.title='Kevo: click to turn the microphone on or off, then say "Kevo"';
 const pillMic=document.createElement('button');
 pillMic.className='jarvis-global-pill-mic';
-pillMic.innerHTML='🎙️';
-pillMic.setAttribute('aria-label','Toggle JARVIS Voice Companion');
+pillMic.setAttribute('aria-label','Turn Kevo’s microphone on or off');
 const pillStatus=document.createElement('span');
 pillStatus.className='jarvis-global-pill-status';
-pillStatus.textContent='JARVIS';
+pillStatus.textContent='Kevo';
 globalJarvisPill.append(pillMic,pillStatus);
 shell.append(globalJarvisPill);
 
 function updateGlobalPill(listening:boolean){
  globalJarvisPill.classList.toggle('active',listening);
  pillMic.classList.toggle('active',listening);
- pillStatus.textContent=listening?'Listening…':'JARVIS';
+ pillStatus.textContent=listening?'Listening…':'Kevo';
 }
 
 jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
@@ -322,6 +343,7 @@ jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
 pillMic.addEventListener('click',()=>{
  if(jarvisCommandDesk.listener.getListeningState()){
   jarvisCommandDesk.listener.stop();
+  jarvisCommandDesk.speaker.stop(); // as on the Kevo view: microphone off also stops Kevo talking
  }else{
   jarvisCommandDesk.listener.start();
  }

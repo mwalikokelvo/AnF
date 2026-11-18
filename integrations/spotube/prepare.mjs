@@ -1,5 +1,7 @@
 // Reconstruct a pinned, patched Flutter module. No signing/service secrets.
 import {spawnSync} from 'node:child_process';
+import {spawnTool} from './tool-process.mjs';
+import {patchEmbeddedDatabase,patchEmbeddedLogger,patchWindowsStorageIdentity} from './storage-patches.mjs';
 import {cp,mkdir,readFile,writeFile,access} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -15,12 +17,8 @@ const pin='69a310c78f5ceaf4eab7dfee98f187d38211c9ba';
 const source=process.env.SPOTUBE_SOURCE||path.join(root,'../.cache/anf-spotube-source');
 const desktop=process.argv.includes('--windows');
 const module=path.join(root,desktop?'windows/spotube-native':'android/spotube-module');
-const flutter=process.env.FLUTTER_BIN||'flutter';
-// On Windows `flutter` is flutter.bat, which Node cannot start by bare name
-// (spawnSync ENOENT), so Flutter runs through the shell there, as in
-// build-android.mjs. A shell does not quote for us, so quote anything with spaces.
-const quote=(s)=>/[\s"&|<>^%]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
-function run(bin,args,cwd=root){const shell=process.platform==='win32'&&bin===flutter;const result=spawnSync(shell?quote(bin):bin,shell?args.map(quote):args,{cwd,stdio:'inherit',env:process.env,shell});if(result.error)throw result.error;if(result.status)throw Error(`${bin} ${args.slice(0,3).join(' ')} failed (${result.status})`);}
+const flutter=process.env.FLUTTER_BIN||(process.platform==='win32'?'flutter.bat':'flutter');
+function run(bin,args,cwd=root){const result=spawnTool(bin,args,{cwd,stdio:'inherit',env:process.env});if(result.error)throw result.error;if(result.status)throw Error(`${bin} ${args.slice(0,3).join(' ')} failed (${result.status})`);}
 // core.autocrlf=false: the patches below match text containing "\n". A Windows
 // git that checks the clone out with CRLF endings would make them fail (or
 // silently not apply).
@@ -48,9 +46,14 @@ for(const provider of ['bonsoirProvider','connectClientsProvider'])main=main.rep
 for(const hook of ['useFixWindowStretching();','useCloseBehavior(ref);','useDeepLinking(ref, router);','useDisableBatteryOptimizations();'])main=main.replace(hook,`if (!AnfHost.embedded) ${hook}`);
 main=main.replace('if (kIsMobile) {','if (kIsMobile && !AnfHost.embedded) {');
 main=main.replace("title: 'Spotube',","title: 'AnF · Music Hub',");
+const themeHook='final themeMode =\n        ref.watch(userPreferencesProvider.select((s) => s.themeMode));';
+if(main.split(themeHook).length!==2)throw Error('Pinned Spotube theme hook changed.');
+main=main.replace(themeHook,'final hostTheme = useValueListenable(AnfHost.theme);\n    final themeMode = AnfHost.embedded && kIsDesktop ? hostTheme :\n        ref.watch(userPreferencesProvider.select((s) => s.themeMode));');
 main=main.replace('        return child;','        return AnfHost.embedded ? AnfHost.frame(child) : child;');
 await writeFile(path.join(module,'lib/main.dart'),main);
 await cp(path.join(root,'integrations/spotube/anf_host.dart'),path.join(module,'lib/anf_host.dart'));
+await mkdir(path.join(module,'test'),{recursive:true});
+await cp(path.join(root,'integrations/spotube/appearance_test.dart'),path.join(module,'test/anf_appearance_test.dart'));
 // Embedded music does not own AnF's outer window or floating mini-player.
 for(const [relative,changes] of [
   ['components/titlebar/titlebar.dart',[["import 'package:window_manager/window_manager.dart';","import 'package:window_manager/window_manager.dart';\nimport 'package:spotube/anf_host.dart';"],['if (kIsDesktop && !systemTitleBar)', 'if (!AnfHost.embedded && kIsDesktop && !systemTitleBar)'],['if (!kIsDesktop || systemTitlebar) return;', 'if (AnfHost.embedded || !kIsDesktop || systemTitlebar) return;']]],
@@ -66,14 +69,17 @@ for(const [relative,changes] of [
 }
 // Isolate Spotube's database from every existing AnF data store.
 const dbFile=path.join(module,'lib/models/database/database.dart');
-let database=await readFile(dbFile,'utf8');database=database.replace("File(join(dbFolder.path, 'db.sqlite'))","File(join(dbFolder.path, 'anf-spotube.sqlite'))");await writeFile(dbFile,database);
+await writeFile(dbFile,patchEmbeddedDatabase(await readFile(dbFile,'utf8')));
+// Embedded logs use this app's support directory, never standalone Spotube logs.
+const loggerFile=path.join(module,'lib/services/logger/logger.dart');
+await writeFile(loggerFile,patchEmbeddedLogger(await readFile(loggerFile,'utf8')));
 if(desktop){
   await cp(path.join(source,'windows'),path.join(module,'windows'),{recursive:true});
   await cp(path.join(root,'integrations/spotube/windows_main.cpp'),path.join(module,'windows/runner/main.cpp'));
   const header=path.join(module,'windows/runner/flutter_window.h');
   let text=await readFile(header,'utf8');text=text.replace('  virtual ~FlutterWindow();','  virtual ~FlutterWindow();\n  flutter::FlutterEngine* AnfEngine(){return flutter_controller_->engine();}');await writeFile(header,text);
   const resource=path.join(module,'windows/runner/Runner.rc');
-  let metadata=await readFile(resource,'utf8');metadata=metadata.replace('VALUE "CompanyName", "oss.krtirtho"','VALUE "CompanyName", "AnF"').replace('VALUE "ProductName", "spotube"','VALUE "ProductName", "AnFMusic"');await writeFile(resource,metadata);
+  await writeFile(resource,patchWindowsStorageIdentity(await readFile(resource,'utf8')));
 }
 run(flutter,['pub','get','--enforce-lockfile'],module);
 run(flutter,['pub','run','build_runner','build','--delete-conflicting-outputs'],module);

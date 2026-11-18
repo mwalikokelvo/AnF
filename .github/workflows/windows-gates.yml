@@ -11,12 +11,24 @@ on:
       - 'windows/**'
       - 'shared/**'
       - 'scripts/check-release.mjs'
+      - 'scripts/app-qa/studio-cancel.mjs'
+      - 'scripts/app-qa/spotube-bounds.mjs'
+      - 'scripts/app-qa/spotube-source-switch.mjs'
+      - 'scripts/app-qa/spotube-startup-dialogs.mjs'
+      - 'scripts/app-qa/spotube-appearance.mjs'
+      - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   pull_request:
     paths:
       - 'windows/**'
       - 'shared/**'
       - 'scripts/check-release.mjs'
+      - 'scripts/app-qa/studio-cancel.mjs'
+      - 'scripts/app-qa/spotube-bounds.mjs'
+      - 'scripts/app-qa/spotube-source-switch.mjs'
+      - 'scripts/app-qa/spotube-startup-dialogs.mjs'
+      - 'scripts/app-qa/spotube-appearance.mjs'
+      - 'scripts/app-qa/fixture.mjs'
       - '.github/workflows/windows-gates.yml'
   workflow_dispatch:
 
@@ -51,3 +63,68 @@ jobs:
       - name: Release regression checks
         working-directory: .
         run: node scripts/check-release.mjs
+
+  studio-cancel-browser:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Install frontend and pinned browser test client
+        run: |
+          npm ci --prefix windows
+          if($LASTEXITCODE){throw 'Frontend dependency installation failed'}
+          npm install --no-save --package-lock=false --prefix scripts playwright-core@1.56.1
+          if($LASTEXITCODE){throw 'Browser test client installation failed'}
+      - name: Build browser fixture assets
+        working-directory: windows
+        run: |
+          npx vite build
+          if($LASTEXITCODE){throw 'Frontend asset build failed'}
+      - name: Verify cancelled start and fresh retry in real browser media element
+        run: |
+          $env:ANF_STUDIO_CANCEL_REPORT=Join-Path $env:RUNNER_TEMP 'studio-cancel.json'
+          try{
+            node scripts/app-qa/studio-cancel.mjs
+            if($LASTEXITCODE){throw 'Studio cancellation browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_STUDIO_CANCEL_REPORT){Get-Content -LiteralPath $env:ANF_STUDIO_CANCEL_REPORT}
+          }
+      - name: Verify embedded music leaves header, status and playback controls visible
+        run: |
+          $env:ANF_SPOTUBE_BOUNDS_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-bounds.json'
+          try{
+            node scripts/app-qa/spotube-bounds.mjs
+            if($LASTEXITCODE){throw 'Spotube bounds browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_BOUNDS_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_BOUNDS_REPORT}
+          }
+      - name: Verify return to local music after delayed native open
+        run: |
+          $env:ANF_SPOTUBE_SOURCE_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-source.json'
+          try{
+            node scripts/app-qa/spotube-source-switch.mjs
+            if($LASTEXITCODE){throw 'Spotube source switching browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_SOURCE_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_SOURCE_REPORT}
+          }
+      - name: Verify native startup recovery and workspace dialog access
+        run: |
+          $env:ANF_SPOTUBE_STARTUP_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-startup-dialogs.json'
+          try{
+            node scripts/app-qa/spotube-startup-dialogs.mjs
+            if($LASTEXITCODE){throw 'Spotube startup/dialog browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_STARTUP_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_STARTUP_REPORT}
+          }
+      - name: Verify embedded music follows AnF appearance controls
+        run: |
+          $env:ANF_SPOTUBE_THEME_REPORT=Join-Path $env:RUNNER_TEMP 'spotube-appearance.json'
+          try{
+            node scripts/app-qa/spotube-appearance.mjs
+            if($LASTEXITCODE){throw 'Spotube appearance browser regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_SPOTUBE_THEME_REPORT){Get-Content -LiteralPath $env:ANF_SPOTUBE_THEME_REPORT}
+          }

@@ -37,11 +37,20 @@ npm run pack
 - `windows\target\release\coucou-hook.exe` is built by the cargo workspace (`windows/Cargo.toml`: `src-tauri`, `hook`); do not copy it.
 - `NotchBuddy\Resources\sounds` (the 28 WAVs) is absent in these snapshots, so the build ships without audio. State that in the release notes; do not claim sound works.
 
+### Clearing superseded builds (owner's standing rule)
+
+When a newer build of AnF replaces an older one, remove the older build's files from the owner's devices so storage does not fill up. Applies to every assistant and every device. "Replaces" means the newer build has been installed and launched successfully; until then the previous build is the rollback and stays.
+
+- On the PC: old build trees and review folders under `C:\Users\mwali` (for example `anf-<commit>`, `anf-<version>-review`, `anf-<version>-main-build`), their `windows\target` dirs, old `anf-build-*.log` files, and older installers in `Downloads`. On the phone: an older AnF APK file after the newer one is installed.
+- Keep: the newest build, the `AnF` source checkout, user data and data backups (`anf-userdata-backup-*`), signing keys (`AnF-signing`, the Android key folder), and anything another tree's `windows\target` junction still points to (move the newest target first, then delete).
+- A folder that is a Git checkout or worktree is deleted only when `git status` is clean and every commit on it is already on a remote branch or a continuation checkpoint; otherwise push or bundle it first, or leave it and say why.
+- Deleting needs `device_request_delete_permission`; list the folders and their sizes to the owner before deleting, and name what was removed in `HANDOFF.md`.
+
 ## 3. CI facts
 
 - `tauri build`/`cargo test` need `../dist`: run `npm run build` (in `windows\`) before `cargo test`.
-- The Linux container cannot compile the Tauri crate (no gdk/glib dev packages). Use the GitHub `Linux`/`Windows` workflows for that; locally only run the Node/TypeScript gates.
-- From cloud sessions: code-scanning API returns 403; creating a GitHub release returns 403; the Actions artifact blob host is blocked (you can list artifacts but not download them). GraphQL is blocked: use `gh api repos/mwalikokelvo/AnF/...` REST only.
+- The Linux container can compile and test the Tauri crate after `apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libgtk-layer-shell-dev libdbus-1-dev` (checked 2026-11-14). It needs the bundled resources to exist: placeholder files in the ignored `windows/local-ai/`, `windows/media/` and `windows/target/release/coucou-hook*` are enough for `cargo test`. Windows-only code (`#[cfg(windows)]`) still needs the GitHub `Windows` workflow.
+- From cloud sessions: code-scanning API returns 403; creating a GitHub release returns 403; artifact downloads are blocked, but job logs are readable (2026-11-14): `gh api repos/mwalikokelvo/AnF/actions/jobs/<job-id>/logs` shows the real compiler error. GraphQL is blocked: use `gh api repos/mwalikokelvo/AnF/...` REST only.
 - Local gates (Linux, quick): `node scripts/check-release.mjs`; `cd windows && npm ci && npx tsc --noEmit && npm test`.
 - Hook "Fact-Forcing Gate" blocks destructive commands unless you state the facts first; state them, never circumvent.
 

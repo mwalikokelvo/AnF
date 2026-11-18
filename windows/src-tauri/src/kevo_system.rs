@@ -132,10 +132,10 @@ fn build_system_stats() -> SystemStats {
     };
 
     SystemStats {
-        host_name: system.host_name().unwrap_or_else(|| "-".to_string()),
-        os: system.os_version().unwrap_or_else(|| "-".to_string()),
-        os_version: system.long_os_version().unwrap_or_else(|| "-".to_string()),
-        arch: system.cpu_arch().unwrap_or_else(|| "-".to_string()),
+        host_name: System::host_name().unwrap_or_else(|| "-".to_string()),
+        os: System::os_version().unwrap_or_else(|| "-".to_string()),
+        os_version: System::long_os_version().unwrap_or_else(|| "-".to_string()),
+        arch: System::cpu_arch().unwrap_or_else(|| "-".to_string()),
         cpu_cores,
         cpu_usage_percent: cpu_usage,
         memory_total_bytes: memory_total,
@@ -152,6 +152,7 @@ fn build_system_stats() -> SystemStats {
 ///
 /// On Windows this uses `cmd /C`, on other platforms `sh -c`. A blank command is
 /// rejected before anything is spawned.
+#[allow(dead_code)] // not registered as a command; see lib.rs
 #[tauri::command]
 pub fn shell_exec(cmd: String) -> Result<ShellResult, String> {
     if cmd.trim().is_empty() {
@@ -190,6 +191,7 @@ pub fn shell_exec(cmd: String) -> Result<ShellResult, String> {
 ///
 /// `action` must be `"start"` or `"stop"`; `target` is either an absolute file
 /// path (for `"start"`) or an executable image name (for `"stop"`.
+#[allow(dead_code)] // not registered as a command; see lib.rs
 #[tauri::command]
 pub fn app_control(action: String, target: String) -> Result<AppControlResult, String> {
     let action = action.trim().to_lowercase();
@@ -230,13 +232,13 @@ fn app_control_start(target: &str) -> Result<AppControlResult, String> {
         let mut cmd = StdCommand::new(target);
         #[cfg(windows)]
         {
-            crate::platform::windows::no_console(&mut cmd);
+            crate::platform::no_console(&mut cmd);
         }
         let child = cmd.spawn().map_err(|e| format!("Failed to start '{target}': {e}"))?;
         return Ok(AppControlResult {
             action: "start".to_string(),
             target: target.to_string(),
-            pid: child.id().map(|i| i.to_string()).unwrap_or_else(|| "-1".to_string()),
+            pid: child.id().to_string(),
             ok: true,
         });
     }
@@ -266,7 +268,7 @@ fn app_control_start(target: &str) -> Result<AppControlResult, String> {
 
     Ok(AppControlResult {
         action: "start".to_string(),
-        target,
+        target: target.to_string(),
         pid: "-1".to_string(),
         ok: output.status.code() == Some(0),
     })
@@ -333,4 +335,163 @@ pub fn diagnostics() -> Result<Diagnostics, String> {
         process_count: stats.process_count,
         disks: stats.disks,
     })
+}
+
+// ---------------------------------------------------------------------------
+// Opening an installed app by name ("Kevo, open Brave browser")
+// ---------------------------------------------------------------------------
+
+/// Words people add that are not part of an app's name.
+#[cfg_attr(not(windows), allow(dead_code))]
+const APP_FILLER: [&str; 6] = ["browser", "app", "application", "program", "the", "my"];
+
+/// Start Menu names of common web browsers, in the order "open browser" tries them.
+#[cfg_attr(not(windows), allow(dead_code))]
+const BROWSERS: [&str; 6] = ["Brave", "Google Chrome", "Firefox", "Opera", "Vivaldi", "Microsoft Edge"];
+
+#[cfg_attr(not(windows), allow(dead_code))]
+fn app_words(text: &str) -> Vec<String> {
+    text.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Picks the Start Menu entry a spoken name refers to: every word the person said (ignoring filler such as
+/// "browser") must be in the entry's name, and the shortest such name wins ("Brave" over "Brave Beta").
+/// Uninstallers and help links are never chosen.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn best_app_match<'a>(spoken: &str, names: &'a [String]) -> Option<&'a String> {
+    let all = app_words(spoken);
+    let wanted: Vec<&String> = all.iter().filter(|w| !APP_FILLER.contains(&w.as_str())).collect();
+    if all.iter().any(|w| w == "browser") && wanted.iter().all(|w| w.as_str() == "web") {
+        // Just "browser": the first web browser installed, Edge last because every PC has it.
+        // Exact name first, then a variant such as "Brave Beta" or "Opera Browser".
+        return BROWSERS.iter().find_map(|b| {
+            let b = b.to_lowercase();
+            names.iter().find(|n| n.to_lowercase() == b).or_else(|| {
+                names.iter().find(|n| n.to_lowercase().starts_with(&format!("{b} ")))
+            })
+        });
+    }
+    let wanted: Vec<&String> = if wanted.is_empty() { all.iter().collect() } else { wanted };
+    if wanted.is_empty() {
+        return None;
+    }
+    names
+        .iter()
+        .filter(|name| {
+            let words = app_words(name);
+            !words.iter().any(|w| ["uninstall", "uninstaller", "help", "readme", "website"].contains(&w.as_str()))
+                && wanted.iter().all(|w| words.contains(w))
+        })
+        .min_by_key(|name| name.len())
+}
+
+#[cfg(windows)]
+fn start_menu_shortcuts() -> Vec<(String, std::path::PathBuf)> {
+    fn walk(dir: &std::path::Path, depth: u8, out: &mut Vec<(String, std::path::PathBuf)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if depth < 4 {
+                    walk(&path, depth + 1, out);
+                }
+            } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")) {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    out.push((stem.to_string(), path.clone()));
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for var in ["APPDATA", "ProgramData"] {
+        if let Some(base) = std::env::var_os(var) {
+            walk(&std::path::Path::new(&base).join("Microsoft\\Windows\\Start Menu\\Programs"), 0, &mut out);
+        }
+    }
+    out
+}
+
+/// Opens an app the owner installed, chosen by name from the Start Menu, and returns its name.
+///
+/// Unlike `app_control`, a caller cannot pass a path, a command or arguments: the only thing that can be
+/// started is a Start Menu shortcut that already exists on this computer, exactly as if it were clicked.
+#[tauri::command]
+pub fn open_installed_app(name: String) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() || name.len() > 80 {
+        return Err("Say which app to open.".into());
+    }
+    #[cfg(windows)]
+    {
+        let shortcuts = start_menu_shortcuts();
+        let names: Vec<String> = shortcuts.iter().map(|(n, _)| n.clone()).collect();
+        let chosen = best_app_match(name, &names)
+            .ok_or_else(|| format!("I could not find an app called {name} in the Start Menu."))?;
+        let path = &shortcuts.iter().find(|(n, _)| n == chosen).expect("chosen from this list").1;
+        // Windows keeps a window started through Explorer behind AnF (it only flashes in the taskbar), and an app
+        // that is already running in the background never shows. AnF is in front, so it may let the app come forward.
+        // SAFETY: plain Win32 call with a constant argument; it changes no memory of ours.
+        let _ = unsafe {
+            ::windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow(
+                ::windows::Win32::UI::WindowsAndMessaging::ASFW_ANY,
+            )
+        };
+        let mut cmd = StdCommand::new("explorer.exe");
+        cmd.arg(path);
+        crate::platform::no_console(&mut cmd);
+        cmd.spawn().map_err(|e| format!("Could not open {chosen}: {e}"))?;
+        Ok(chosen.clone())
+    }
+    #[cfg(not(windows))]
+    {
+        Err(format!("Opening apps by name works on Windows only, so {name} was not opened."))
+    }
+}
+
+#[cfg(test)]
+mod open_app_tests {
+    use super::best_app_match;
+
+    fn names() -> Vec<String> {
+        ["Brave", "Brave Beta", "Uninstall Brave", "Google Chrome", "Spotify", "Visual Studio Code", "Word"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn spoken_names_find_the_installed_app() {
+        let n = names();
+        assert_eq!(best_app_match("Brave browser", &n).unwrap(), "Brave");
+        assert_eq!(best_app_match("chrome", &n).unwrap(), "Google Chrome");
+        assert_eq!(best_app_match("the Spotify app", &n).unwrap(), "Spotify");
+        assert_eq!(best_app_match("visual studio code", &n).unwrap(), "Visual Studio Code");
+    }
+
+    #[test]
+    fn unknown_apps_and_uninstallers_are_not_opened() {
+        let n = names();
+        assert!(best_app_match("photoshop", &n).is_none());
+        assert_eq!(best_app_match("uninstall brave", &n), None);
+        assert!(best_app_match("  ", &n).is_none());
+        // "wor" is not "Word": whole words only, so a misheard fragment opens nothing.
+        assert!(best_app_match("wor", &n).is_none());
+    }
+
+    #[test]
+    fn just_browser_opens_an_installed_browser() {
+        let n = names();
+        assert_eq!(best_app_match("browser", &n).unwrap(), "Brave");
+        assert_eq!(best_app_match("the browser", &n).unwrap(), "Brave");
+        let edge_only: Vec<String> = ["Microsoft Edge", "Word"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(best_app_match("web browser", &edge_only).unwrap(), "Microsoft Edge");
+        let variants: Vec<String> = ["Brave Beta", "Opera Browser", "Microsoft Edge"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(best_app_match("browser", &variants).unwrap(), "Brave Beta");
+        let none: Vec<String> = vec!["Word".to_string()];
+        assert!(best_app_match("browser", &none).is_none());
+    }
 }

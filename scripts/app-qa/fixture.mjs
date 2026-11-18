@@ -61,7 +61,7 @@ export async function start(){
         case 'workspace_load_project':return current;
         case 'workspace_save_project':current=args.project;return current;
         case 'workspace_diagnostics':return{runtime:true,fast:true,balanced:true,ocr:true,documents:'Local',log:'Fixture',version:'0.0.0'};
-        case 'link_address':return'';case 'link_status':return false;case 'music_available':return false;
+        case 'link_address':return'';case 'link_status':return false;case 'music_available':return window.__ipc?.music_available?.(args)??false;
         case 'workspace_begin':return 1;
         case 'workspace_ask':return{text:'Fixture answer.',notice:'Fixture notice.',evidence:[]};
         case 'ingest_bytes':return{path:'/tmp/qa-note.txt'};

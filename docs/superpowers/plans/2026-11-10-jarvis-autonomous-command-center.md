@@ -1,14 +1,14 @@
-# JARVIS Autonomous Multi-Agent Command Center & Capability Expansion Plan
+# KEVO Autonomous Multi-Agent Command Center & Capability Expansion Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform AnF from a workspace app into a unified, autonomous JARVIS multi-agent command center with a futuristic real-time monitoring HUD, specialized agent personas (Executive JARVIS, Developer Tom, Growth Scout, Support Operations), clean MCP connector pipes, and expanded offline-first media/knowledge tools.
+**Goal:** Transform AnF from a workspace app into a unified, autonomous KEVO multi-agent command center with a futuristic real-time monitoring HUD, specialized agent personas (Executive KEVO, Developer Tom, Growth Scout, Support Operations), clean MCP connector pipes, and expanded offline-first media/knowledge tools.
 
 **Architecture:** Build a modular `jarvis/` orchestration subsystem within the Tauri/TypeScript desktop environment. The core is an event-driven `JarvisExecutive` hub that polls local system diagnostics, coordinates specialized subagents via structured JSON RPC/events, visualizes real-time status on a high-tech SVG/Canvas orbital HUD, and communicates through dedicated, verifiable MCP connector adapters.
 
 **Tech Stack:** TypeScript (ES2022), HTML5 Canvas/SVG, Tauri IPC (Rust backend commands for OS stats & native processes), Web Audio DSP API, OpenZIM protocol, LRCLIB / Audius / Archive.org streaming, Node.js test runner (`node --test`).
 
-**Spec:** Inspired by Cindy Zhu's autonomous multi-agent JARVIS architecture (`cindiezhu_20261109_152622001.mp4`), synthesizing Anthropic Claude Code agentic patterns, Model Context Protocol (MCP) modular connectors, and local-first privacy.
+**Spec:** Inspired by Cindy Zhu's autonomous multi-agent KEVO architecture (`cindiezhu_20261109_152622001.mp4`), synthesizing Anthropic Claude Code agentic patterns, Model Context Protocol (MCP) modular connectors, and local-first privacy.
 
 ---
 
@@ -25,7 +25,7 @@
 
 1. **System Resource Safety**: The real-time HUD and background monitoring must throttle when the window is hidden or unfocused (`requestAnimationFrame` pausing and 2000ms idle timer).
 2. **Graceful Connector Fallback**: When an MCP connector (e.g. RevenueCat or Meta Ads) has no API key or network is disconnected, the system must show honest offline mock/cached values without crashing.
-3. **Audio & Media State Isolation**: The JARVIS audio briefing and voice synthesizer must never clobber active music playback in `music-hub.ts`; it must duck volume or yield cleanly.
+3. **Audio & Media State Isolation**: The KEVO audio briefing and voice synthesizer must never clobber active music playback in `music-hub.ts`; it must duck volume or yield cleanly.
 4. **Data Persistence**: Agent tasks, daily statistics, and user preferences must persist in local storage/IndexedDB with transaction safety.
 5. **Screen Reader Accessibility**: The futuristic visual HUD tiles must have semantic ARIA labels, roles, and keyboard navigation.
 
@@ -245,7 +245,7 @@ windows/src/workspace/
 
 ---
 
-### Task 5: Futuristic JARVIS Orbital HUD & Telemetry Canvas
+### Task 5: Futuristic KEVO Orbital HUD & Telemetry Canvas
 
 **Files:**
 - Create: `windows/src/workspace/jarvis/jarvis-hud.ts`
@@ -352,20 +352,20 @@ windows/src/workspace/
 
 **Interfaces:**
 - Consumes: `createJarvisHud`, `JarvisExecutive`, `RevenueConnector`, `AdsConnector`, Agent task runners.
-- Produces: Mounts `JARVIS Command Center` tab or dedicated executive view mode in `main.ts`.
+- Produces: Mounts `KEVO Command Center` tab or dedicated executive view mode in `main.ts`.
 
 - [ ] **Step 1: Write integration test**
   In `windows/tests/jarvis-integration.test.ts`, verify that `createJarvisCommandDesk` instantiates cleanly, binds all MCP connectors, dispatches view switching, and doesn't leak timers on unload.
 
 - [ ] **Step 2: Implement `jarvis-command-desk.ts`**
   Assemble the complete UI:
-  - Top: Header with system uptime, JARVIS status badge ("ONLINE // DATA LINK SECURE"), and "Morning Briefing" play button.
+  - Top: Header with system uptime, KEVO status badge ("ONLINE // DATA LINK SECURE"), and "Morning Briefing" play button.
   - Middle: Futuristic orbital HUD canvas (`jarvis-hud.ts`).
   - Bottom: 4 interactive agent cards (Tom Developer, Scout Growth, Support Ops, Revenue & Ads).
   - Quick launch pills to embedded native tools (Audio Studio, Clipper, ZIM reader, Substack).
 
 - [ ] **Step 3: Mount in `main.ts` and sidebar**
-  Add icon & navigation entry in `anf-brand.ts` and `main.ts` (`section('jarvis', 'JARVIS Command', jarvisDesk.root)`).
+  Add icon & navigation entry in `anf-brand.ts` and `main.ts` (`section('jarvis', 'KEVO Command', jarvisDesk.root)`).
 
 - [ ] **Step 4: Full verification and compilation**
   Run: `npx tsc --noEmit` and `npm test` across all suites.
@@ -374,5 +374,5 @@ windows/src/workspace/
 - [ ] **Step 5: Commit & Pack**
   ```bash
   git add windows/src/workspace/jarvis/ windows/src/workspace/main.ts windows/src/workspace/anf-brand.ts windows/tests/jarvis-integration.test.ts
-  git commit -m "feat(jarvis): complete JARVIS autonomous command center desktop integration"
+  git commit -m "feat(jarvis): complete KEVO autonomous command center desktop integration"
   ```

@@ -95,7 +95,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
       else if(command=="CONTROL"){
         std::string id,operation;input>>id>>operation;
         if(!id.empty() && id.size()<=20 && id.find_first_not_of("0123456789")==std::string::npos &&
-           (operation=="status" || operation=="play" || operation=="pause" || operation=="previous" || operation=="next")){
+           (operation=="status" || operation=="play" || operation=="pause" || operation=="previous" || operation=="next" || operation=="light" || operation=="dark")){
           if(ready)control(id,operation);else if(waiting.size()<32)waiting.emplace_back(id,operation);else Reply(id+" ERROR");
         }
       }

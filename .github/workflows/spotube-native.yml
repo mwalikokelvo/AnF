@@ -43,6 +43,9 @@ jobs:
           toolchain: 1.99.0
       - name: Prepare pinned native music module
         run: node integrations/spotube/prepare.mjs
+      - name: Test host appearance without audio or preferences
+        working-directory: android/spotube-module
+        run: flutter test test/anf_appearance_test.dart
       - name: Build unsigned native music libraries
         # The Gradle "What went wrong" lines also go to an annotation, so the reason shows on the check.
         run: |
@@ -88,6 +91,9 @@ jobs:
           channel: stable
       - name: Prepare pinned embedded music
         run: node integrations/spotube/prepare.mjs --windows
+      - name: Test host appearance without audio or preferences
+        working-directory: windows/spotube-native
+        run: flutter test test/anf_appearance_test.dart
       - name: Build native child view
         working-directory: windows/spotube-native
         # The first error lines also go to an annotation, so the reason shows on the check.

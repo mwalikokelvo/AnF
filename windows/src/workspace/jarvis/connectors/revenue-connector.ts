@@ -1,10 +1,10 @@
 /**
- * JARVIS Revenue Connector (RevenueCat-compatible)
+ * Kevo Revenue Connector (RevenueCat-compatible)
  * Fetches subscription metrics: MRR, new customers, active subscribers.
  * Always starts in DEMO mode (offline-first). Real API calls require
  * the user to set an API key AND enable online lookups.
  *
- * Demo values match the Cindy Zhu JARVIS video: 2,459 new subscribers
+ * Demo values match the Cindy Zhu Kevo video: 2,459 new subscribers
  * in 7 days, targeting $30,000 MRR.
  */
 import { onlineLookupsEnabled } from '../../online-lookups';
