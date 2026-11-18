@@ -1387,23 +1387,29 @@ export function getCapabilitySheet(facts?: KevoFact[]): string {
   return lines.join("\n");
 }
 
-export function getCompactKevoSystemPrompt(facts?: KevoFact[]): string {
-  const lines: string[] = [
+/**
+ * Never changes, so llama-server keeps it and the tool list (rendered after it, about 2,000 tokens) in its
+ * prompt cache. Remembered facts go in their own message (getKevoMemoryPrompt), after the tool list.
+ */
+export function getCompactKevoSystemPrompt(): string {
+  return [
     "You are Kevo, a helpful offline voice assistant on the user's computer. Answer directly in one to three short plain sentences without markdown or lists.",
     "When a request matches an available tool, invoke the tool with appropriate arguments. Otherwise answer conversationally. /no_think",
-  ];
-  if (facts && facts.length > 0) {
-    lines.push("# Remembered Facts:");
-    for (const f of facts.slice(-10)) {
-      lines.push(`- [${f.category}] ${f.fact}`);
-    }
-  }
-  return lines.join("\n");
+  ].join("\n");
+}
+
+/**
+ * Remembered facts as a second system message, or '' when there are none. In the system prompt they would sit
+ * in front of the tool list, so every new fact made the next answer read the whole tool list again (48 s in CI).
+ */
+export function getKevoMemoryPrompt(facts?: KevoFact[]): string {
+  if (!facts || facts.length === 0) return '';
+  return ["# Remembered Facts:", ...facts.slice(-10).map((f) => `- [${f.category}] ${f.fact}`)].join("\n");
 }
 
 export function getKevoSystemPrompt(facts?: KevoFact[], options?: { compact?: boolean }): string {
   if (options?.compact) {
-    return getCompactKevoSystemPrompt(facts);
+    return getCompactKevoSystemPrompt();
   }
   return getCapabilitySheet(facts);
 }
