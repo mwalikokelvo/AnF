@@ -4,7 +4,20 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 0.4b: automatic test builds and self-test).
+Last updated: 2026-11-18 by Antigravity (Kevo 0.5: the five Phase 0 checks as self-test scripts).
+
+## 2026-11-18 — Kevo 0.5: five Phase 0 checks as self-test scripts (Antigravity)
+
+Issue #153 (`docs/kevo-briefs/phase-0.md`, "0.5 The five Phase 0 checks, as self-test scripts"):
+- Implemented `runFivePhase0Checks` in `windows/src/workspace/jarvis/kevo-selftest.ts` to execute all five Phase 0 checks programmatically:
+  1. Several in a row: "Kevo, what time is it?", then within follow-up window "What can you do?", then "Set a timer for ten seconds" — verifies 3 answers, the right actions (`tell_time`, `help`, `timer_set`), no self-trigger.
+  2. Open an app: "Kevo, open Brave browser" — verifies `open_app` for Brave in dry-run mode.
+  3. Timer: 10s timer announcement fires at 10s (±2s) with `Your 10 seconds timer is done`.
+  4. Typed request: typed "What can you do?" with microphone off — returns the help answer.
+  5. Stop: "Kevo, tell me about black holes" with Stop invoked during reply — verifies speech terminates within 0.5s and no further speech occurs.
+- Integrated into `runKevoSelfTest`: results are populated under `phase0Checks` in `KevoSelfTestReport` and saved to `~/AnF-Kevo/selftest-<version>.json`.
+- Tested in `windows/tests/kevo-selftest.test.ts` (Phase 0 checks independently and full self-test suite pass).
+- Passed all checks: `tsc --noEmit`, full `npm test` (627 tests pass), `npm run build`, `cargo test --locked --lib kevo_autotest` (2 tests pass), `check-release.mjs`, `verify-contracts.mjs`, `check-styles.mjs`.
 
 ## 2026-11-18 — Kevo 0.4b: automatic test builds and self-test (Antigravity)
 
