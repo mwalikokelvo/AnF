@@ -3,19 +3,19 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-18T14:27:34Z
-phase: 0 (all steps merged; PC test of kevo-test-v0.1.60 cannot start: the test build failed to publish). Owner account merged Phase 1 1.4-1.6 (#200-#202), Phase 2 (#203-#210), Phase 3 brief (#211), and agy/ Phases 3-5 plus the Phase 6 brief and 6.1 (through #230, 12:14Z) ahead of the Phase 0/1 PC passes and the combined Phase 3-5 PC test; version still 0.1.60
+lock: 
+phase: 6 merged by owner account through 6.5 (#231-#235) and the Phase 7 brief (#237, 14:15Z) ahead of any PC pass; Phase 7 gate: owner voice decision needed. version still 0.1.60
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: none. Board empty: every kevo issue closed by the owner account at 10:26Z
 pc_test:
-waiting_for: Antigravity fixing main per #236 (owner decision 18 Nov: Antigravity fixes its own failing tests; no merges until main is green). Then #233 (self-test clips packaged; Codex review clean) can go green and merge; next kevo-test build runs the self-test on the PC (owner turned the auto self-test switch on 18 Nov). kevo-test publish also needs the 403 setting fixed. Autopilot: do not merge anything onto red main
+waiting_for: owner voice decision for Phase 7 (notified 14:29Z; runbook: stop building before Phase 7). Antigravity fixing main per #236 (owner decision 18 Nov: no merges until main is green); main still red on 7910695-era runs (kevo_ears audio_tests_in_ci_verifies_pipeline_offline_from_wav, kevos_own_speech_alone_gives_no_wake_and_no_stop). Then #233 (self-test clips; Codex clean on 0e820fa) can go green and merge. kevo-test publish also needs the 403 setting fixed. Autopilot: do not merge anything onto red main
 blocked: kevo-test publish, 2026-11-18: `gh release create kevo-test-v0.1.60` gets HTTP 403 "Resource not accessible by integration" (attempt 2 by owner 10:26Z, attempt 3 by autopilot 10:30Z; job has contents: write). v0.1.59 published fine at 06:01Z with the same workflow, so a repo setting changed (repo renamed anf -> AnF meanwhile). Two strikes: no more reruns until the owner changes the setting
 last_passed_version: none yet
-owner_needed: 1) Settings -> Actions -> General -> Workflow permissions: "Read and write", and check no ruleset/immutable-release setting blocks github-actions creating releases or kevo-test-v* tags; then rerun the failed kevo-test job. 2) Install 0.1.60 once (AnF-Windows-setup, https://github.com/mwalikokelvo/AnF/actions/runs/44273650347/artifacts/14415537795) and turn on "Run Kevo test builds and Kevo's self-test automatically". Notified 10:36Z
-last_main: 6e304f1 (Windows red since #200)
+owner_needed: 1) Settings -> Actions -> General -> Workflow permissions: "Read and write", and check no ruleset/immutable-release setting blocks github-actions creating releases or kevo-test-v* tags; then rerun the failed kevo-test job. 2) Install 0.1.60 once (AnF-Windows-setup, https://github.com/mwalikokelvo/AnF/actions/runs/44273650347/artifacts/14415537795) and turn on "Run Kevo test builds and Kevo's self-test automatically". Notified 10:36Z. 3) Phase 7 voice decision (default voice / pack vs OS voices) before any Phase 7 step is built. Notified 14:29Z
+last_main: 7910695 (Windows red since #200)
 chain: 0
-next_due: 2026-11-18T16:35Z
-quiet_fingerprint: 7d83a09130639f1f32f5d5d6f7e993902fce871b6f07dbdf993b9f159fe7364b
+next_due: 2026-11-18T20:15Z
+quiet_fingerprint: 47f633c39f850966a0eadda54145931c7c06909c0de9e35b1f777bdc2b28c598
 
 ## Run log (newest last, keep 60)
 
@@ -49,3 +49,4 @@ quiet_fingerprint: 7d83a09130639f1f32f5d5d6f7e993902fce871b6f07dbdf993b9f159fe73
 - 2026-11-18T10:36Z (autopilot): board empty (owner account merged #200-#211 incl. Phase 2 and the Phase 3 brief, closed all kevo issues). kevo-test-v0.1.60 publish (run 44273650347) fails with 403 on release create, twice (owner rerun + one autopilot rerun): set blocked, notified owner. main Windows still red (wake 5/20; 1.6 own-voice VAD stop). No PR work.
 - 2026-11-18T12:30Z (autopilot): 2b.7 waiting. main moved 791827e -> 6e304f1 (owner account merged agy/ Phase 3-5 steps, Phase 6 brief and 6.1, #212-#230); no open PRs, no open kevo issues, no team:claude work. main Windows still red (same 2 kevo_ears tests); kevo-test publish still blocked on the owner's release setting. No action, no notification (owner told 10:36Z).
 - 2026-11-18T14:15Z (Claude, interactive): owner chose Antigravity fixes its failing tests; filed #236 (9 tests, stop merging until green). #233 waits on it. Owner auto self-test switch is ON.
+- 2026-11-18T14:29Z (autopilot): main moved 6e304f1 -> 7910695 (owner account merged agy/ Phase 6.2-6.5 #231-#235 and the Phase 7 brief #237 onto red main). Phase 7 gate reached: notified owner that the voice decision is needed; no Phase 7 work. main Windows still red (same 2 kevo_ears tests, #236 for Antigravity); #233 waits on it. 2b.7 waiting.
