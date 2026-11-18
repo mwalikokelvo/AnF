@@ -32,10 +32,14 @@ pub struct Settings {
     pub browser_provider: String,
     #[serde(default = "default_fallback")]
     pub local_fallback: bool,
+    #[serde(default = "default_kevo_hearing")]
+    pub kevo_hearing: String,
     /// "Run Kevo test builds and Kevo's self-test automatically" setting (Phase 0 step 0.4b).
     #[serde(default)]
     pub kevo_auto_test: bool,
 }
+
+fn default_kevo_hearing() -> String { "pc".into() }
 
 fn default_provider() -> String { "claude".into() }
 fn default_mode() -> String { "api".into() }
@@ -65,6 +69,7 @@ impl Default for Settings {
             chat_mode: default_mode(),
             browser_provider: default_provider(),
             local_fallback: true,
+            kevo_hearing: default_kevo_hearing(),
             kevo_auto_test: false,
         }
     }

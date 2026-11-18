@@ -36,7 +36,6 @@ pub mod kevo_approval;
 mod kevo_float;
 mod kevo_hud;
 mod kevo_system;
-#[cfg(all(test, feature = "kevo-ears"))]
 mod kevo_ears;
 pub mod kevo_autotest;
 mod log;
@@ -548,6 +547,12 @@ pub fn run() {
             kevo_system::system_stats,
             kevo_system::diagnostics,
             kevo_system::open_installed_app,
+            kevo_ears::kevo_ears_start,
+            kevo_ears::kevo_ears_stop,
+            kevo_ears::kevo_ears_mute,
+            kevo_ears::kevo_ears_status,
+            kevo_ears::kevo_ears_models_installed,
+            kevo_ears::kevo_ears_install_models,
             workspace_load_project,
             workspace_list_projects,
             workspace_preview_action,

@@ -98,6 +98,7 @@ export interface Settings {
   chatMode: "api" | "browser";
   browserProvider: "claude" | "openai" | "gemini" | "notebook";
   localFallback: boolean;
+  kevoHearing: "pc" | "browser";
   kevoAutoTest: boolean;
 }
 
@@ -119,6 +120,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chatMode: "api",
   browserProvider: "claude",
   localFallback: true,
+  kevoHearing: "pc",
   kevoAutoTest: false,
 };
 

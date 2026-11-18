@@ -4,7 +4,28 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo H.8: self-test on the PC).
+Last updated: 2026-11-18 by Antigravity (Kevo 1.3: listening pipeline with sherpa-onnx and cpal).
+
+## 2026-11-18 — Kevo 1.3: listening pipeline with sherpa-onnx and cpal (Antigravity)
+
+Phase 1 Step 1.3 (`docs/kevo-briefs/phase-1.md`, "1.3 Listening pipeline"):
+- Rust audio pipeline in `windows/src-tauri/src/kevo_ears.rs`:
+  - `cpal` microphone capture at 16 kHz mono with dynamic `LinearResampler` handling any device sample rate (44.1 kHz, 48 kHz, etc.) and channels.
+  - Piped into Silero VAD (`VoiceActivityDetector`), Keyword Spotter (`KeywordSpotter`), and streaming ASR (`OnlineRecognizer`).
+  - Transcription runs only while VAD hears speech; emits `kevo-ears-wake`, `kevo-ears-partial`, `kevo-ears-final`, and `kevo-ears-error` to the webview.
+  - Rust commands registered: `kevo_ears_start`, `kevo_ears_stop`, `kevo_ears_mute`, `kevo_ears_status`, `kevo_ears_models_installed`, `kevo_ears_install_models`.
+  - Added `cpal` behind `kevo-ears` feature in `windows/src-tauri/Cargo.toml`.
+- TypeScript listener in `windows/src/workspace/jarvis/voice/kevo-ears-listener.ts`:
+  - Implements the exact same public interface as `JarvisVoiceListener` (`start`, `stop`, `setMuted`, `keepAwake`, `isAwake`, `addStateListener`, `getListeningState`).
+  - Settle (`settleMs`) and follow-up window (`followUpMs`) rules carried over with deduplication and unconfirmed interim speech promotion.
+  - Integrated into `windows/src/workspace/jarvis/jarvis-command-desk.ts` choosing between `KevoEarsListener` and `JarvisVoiceListener` based on hearing setting.
+- Settings:
+  - Added `"kevoHearing": "pc" | "browser"` in `windows/src-tauri/src/settings.rs` and `windows/src/core/state.ts` (defaulting to `"pc"`).
+  - Added `"Hearing: on this PC (recommended) / browser (old)"` dropdown to Settings General section in `windows/src/settings/main.ts`.
+- Automated tests:
+  - Rust: `kevo_ears::tests::linear_resampler_resamples_from_48k_to_16k_accurately`.
+  - TypeScript: `windows/tests/kevo-ears-listener.test.ts` (9 tests covering instantiation, keepAwake, addStateListener, setMuted, kevo-ears-wake, kevo-ears-final settle, interim promotion, wake word requirement, and muted behavior).
+- Passed all checks: `npx tsc --noEmit`, full `npm test` (628 tests pass across 85 suites), `npm run build`, `cargo check --lib`, `cargo test --lib`, `cargo clippy --lib --tests` (0 warnings in kevo_ears.rs), `check-release.mjs` (12 pass), `verify-contracts.mjs`, `check-styles.mjs`.
 
 ## 2026-11-18 — Kevo H.8: self-test on the PC (Antigravity)
 

@@ -12,6 +12,7 @@
 import { Bridge } from '../../core/bridge';
 import type { JarvisVoiceAgent } from './voice/jarvis-voice-agent';
 import type { JarvisVoiceListener } from './voice/jarvis-voice-listener';
+import type { KevoEarsListener } from './voice/kevo-ears-listener';
 import type { JarvisSpeaker } from './voice/jarvis-speaker';
 
 export interface SelftestClipExpect {
@@ -88,7 +89,7 @@ export interface KevoSelfTestReport {
 
 export interface SelfTestDeps {
   agent: JarvisVoiceAgent;
-  listener: JarvisVoiceListener;
+  listener: JarvisVoiceListener | KevoEarsListener;
   speaker?: JarvisSpeaker;
   playClipAudio?: (filename: string) => Promise<void>;
   appVersion?: string;
