@@ -1,5 +1,6 @@
 //! On-demand bundled CPU inference. Only loopback, authenticated, no cloud service.
 use crate::platform;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     path::PathBuf,
@@ -110,7 +111,13 @@ impl Engine {
                 "--no-webui",
                 "--offline",
                 "--log-disable",
-            ])
+                "--jinja",
+            ]);
+        let template = directory.join("chat-template.jinja");
+        if template.is_file() {
+            command.arg("--chat-template-file").arg(template);
+        }
+        command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
@@ -219,41 +226,220 @@ impl Engine {
                 == Some("length"),
         ))
     }
-    /// A short answer delivered as it is written, for the voice assistant: `on_text` receives each new piece.
-    /// Uses the same model process as chat (same profile and context size), so nothing is reloaded.
-    pub async fn reply_stream(&self,messages:&[Value],profile:&str,max_tokens:u32,mut on_text:impl FnMut(&str))->Result<String,String>{
+    /// Evaluates a spoken question against local AI, supporting both plain speech and OpenAI-style tool calls.
+    pub async fn reply_tools(
+        &self,
+        messages: &[Value],
+        tools: Option<&[Value]>,
+        profile: &str,
+        max_tokens: u32,
+        mut on_text: impl FnMut(&str),
+    ) -> Result<KevoAskReply, String> {
         supported_profile(profile)?;
         let _turn = self.reply_lock.lock().await;
-        let (url, key) = self.start(profile,8192).await?;
+        let (url, key) = self.start(profile, 8192).await?;
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(180))
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| e.to_string())?;
-        let mut response = client.post(format!("{url}/v1/chat/completions")).bearer_auth(key)
-            .json(&json!({"model":"coucou-local","messages":messages,"stream":true,"max_tokens":max_tokens,
-                "temperature":0.6,"chat_template_kwargs":{"enable_thinking":false}}))
-            .send().await.map_err(|_|"The local model did not respond. Try again or free some memory.".to_string())?;
+
+        let has_tools = tools.is_some_and(|t| !t.is_empty());
+        let mut body = json!({
+            "model": "coucou-local",
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.3,
+            "chat_template_kwargs": {"enable_thinking": false}
+        });
+
+        if has_tools {
+            body["tools"] = json!(tools);
+            body["tool_choice"] = json!("auto");
+            body["stream"] = json!(false);
+        } else {
+            body["stream"] = json!(true);
+        }
+
+        if !has_tools {
+            let mut response = client
+                .post(format!("{url}/v1/chat/completions"))
+                .bearer_auth(&key)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|_| "The local model did not respond. Try again or free some memory.".to_string())?;
+            if !response.status().is_success() {
+                return Err(format!("Offline model error {}.", response.status()));
+            }
+            let (mut pending, mut text) = (Vec::<u8>::new(), String::new());
+            while let Some(chunk) = response.chunk().await.map_err(|_| "The local model stopped answering.".to_string())? {
+                pending.extend_from_slice(&chunk);
+                while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+                    let line: Vec<u8> = pending.drain(..=end).collect();
+                    if let Some(piece) = stream_delta(&String::from_utf8_lossy(&line)) {
+                        text.push_str(&piece);
+                        on_text(&piece);
+                    }
+                }
+            }
+            let text = text.trim().to_string();
+            if text.is_empty() {
+                return Err("The offline model returned no text. Try asking another way.".into());
+            }
+            return Ok(KevoAskReply {
+                text: Some(text),
+                tool_calls: Vec::new(),
+            });
+        }
+
+        let response = client
+            .post(format!("{url}/v1/chat/completions"))
+            .bearer_auth(&key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|_| "The local model did not respond. Try again or free some memory.".to_string())?;
         if !response.status().is_success() {
             return Err(format!("Offline model error {}.", response.status()));
         }
-        let (mut pending, mut text) = (Vec::<u8>::new(), String::new());
-        while let Some(chunk) = response.chunk().await.map_err(|_| "The local model stopped answering.".to_string())? {
-            pending.extend_from_slice(&chunk);
-            while let Some(end) = pending.iter().position(|b| *b == b'\n') {
-                let line: Vec<u8> = pending.drain(..=end).collect();
-                if let Some(piece) = stream_delta(&String::from_utf8_lossy(&line)) {
-                    text.push_str(&piece);
-                    on_text(&piece);
+        let value: Value = response
+            .json()
+            .await
+            .map_err(|_| "Invalid offline model response.".to_string())?;
+
+        let reply = parse_kevo_ask_response(&value);
+
+        if let Some(ref t) = reply.text {
+            on_text(t);
+        }
+
+        if reply.tool_calls.is_empty() && reply.text.is_none() {
+            return Err("The offline model returned no text or tool calls. Try asking another way.".into());
+        }
+
+        Ok(reply)
+    }
+
+    /// A short answer delivered as it is written, for the voice assistant: `on_text` receives each new piece.
+    /// Uses the same model process as chat (same profile and context size), so nothing is reloaded.
+    pub async fn reply_stream(
+        &self,
+        messages: &[Value],
+        profile: &str,
+        max_tokens: u32,
+        on_text: impl FnMut(&str),
+    ) -> Result<String, String> {
+        let reply = self.reply_tools(messages, None, profile, max_tokens, on_text).await?;
+        reply.text.ok_or_else(|| "The offline model returned no text. Try asking another way.".into())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KevoToolCall {
+    pub name: String,
+    pub arguments: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct KevoAskReply {
+    pub text: Option<String>,
+    #[serde(default)]
+    pub tool_calls: Vec<KevoToolCall>,
+}
+
+/// Extracts tool calls from `<tool_call>` tags in raw text and strips them, returning cleaned text and tool calls.
+pub fn parse_tool_calls_and_clean_text(raw_content: &str) -> (Option<String>, Vec<KevoToolCall>) {
+    let mut tool_calls = Vec::new();
+    let mut cleaned = raw_content.to_string();
+
+    while let Some(start_idx) = cleaned.find("<tool_call>") {
+        let after_start = start_idx + "<tool_call>".len();
+        if let Some(end_rel) = cleaned[after_start..].find("</tool_call>") {
+            let end_idx = after_start + end_rel;
+            let call_block = cleaned[after_start..end_idx].trim();
+            if let Ok(parsed) = serde_json::from_str::<Value>(call_block) {
+                if let Some(name) = parsed.get("name").and_then(|n| n.as_str()) {
+                    let arguments = parsed.get("arguments").cloned().unwrap_or(json!({}));
+                    tool_calls.push(KevoToolCall {
+                        name: name.to_string(),
+                        arguments,
+                    });
                 }
             }
+            cleaned.replace_range(start_idx..end_idx + "</tool_call>".len(), "");
+        } else {
+            let call_block = cleaned[after_start..].trim();
+            if let Ok(parsed) = serde_json::from_str::<Value>(call_block) {
+                if let Some(name) = parsed.get("name").and_then(|n| n.as_str()) {
+                    let arguments = parsed.get("arguments").cloned().unwrap_or(json!({}));
+                    tool_calls.push(KevoToolCall {
+                        name: name.to_string(),
+                        arguments,
+                    });
+                }
+            }
+            cleaned.truncate(start_idx);
+            break;
         }
-        let text = text.trim().to_string();
-        if text.is_empty() {
-            return Err("The offline model returned no text. Try asking another way.".into());
+    }
+
+    let cleaned_text = cleaned
+        .replace("<tool_call>", "")
+        .replace("</tool_call>", "")
+        .trim()
+        .to_string();
+
+    let text_opt = if cleaned_text.is_empty() {
+        None
+    } else {
+        Some(cleaned_text)
+    };
+
+    (text_opt, tool_calls)
+}
+
+/// Parses an OpenAI-compatible /v1/chat/completions response value into KevoAskReply.
+pub fn parse_kevo_ask_response(value: &Value) -> KevoAskReply {
+    let mut tool_calls = Vec::new();
+
+    // 1. OpenAI choices[0].message.tool_calls
+    if let Some(calls) = value.pointer("/choices/0/message/tool_calls").and_then(Value::as_array) {
+        for c in calls {
+            if let Some(name) = c.pointer("/function/name").and_then(Value::as_str) {
+                let args = if let Some(arg_str) = c.pointer("/function/arguments").and_then(Value::as_str) {
+                    serde_json::from_str::<Value>(arg_str).unwrap_or_else(|_| json!({}))
+                } else if let Some(arg_val) = c.pointer("/function/arguments") {
+                    arg_val.clone()
+                } else {
+                    json!({})
+                };
+                tool_calls.push(KevoToolCall {
+                    name: name.to_string(),
+                    arguments: args,
+                });
+            }
         }
-        Ok(text)
+    }
+
+    // 2. Parse any raw <tool_call> tags from message.content and clean the text
+    let raw_content = value
+        .pointer("/choices/0/message/content")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+
+    let (cleaned_text, inline_tool_calls) = parse_tool_calls_and_clean_text(raw_content);
+    for tc in inline_tool_calls {
+        if !tool_calls.iter().any(|existing| existing.name == tc.name && existing.arguments == tc.arguments) {
+            tool_calls.push(tc);
+        }
+    }
+
+    KevoAskReply {
+        text: cleaned_text,
+        tool_calls,
     }
 }
 
@@ -482,5 +668,56 @@ mod tests {
         let (messages, _) = bounded_messages(&history, "Please continue");
         assert_eq!(messages.len(), 4);
         assert!(messages[2]["content"].as_str().unwrap().ends_with("ENDING"));
+    }
+    #[test]
+    fn parses_single_and_chained_tool_calls_and_cleans_tags() {
+        let raw = "<tool_call>\n{\"name\": \"open_app\", \"arguments\": {\"name\": \"Brave\"}}\n</tool_call>\n<tool_call>\n{\"name\": \"youtube_search\", \"arguments\": {\"query\": \"lofi\"}}\n</tool_call>";
+        let (text, calls) = parse_tool_calls_and_clean_text(raw);
+        assert_eq!(text, None);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].name, "open_app");
+        assert_eq!(calls[0].arguments["name"], "Brave");
+        assert_eq!(calls[1].name, "youtube_search");
+        assert_eq!(calls[1].arguments["query"], "lofi");
+
+        // Plain text with no tool call
+        let plain = "The sky is blue due to Rayleigh scattering.";
+        let (t_plain, c_plain) = parse_tool_calls_and_clean_text(plain);
+        assert_eq!(t_plain, Some(plain.to_string()));
+        assert!(c_plain.is_empty());
+
+        // Text mixed with tool call
+        let mixed = "Opening your browser now: <tool_call>{\"name\":\"open_app\",\"arguments\":{\"name\":\"Chrome\"}}</tool_call>";
+        let (t_mix, c_mix) = parse_tool_calls_and_clean_text(mixed);
+        assert_eq!(t_mix, Some("Opening your browser now:".to_string()));
+        assert_eq!(c_mix.len(), 1);
+        assert_eq!(c_mix[0].name, "open_app");
+        assert_eq!(c_mix[0].arguments["name"], "Chrome");
+        assert!(!t_mix.unwrap().contains("<tool_call>"), "no raw tag leaks");
+    }
+    #[test]
+    fn parses_openai_tool_calls_response() {
+        let resp = json!({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "open_site",
+                                "arguments": "{\"url\":\"https://github.com\"}"
+                            }
+                        }
+                    ]
+                }
+            }]
+        });
+        let parsed = parse_kevo_ask_response(&resp);
+        assert_eq!(parsed.text, None);
+        assert_eq!(parsed.tool_calls.len(), 1);
+        assert_eq!(parsed.tool_calls[0].name, "open_site");
+        assert_eq!(parsed.tool_calls[0].arguments["url"], "https://github.com");
     }
 }

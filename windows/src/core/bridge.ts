@@ -66,6 +66,9 @@ export const Bridge = {
   systemStats: () => call<Record<string, unknown>>("system_stats"),
   kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),
   kevoHudAnswer: (id: number | string, approved: boolean) => call<void>("kevo_hud_answer", { id, approved }),
+  kevoAsk: (id: number, query: string, history: unknown[], model: string, tools?: unknown[]) =>
+    call<unknown>("kevo_ask", { id, query, history, model, tools }),
+  kevoCancel: () => call<void>("kevo_cancel"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),

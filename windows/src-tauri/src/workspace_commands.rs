@@ -71,7 +71,7 @@ fn kevo_messages(query: &str, history: &[Value]) -> Vec<Value> {
 }
 
 /// Answers a spoken question briefly, sending each finished sentence as a `kevo-reply-part` event so it can be
-/// shown and spoken while the rest is still being written. Returns the whole answer.
+/// shown and spoken while the rest is still being written. Returns the whole answer or tool calls.
 #[tauri::command]
 pub async fn kevo_ask(
     app: tauri::AppHandle,
@@ -81,7 +81,8 @@ pub async fn kevo_ask(
     query: String,
     history: Vec<Value>,
     model: String,
-) -> Result<String, String> {
+    tools: Option<Vec<Value>>,
+) -> Result<Value, String> {
     use tauri::Emitter;
     if id == 0 || query.trim().is_empty() || query.len() > 2000 || history.len() > 40 {
         return Err("Ask a shorter question.".into());
@@ -92,16 +93,16 @@ pub async fn kevo_ask(
     let started = std::time::Instant::now();
     let mut unsent = String::new();
     let answer = async {
-        let text = chat.local.reply_stream(&messages, &model, 160, |piece| {
+        let reply = chat.local.reply_tools(&messages, tools.as_deref(), &model, 160, |piece| {
             unsent.push_str(piece);
             if let Some(text) = local_ai::take_sentences(&mut unsent) {
                 let _ = app.emit("kevo-reply-part", KevoPart { id, text });
             }
         }).await?;
-        Ok::<String, String>(text)
+        Ok::<local_ai::KevoAskReply, String>(reply)
     };
     // Dropping the request when the turn changes makes the model stop writing at once.
-    let text = tokio::select! {
+    let reply = tokio::select! {
         r = answer => r?,
         _ = async { while changed.changed().await.is_ok() { if *changed.borrow() != id { break; } } } => return Err("Cancelled.".into()),
     };
@@ -110,7 +111,7 @@ pub async fn kevo_ask(
         let _ = app.emit("kevo-reply-part", KevoPart { id, text: rest.to_string() });
     }
     crate::kevo_hud::set_badge(&app, format!("Local model · {:.1} s", started.elapsed().as_secs_f32()));
-    Ok(text)
+    serde_json::to_value(reply).map_err(|e| e.to_string())
 }
 /// Stops the answer Kevo is writing, if any.
 #[tauri::command]

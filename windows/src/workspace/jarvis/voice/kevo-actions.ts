@@ -479,3 +479,40 @@ export async function executeKevoAction(
   }
   return action.execute(args, context);
 }
+
+export interface KevoToolCall {
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface KevoAskReply {
+  text?: string;
+  tool_calls?: KevoToolCall[];
+}
+
+/** Executes a sequence of tool calls in order against a JarvisActionContext. */
+export async function executeKevoToolCalls(
+  toolCalls: KevoToolCall[],
+  context: JarvisActionContext,
+  onPart?: (text: string) => void
+): Promise<KevoActionExecutionResult> {
+  const replies: string[] = [];
+  const actionNames: string[] = [];
+  let allHandled = true;
+
+  for (const call of toolCalls) {
+    const res = await executeKevoAction(call.name, call.arguments, context);
+    if (!res.handled) allHandled = false;
+    actionNames.push(res.actionName || call.name);
+    if (res.speechReply) {
+      replies.push(res.speechReply);
+      onPart?.(res.speechReply);
+    }
+  }
+
+  return {
+    handled: allHandled && toolCalls.length > 0,
+    actionName: actionNames.join('+'),
+    speechReply: replies.join(' '),
+  };
+}
