@@ -4,7 +4,7 @@
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
 
-import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, type JarvisTurn } from './jarvis-memory';
+import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
 
 export type JarvisAskAiResult = string | { text: string; actionName?: string };
 
@@ -25,6 +25,10 @@ export interface JarvisActionContext {
   rememberFact?: (fact: string, category?: string) => Promise<unknown>;
   /** Lists remembered facts from Kevo memory. */
   listFacts?: (query?: string) => Promise<unknown[]>;
+  /** Deletes a remembered fact by ID. */
+  deleteFact?: (id: string) => Promise<boolean>;
+  /** Clears all remembered facts. */
+  clearFacts?: () => Promise<boolean>;
   /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
   askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
@@ -164,7 +168,7 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
   return asked;
 }
 
-const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind)\b/i;
+const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind|forget)\b/i;
 
 /** "In the meantime, can you open Brave browser?" is the command "open Brave browser". A question stays as it is. */
 export function stripLeadIn(text: string): string {
@@ -475,6 +479,29 @@ export class JarvisVoiceAgent {
       }
       const summary = allFacts.slice(-5).map((f: any) => f.fact).join('. ');
       return { handled: true, actionName: 'recall_facts', speechReply: `Here is what I remember: ${summary}.` };
+    }
+
+    // Fast path for memory forget (Phase 3 Step 3.4)
+    if (/^(?:forget (?:all|everything)(?: (?:you know|memories|facts))?|clear (?:all )?(?:memories|facts))$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
+      if (this.context.clearFacts) await this.context.clearFacts();
+      else await clearFacts();
+      return { handled: true, actionName: 'forget_fact', speechReply: 'I have forgotten all remembered facts, sir.' };
+    }
+
+    const forgetMatch = /^(?:please\s+)?(?:forget(?:\s+that|\s+what i said about|\s+my preference (?:for|about)|\s+everything (?:you know )?about|:)?)\s+(.+)$/i.exec(text.trim());
+    if (forgetMatch && forgetMatch[1]) {
+      const target = forgetMatch[1].trim().replace(/[.!?]+$/, '');
+      if (target && !/^(?:what|who|where|when|why|how)\b/i.test(target)) {
+        const matching = this.context.listFacts ? await this.context.listFacts(target) : await listFacts(target);
+        if (matching && matching.length > 0) {
+          for (const f of matching) {
+            if (this.context.deleteFact) await this.context.deleteFact((f as any).id);
+            else await deleteFact((f as any).id);
+          }
+          return { handled: true, actionName: 'forget_fact', speechReply: `I have forgotten that: ${(matching[0] as any).fact}` };
+        }
+        return { handled: true, actionName: 'forget_fact', speechReply: `I do not remember anything about ${target}, sir.` };
+      }
     }
 
     // Right after an app was not found, a short name on its own ("Brave browser") is the app to open.

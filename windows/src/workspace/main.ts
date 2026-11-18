@@ -39,7 +39,7 @@ import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
 import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
-import {listFacts,rememberFact} from './jarvis/voice/jarvis-memory';
+import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -323,6 +323,8 @@ const jarvisActionContext: JarvisActionContext = {
     cancelAI:()=>{void invoke('kevo_cancel');},
     rememberFact:async(fact,category)=>rememberFact(fact,category),
     listFacts:async query=>listFacts(query),
+    deleteFact:async id=>deleteFact(id),
+    clearFacts:async()=>clearFacts(),
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
 };

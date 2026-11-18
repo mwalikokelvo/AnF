@@ -217,6 +217,31 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.match(prompt, /- \[work\] User works in TypeScript/);
   });
 
+  it('executes forget_fact action (Step 3.4)', async () => {
+    let deletedId = '';
+    const mockFacts = [{ id: 'f1', fact: 'User likes dark chocolate', category: 'diet' }];
+    const ctx = mockContext({
+      listFacts: async (q) => {
+        if (!q) return mockFacts;
+        return mockFacts.filter((f) => f.fact.toLowerCase().includes(q.toLowerCase()));
+      },
+      deleteFact: async (id) => {
+        deletedId = id;
+        return true;
+      },
+    });
+
+    const res = await executeKevoAction('forget_fact', { query: 'chocolate' }, ctx);
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'forget_fact');
+    assert.strictEqual(deletedId, 'f1');
+    assert.match(res.speechReply, /I have forgotten that: User likes dark chocolate/);
+
+    const resById = await executeKevoAction('forget_fact', { id: 'f1' }, ctx);
+    assert.strictEqual(resById.handled, true);
+    assert.match(resById.speechReply, /I have forgotten that/);
+  });
+
   it('returns graceful unhandled result for unknown action', async () => {
     const ctx = mockContext();
     const res = await executeKevoAction('non_existent_action', {}, ctx);
