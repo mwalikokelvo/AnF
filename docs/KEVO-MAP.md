@@ -16,6 +16,7 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src/workspace/jarvis/voice/jarvis-memory.ts` | Last few turns sent to the AI as context |
 | `src/workspace/main.ts` | Gives Kevo its actions (`openApp`, `openUrl`, `searchWeb`, `askAI`, …) via Tauri `invoke` |
 | `src-tauri/src/kevo_system.rs` | Windows side: find and open Start Menu apps (`best_app_match`), system actions |
+| `src-tauri/src/kevo_ears.rs` | Phase 1 hearing on the PC (sherpa-onnx, feature `kevo-ears`, on in `npm run pack` and CI tests); step 1.1 holds only the VAD build test |
 | `src-tauri/src/workspace_commands.rs` | `kevo_ask` / `kevo_cancel`: the local AI call and its system prompt (`KEVO_SYSTEM`) |
 | `tests/jarvis-*.test.ts`, `tests/kevo-*.test.ts` | Node tests; `kevo-phase0-session2.test.ts` holds the requests from the owner's recording |
 

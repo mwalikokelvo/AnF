@@ -32,6 +32,8 @@ mod hooks;
 mod integrations;
 mod island;
 mod kevo_system;
+#[cfg(all(test, feature = "kevo-ears"))]
+mod kevo_ears;
 mod log;
 mod pipe;
 mod platform;
