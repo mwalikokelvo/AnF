@@ -173,8 +173,58 @@ export async function checkDueReminders(nowMs = Date.now()): Promise<KevoReminde
     }
   }
 
-  if (fired.length > 0) persistLocalStore();
+  if (fired.length > 0) {
+    persistLocalStore();
+    for (const rem of fired) {
+      void triggerReminderAlert('Kevo Reminder', rem.message);
+    }
+  }
   return fired;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Minimised Window Alert & Audio Notification (Phase 4 Step 4.4)
+// ─────────────────────────────────────────────────────────────
+
+export function playWebAlertChime(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.setValueAtTime(880, now + 0.15); // A5
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  } catch {
+    /* ignore audio errors in restricted/headless test contexts */
+  }
+}
+
+export async function triggerReminderAlert(title: string, message: string): Promise<void> {
+  playWebAlertChime();
+  try {
+    if (hasTauri() && typeof Bridge.kevoScheduleTriggerAlert === 'function') {
+      await Bridge.kevoScheduleTriggerAlert(title, message);
+    }
+  } catch {
+    /* fallback to desktop notification */
+  }
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try {
+      new Notification(title, { body: message });
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

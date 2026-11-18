@@ -103,6 +103,8 @@ export const Bridge = {
     call<Array<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>>(
       "kevo_schedule_check_due"
     ),
+  kevoScheduleTriggerAlert: (title: string, message: string) =>
+    call<void>("kevo_schedule_trigger_alert", { title, message }),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),

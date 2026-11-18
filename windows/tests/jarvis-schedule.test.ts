@@ -12,6 +12,8 @@ import {
   scheduleDailyBriefing,
   getDailyBriefingSchedule,
   cancelDailyBriefingSchedule,
+  triggerReminderAlert,
+  playWebAlertChime,
   type KevoReminder,
 } from '../src/workspace/jarvis/voice/jarvis-schedule.js';
 import { Bridge } from '../src/core/bridge.js';
@@ -173,6 +175,37 @@ describe('Kevo persistent schedule store', () => {
       const cancelled = await cancelDailyBriefingSchedule();
       assert.strictEqual(cancelled, true);
       assert.strictEqual(await getDailyBriefingSchedule(), null);
+    });
+  });
+
+  describe('Minimised Window Alert & Audio Notification (Phase 4 Step 4.4)', () => {
+    it('executes triggerReminderAlert invoking Bridge and desktop notification gracefully', async () => {
+      let alertedTitle = '';
+      let alertedMessage = '';
+      const orig = Bridge.kevoScheduleTriggerAlert;
+      const origWindow = (globalThis as any).window;
+      try {
+        (globalThis as any).window = {
+          __TAURI__: { core: { invoke: async () => {} } },
+        };
+        Bridge.kevoScheduleTriggerAlert = async (title: string, msg: string) => {
+          alertedTitle = title;
+          alertedMessage = msg;
+        };
+
+        await triggerReminderAlert('Kevo Reminder', 'Check the server logs');
+        assert.strictEqual(alertedTitle, 'Kevo Reminder');
+        assert.strictEqual(alertedMessage, 'Check the server logs');
+      } finally {
+        Bridge.kevoScheduleTriggerAlert = orig;
+        (globalThis as any).window = origWindow;
+      }
+    });
+
+    it('plays web alert chime safely in headless environments without errors', () => {
+      assert.doesNotThrow(() => {
+        playWebAlertChime();
+      });
     });
   });
 });
