@@ -37,6 +37,10 @@ export interface JarvisActionContext {
   notify?: (msg: string) => void;
   /** When true, actions are simulated without performing real side effects (Phase 0 step 0.4b). */
   dryRun?: boolean;
+  /** Injectable clock for tests; returns timestamp in milliseconds. Defaults to Date.now. */
+  now?: () => number;
+  /** Expiration time for follow-up questions/subjects in milliseconds. Defaults to 30,000 (30 s). */
+  followUpExpiryMs?: number;
 }
 
 export interface ActionResult {
@@ -173,8 +177,25 @@ export class JarvisVoiceAgent {
   private generation = 0;
   /** What the previous request did, for follow-ups such as "open it" or naming the app after a miss. */
   private lastAction = '';
+  private lastActionTime = 0;
   /** The app or thing last talked about, which "open it" refers to. */
   private lastSubject = '';
+  private lastSubjectTime = 0;
+
+  private now(): number {
+    return this.context.now ? this.context.now() : Date.now();
+  }
+
+  private pruneFollowUpState(): void {
+    const limit = this.context.followUpExpiryMs ?? 30_000;
+    const current = this.now();
+    if (this.lastAction && current - this.lastActionTime > limit) {
+      this.lastAction = '';
+    }
+    if (this.lastSubject && current - this.lastSubjectTime > limit) {
+      this.lastSubject = '';
+    }
+  }
 
   /** Things Kevo can answer or do without the AI. Null when the request is not one of them. */
   private quickAnswer(text: string): ActionResult | null {
@@ -292,14 +313,19 @@ export class JarvisVoiceAgent {
   }
 
   private async handleOne(text: string, onPart?: (text: string) => void): Promise<ActionResult> {
+    this.pruneFollowUpState();
     const result = await this.handle(text, onPart);
     const short = text.replace(/[.!?]+$/, '').trim();
     // A short name that was not a command ("Brave browser") is what a following "open it" means.
     if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
+      this.lastSubjectTime = this.now();
     }
     // "Say that again" repeats the last answer, so a pending "For how long?" still stands. Nothing else carries over.
-    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') this.lastAction = result.actionName;
+    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') {
+      this.lastAction = result.actionName;
+      this.lastActionTime = this.now();
+    }
     return result;
   }
 
@@ -311,7 +337,9 @@ export class JarvisVoiceAgent {
   /** A new conversation: "open it" and follow-ups must not reach back into the old one. */
   resetConversation(): void {
     this.lastSubject = '';
+    this.lastSubjectTime = 0;
     this.lastAction = '';
+    this.lastActionTime = 0;
   }
 
   private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
@@ -503,6 +531,7 @@ export class JarvisVoiceAgent {
     const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+|an?\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
     if (app && (this.context.openApp || this.context.dryRun)) {
       this.lastSubject = app[1];
+      this.lastSubjectTime = this.now();
       if (this.context.dryRun) {
         return { handled: true, actionName: 'open_app', speechReply: `Opening ${app[1]}.` };
       }
