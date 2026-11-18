@@ -171,7 +171,8 @@ mod ears_impl {
         in_rate: f64,
         out_rate: f64,
         pos: f64,
-        last_sample: f32,
+        /// Last sample of the previous frame; `None` before the first frame.
+        last_sample: Option<f32>,
     }
 
     impl LinearResampler {
@@ -180,7 +181,7 @@ mod ears_impl {
                 in_rate: in_rate as f64,
                 out_rate: out_rate as f64,
                 pos: 0.0,
-                last_sample: 0.0,
+                last_sample: None,
             }
         }
 
@@ -188,7 +189,7 @@ mod ears_impl {
             if (self.in_rate - self.out_rate).abs() < 1e-3 {
                 output.extend_from_slice(input);
                 if let Some(&s) = input.last() {
-                    self.last_sample = s;
+                    self.last_sample = Some(s);
                 }
                 return;
             }
@@ -200,8 +201,8 @@ mod ears_impl {
             while in_idx < n {
                 if self.pos < in_idx as f64 + 1.0 {
                     let frac = (self.pos - in_idx as f64) as f32;
-                    let prev = if in_idx == 0 { self.last_sample } else { input[in_idx - 1] };
                     let curr = input[in_idx];
+                    let prev = if in_idx == 0 { self.last_sample.unwrap_or(curr) } else { input[in_idx - 1] };
                     let val = prev + (curr - prev) * frac.clamp(0.0, 1.0);
                     output.push(val);
                     self.pos += ratio;
@@ -211,13 +212,14 @@ mod ears_impl {
             }
             self.pos -= n as f64;
             if let Some(&s) = input.last() {
-                self.last_sample = s;
+                self.last_sample = Some(s);
             }
         }
     }
 
+    /// The microphone stream (`cpal::Stream`) is not `Send` on Windows, so it
+    /// lives on the pipeline thread and is dropped when that thread ends.
     struct EarsHandle {
-        _stream: cpal::Stream,
         stop_flag: Arc<AtomicBool>,
         muted: Arc<AtomicBool>,
     }
@@ -289,6 +291,35 @@ mod ears_impl {
         let kws = keyword_spotter(&dir).ok_or_else(|| "Failed to create keyword spotter".to_string())?;
         let asr = recognizer(&dir).ok_or_else(|| "Failed to create recognizer".to_string())?;
 
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let muted = Arc::new(AtomicBool::new(false));
+        let worker_stop = Arc::clone(&stop_flag);
+        let worker_muted = Arc::clone(&muted);
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel::<Result<(), String>>(1);
+
+        std::thread::Builder::new()
+            .name("kevo-ears-pipeline".into())
+            .spawn(move || {
+                let (stream, rx) = match open_microphone(&app) {
+                    Ok(opened) => opened,
+                    Err(e) => {
+                        let _ = ready_tx.send(Err(e));
+                        return;
+                    }
+                };
+                let _ = ready_tx.send(Ok(()));
+                run_ears_pipeline(rx, worker_stop, worker_muted, app, vad, kws, asr);
+                drop(stream);
+            })
+            .map_err(|e| format!("Failed to spawn pipeline thread: {e}"))?;
+
+        ready_rx.recv().map_err(|_| "Kevo hearing stopped while starting".to_string())??;
+        *state = Some(EarsHandle { stop_flag, muted });
+        Ok(())
+    }
+
+    /// Opens the default microphone as 16 kHz mono and starts it playing.
+    fn open_microphone(app: &tauri::AppHandle) -> Result<(cpal::Stream, std::sync::mpsc::Receiver<Vec<f32>>), String> {
         let host = cpal::default_host();
         let device = host.default_input_device().ok_or_else(|| "No default microphone input device found".to_string())?;
         let config = device.default_input_config().map_err(|e| format!("Failed to read microphone config: {e}"))?;
@@ -298,8 +329,6 @@ mod ears_impl {
         let sample_format = config.sample_format();
 
         let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(200);
-        let stop_flag = Arc::new(AtomicBool::new(false));
-        let muted = Arc::new(AtomicBool::new(false));
 
         let err_app = app.clone();
         let err_fn = move |err: cpal::StreamError| {
@@ -372,25 +401,7 @@ mod ears_impl {
         }.map_err(|e| format!("Failed to build input stream: {e}"))?;
 
         stream.play().map_err(|e| format!("Failed to start audio stream: {e}"))?;
-
-        let worker_stop = Arc::clone(&stop_flag);
-        let worker_muted = Arc::clone(&muted);
-        let worker_app = app.clone();
-
-        std::thread::Builder::new()
-            .name("kevo-ears-pipeline".into())
-            .spawn(move || {
-                run_ears_pipeline(rx, worker_stop, worker_muted, worker_app, vad, kws, asr);
-            })
-            .map_err(|e| format!("Failed to spawn pipeline thread: {e}"))?;
-
-        *state = Some(EarsHandle {
-            _stream: stream,
-            stop_flag,
-            muted,
-        });
-
-        Ok(())
+        Ok((stream, rx))
     }
 
     fn run_ears_pipeline(
@@ -426,7 +437,11 @@ mod ears_impl {
                     while buffer.len() >= 512 {
                         let chunk: Vec<f32> = buffer.drain(..512).collect();
                         vad.accept_waveform(&chunk);
-                        let is_speech = vad.is_speech_detected();
+                        let is_speech = vad.detected();
+                        // Only the live flag is used; drop finished segments so the queue stays empty.
+                        while !vad.is_empty() {
+                            vad.pop();
+                        }
 
                         // Keyword spotter runs continuously on audio frames
                         kws_stream.accept_waveform(RATE, &chunk);
