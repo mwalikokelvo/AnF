@@ -29,6 +29,8 @@ export interface VoiceListenerOptions {
   settleMs?: number;
   /** Told when Kevo starts or stops accepting a command without its name (drives the orb). */
   onAwakeChange?: (awake: boolean) => void;
+  /** Told when user speaks over Kevo while speaking (Phase 1 Step 1.6 barge-in). */
+  onBargeIn?: () => void;
 }
 
 export class JarvisVoiceListener {

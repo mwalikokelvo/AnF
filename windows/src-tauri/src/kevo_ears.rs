@@ -217,6 +217,67 @@ mod ears_impl {
         }
     }
 
+    /// Acoustic Echo Canceller using Normalized Least Mean Squares (NLMS) (Phase 1, Step 1.6).
+    /// Subtracts speaker audio / Kevo's speech from the microphone signal.
+    pub struct EchoCanceller {
+        filter_len: usize,
+        weights: Vec<f32>,
+        history: Vec<f32>,
+        history_idx: usize,
+        mu: f32,
+        eps: f32,
+    }
+
+    impl EchoCanceller {
+        pub fn new(filter_len: usize, step_size: f32) -> Self {
+            let len = filter_len.max(16);
+            Self {
+                filter_len: len,
+                weights: vec![0.0; len],
+                history: vec![0.0; len],
+                history_idx: 0,
+                mu: step_size,
+                eps: 1e-4,
+            }
+        }
+
+        pub fn process_sample(&mut self, mic_sample: f32, ref_sample: f32) -> f32 {
+            self.history[self.history_idx] = ref_sample;
+            let mut est_echo = 0.0;
+            let mut norm_sq = 0.0;
+
+            for i in 0..self.filter_len {
+                let idx = (self.history_idx + self.filter_len - i) % self.filter_len;
+                let x = self.history[idx];
+                est_echo += self.weights[i] * x;
+                norm_sq += x * x;
+            }
+
+            let err = mic_sample - est_echo;
+
+            if norm_sq > self.eps {
+                let factor = self.mu / (self.eps + norm_sq);
+                for i in 0..self.filter_len {
+                    let idx = (self.history_idx + self.filter_len - i) % self.filter_len;
+                    self.weights[i] += factor * err * self.history[idx];
+                    self.weights[i] = self.weights[i].clamp(-2.0, 2.0);
+                }
+            }
+
+            self.history_idx = (self.history_idx + 1) % self.filter_len;
+            err
+        }
+
+        pub fn process(&mut self, mic: &[f32], reference: &[f32], output: &mut Vec<f32>) {
+            output.clear();
+            output.reserve(mic.len());
+            for i in 0..mic.len() {
+                let ref_s = if i < reference.len() { reference[i] } else { 0.0 };
+                output.push(self.process_sample(mic[i], ref_s));
+            }
+        }
+    }
+
     /// The microphone stream (`cpal::Stream`) is not `Send` on Windows, so it
     /// lives on the pipeline thread and is dropped when that thread ends.
     struct EarsHandle {
@@ -427,6 +488,7 @@ mod ears_impl {
 
         let kws_stream = kws.create_stream();
         let mut asr_stream = asr.create_stream();
+        let mut echo_canceller = EchoCanceller::new(128, 0.4);
         let mut buffer = Vec::with_capacity(1024);
         let mut had_speech = false;
         let mut last_partial = String::new();
@@ -435,7 +497,36 @@ mod ears_impl {
             match rx.recv_timeout(std::time::Duration::from_millis(50)) {
                 Ok(samples) => {
                     if muted.load(Ordering::Relaxed) {
-                        buffer.clear();
+                        // While Kevo speaks, microphone keeps listening through echo cancellation (Step 1.6)
+                        buffer.extend_from_slice(&samples);
+                        while buffer.len() >= 512 {
+                            let chunk: Vec<f32> = buffer.drain(..512).collect();
+                            let mut clean = Vec::with_capacity(chunk.len());
+                            echo_canceller.process(&chunk, &[], &mut clean);
+
+                            vad.accept_waveform(&clean);
+                            let is_speech = vad.detected();
+                            while !vad.is_empty() {
+                                vad.pop();
+                            }
+
+                            kws_stream.accept_waveform(RATE, &clean);
+                            let mut barge_in = false;
+                            while kws.is_ready(&kws_stream) {
+                                kws.decode(&kws_stream);
+                                if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                                        barge_in = true;
+                                        let _ = app.emit("kevo-ears-wake", &hit.keyword);
+                                    }
+                                    kws.reset(&kws_stream);
+                                }
+                            }
+
+                            if is_speech || barge_in {
+                                let _ = app.emit("kevo-ears-barge-in", ());
+                            }
+                        }
                         if had_speech {
                             asr_stream = asr.create_stream();
                             had_speech = false;
@@ -747,5 +838,122 @@ mod tests {
         }
         // Step 1.4 target: at least 9 of 10 requests accurately transcribed
         assert!(pass_count >= 9, "Request transcription {pass_count}/10 is below threshold");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn barge_in_stops_playback_within_300ms_when_user_speaks_over_kevo() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create keyword spotter");
+        let vad = voice_activity_detector(dir).expect("create vad");
+
+        // Reference: Kevo speaking ("tell me about black holes")
+        let kevo_speech = clip("req-black-holes-libritts-3922");
+        // User speaking: "Kevo, what time is it?"
+        let user_speech = clip("req-time-ljspeech");
+
+        // The user clip starts with ~0.3s of silence. Find first non-silent sample.
+        let first_user_speech_idx = user_speech
+            .iter()
+            .position(|&s| s.abs() > 0.02)
+            .unwrap_or(0);
+
+        // Mix user clip over Kevo's speech at offset 16000 (1 second into Kevo's speech)
+        let mix_offset = 16000;
+        let mut mixed = kevo_speech.clone();
+        for (i, &s) in user_speech.iter().enumerate() {
+            if mix_offset + i < mixed.len() {
+                mixed[mix_offset + i] += s;
+            }
+        }
+
+        let mut aec = EchoCanceller::new(128, 0.4);
+        let mut clean_audio = Vec::with_capacity(mixed.len());
+        aec.process(&mixed, &kevo_speech, &mut clean_audio);
+
+        let kws_stream = kws.create_stream();
+        let mut stop_sample_idx = None;
+
+        // Feed in 512-sample chunks
+        for (chunk_idx, chunk) in clean_audio.chunks(512).enumerate() {
+            vad.accept_waveform(chunk);
+            let speech_detected = vad.detected();
+            while !vad.is_empty() {
+                vad.pop();
+            }
+
+            kws_stream.accept_waveform(RATE, chunk);
+            let mut kw_hit = false;
+            while kws.is_ready(&kws_stream) {
+                kws.decode(&kws_stream);
+                if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        kw_hit = true;
+                    }
+                    kws.reset(&kws_stream);
+                }
+            }
+
+            let current_sample_idx = (chunk_idx + 1) * 512;
+            let speech_start_global = mix_offset + first_user_speech_idx;
+
+            if current_sample_idx >= speech_start_global && (speech_detected || kw_hit) {
+                stop_sample_idx = Some(current_sample_idx);
+                break;
+            }
+        }
+
+        assert!(stop_sample_idx.is_some(), "Barge-in / stop was never triggered when user spoke over Kevo");
+        let stop_idx = stop_sample_idx.unwrap();
+        let speech_start_global = mix_offset + first_user_speech_idx;
+        let delay_samples = stop_idx.saturating_sub(speech_start_global);
+        let delay_ms = (delay_samples as f64 / RATE as f64) * 1000.0;
+
+        assert!(
+            delay_ms <= 300.0,
+            "Barge-in stop delay {delay_ms:.1} ms exceeded the 300 ms target"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn kevos_own_speech_alone_gives_no_wake_and_no_stop() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create keyword spotter");
+        let vad = voice_activity_detector(dir).expect("create vad");
+
+        // Kevo speaking alone: fed both as mic signal and reference
+        let kevo_speech = clip("req-black-holes-libritts-3922");
+        let mut aec = EchoCanceller::new(128, 0.4);
+        let mut clean_audio = Vec::with_capacity(kevo_speech.len());
+        aec.process(&kevo_speech, &kevo_speech, &mut clean_audio);
+
+        let kws_stream = kws.create_stream();
+        let mut wake_detected = false;
+        let mut speech_detected = false;
+
+        for chunk in clean_audio.chunks(512) {
+            vad.accept_waveform(chunk);
+            if vad.detected() {
+                speech_detected = true;
+            }
+            while !vad.is_empty() {
+                vad.pop();
+            }
+
+            kws_stream.accept_waveform(RATE, chunk);
+            while kws.is_ready(&kws_stream) {
+                kws.decode(&kws_stream);
+                if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        wake_detected = true;
+                    }
+                    kws.reset(&kws_stream);
+                }
+            }
+        }
+
+        assert!(!wake_detected, "Kevo's own voice woke Kevo!");
+        assert!(!speech_detected, "Kevo's own voice triggered VAD stop!");
     }
 }

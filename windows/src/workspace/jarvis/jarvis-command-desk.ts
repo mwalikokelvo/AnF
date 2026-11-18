@@ -414,6 +414,16 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       });
     },
     onFinalSpeech: (finalTranscript) => handleCommand(finalTranscript),
+    onBargeIn: () => {
+      // Step 1.6: Talking over Kevo stops playback within 300 ms
+      if (speaker.getIsSpeaking()) {
+        log('barge_in', {});
+        speaker.stop();
+        listener.setMuted(false);
+        listener.keepAwake();
+        refresh();
+      }
+    },
     onIgnored: (text, reason) => log('ignored', { text, reason }),
     onError: (err, code) => {
       log('recognition_error', { code: code ?? null, message: err });

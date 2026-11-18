@@ -4,7 +4,22 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 1.5: self-test on the PC).
+Last updated: 2026-11-18 by Antigravity (Kevo 1.6: talking over Kevo with echo cancellation).
+
+## 2026-11-18 — Kevo 1.6: talking over Kevo with echo cancellation (Antigravity)
+
+Phase 1 Step 1.6 (`docs/kevo-briefs/phase-1.md`, "1.6 Talking over Kevo"):
+- Rust audio pipeline (`windows/src-tauri/src/kevo_ears.rs`):
+  - Added pure-Rust Normalized Least Mean Squares (NLMS) `EchoCanceller` to subtract speaker reference audio from microphone signal.
+  - While Kevo speaks (`muted`), microphone continues listening through `EchoCanceller` instead of discarding audio.
+  - If user speaks over Kevo, VAD and keyword spotter detect speech / "Kevo" and emit `kevo-ears-barge-in` (and `kevo-ears-wake`).
+  - Added test `barge_in_stops_playback_within_300ms_when_user_speaks_over_kevo`: mixes request clip over Kevo's speech; verifies stop is triggered within 300 ms of the first speech sample.
+  - Added test `kevos_own_speech_alone_gives_no_wake_and_no_stop`: verifies Kevo's speech alone never wakes Kevo and never triggers stop.
+- Webview & Command Desk integration:
+  - `kevo-ears-listener.ts`: listens for `kevo-ears-barge-in` and wake while muted, firing `onBargeIn`.
+  - `jarvis-command-desk.ts`: wires `onBargeIn` to call `speaker.stop()` immediately, unmute listener, and enter listening mode.
+  - `kevo-selftest.ts`: measures and reports `bargeInStopDelayMs` in `selftest-<version>.json`.
+- Verification: 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS, unit tests (10/10 `kevo-ears-listener`, 5/5 `kevo-selftest`) PASS.
 
 ## 2026-11-18 — Kevo 1.5: self-test on the PC (Antigravity)
 
