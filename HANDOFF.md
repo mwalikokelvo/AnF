@@ -4,7 +4,20 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Claude (#238 with #233 folded in: main green, self-test clips packaged, 0.1.61).
+Last updated: 2026-11-18 by Claude (UI pass 1 on top of #255: one top bar, rail sections, Tonal Glass / Paper & Forest).
+
+## 2026-11-18 — UI pass 1: one top bar, rail sections, Tonal Glass / Paper & Forest (Claude)
+
+Owner's spec "AnF UI Consolidation, Visual Polish & Rendering Performance (Pass 1)". Frontend only; no Rust, vault or audio pipeline changes. Stacked on #255 (music starts even when another player can't pause).
+- Header: one 48px bar. Workspace name and save status on the left; `Search… Ctrl+K` pill and Kevo micro-pill in the middle; `+ Quick note` on the right. Devices, Keys, AppFlowy, Cal.com, Swarm Review, Security Challenge and Community Support moved into the Ctrl+K palette (↑↓ to move, Enter, Esc; search debounced 150 ms).
+- Rail: Reader | Assistant | Music filter removed; WORKSPACE / STUDIO / SYSTEM labels when open; 56px closed.
+- Kevo: the bottom-right oval is gone. The top-bar micro-pill shows only what `kevo://state` says (no polling) and still toggles the microphone.
+- Home: Focus timer + Vault health in one compact strip; the companion-hub card and its dev links are gone from Home (palette instead).
+- `anf-tonal.css` replaces #255's `anf-mint.css`: dark #0D0F14 / #13161F / #1A1E2A with hairline borders and top highlight; light "Paper & Forest" (#142423 rail, #F7F8F6 canvas, white cards). One accent; neutral pills for secondary buttons; no blur on page panels; hover lifts are transform-only, 180 ms. Music Hub default theme is now Tonal Glass.
+- Tested: tsc, `npm test` 793/793, `npm run test:e2e` 138/138, check-release 12/12, verify-contracts, check-styles after `vite build`, browser fixture screenshots (light/dark Home, Music Hub, Documents, palette). `cargo check` not run here (no webkit2gtk); Rust is unchanged and CI runs it. Not installed on the PC.
+- Left for partners (issues filed): Writing `Tools ▾` + full focus mode, Audio Studio 3 tabs + (i) popover, Settings Integrations drawer, list virtualization (Chat history, Music tracks, OPDS).
+- Not done on purpose: unmounting inactive views. Music Hub, Writing and Audio Studio hold live state (playback queue and dock, unsaved editor, recording); unmounting would stop or lose it. Hidden panels are `display:none`, so they cost no layout or paint. Building views on first open is the safe version, left as a follow-up issue.
+
 
 ## 2026-11-18 — Package Kevo's self-test clips (Claude)
 
