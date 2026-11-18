@@ -323,4 +323,33 @@ mod tests {
 
         let _ = std::fs::remove_file(&path);
     }
+
+    #[test]
+    fn persists_across_restart_and_purges_deleted() {
+        let path = test_file("restart_survival");
+        let _ = std::fs::remove_file(&path);
+
+        // Initial process run writes facts and turns
+        let f1 = remember_fact_in(&path, "User lives in Evansville".to_string(), Some("location".to_string())).unwrap();
+        let _f2 = remember_fact_in(&path, "User likes jazz".to_string(), Some("music".to_string())).unwrap();
+        save_turn_in(&path, "user".to_string(), "Where do I live?".to_string()).unwrap();
+
+        // Simulate restart by loading fresh from disk
+        let loaded = load_store(&path);
+        assert_eq!(loaded.facts.len(), 2);
+        assert_eq!(loaded.turns.len(), 1);
+        assert_eq!(loaded.facts[0].fact, "User lives in Evansville");
+        assert_eq!(loaded.turns[0].text, "Where do I live?");
+
+        // Delete a fact and verify it remains deleted across reload
+        let deleted = delete_fact_in(&path, &f1.id).unwrap();
+        assert!(deleted);
+
+        let reloaded = load_store(&path);
+        assert_eq!(reloaded.facts.len(), 1);
+        assert_eq!(reloaded.facts[0].fact, "User likes jazz");
+        assert!(!reloaded.facts.iter().any(|f| f.id == f1.id));
+
+        let _ = std::fs::remove_file(&path);
+    }
 }

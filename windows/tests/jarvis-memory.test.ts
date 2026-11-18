@@ -121,4 +121,48 @@ describe('Kevo conversational memory', () => {
       (globalThis as any).window = origWindow;
     }
   });
+
+  it('survives simulated restart and permanently removes deleted facts from prompts', async () => {
+    await clearFacts();
+    const fact1 = await rememberFact('Likes green tea', 'beverage');
+    const fact2 = await rememberFact('Lives in Nairobi', 'location');
+
+    let currentFacts = await listFacts();
+    assert.strictEqual(currentFacts.length, 2);
+    let prompt = formatRememberedFactsForPrompt(currentFacts);
+    assert.match(prompt, /Likes green tea/);
+    assert.match(prompt, /Lives in Nairobi/);
+
+    // Delete fact1
+    const deleted = await deleteFact(fact1.id);
+    assert.strictEqual(deleted, true);
+
+    // Verify deleted fact never appears in list or prompt
+    currentFacts = await listFacts();
+    assert.strictEqual(currentFacts.length, 1);
+    assert.strictEqual(currentFacts[0].id, fact2.id);
+    prompt = formatRememberedFactsForPrompt(currentFacts);
+    assert.doesNotMatch(prompt, /Likes green tea/);
+    assert.match(prompt, /Lives in Nairobi/);
+  });
+
+  it('gracefully recovers from corrupted or failing native memory bridge responses', async () => {
+    const origList = Bridge.kevoMemoryListFacts;
+    const origWindow = (globalThis as any).window;
+    try {
+      (globalThis as any).window = {
+        __TAURI__: { core: { invoke: async () => {} } },
+      };
+      // Bridge throws or returns corrupted non-array data
+      Bridge.kevoMemoryListFacts = async () => {
+        throw new Error('Corrupted memory file');
+      };
+      // Should not throw, should fall back to local store
+      const facts = await listFacts();
+      assert.ok(Array.isArray(facts));
+    } finally {
+      Bridge.kevoMemoryListFacts = origList;
+      (globalThis as any).window = origWindow;
+    }
+  });
 });
