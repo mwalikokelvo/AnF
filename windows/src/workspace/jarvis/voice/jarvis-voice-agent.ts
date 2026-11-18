@@ -439,7 +439,7 @@ export class JarvisVoiceAgent {
     const result = await this.handle(text, onPart);
     const short = text.replace(/[.!?]+$/, '').trim();
     // A short name that was not a command ("Brave browser") is what a following "open it" means.
-    if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
+    if (short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
       this.lastSubjectTime = this.now();
     }
