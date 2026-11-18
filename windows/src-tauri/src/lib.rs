@@ -36,6 +36,8 @@ pub mod kevo_approval;
 mod kevo_float;
 mod kevo_hud;
 mod kevo_system;
+#[cfg(all(test, feature = "kevo-ears"))]
+mod kevo_ears;
 pub mod kevo_autotest;
 mod log;
 mod pipe;
