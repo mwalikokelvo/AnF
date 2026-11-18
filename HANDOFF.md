@@ -4,7 +4,21 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 9.3: Conflict Resolution & Offline Fault Tolerance).
+Last updated: 2026-11-18 by Antigravity (Kevo 9.4: Automated Verification & Compliance Suite).
+
+## 2026-11-18 — Kevo 9.4: Automated Verification & Compliance Suite (Antigravity)
+
+Phase 9 Step 9.4 (`docs/kevo-briefs/phase-9.md`, "9.4 Automated Verification & Compliance Suite"):
+- Automated Compliance & Integrity Test Suite (`windows/tests/kevo-thingsbook-voice.test.ts`):
+  - Added single-character payload tampering detection asserting that altering a transcript or timestamp produces a checksum mismatch.
+  - Added multi-device 3-way merge test asserting commutativity, associativity, and determinism across all permutations of merge order across PC, Phone, and ThingsBook replicas.
+  - Added boundary validation tests enforcing 50,000-character transcript limits and 5,000-character briefing summary limits.
+  - Added architectural isolation test asserting zero imports or references to ThingsBook `_core` or `thingsbook_core` internal crates.
+- Complete Phase 9 Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 850/850 tests passed across 131 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 9.3: Conflict Resolution & Offline Fault Tolerance (Antigravity)
 

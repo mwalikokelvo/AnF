@@ -3,7 +3,7 @@
  *
  * Implements the normative protocol defined in docs/contracts/thingsbook-voice-v1.md.
  * Provides lossless serialization, schema validation, package hashing, and cross-device merging.
- * Strict isolation: zero dependencies on internal ThingsBook _core crates.
+ * Strict isolation: zero dependencies on internal ThingsBook internal crates.
  */
 
 export const THINGSBOOK_VOICE_PROTOCOL_VERSION = 'thingsbook-voice-v1';

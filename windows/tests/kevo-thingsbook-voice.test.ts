@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   THINGSBOOK_VOICE_PROTOCOL_VERSION,
   createVoiceItem,
+  computeItemChecksum,
   validateVoiceItem,
   validateVoiceBriefing,
   validateVoiceReminder,
@@ -311,5 +312,88 @@ describe('Phase 9 Step 9.3: Conflict Resolution & Offline Fault Tolerance', () =
     queue.acknowledge(['q-1']);
     assert.strictEqual(queue.size(), 0);
     assert.strictEqual(queue.getFailedAttempts(), 0);
+  });
+});
+
+describe('Phase 9 Step 9.4: Automated Verification & Compliance Suite', () => {
+  it('detects single-character payload tampering via checksum verification', () => {
+    const item = createVoiceItem({
+      id: 'item-tamper',
+      timestamp: 1773830000000,
+      durationMs: 3000,
+      transcript: 'Transfer $100 to savings account',
+    });
+    assert.strictEqual(validateVoiceItem(item), true);
+
+    const tampered = { ...item, transcript: 'Transfer $900 to savings account' };
+    const expectedChecksum = computeItemChecksum(tampered.id, tampered.timestamp, tampered.transcript);
+    assert.notStrictEqual(tampered.checksum, expectedChecksum, 'Tampered transcript mismatch');
+  });
+
+  it('multi-device 3-way merge is commutative and deterministic across merge orders', () => {
+    const pcItem = createVoiceItem({
+      id: 'note-shared',
+      timestamp: 1000,
+      durationMs: 1000,
+      transcript: 'Written on PC',
+    });
+    const phoneItem = createVoiceItem({
+      id: 'note-shared',
+      timestamp: 2000,
+      durationMs: 1500,
+      transcript: 'Updated on Phone',
+    });
+    const thingsBookItem = createVoiceItem({
+      id: 'note-unique-tb',
+      timestamp: 1500,
+      durationMs: 800,
+      transcript: 'Logged on ThingsBook',
+    });
+
+    const pcPkg = packageVoiceMemos({ deviceId: 'pc', items: [pcItem] });
+    const phonePkg = packageVoiceMemos({ deviceId: 'phone', items: [phoneItem] });
+    const tbPkg = packageVoiceMemos({ deviceId: 'thingsbook', items: [thingsBookItem] });
+
+    const mergeOrder1 = mergeVoicePackages(mergeVoicePackages(pcPkg, phonePkg), tbPkg);
+    const mergeOrder2 = mergeVoicePackages(mergeVoicePackages(tbPkg, pcPkg), phonePkg);
+    const mergeOrder3 = mergeVoicePackages(mergeVoicePackages(phonePkg, tbPkg), pcPkg);
+
+    assert.deepStrictEqual(mergeOrder1.items, mergeOrder2.items);
+    assert.deepStrictEqual(mergeOrder2.items, mergeOrder3.items);
+    assert.strictEqual(mergeOrder1.items.length, 2);
+    assert.strictEqual(mergeOrder1.items[0].id, 'note-shared');
+    assert.strictEqual(mergeOrder1.items[0].transcript, 'Updated on Phone');
+    assert.strictEqual(mergeOrder1.items[1].id, 'note-unique-tb');
+  });
+
+  it('enforces string length boundaries on transcripts and summaries', () => {
+    const overlongTranscript = 'A'.repeat(60000);
+    const item = createVoiceItem({
+      id: 'bound-1',
+      timestamp: 1000,
+      durationMs: 100,
+      transcript: overlongTranscript,
+    });
+    assert.ok(item.transcript.length <= 50000, 'Transcript capped at 50,000 characters');
+
+    const overlongSummary = 'S'.repeat(6000);
+    const briefing = {
+      id: 'b-overlong',
+      date: '2026-11-18',
+      summary: overlongSummary,
+      chunks: [],
+      generatedAt: 1000,
+    };
+    assert.strictEqual(validateVoiceBriefing(briefing), false, 'Briefing exceeding 5,000 chars is invalid');
+  });
+
+  it('asserts architectural isolation: zero dependency on ThingsBook _core internal crate', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const thingsBookSourcePath = path.resolve('windows/src/workspace/jarvis/thingsbook-voice.ts');
+    const content = await fs.readFile(thingsBookSourcePath, 'utf8');
+
+    assert.strictEqual(content.includes('_core'), false, 'Source must not reference _core');
+    assert.strictEqual(content.includes('thingsbook_core'), false, 'Source must not reference thingsbook_core');
   });
 });
