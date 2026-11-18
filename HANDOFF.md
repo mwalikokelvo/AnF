@@ -6,6 +6,10 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo H.6 summary card (Antigravity)
+
+Added summary card under the pill for longer answers and background searches with 3-line clamp, click-to-expand full text, close button, and browser tests; left: H.4 (approval card).
+
 ## 2026-11-17 — Kevo H.5 drop files on the pill (Antigravity)
 
 Added HTML5 file drop handling on the pill via `onDragDrop` bridge (Markdown/txt to vault, EPUB to book import, audio to transcription, refusal "I can't take that file yet" for unsupported types, 200 MB limit check without ingesting), and browser tests; left: H.4 (approval card).

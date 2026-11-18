@@ -15,6 +15,7 @@ export interface KevoStateEvent {
   line?: string;
   badge?: string;
   level?: number;
+  summary?: string;
 }
 
 export interface KevoFloatOptions {
@@ -33,8 +34,12 @@ export interface KevoFloatView {
   linePrevEl: HTMLElement;
   lineCurrEl: HTMLElement;
   badgeEl: HTMLElement;
+  summaryCard: HTMLElement;
+  summaryTextEl: HTMLElement;
+  summaryCloseBtn: HTMLElement;
   applyState: (event: KevoStateEvent) => void;
   showMessage: (msg: string) => void;
+  setSummary: (text: string | null) => void;
   getState: () => KevoHudState;
   isExpanded: () => boolean;
   setHover: (hovering: boolean) => void;
@@ -128,8 +133,44 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
   telemetryContent.append(linesEl, badgeRow);
   telemetryBody.append(avatar, telemetryContent);
 
+  // ── Summary card (State 2 / H.6)
+  const summaryCard = document.createElement('div');
+  summaryCard.className = 'summary-card';
+  summaryCard.setAttribute('data-expanded', 'false');
+  summaryCard.style.display = 'none';
+
+  const summaryBody = document.createElement('div');
+  summaryBody.className = 'summary-body';
+
+  const summaryTextEl = document.createElement('p');
+  summaryTextEl.className = 'summary-text';
+
+  summaryBody.appendChild(summaryTextEl);
+
+  const summaryActions = document.createElement('div');
+  summaryActions.className = 'summary-actions';
+
+  const summaryCloseBtn = document.createElement('button');
+  summaryCloseBtn.className = 'summary-close-btn';
+  summaryCloseBtn.setAttribute('aria-label', 'Close');
+  summaryCloseBtn.textContent = '✕';
+
+  summaryActions.appendChild(summaryCloseBtn);
+  summaryCard.append(summaryBody, summaryActions);
+
+  summaryTextEl.addEventListener('click', () => {
+    summaryCard.setAttribute('data-expanded', 'true');
+  });
+
+  summaryCloseBtn.addEventListener('click', (e) => {
+    if (e && typeof (e as { stopPropagation?: () => void }).stopPropagation === 'function') {
+      (e as { stopPropagation: () => void }).stopPropagation();
+    }
+    setSummary(null);
+  });
+
   pill.append(micro, telemetryBody);
-  root.append(pill);
+  root.append(pill, summaryCard);
 
   function clearFoldTimer(): void {
     if (foldTimer !== null) {
@@ -214,7 +255,24 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
       pulse.style.opacity = '0';
     }
 
+    // Update summary text if present
+    if (typeof event.summary === 'string') {
+      setSummary(event.summary);
+    }
+
     evaluateExpansion();
+  }
+
+  function setSummary(text: string | null): void {
+    if (!text || !text.trim()) {
+      summaryCard.style.display = 'none';
+      summaryCard.setAttribute('data-expanded', 'false');
+      summaryTextEl.textContent = '';
+      return;
+    }
+    summaryTextEl.textContent = text.trim();
+    summaryCard.setAttribute('data-expanded', 'false');
+    summaryCard.style.display = 'flex';
   }
 
   function showMessage(msg: string): void {
@@ -228,6 +286,7 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
   function destroy(): void {
     clearFoldTimer();
     pill.remove();
+    summaryCard.remove();
   }
 
   return {
@@ -241,8 +300,12 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
     linePrevEl,
     lineCurrEl,
     badgeEl,
+    summaryCard,
+    summaryTextEl,
+    summaryCloseBtn,
     applyState,
     showMessage,
+    setSummary,
     getState: () => currentState,
     isExpanded: () => expanded,
     setHover,
