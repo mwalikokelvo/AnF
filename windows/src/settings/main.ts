@@ -476,6 +476,10 @@ function generalSection(): HTMLElement {
       h("label", { text: "Launch at startup" }),
       toggle(settings.autostart, (v) => { settings.autostart = v; void save(); }),
     ),
+    h("div", { class: "row" },
+      h("label", { text: "Run Kevo test builds and Kevo's self-test automatically" }),
+      toggle(settings.kevoAutoTest, (v) => { settings.kevoAutoTest = v; void save(); }),
+    ),
   );
 }
 

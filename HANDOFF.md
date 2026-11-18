@@ -27,6 +27,81 @@ Phase 1 Step 1.3 (`docs/kevo-briefs/phase-1.md`, "1.3 Listening pipeline"):
   - TypeScript: `windows/tests/kevo-ears-listener.test.ts` (9 tests covering instantiation, keepAwake, addStateListener, setMuted, kevo-ears-wake, kevo-ears-final settle, interim promotion, wake word requirement, and muted behavior).
 - Passed all checks: `npx tsc --noEmit`, full `npm test` (628 tests pass across 85 suites), `npm run build`, `cargo check --lib`, `cargo test --lib`, `cargo clippy --lib --tests` (0 warnings in kevo_ears.rs), `check-release.mjs` (12 pass), `verify-contracts.mjs`, `check-styles.mjs`.
 
+## 2026-11-18 — Kevo H.8: self-test on the PC (Antigravity)
+
+Issue #173 (`docs/kevo-briefs/hud.md`, "H.8 Self-test on the PC"):
+- Implemented `runHudSelfTestChecks` in `windows/src/workspace/jarvis/kevo-selftest.ts` to execute and record the HUD track "Done when" metrics:
+  1. `stateChangeDelayMs`: Float follows state changes within 100 ms (measured via `Bridge.kevoHudSet` or injected listener).
+  2. `idleCpuPercent60s`: Float window 60s idle CPU usage (0.0%).
+  3. `approvalClickMs`: Pending approval answered by click via `Bridge.kevoHudAnswer`.
+  4. `approvalVoiceYesMs`: Pending approval answered by spoken "yes" while card is open.
+  5. `approvalVoiceCancelMs`: Pending approval answered by spoken "cancel" while card is open.
+  6. `droppedFileSearchRank`: Dropped Markdown file indexed and found by vault search afterwards.
+- Added `hudChecks` (`HudSelfTestNumbers`) to `KevoSelfTestReport`: outputs all metrics into `selftest-<version>.json` as numbers only.
+- Added `kevoHudSet` and `kevoHudAnswer` to `Bridge` in `windows/src/core/bridge.ts`.
+- Automated tests in `windows/tests/kevo-selftest.test.ts` (Phase 0 and HUD checks pass; fields validated as numbers only).
+- Passed all checks: `tsc --noEmit`, full `npm test` (653 tests pass across 92 suites), `npm run build`, `cargo test --locked --lib kevo_` (17 tests pass), `check-release.mjs`, `verify-contracts.mjs`, `check-styles.mjs`.
+
+## 2026-11-18 — Kevo 0.5: five Phase 0 checks as self-test scripts (Antigravity)
+
+Issue #153 (`docs/kevo-briefs/phase-0.md`, "0.5 The five Phase 0 checks, as self-test scripts"):
+- Implemented `runFivePhase0Checks` in `windows/src/workspace/jarvis/kevo-selftest.ts` to execute all five Phase 0 checks programmatically:
+  1. Several in a row: "Kevo, what time is it?", then within follow-up window "What can you do?", then "Set a timer for ten seconds" — verifies 3 answers, the right actions (`tell_time`, `help`, `timer_set`), no self-trigger.
+  2. Open an app: "Kevo, open Brave browser" — verifies `open_app` for Brave in dry-run mode.
+  3. Timer: 10s timer announcement fires at 10s (±2s) with `Your 10 seconds timer is done`.
+  4. Typed request: typed "What can you do?" with microphone off — returns the help answer.
+  5. Stop: "Kevo, tell me about black holes" with Stop invoked during reply — verifies speech terminates within 0.5s and no further speech occurs.
+- Integrated into `runKevoSelfTest`: results are populated under `phase0Checks` in `KevoSelfTestReport` and saved to `~/AnF-Kevo/selftest-<version>.json`.
+- Tested in `windows/tests/kevo-selftest.test.ts` (Phase 0 checks independently and full self-test suite pass).
+- Passed all checks: `tsc --noEmit`, full `npm test` (627 tests pass), `npm run build`, `cargo test --locked --lib kevo_autotest` (2 tests pass), `check-release.mjs`, `verify-contracts.mjs`, `check-styles.mjs`.
+
+## 2026-11-18 — Kevo 0.4b: automatic test builds and self-test (Antigravity)
+
+Issue #152 (`docs/kevo-briefs/phase-0.md`, "0.4 Automatic test builds and the self-test"):
+- Setting "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings, off by default (`kevoAutoTest: boolean`).
+- Background auto-test loop checks GitHub Releases every 2 hours and at startup for `kevo-test-v*` prereleases newer than last tested.
+- Validates commit is on `main` via GitHub compare API, asset uploader is `github-actions[bot]`, and checks SHA-256 hash.
+- Extracts zip to `~/AnF-Kevo/builds/<version>/` (keeping newest 2), records version in `~/AnF-Kevo/last-tested.json`.
+- Launches detached helper that waits for AnF and `llama-server` to exit, starts test build with `--kevo-selftest`, and restarts installed AnF afterwards. If test build cannot start, writes `selftest-<version>.json` with `{"result": "could_not_start"}`.
+- Under `--kevo-selftest`, local models are mounted read-only from installed AnF `local-ai`, and autotest polling is disabled.
+- Implemented `runKevoSelfTest` in `src/workspace/jarvis/kevo-selftest.ts` and "Run self-test" button on Kevo voice bar: evaluates request clips with timings and dry-run actions, records wake/lookalike clips as counts only (no heard text), queries system stats and graphics card, sanitizes home paths to `~`, and writes `~/AnF-Kevo/selftest-<version>.json`.
+- Automated test: `windows/tests/kevo-selftest.test.ts` (3 tests pass), `cargo test --locked --lib kevo_autotest` (2 tests pass).
+
+## 2026-11-17 — Kevo 0.2 fix 4: follow-up questions expire (#160) (Antigravity)
+
+Issue #160. Added expiration tracking for follow-up state (`lastAction`, `lastSubject`) with injectable clock `context.now` (defaulting to 30 s expiry via `followUpExpiryMs`) in `windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`. Added tests in `windows/tests/jarvis-voice.test.ts` verifying that after 30 s elapsed, "five minutes" routes to AI conversation instead of timer and "open it" fails with `open_unclear`. Checks: npx tsc --noEmit, jarvis-voice.test.ts, kevo-phrases.test.ts, 12 release checks passed. No version bump.
+
+## 2026-11-17 — Kevo 0.2 fix 3: fixed phrase-list entries (#159) (Antigravity)
+
+Issue #159. Added `"fixed": "#155"` marker to repaired phrase-list entries in `windows/tests/kevo-phrases.json`. Updated `windows/tests/kevo-phrases.test.ts` to require 100% pass rate on marked fixed entries while keeping the 90% threshold for general variants and printing any failing fixed entries. Checks: npx tsc --noEmit, kevo-phrases.test.ts, 12 release checks passed. No version bump.
+
+## 2026-11-17 — Kevo 0.2 fix 2: Calvo and Kalvo in listener (#158) (Antigravity)
+
+Issue #158. Added `calvo` and `kalvo` to `JarvisVoiceListener` default `wakeWords` list in `windows/src/workspace/jarvis/voice/jarvis-voice-listener.ts`. Added test in `windows/tests/jarvis-voice.test.ts` driving listener while not awake with "Calvo, what is 12 times 8?" and "Kalvo, what is 12 times 8?" verifying requests come through and unrecognized names are dropped. Checks: npx tsc --noEmit, 620 node tests, vite build, 12 release checks passed. No version bump.
+## 2026-11-17 — Kevo H.4b approval card view (Antigravity)
+
+Added HUD approval card view with Approve and Deny buttons (`kevo-float.css`, `float.ts`), voice approval handling ("yes"/"sure"/"approve" -> true, "cancel"/"no"/"deny" -> false only while a card is open in `jarvis-voice-agent.ts`), wired to Rust command `kevo_hud_answer`, with unit tests in `kevo_approval.rs`, browser fixture tests in `kevo-float.test.ts`, and voice tests in `jarvis-voice.test.ts`. Left: self-test (H.8) and remaining HUD integration.
+
+## 2026-11-17 — Kevo H.6 summary card (Antigravity)
+
+Added summary card under the pill for longer answers and background searches with 3-line clamp, click-to-expand full text, close button, and browser tests; left: H.4 (approval card).
+
+## 2026-11-17 — Kevo H.5 drop files on the pill (Antigravity)
+
+Added HTML5 file drop handling on the pill via `onDragDrop` bridge (Markdown/txt to vault, EPUB to book import, audio to transcription, refusal "I can't take that file yet" for unsupported types, 200 MB limit check without ingesting), and browser tests; left: H.4 (approval card).
+
+## 2026-11-17 — Kevo H.3 telemetry pill (Antigravity)
+
+Added State 2 (420x110 px) telemetry pill with avatar orb, two-line text (newest at bottom, ellipsis), badge, grow on wake/action/hover, fold after 4 s of quiet (1 timer during transition, 0 once folded), Rust `kevo_float_resize` command, and browser tests; left: H.4 (approval card).
+
+## 2026-11-17 — Kevo H.2 micro-pill window (Antigravity)
+
+Added kevo-float window (48x28 non-activating, no taskbar, always on top), dragging capability, view driven purely by kevo://state events with 0 timers/polling, and browser tests; left: H.3 (telemetry pill) and H.4 (approval card).
+
+## 2026-11-17 — Kevo 0.2 fix 2: Calvo and Kalvo in listener (#158) (Antigravity)
+
+Issue #158. Added `calvo` and `kalvo` to `JarvisVoiceListener` default `wakeWords` list in `windows/src/workspace/jarvis/voice/jarvis-voice-listener.ts`. Added test in `windows/tests/jarvis-voice.test.ts` driving listener while not awake with "Calvo, what is 12 times 8?" and "Kalvo, what is 12 times 8?" verifying requests come through and unrecognized names are dropped. Checks: npx tsc --noEmit, 620 node tests, vite build, 12 release checks passed. No version bump.
+
 ## 2026-11-17 — Kevo 0.2 phrase list (Claude)
 
 Issue #149. `windows/tests/kevo-phrases.json` holds 136 requests: 23 in the owner's exact words from sessions 1-3 (5, 7 and 11, taken from `kevo-phase0-session2/3.test.ts` and the session 1 cases in `jarvis-overnight-pipeline.test.ts`) and 113 variants (polite lead-ins, chains with "and", follow-ups, misheard "Kevo", questions about Kevo, timers, YouTube, voices, microphone, the five Phase 0 check requests). Entries are `{ say, expect, source }`; follow-ups add an optional `before` list of what was said just before. `windows/tests/kevo-phrases.test.ts` runs each through a fresh `JarvisVoiceAgent` with fake actions (two app names are "not installed" so the not-found follow-up can be tried), prints the pass rate per source, and needs 100% on owner phrases and 90% on variants.
@@ -752,7 +827,6 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - New `Rust core` workflow: `cargo fmt --check`, `clippy -D warnings`, tests for `crates/anf-vault` (formatted once; no logic change).
 - Checks: `check-release.mjs` 12 pass, contracts and styles pass, `tsc`, `npm test` 619 pass, `anf-vault` clippy/tests pass. No app code changed.
 
-
 ## 2026-11-17: vault search speed gate and fix (Claude)
 - New test `vault::tests::fts5_search_p95_under_50ms`: 2,000 encrypted projects (~2 KB each), five queries, 100 timed runs, p95 must stay under 50 ms (the handoff's budget). It runs in the existing Linux `cargo test --workspace` step.
 - It found a real slowdown: a search matching every project took ~300 ms (p95 503 ms) because SQLite built a snippet for every match. Search now returns the 100 best matches (snippets only for those) and reads the name from the search index instead of parsing each project's JSON. SQLite/SQLCipher is also compiled optimised in debug/test builds (`[profile.dev.package.libsqlite3-sys] opt-level = 3`) so the test measures what users get. After Codex's review: the timed loop opens and unlocks the vault for every search, as `list` does (`open_at`, split out of `open`); ties at the 100-match cut keep the most recently saved (search-index rowid, since every save re-inserts the row; test `fts5_search_keeps_newest_of_equal_matches`); release builds also compile SQLite at opt-level 3. Now p95 38 ms on the Linux container. Empty search (the full list) is unchanged.
@@ -769,3 +843,45 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - Prepared early on the owner's direction of 18 Nov 2026; draft until Phase 0 passes on the PC. Stacked on `claude/kevo-1.1`.
 - `src/kevo_ears.rs`: seven pinned files (huggingface.co URLs at fixed commits, exact size, SHA-256): Silero VAD v4.0 (MIT); the KWS model `sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01` int8 encoder/joiner + decoder (Apache-2.0; byte-identical to k2-fsa's official release archive, served from a third-party Hub mirror because k2-fsa only publishes it on GitHub releases and ModelScope); the streaming transcriber `sherpa-onnx-streaming-zipformer-en-2023-06-26` int8 encoder/joiner + decoder (Apache-2.0, LibriSpeech). 81.3 MB in all, never in the installer. `install(dir, …)` fetches each through `model_download::download` (checked, resumable); `voice_activity_detector`, `keyword_spotter` ("KEVO", "HEY KEVO" in the model's BPE pieces, sherpa defaults until 1.4) and `recognizer` build the sherpa objects. The two 5 KB `tokens.txt` files are compiled in from `resources/kevo-ears/` because the checked download refuses `text/*` responses. The module is still compiled only for tests until 1.3 calls it (where the models go on the PC is decided there).
 - Tested: Linux container, automated tests with `--features kevo-ears`: 158 pass (3 Kevo ears tests: pins, VAD, KWS + transcription load and run; "what time is it" transcribed). Untuned KWS woke on 5 of 20 wake clips; tuning is step 1.4. Models were placed by hand in the test folder here (the app's no-proxy download cannot connect from this container) and then hash-checked by the test; CI downloads them.
+
+## 2026-11-17: Kevo 0.2 fix 1, four phrase-list variants (Claude autopilot)
+- `jarvis-voice-agent.ts`, smallest changes for the four variants #155 lists: "skip this/the/that song" (and track) is `next_track`; "tell me the time" is `tell_time`; a duration of up to four words right after "For how long?" (`timer_unclear`) sets the timer; a misheard name with an "l" ("Calvo,", "Hey Kalvo") is stripped like "Kevo" (still only with a greeting or a comma after it).
+- Phrase list now 100% on owner phrases and 113/113 variants.
+- Checks: `npx tsc --noEmit`, `npm test` 619 pass, `npm run build`, `check-release.mjs` 12 pass. No Rust changed. No version bump (done at merge).
+- Codex review of e9ff702, three findings fixed with phrase-list entries (red before, green after): "tell me the time" only counts when the request ends there ("tell me the time complexity of quicksort" goes to the AI); "can you not skip this song" and "don't skip that track" no longer skip; "say that again" keeps the previous action, so "five minutes" after a repeated "For how long?" still sets the timer. Variants 117/117.
+- Fourth finding (the wake-word listener's alias list lacks "calvo"/"kalvo", so outside the follow-up window the microphone path drops them) is real but in `jarvis-voice-listener.ts`, which #155 does not name: split into its own issue.
+- Codex review of 466cf08, seven findings. Five fixed in `jarvis-voice-agent.ts`, each with a phrase-list entry (all six new entries red before, green after; variants 123/123): "don't tell me the time" is not a clock request; "not five minutes" does not answer "For how long?"; "Should I skip this song?" and "What happens if I skip this track?" go to the AI; "say that again" keeps only a pending "For how long?", so "Do you know any jokes?" after a repeated voice change no longer changes the voice; the misheard name is only "Calvo"/"Kalvo" ("Calves, time" keeps its first word).
+- Two split into issues because they need test files #155 does not name: fixed entries are not binding while variants only need 90% (#159), and follow-up state has no time limit (#160).
+- Codex review of b19721e, one finding fixed: "Calvo" or "Hey Calvo" on its own (typed, or a follow-up already awake) was ignored or sent to the AI, because the greeting matchers did not know the "l" spelling. Both greeting matchers now accept "Calvo"/"Kalvo". Three phrase-list entries ("Calvo", "Hey Calvo", "Calvo.") red before, green after; variants 126/126. Checks: `npx tsc --noEmit`, `npm test` 619 pass, `npm run build`, `check-release.mjs` 12 pass. No Rust changed.
+- Version 0.1.58 added at merge time. Codex review of 3b2e46f, one finding fixed: right after "For how long?", a short command holding a duration ("play five minutes") set a timer instead of running. The follow-up now accepts only a length with filler words ("um", "for", "make it", "please"). New entries "play five minutes" (red before, green after), "For five minutes please" and "Um, ten minutes."; variants 129/129. Checks: `npx tsc --noEmit`, `npm test` 619 pass, `npm run build`, `check-release.mjs` 12 pass. No Rust changed.
+- Later rounds (5945796 to d9d5615, Codex and Cursor Bugbot): skip and the clock need a request shape; the last deciding clause wins; quotation and yes/no question leads go to the AI; polite tails, "put on", "give me", "advance", "skip ahead" and timer answers such as "is fine" are handled. Variants 185/185, owner phrases 100%. Final head checks: `npx tsc --noEmit`, `npm test` 619 pass, `npm run build`, `check-release.mjs` 12 pass. No Rust changed.
+- Stopped here on the owner's direction (18 Nov 2026): Phase 2 replaces this pattern matching with the local model choosing from one action list, so the four findings on d9d5615 (quotation leads with "are/is/was", incidental negation after an accepted skip, "skip this song and tell me the time" not split, and yes/no quotation questions) are recorded as Phase 2 phrase-list cases in #175 instead of another fix round.
+
+## 2026-11-18: Kevo 0.1, Kevo's log (Claude)
+
+- New Tauri commands in `windows/src-tauri/src/log.rs`: `kevo_log_append` writes one JSON line per event to `kevo/kevo-log.jsonl` in AnF's data folder (`%LOCALAPPDATA%\Coucou`, `~/.local/share/coucou`), cut back to the newest 2,000 lines once it passes 3,000; `kevo_log_save` copies it to Downloads as `kevo-log-<version>.jsonl`; `kevo_log_open_folder` opens the folder. Nothing sends it anywhere.
+- `windows/src/workspace/jarvis/kevo-log.ts`: fire-and-forget writer; a failed write never reaches Kevo.
+- `JarvisVoiceListener` gains `onIgnored(text, reason)` (`no_wake_word`, `window_closed` = within 10 s after the follow-up window closed, `muted`) and passes the recogniser's error code to `onError`. `handleCommand` in `jarvis-command-desk.ts` reports `own_voice`.
+- Events: `mic` (on/off), `recognition_error` (code, message), `wake`, `ignored` (text, reason), `request` (text, typed, actionName, reply, ms from heard to first word spoken; a timer set is actionName `timer_set`), `timer_fired`, `stop`. "Save log" and "Open log folder" buttons in the voice bar (existing `jarvis-btn` style).
+- Tested: automated tests (`tests/kevo-log.test.ts`: answered request and ignored phrases each write one line, through the real command desk with a stand-in DOM; Rust `log::tests` for appending and trimming), compiled on Linux. Not run on the PC with a real microphone.
+## 2026-11-18: Kevo 0.3, test builds (Claude autopilot)
+
+Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.yml` now also runs on pushes to `main`, keeps the setup and portable uploads on those pushes, and gives every push to `main` its own concurrency group, so back-to-back merges each build. Code signing runs only on `windows-v*` tags and manual runs from `main`, so a push to `main` never gets the signing secrets. A new `kevo-test` job (push to `main` only, `contents: write` for that job only, one at a time) publishes prerelease `kevo-test-v<version>` at the merge commit when that merge changed the version and the release does not exist yet, with `AnF-Windows-<version>-kevo-test.zip` (the portable folder without `local-ai/model.gguf` and `model-fast.gguf`) and its `.sha256`. `PUBLISH` stays `'false'`; `updates.rs` and its prerelease test are unchanged. Tested: workflow YAML parses; type check, node tests, vite build and release checks pass. The publish job itself first runs on the merge into `main`.
+
+## 2026-11-18: Kevo music volume and weather (Grok's branches, finished by Claude)
+- Owner said (18 Nov) to approve and merge Grok's good branches. Taken from `grok/kevo-volume-control` (cd7b124) and `grok/weather-capability` (c6aa99e), both kept as Grok's commits.
+- Volume: "turn it up", "volume down a bit", "louder", "mute", "unmute", "set the volume to 40". Matched only as a whole request, so "commute" and "mute my microphone" no longer mute the music (Grok's version matched inside words). Wired to a new `musicHub.changeVolume` that moves the slider, label and Mute button and saves, like the +/- keys.
+- Weather: "what's the weather in Nairobi", "how's the weather today". Open-Meteo (free, no key), called only when asked. Grok's version was never wired into the app, was blocked by the CSP, defaulted to Berlin and gave Berlin's weather when a place was not found. Now: wired in `main.ts`, `geocoding-api.open-meteo.com` and `api.open-meteo.com` added to `connect-src`, no place named uses the last place asked (kept on the device) or asks "Which city?" and takes the answer, an unknown place is said so, Fahrenheit and mph for US English. "Open Weather" still opens the Weather app.
+- After a fresh-subagent review: volume and weather also work when said politely ("can you turn the volume up", "turn it up please"); weather only when the weather itself is the request, so "what is the difference between weather and climate" still goes to the AI; after "Which city?" only a place name is taken; "tomorrow" gives tomorrow's forecast; a month or "next week" goes to the AI; 8 s timeout and a plain message when the service cannot be reached. Volume changes Music Hub only, not the desktop Spotube player; raising or setting the volume unmutes, as other players do.
+- After the Codex review: weather is off until the owner says "turn on weather" ("turn off weather" stops it), because it sends the city to Open-Meteo and AGENTS.md allows network calls only to services the owner turned on; until then Kevo says so and sends nothing. Remembered in localStorage `anf-kevo-weather-on`. Chains split before volume and weather ("play music and turn it up", "weather in London and turn it down").
+- Checks: `tsc`, `npm test` 636 pass (17 new), `check-release.mjs` 12 pass, `npm run build`. No Rust code changed. Not tried on the PC with a microphone. No version bump: left to the next Kevo autopilot merge (#174 is in flight).
+
+## 2026-11-18: Kevo H.1, state bus (Claude)
+- New `windows/src-tauri/src/kevo_hud.rs`: `KevoHudState { Off, Idle, Listening, Thinking, Speaking, Alert, Sleeping }` and one event `kevo://state` with `{state, line, badge, level}`. The logic is a pure `HudBus` that takes the time as an argument: it returns an event only when something changed, keeps `level` at 0 unless speaking (clamped to 0–1, NaN ignored), and lets a loudness-only change out at most once per 50 ms (20/s); any other change goes out at once.
+- Command `kevo_hud_set(state, line?, level?)`, called from the desk's `refresh` (the place that computes `kevoState()`) through `kevoHudReporter` in `jarvis-hud.ts`, which sends each change once and never a repeat. `kevo_ask` sets `badge` to "Local model · N.N s" from its own timing when an answer completes. The web view sends only `state` today; `line` and `level` have no sender yet (H.3 / Phase 1). No polling, no timers.
+- Tests: Rust unit tests `kevo_hud::tests` (change-only emission, loudness only while speaking, 20/s cap over 1,000 updates in 1 s with injected time); Node test in `tests/jarvis-hud.test.ts` that a sequence of `kevoState()` results with repeats calls `kevo_hud_set` exactly once per change. Automated tests and compiled on Linux only; nothing listens to `kevo://state` until H.2.
+
+## 2026-11-18: Kevo H.4a, approval requests in Rust (Claude)
+- New `windows/src-tauri/src/kevo_approval.rs`: `Approvals` keeps the pending request. `kevo_approval::ask(app, action, summary)` emits `kevo://approve` `{id, action, summary}` and waits for `kevo_hud_answer(id, approved)`. No answer in 60 s (counted from when the card is shown, not while queued) means deny; one request at a time, a second waits for the first; an unknown, already answered or timed-out id is refused with an error.
+- No Kevo action uses the gate yet (Phase 5 and later must). The module is `pub mod` in `lib.rs` so the uncalled `ask` is public API, not dead code. Dev-dependency `tokio` feature `test-util` (paused test clock; pure Rust, `Cargo.lock` unchanged).
+- Tests: `kevo_approval::tests` (timeout-is-deny at exactly 60 s and still waiting at 59.9 s, one-at-a-time, unknown id), all on tokio's paused clock, no real waiting. Automated tests and compiled on Linux only. Open point for H.4b: there is no "request closed" event, so a card whose request timed out learns it from the refused answer.

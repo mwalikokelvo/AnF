@@ -99,6 +99,7 @@ export interface Settings {
   browserProvider: "claude" | "openai" | "gemini" | "notebook";
   localFallback: boolean;
   kevoHearing: "pc" | "browser";
+  kevoAutoTest: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -120,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   browserProvider: "claude",
   localFallback: true,
   kevoHearing: "pc",
+  kevoAutoTest: false,
 };
 
 type Listener = () => void;

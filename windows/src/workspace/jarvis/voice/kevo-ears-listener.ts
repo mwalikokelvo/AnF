@@ -27,10 +27,10 @@ export class KevoEarsListener {
   private wakeWords: string[];
   private onListeningStateChange?: (listening: boolean) => void;
   private stateListeners: ((listening: boolean) => void)[] = [];
-  private onInterimSpeech?: (transcript: string) => void;
-  private onFinalSpeech?: (transcript: string) => void;
-  private onWakeWord?: (wakeWord: string) => void;
-  private onError?: (err: string) => void;
+  public onInterimSpeech?: (transcript: string) => void;
+  public onFinalSpeech?: (transcript: string) => void;
+  public onWakeWord?: (wakeWord: string) => void;
+  public onError?: (err: string) => void;
   private requireWakeWord: boolean;
   private followUpMs: number;
   private awakeUntil = 0;
