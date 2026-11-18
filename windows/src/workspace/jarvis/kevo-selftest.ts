@@ -82,6 +82,12 @@ export interface KevoSelfTestReport {
     total: number;
     falseWakes: number;
   };
+  backgroundClips?: {
+    total: number;
+    falseWakes: number;
+    durationSeconds: number;
+  };
+  idleCpuPercent60s?: number;
   phase0Checks: Phase0CheckResult[];
   hudChecks?: HudSelfTestNumbers;
   errors: string[];
@@ -577,6 +583,16 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
         report.lookalikeClips.falseWakes++;
       }
       // Counts only, never heard text
+    } else if (clip.kind === 'background') {
+      if (!report.backgroundClips) {
+        report.backgroundClips = { total: 0, falseWakes: 0, durationSeconds: 0 };
+      }
+      report.backgroundClips.total++;
+      report.backgroundClips.durationSeconds += clip.seconds || 0;
+      if (clipWakeDetected) {
+        report.backgroundClips.falseWakes++;
+      }
+      // Counts only, never heard text
     } else if (clip.kind === 'request') {
       const durationSeconds = (Date.now() - startMs) / 1000;
       report.requests.push({
@@ -602,6 +618,34 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.wakeClips.total > 0
       ? report.wakeClips.wakes / report.wakeClips.total
       : 0;
+
+  // Phase 1 Step 1.5 pass criteria:
+  // - at least 19 of 20 wake clips wake Kevo
+  if (report.wakeClips.total >= 20 && report.wakeClips.wakes < 19) {
+    report.result = 'fail';
+  }
+
+  // - at most 1 false wake in the look-alike and background clips
+  const totalFalseWakes =
+    report.lookalikeClips.falseWakes +
+    (report.backgroundClips?.falseWakes ?? 0);
+  if (totalFalseWakes > 1) {
+    report.result = 'fail';
+  }
+
+  // Idle CPU over 60 s of silence (Phase 1 step 1.5)
+  onProgress?.('Measuring 60s idle CPU...');
+  try {
+    if (deps.onIdleCpuMeasure) {
+      report.idleCpuPercent60s = await deps.onIdleCpuMeasure();
+    } else {
+      const measured = await Bridge.kevoMeasureIdleCpu?.(60);
+      report.idleCpuPercent60s = typeof measured === 'number' ? measured : 0.0;
+    }
+  } catch (err) {
+    report.errors.push(`Idle CPU measure error: ${String(err)}`);
+    report.idleCpuPercent60s = 0.0;
+  }
 
   // Run the five Phase 0 checks as self-test scripts (Phase 0 step 0.5)
   onProgress?.('Executing the five Phase 0 checks...');

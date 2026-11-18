@@ -568,6 +568,7 @@ pub fn run() {
             kevo_autotest::kevo_selftest_read_clip,
             kevo_autotest::kevo_selftest_save_result,
             kevo_autotest::kevo_graphics_card,
+            kevo_autotest::kevo_measure_idle_cpu,
             kevo_autotest::kevo_autotest_check_now,
         ])
         .setup(move |app| {

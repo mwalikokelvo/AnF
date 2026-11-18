@@ -198,6 +198,25 @@ pub fn kevo_graphics_card() -> Result<String, String> {
     Ok("Standard Graphics Adapter".into())
 }
 
+/// Measures average host CPU usage percentage over `seconds` of idle time (default 60s).
+#[tauri::command]
+pub async fn kevo_measure_idle_cpu(seconds: Option<u64>) -> Result<f32, String> {
+    let secs = seconds.unwrap_or(60).max(1);
+    let mut system = sysinfo::System::new_all();
+    system.refresh_cpu_all();
+    let sample_interval = std::time::Duration::from_millis(500);
+    let total_samples = (secs * 2).max(1);
+    let mut sum_cpu = 0.0;
+
+    for _ in 0..total_samples {
+        tokio::time::sleep(sample_interval).await;
+        system.refresh_cpu_all();
+        sum_cpu += system.global_cpu_usage();
+    }
+
+    Ok(sum_cpu / total_samples as f32)
+}
+
 /// Checks GitHub releases API, verifies the prerelease, downloads, extracts, and runs the test build.
 pub async fn check_and_run_test_build(app: &AppHandle) -> Result<Option<String>, String> {
     let client = reqwest::Client::builder()

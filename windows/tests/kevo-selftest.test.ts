@@ -167,6 +167,10 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(parsedSaved.result, 'pass');
     assert.strictEqual(parsedSaved.phase0Checks.length, 5);
 
+    // Phase 1 step 1.5 idle CPU reported
+    assert.strictEqual(typeof report.idleCpuPercent60s, 'number');
+    assert.strictEqual(typeof parsedSaved.idleCpuPercent60s, 'number');
+
     // HUD track checks executed (H.8)
     assert.ok(report.hudChecks);
     assert.strictEqual(typeof report.hudChecks.stateChangeDelayMs, 'number');
@@ -273,5 +277,137 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     for (const [key, value] of Object.entries(hudResults)) {
       assert.strictEqual(typeof value, 'number', `Field ${key} must be a number`);
     }
+  });
+
+  it('enforces Phase 1 Step 1.5 wake rate (>=19/20) and false-wake (<=1) thresholds with background speech', async () => {
+    const actionContext = {
+      switchView: () => {},
+      dryRun: true,
+      openApp: async (name: string) => name,
+      announce: () => {},
+    };
+
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    // 20 wake clips, 10 look-alike clips, 1 background clip
+    const clips: any[] = [];
+    for (let i = 1; i <= 20; i++) {
+      clips.push({
+        id: `wake-${i}`,
+        file: `wake-${i}.wav`,
+        kind: 'wake',
+        voice: 'ljspeech',
+        words: 'Hey Kevo',
+        seconds: 1.0,
+        expect: { wake: true },
+      });
+    }
+    for (let i = 1; i <= 10; i++) {
+      clips.push({
+        id: `lookalike-${i}`,
+        file: `lookalike-${i}.wav`,
+        kind: 'lookalike',
+        voice: 'ljspeech',
+        words: 'Cave',
+        seconds: 1.0,
+        expect: { wake: false },
+      });
+    }
+    clips.push({
+      id: 'bg-01',
+      file: 'bg-01.wav',
+      kind: 'background',
+      voice: 'ljspeech',
+      words: 'ambient background text',
+      seconds: 600.0,
+      expect: { wake: false },
+    });
+
+    Bridge.kevoSelftestGetClips = async () => JSON.stringify({ version: 1, clips });
+    Bridge.systemStats = async () => ({ os: 'Windows_NT', cpuCores: 8 });
+    Bridge.kevoGraphicsCard = async () => 'Intel UHD Graphics';
+    Bridge.kevoSelftestSaveResult = async () => '~/AnF-Kevo/selftest-0.1.60.json';
+
+    // Scenario A: 19 wakes out of 20, 1 false wake in look-alike, 0 in background -> PASS
+    let wakeCount = 0;
+    const playClipAudioPass = async (filename: string) => {
+      if (filename.startsWith('wake-')) {
+        wakeCount++;
+        if (wakeCount <= 19) {
+          listener.onWakeWord?.('Hey Kevo');
+        }
+      } else if (filename === 'lookalike-1.wav') {
+        listener.onWakeWord?.('Cave'); // 1 false wake
+      }
+    };
+
+    const passReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio: playClipAudioPass,
+      appVersion: '0.1.60',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.5,
+    });
+
+    assert.strictEqual(passReport.wakeClips.total, 20);
+    assert.strictEqual(passReport.wakeClips.wakes, 19);
+    assert.strictEqual(passReport.wakeClips.rate, 0.95);
+    assert.strictEqual(passReport.lookalikeClips.falseWakes, 1);
+    assert.strictEqual(passReport.backgroundClips?.falseWakes, 0);
+    assert.strictEqual(passReport.backgroundClips?.durationSeconds, 600);
+    assert.strictEqual(passReport.idleCpuPercent60s, 0.5);
+    // Background clips record counts only, never heard text
+    assert.strictEqual((passReport.backgroundClips as any).heard, undefined);
+    assert.strictEqual(passReport.result, 'pass');
+
+    // Scenario B: 18 wakes out of 20 (<19) -> FAIL
+    wakeCount = 0;
+    const playClipAudioLowWake = async (filename: string) => {
+      if (filename.startsWith('wake-')) {
+        wakeCount++;
+        if (wakeCount <= 18) {
+          listener.onWakeWord?.('Hey Kevo');
+        }
+      }
+    };
+
+    const lowWakeReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio: playClipAudioLowWake,
+      appVersion: '0.1.60',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.2,
+    });
+
+    assert.strictEqual(lowWakeReport.wakeClips.wakes, 18);
+    assert.strictEqual(lowWakeReport.result, 'fail');
+
+    // Scenario C: 2 false wakes (>1) -> FAIL
+    wakeCount = 0;
+    const playClipAudioHighFalseWake = async (filename: string) => {
+      if (filename.startsWith('wake-')) {
+        listener.onWakeWord?.('Hey Kevo');
+      } else if (filename === 'lookalike-1.wav' || filename === 'lookalike-2.wav') {
+        listener.onWakeWord?.('False wake');
+      }
+    };
+
+    const highFalseWakeReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio: playClipAudioHighFalseWake,
+      appVersion: '0.1.60',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.1,
+    });
+
+    assert.strictEqual(highFalseWakeReport.lookalikeClips.falseWakes, 2);
+    assert.strictEqual(highFalseWakeReport.result, 'fail');
   });
 });
