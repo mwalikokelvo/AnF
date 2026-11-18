@@ -26,6 +26,7 @@ const NOT_INSTALLED = /^(photoshop|bravo browser|browser)$/i; // the owner's PC 
 function freshAgent(): JarvisVoiceAgent {
   let at = 0;
   const context = {
+    followUpExpiryMs: 600_000,
     switchView: () => {},
     playMusic: () => {},
     pauseMusic: () => {},
