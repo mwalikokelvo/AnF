@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-18T10:27Z
 phase: 0 (all steps merged; waiting for the PC test of kevo-test-v0.1.60). Phase 1 steps 1.1-1.3 also merged early (#180, #182, #195) during the 18 Nov sprint, before the Phase 0 PC pass
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: none of ours. #199 merged 09:11Z. Owner account then merged #200 (1.4), #196 (Grok), #201 (1.5), #202 (1.6) within 15 min, before their checks finished
