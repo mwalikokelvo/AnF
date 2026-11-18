@@ -9,6 +9,14 @@ license = "MIT"
 
 # Release profile shared by the app and the hook relay: the hook must start fast
 # (Claude Code spawns it on every event), so we optimise for size and speed.
+# SQLite/SQLCipher is C code: build it optimised in debug and test builds too, so
+# speed tests (vault search < 50 ms) measure what users get.
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3
+
+[profile.release.package.libsqlite3-sys]
+opt-level = 3
+
 [profile.release]
 opt-level = "s"
 lto = false
