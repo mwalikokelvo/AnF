@@ -36,7 +36,7 @@ Microphone → **Ears** (silence detection, "Kevo" detector, offline transcripti
 | 3. Memory | 0.4.x | Facts and recent requests across restarts; list with delete | `kevo-briefs/phase-3.md` | Recalls after restart, forgets what was deleted |
 | 4. Schedule | 0.4.x | Reminders and a daily briefing that survive a restart | `kevo-briefs/phase-4.md` | Each fires once, on time |
 | 5. Verified actions | 0.4.x | Each action checks its result | `kevo-briefs/phase-5.md` | Never "done" when it failed; reason said |
-| 6. Better answers | 0.5.x | Largest local model the PC runs within 5 s | written when next | First sentence within 5 s; harder questions answered better |
+| 6. Better answers | 0.5.x | Largest local model the PC runs within 5 s | `kevo-briefs/phase-6.md` | First sentence within 5 s; harder questions answered better |
 | 7. Pack voices, real team | 0.6.x | Pack voices if a voice model can ship; team cards real or removed | **owner decides first** | Owner accepts the voice; no made-up numbers |
 | 8. Android, then ThingsBook | 0.7.x | Kevo on the phone; voices in ThingsBook | written when next | Phase 0 checks pass on the phone |
 

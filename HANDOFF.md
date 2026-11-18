@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 5.5: comprehensive action verification test suite - Phase 5 complete).
+Last updated: 2026-11-18 by Antigravity (Kevo Phase 6 brief written: better answers & local model optimization).
+
+## 2026-11-18 — Kevo Phase 6 brief: better answers (Antigravity)
+
+Phase 6 Brief (`docs/kevo-briefs/phase-6.md`):
+- Specified 5-step implementation plan for Phase 6 ("Better answers: largest local model the PC runs within 5 s", version 0.5.x):
+  - 6.1: Hardware-Aware Model Selection & Profile Tiers (dynamic Fast / Balanced / Quality tiering based on RAM and CPU/GPU detection).
+  - 6.2: Streaming Tool Calling & Low-Latency Sentence Chunking (streaming chunks and speculative sentence output even when tool calls are present; zero cold delay).
+  - 6.3: Context Prefill Optimization & Prompt Compaction (pruned history, compact system prompt, prompt prefix cache alignment keeping prefill under 1.5 s).
+  - 6.4: Time-To-First-Sentence (TTFS) Telemetry & HUD Badge (instrumenting and reporting TTFS in Kevo's log and Command Desk).
+  - 6.5: Performance Benchmarking & Reasoning Evaluation Suite (benchmarking diverse complex queries, verifying TTFS <= 5.0 s and answering quality).
+- Linked brief in `docs/KEVO-PLAN.md`.
 
 ## 2026-11-18 — Kevo 5.5: comprehensive action verification test suite (Antigravity)
 
