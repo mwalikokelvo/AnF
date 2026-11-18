@@ -29,9 +29,9 @@
     "@codemirror/language": "^6.13.1",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
-    "@fishaudio/agent-client": "^0.3.0",
+    "@fishaudio/agent-client": "^0.4.1",
     "@lezer/highlight": "^1.2.5",
     "@tauri-apps/api": "^2",
-    "music-metadata": "12.3.5"
+    "music-metadata": "12.5.0"
   }
 }
