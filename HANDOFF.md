@@ -4,7 +4,49 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.4: instant commands stay instant).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.6: model choice and the CI gate).
+
+## 2026-11-18 — Kevo 2.6: model choice and the CI gate (Antigravity)
+
+Phase 2 Step 2.6 (`docs/kevo-briefs/phase-2.md`, "2.6 Model choice and the CI gate"):
+- Model Choice & Pinning:
+  - Model defaults to Qwen3 1.7B (`Qwen3-1.7B-Q8_0.gguf`, pinned in `windows/src-tauri/src/model_download/policy.rs` with sha256 `061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a`).
+  - Verified against state branch (`origin/kevo-autopilot-state`), cleanly defaulting to Qwen3 1.7B.
+- Linux CI Gate Runner (`windows/scripts/kevo-ci-gate.mjs`):
+  - Starts `llama-server` on loopback with `--jinja` and the shipped Q8_0 GGUF model (`local-ai/model-source.gguf`, not the Q4_K_M requantized for Linux).
+  - Healthchecks loopback `/v1/models` endpoint until ready.
+  - Runs the phrase list (`windows/tests/kevo-phrases.json`) through the real `kevo_ask` path.
+  - Added CI step in `.github/workflows/linux.yml`: `Kevo CI gate (phrase list with shipped Q8_0 model)`.
+  - Enforces the 95% pass rate gate, failing the CI job below 95%.
+- Real Tool Calling & Response Parsing:
+  - Exported `parseKevoAskResponse` in `windows/src/workspace/jarvis/voice/kevo-actions.ts`: parses OpenAI `choices[0].message.tool_calls` and inline `<tool_call>` blocks with clean text extraction.
+  - Enhanced `JarvisVoiceAgent` to accept `JarvisAskAiResult = string | { text: string; actionName?: string }`, preserving action names executed by tools.
+  - Wired `windows/src/workspace/main.ts` `askAI` to return tool action names.
+  - Updated `windows/tests/kevo-phrases.test.ts` to support `KEVO_LLAMA_SERVER_URL` and `KEVO_CI_GATE`.
+- Verification:
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - Full test suite: 705/705 tests passed across 101 suites (`npm test` PASS).
+  - Kevo CI gate runner passes with 100.0% phrase rate (`node scripts/kevo-ci-gate.mjs` PASS).
+
+## 2026-11-18 — Kevo 2.5: no cold start (Antigravity)
+
+Phase 2 Step 2.5 (`docs/kevo-briefs/phase-2.md`, "2.5 No cold start"):
+- Model Warmup / Preload:
+  - Added `kevo_preload_model` Tauri command in `windows/src-tauri/src/workspace_commands.rs` (exposed in `lib.rs`).
+  - Preloads the model by invoking `chat.local.start(profile, 8192)` asynchronously in the background so weights and server loopback are warm before first query.
+  - Exposed `Bridge.kevoPreloadModel()` in `windows/src/core/bridge.ts`.
+  - Wired `windows/src/workspace/main.ts` to trigger `Bridge.kevoPreloadModel()` whenever the microphone turns on (and at startup if listening is enabled).
+- Latency Tracking & Self-Test Verification:
+  - Extended `runKevoSelfTest` in `windows/src/workspace/jarvis/kevo-selftest.ts` to track latencies for model-routed queries.
+  - Enforces Phase 2 Step 2.5 criteria:
+    - First model-routed command after fresh start must start reply within <= 5000 ms (`firstModelCommandMs <= 5000`).
+    - Subsequent model-routed commands must start reply within <= 1500 ms (`subsequentModelCommandsMs <= 1500`).
+  - Records latencies into `report.modelCommandLatencies` and fails report if thresholds are exceeded.
+- Verification:
+  - TypeScript unit test suite in `windows/tests/kevo-selftest.test.ts` (6/6 PASS).
+  - Rust tests in `workspace_commands::kevo_tests` (3/3 PASS).
+  - 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS.
 
 ## 2026-11-18 — Kevo 2.4: instant commands stay instant (Antigravity)
 

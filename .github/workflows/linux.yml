@@ -138,6 +138,10 @@ jobs:
           npm ci --prefix ../android
           node ../scripts/check-release.mjs
 
+      - name: Kevo CI gate (phrase list with shipped Q8_0 model)
+        timeout-minutes: 25
+        run: node scripts/kevo-ci-gate.mjs
+
       # linuxdeploy is itself an AppImage; runners have no FUSE, so it unpacks
       # itself instead of mounting.
       - name: Remove completed test outputs and build-only model inputs

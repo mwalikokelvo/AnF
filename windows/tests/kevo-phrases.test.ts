@@ -8,6 +8,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { clearJarvisHistory } from '../src/workspace/jarvis/voice/jarvis-memory';
+import {
+  getOpenAITools,
+  getKevoSystemPrompt,
+  executeKevoToolCalls,
+  parseKevoAskResponse,
+} from '../src/workspace/jarvis/voice/kevo-actions';
 
 type Phrase = { say: string; expect: string; source: 'session 1' | 'session 2' | 'session 3' | 'variant'; before?: string[]; fixed?: string };
 
@@ -19,13 +25,13 @@ const NOT_INSTALLED = /^(photoshop|bravo browser|browser)$/i; // the owner's PC 
 
 function freshAgent(): JarvisVoiceAgent {
   let at = 0;
-  return new JarvisVoiceAgent({
+  const context = {
     switchView: () => {},
     playMusic: () => {},
     pauseMusic: () => {},
     nextTrack: () => {},
     openQuickCapture: () => {},
-    openApp: async (name) => {
+    openApp: async (name: string) => {
       if (NOT_INSTALLED.test(name)) throw new Error(`I could not find an app called ${name} in the Start Menu.`);
       return name;
     },
@@ -34,11 +40,48 @@ function freshAgent(): JarvisVoiceAgent {
     searchMusic: async () => true,
     searchVault: async () => 'Found 1 note.',
     saveQuickNote: async () => {},
-    askAI: async (q) => `An answer to: ${q}`,
+    askAI: async (q: string, options?: any) => {
+      const serverUrl = process.env.KEVO_LLAMA_SERVER_URL;
+      if (!serverUrl) return `An answer to: ${q}`;
+
+      const tools = getOpenAITools();
+      const system = getKevoSystemPrompt();
+      const messages = [
+        { role: 'system', content: system },
+        ...(options?.history ?? []).map((t: any) => ({ role: t.role, content: t.text })),
+        { role: 'user', content: q },
+      ];
+
+      const resp = await fetch(`${serverUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'coucou-local',
+          messages,
+          tools,
+          tool_choice: 'auto',
+          temperature: 0.3,
+          chat_template_kwargs: { enable_thinking: false },
+        }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Offline model error ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const reply = parseKevoAskResponse(data);
+      if (reply.tool_calls && reply.tool_calls.length > 0) {
+        const executed = await executeKevoToolCalls(reply.tool_calls, context, options?.onPart);
+        return { text: executed.speechReply || reply.text || '', actionName: executed.actionName };
+      }
+      return { text: reply.text || '', actionName: 'ai_conversation' };
+    },
     voiceNames: () => VOICES,
-    changeVoice: (name) => (name ? VOICES.find((v) => v.toLowerCase() === name) ?? null : VOICES[(at = (at + 1) % VOICES.length)]),
+    changeVoice: (name?: string) => (name ? VOICES.find((v) => v.toLowerCase() === name) ?? null : VOICES[(at = (at + 1) % VOICES.length)]),
     announce: () => {},
-  });
+  };
+  return new JarvisVoiceAgent(context);
 }
 
 async function actionFor(phrase: Phrase): Promise<string> {
@@ -97,5 +140,15 @@ describe('Kevo phrase list', () => {
     assert.deepEqual(fixedFailures, [], `fixed entries must keep passing (100% required):\n${fixedFailures.join('\n')}`);
     const variants = PHRASES.filter((p) => p.source === 'variant').length;
     assert.ok((variants - failures.variant.length) / variants >= 0.9, `variants below 90%:\n${failures.variant.join('\n')}`);
+
+    const totalCount = PHRASES.length;
+    const totalFailed = Object.values(failures).reduce((sum, f) => sum + f.length, 0);
+    const overallRate = (totalCount - totalFailed) / totalCount;
+    if (process.env.KEVO_CI_GATE) {
+      assert.ok(
+        overallRate >= 0.95,
+        `Overall phrase list pass rate (${(overallRate * 100).toFixed(1)}%) is below the 95% CI gate threshold!`
+      );
+    }
   });
 });
