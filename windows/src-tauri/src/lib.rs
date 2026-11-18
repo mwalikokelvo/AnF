@@ -563,6 +563,7 @@ pub fn run() {
             kevo_system::system_stats,
             kevo_system::diagnostics,
             kevo_system::open_installed_app,
+            kevo_system::kevo_hardware_profile,
             kevo_ears::kevo_ears_start,
             kevo_ears::kevo_ears_stop,
             kevo_ears::kevo_ears_mute,

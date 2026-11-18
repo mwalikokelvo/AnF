@@ -61,11 +61,27 @@ export interface LocalAiAnswer {
   label: string;
 }
 
+export type ModelTier = 'fast' | 'balanced' | 'quality';
+
+export interface EvaluatedHardwareTier {
+  totalRamGb: number;
+  availableRamGb: number;
+  cpuCores: number;
+  recommendedTier: ModelTier;
+  recommendedModelId: string;
+  recommendedThreads: number;
+  avx2Supported: boolean;
+}
+
 export interface LocalAiManager {
   listAvailableProfiles(): ModelWeightProfile[];
   getProfilesByFamily(family: 'deepseek' | 'kimi' | 'qwen'): ModelWeightProfile[];
   getActiveProfile(): ModelWeightProfile;
   setActiveProfile(profileId: string): void;
+  /** Evaluates host hardware capabilities and maps to model tier (Phase 6 Step 6.1). */
+  getHardwareTier(): EvaluatedHardwareTier;
+  /** Switches active profile to match chosen tier. */
+  selectTier(tier: ModelTier): void;
   /**
    * Download and verify a model. Resolves only after Rust verified the SHA-256 and installed the file; rejects with the
    * reason otherwise. `onProgress` gets whole percentages while downloading; `onEvent` gets every phase.
@@ -235,6 +251,51 @@ export function validateHuggingFaceUrl(url: string): boolean {
   }
 }
 
+/** Evaluates raw host hardware metrics and computes the optimal model tier (Phase 6 Step 6.1). */
+export function evaluateHardwareTier(info: {
+  totalRamGb: number;
+  availableRamGb?: number;
+  cpuCores?: number;
+  avx2Supported?: boolean;
+}): EvaluatedHardwareTier {
+  const ram = info.totalRamGb;
+  const avx2 = info.avx2Supported ?? true;
+  let recommendedTier: ModelTier = 'fast';
+  let recommendedModelId = 'qwen3-0.6b-fast';
+
+  if (ram >= 15.5 && avx2) {
+    recommendedTier = 'quality';
+    recommendedModelId = 'qwen3-1.7b-balanced';
+  } else if (ram >= 7.5) {
+    recommendedTier = 'balanced';
+    recommendedModelId = 'qwen3-1.7b-balanced';
+  } else {
+    recommendedTier = 'fast';
+    recommendedModelId = 'qwen3-0.6b-fast';
+  }
+
+  const cores = info.cpuCores ?? 4;
+  const recommendedThreads = Math.max(1, Math.min(cores, 8));
+
+  return {
+    totalRamGb: ram,
+    availableRamGb: info.availableRamGb ?? Math.max(1, Math.round(ram * 0.6)),
+    cpuCores: cores,
+    recommendedTier,
+    recommendedModelId,
+    recommendedThreads,
+    avx2Supported: avx2,
+  };
+}
+
+/** Returns the official recommended profile corresponding to a chosen tier. */
+export function getRecommendedProfileForTier(tier: ModelTier): ModelWeightProfile {
+  if (tier === 'quality' || tier === 'balanced') {
+    return OFFICIAL_PROFILES.find(p => p.id === 'qwen3-1.7b-balanced') || OFFICIAL_PROFILES[0];
+  }
+  return OFFICIAL_PROFILES.find(p => p.id === 'qwen3-0.6b-fast') || OFFICIAL_PROFILES[0];
+}
+
 /**
  * Factory creating LocalAiManager instance
  */
@@ -266,6 +327,15 @@ export function createLocalAiManager(options?: {
       if (exists) {
         activeProfileId = profileId;
       }
+    },
+
+    getHardwareTier(): EvaluatedHardwareTier {
+      return evaluateHardwareTier({ totalRamGb: systemRamGb });
+    },
+
+    selectTier(tier: ModelTier): void {
+      const rec = getRecommendedProfileForTier(tier);
+      activeProfileId = rec.id;
     },
 
     checkSystemMemory() {

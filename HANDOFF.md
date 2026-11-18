@@ -4,7 +4,28 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo Phase 6 brief written: better answers & local model optimization).
+Last updated: 2026-11-18 by Antigravity (Kevo 6.1: hardware-aware model selection & profile tiers).
+
+## 2026-11-18 — Kevo 6.1: hardware-aware model selection & profile tiers (Antigravity)
+
+Phase 6 Step 6.1 (`docs/kevo-briefs/phase-6.md`, "6.1 Hardware-Aware Model Selection & Profile Tiers"):
+- Native Rust Hardware Inspection & Tier Evaluation (`windows/src-tauri/src/kevo_system.rs`, `windows/src-tauri/src/lib.rs`):
+  - Defined `KevoHardwareProfile` struct exposing `total_ram_gb`, `available_ram_gb`, `cpu_cores`, `arch`, `recommended_tier`, `recommended_threads`, and `avx2_supported`.
+  - Implemented `compute_hardware_profile` allocating Fast (< 8 GB RAM), Balanced (8–15.4 GB RAM), or Quality (>= 15.5 GB RAM + AVX2) tiers and clamping thread allocation to `[1, min(cores, 8)]`.
+  - Added and registered `kevo_hardware_profile` Tauri command with native memory and CPU refresh.
+  - Added Rust unit test suite `hardware_profile_tier_allocation` covering RAM thresholds and AVX2 fallback logic.
+- Bridge & Workspace Model Management (`windows/src/core/bridge.ts`, `windows/src/workspace/local-ai-manager.ts`):
+  - Exposed `Bridge.kevoHardwareProfile()`.
+  - Added `ModelTier` (`'fast' | 'balanced' | 'quality'`) and `evaluateHardwareTier(...)`.
+  - Added `getRecommendedProfileForTier(...)` mapping tier requests to pinned downloadable model profiles.
+  - Added `getHardwareTier()` and `selectTier(tier)` methods to `LocalAiManager`.
+- Test Suite (`windows/tests/kevo-hardware-profile.test.ts`):
+  - Added unit test suite covering tier mapping, thread clamping, AVX2 fallback, catalog mapping, and Bridge fallback.
+- Verification:
+  - 5/5 Rust unit tests in `kevo_system` PASS (`cargo test --lib kevo_system`).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 12/12 `check-release.mjs` PASS.
+  - 764/764 tests passed across 115 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo Phase 6 brief: better answers (Antigravity)
 
