@@ -192,5 +192,19 @@
   { "say": "Skip to the next track", "expect": "next_track", "source": "variant" },
   { "say": "Can you please just skip this song?", "expect": "next_track", "source": "variant" },
   { "say": "Could you just please tell me the time?", "expect": "tell_time", "source": "variant" },
-  { "say": "Can you please just open Brave", "expect": "open_app", "source": "variant" }
+  { "say": "Can you please just open Brave", "expect": "open_app", "source": "variant" },
+  { "say": "Don't skip this song. Actually, skip this song.", "expect": "next_track", "source": "variant" },
+  { "say": "Skip this song. Actually, don't skip this song.", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Skip this song if I later say go", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Skip this song, if I later say go", "expect": "ai_conversation", "source": "variant" },
+  { "say": "I said, skip this song.", "expect": "next_track", "source": "variant" },
+  { "say": "As I was saying, skip this song", "expect": "next_track", "source": "variant" },
+  { "say": "Skip ahead to the next song", "expect": "next_track", "source": "variant" },
+  { "say": "Skip forward to the next track", "expect": "next_track", "source": "variant" },
+  { "say": "How about this, skip this song. Is that okay?", "expect": "next_track", "source": "variant" },
+  { "say": "When you're ready, can you skip this song?", "expect": "next_track", "source": "variant" },
+  { "say": "The next song", "expect": "next_track", "source": "variant" },
+  { "say": "I want you to tell me the time", "expect": "tell_time", "source": "variant" },
+  { "say": "Go ahead and tell me the time", "expect": "tell_time", "source": "variant" },
+  { "say": "I need you to tell me the time", "expect": "tell_time", "source": "variant" }
 ]

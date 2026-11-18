@@ -94,26 +94,32 @@ const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:y
 
 /** The start of something Kevo can do, as opposed to a question for the AI. */
 // What may come before a command in its clause: filler, "please", or a polite "can you".
-const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:(?:please|just)\s+)*)?/;
+const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|i (?:want|need) you to|go ahead and|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:(?:please|just)\s+)*)?/;
 
-// Inside a sentence: a fresh start that cancels a hanging "don't", a quotation lead, a question word.
+// Inside a sentence: a fresh start that cancels a hanging "don't", a hypothetical quotation lead, a question word.
 const CORRECTION = /^(?:on second thought|actually|now|instead|no wait|wait)\b/;
-const QUOTE_LEAD = /\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
-const QUESTION_WORD = /^(?:why|what|how|when|where|who|which)\b/;
+// "what if I say, ..." quotes a command; "I said, ..." and "as I was saying, ..." restate one.
+const QUOTE_LEAD = /^(?:what|why|how|if|when|whenever|suppose|imagine)\b.*\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
+const QUESTION_WORD = /^(?:why|what|how|when|where|who|which)\b(?!\s+about\b|\s+you(?:'re| are) ready\b)/;
+// All that may follow the command in its sentence: anything else ("skip this song if I later say go") is a condition.
+const POLITE_TAIL = /^(?:[\s,]*(?:please|now|for me|if you (?:can|could)|thanks|thank you|kevo|sir))*[\s,]*$/;
 
 /**
  * True when the clause holding `phrase` is a request to Kevo: after the lead it matches `verb`.
  * Questions ("do I need to skip this song?") and negations ("can you not skip it?") start otherwise.
+ * The last sentence naming it decides ("skip it. Actually, don't"), and the command must end the sentence.
  * Within its sentence, a negation left hanging before a comma ("please don't, under any circumstances, skip it")
  * reaches it unless a correction comes between; a quoted request ("what if I say, tell me the time?") is not one.
  */
 function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
-  const sentence = lower.split(/[.;!?]+/).find((s) => phrase.test(s));
+  const sentence = (lower.match(/[^.;!?]+[.;!?]*/g) ?? []).filter((s) => phrase.test(s)).pop();
   if (!sentence) return false;
-  const parts = sentence.split(',').map((p) => p.trim());
+  const parts = sentence.replace(/[.;!?]+$/, '').split(',').map((p) => p.trim());
   const at = parts.findIndex((p) => phrase.test(p));
-  if (at < 0 || !verb.test(parts[at].replace(REQUEST_LEAD, ''))) return false;
-  if (QUOTE_LEAD.test(parts[at - 1] ?? '') || (lower.trim().endsWith('?') && parts.slice(0, at).some((p) => QUESTION_WORD.test(p)))) return false;
+  const clause = at < 0 ? '' : parts[at].replace(REQUEST_LEAD, '');
+  const command = verb.exec(clause);
+  if (!command || !POLITE_TAIL.test([clause.slice(command[0].length), ...parts.slice(at + 1)].join(','))) return false;
+  if (QUOTE_LEAD.test(parts[at - 1] ?? '') || (sentence.trim().endsWith('?') && parts.slice(0, at).some((p) => QUESTION_WORD.test(p)))) return false;
   for (let i = at - 1; i >= 0 && !CORRECTION.test(parts[i]); i--) if (/\b(?:not|don'?t|never)$/.test(parts[i])) return false;
   return true;
 }
@@ -316,7 +322,7 @@ export class JarvisVoiceAgent {
       lower === 'time' ||
       lower.includes('current time') ||
       // Only the clock: "tell me the time complexity of quicksort" and "why did you tell me the time?" are for the AI.
-      (/\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) && asksFor(lower, /\btell me the (?:current )?time\b/, /^tell me\b/)) ||
+      (/\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) && asksFor(lower, /\btell me the (?:current )?time\b/, /^tell me the (?:current )?time\b/)) ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -458,7 +464,7 @@ export class JarvisVoiceAgent {
     }
 
     // "Can you skip this song?" is a request; "should I skip this song?" and "please don't skip it" are not.
-    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play)(?: on)?(?: to)?(?: the)? )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
+    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play)(?: on| ahead| forward)?(?: to)? )?(?:the )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
