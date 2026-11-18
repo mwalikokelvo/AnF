@@ -255,12 +255,12 @@ const jarvisCommandDesk=createJarvisCommandDesk({
     nextTrack:()=>{void musicHub.step(1);},
     setMusicVolume:change=>musicHub.changeVolume(change),
     // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
-    getWeather:async place=>{
+    getWeather:async (place,day)=>{
      const key='anf-kevo-weather-place';
      let saved:string|null=null;try{saved=localStorage.getItem(key);}catch{/* No saved place. */}
      const where=place?.trim()||saved;
      if(!where)return null;
-     const summary=await fetchWeather(where,{fahrenheit:/-US$/i.test(navigator.language)});
+     const summary=await fetchWeather(where,{fahrenheit:/-US$/i.test(navigator.language),day});
      try{localStorage.setItem(key,where);}catch{/* Next time Kevo asks again. */}
      return summary;
     },

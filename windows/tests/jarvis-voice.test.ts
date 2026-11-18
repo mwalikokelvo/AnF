@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId, getSelectedVoiceProfile } from '../src/workspace/jarvis/voice/jarvis-voice-pack';
-import { JarvisVoiceAgent, parseVolumeRequest, isWeatherRequest, weatherPlace, fetchWeather, type VolumeRequest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceAgent, parseVolumeRequest, isWeatherRequest, weatherPlace, placeReply, fetchWeather, type VolumeRequest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 
 describe('Kevo Voice Pack & Profiles', () => {
   it('loads voice pack items including all user provided voices', () => {
@@ -182,6 +182,13 @@ describe('Kevo music volume', () => {
     assert.deepEqual(parseVolumeRequest('set the volume to 40'), { kind: 'set', level: 40 });
     assert.deepEqual(parseVolumeRequest('set the music volume to 25 percent'), { kind: 'set', level: 25 });
     assert.deepEqual(parseVolumeRequest('volume 150'), { kind: 'set', level: 100 });
+    // Said politely, the way people ask (review of the first version).
+    assert.deepEqual(parseVolumeRequest('can you turn the volume up'), { kind: 'up' });
+    assert.deepEqual(parseVolumeRequest('please mute'), { kind: 'mute' });
+    assert.deepEqual(parseVolumeRequest('turn it up please'), { kind: 'up' });
+    assert.deepEqual(parseVolumeRequest('mute the music please'), { kind: 'mute' });
+    assert.deepEqual(parseVolumeRequest('turn it down a little bit'), { kind: 'down' });
+    assert.deepEqual(parseVolumeRequest('turn the volume up to 40'), { kind: 'set', level: 40 });
     for (const not of ['i have a long commute', 'commute', 'how loud is a jet engine', 'turn up the heat', 'what is volume in physics', 'mute my microphone', 'silence is golden']) {
       assert.equal(parseVolumeRequest(not), null, not);
     }
@@ -218,7 +225,8 @@ describe('Kevo music volume', () => {
 describe('Kevo weather', () => {
   it('tells weather requests from the Weather app and songs', () => {
     for (const yes of ["what's the weather", 'how is the weather in nairobi today', 'weather in haubstadt', 'tell me the weather', 'check the weather for new york']) assert.ok(isWeatherRequest(yes), yes);
-    for (const no of ['open weather', 'play stormy weather', 'open the weather app', 'search weather radar']) assert.ok(!isWeatherRequest(no), no);
+    for (const yes of ["what’s the weather like in paris", 'can you tell me the weather please', "what's the weather tomorrow in nairobi", 'weather']) assert.ok(isWeatherRequest(yes), yes);
+    for (const no of ['open weather', 'play stormy weather', 'open the weather app', 'search weather radar', 'what is the difference between weather and climate', 'tell me about weather patterns in kenya', "what's the weather like in paris in july"]) assert.ok(!isWeatherRequest(no), no);
   });
 
   it('finds the place as said', () => {
@@ -240,6 +248,31 @@ describe('Kevo weather', () => {
     const second = await agent.processVoiceInput('Nairobi.');
     assert.equal(second.actionName, 'weather');
     assert.deepEqual(places, [undefined, 'Nairobi']);
+  });
+
+  it('takes only a place name as the answer to "Which city?"', () => {
+    assert.equal(placeReply('Nairobi.'), 'Nairobi');
+    assert.equal(placeReply('in New York'), 'New York');
+    for (const no of ['tell me a joke', 'who is the president', 'no never mind', 'open Spotify', 'set a timer for 5 minutes']) assert.equal(placeReply(no), undefined, no);
+  });
+
+  it('asks for tomorrow when tomorrow is said', async () => {
+    const days: (number | undefined)[] = [];
+    const agent = new JarvisVoiceAgent({ switchView: () => {}, getWeather: async (place, day) => { days.push(day); return `Tomorrow in ${place}: clear, high 70, low 50.`; } });
+    assert.equal((await agent.processVoiceInput("What's the weather tomorrow in Nairobi?")).actionName, 'weather');
+    assert.deepEqual(days, [1]);
+  });
+
+  it('gives tomorrow from the daily forecast', async () => {
+    const fetchFn = async (url: string) => ({ ok: true, status: 200, json: async () => url.includes('geocoding')
+      ? { results: [{ latitude: -1.29, longitude: 36.82, name: 'Nairobi' }] }
+      : { current: { temperature_2m: 20 }, daily: { weather_code: [0, 61], temperature_2m_max: [25, 23.6], temperature_2m_min: [13, 14.2] } } });
+    assert.equal(await fetchWeather('Nairobi', { day: 1, fetchFn }), 'Tomorrow in Nairobi: raining, high 24, low 14.');
+  });
+
+  it('says plainly when the weather service cannot be reached', async () => {
+    const fetchFn = async () => { throw new TypeError('Failed to fetch'); };
+    await assert.rejects(fetchWeather('Nairobi', { fetchFn }), /did not answer\. Check the internet connection/);
   });
 
   it('builds one spoken line from Open-Meteo, in Fahrenheit for US English', async () => {

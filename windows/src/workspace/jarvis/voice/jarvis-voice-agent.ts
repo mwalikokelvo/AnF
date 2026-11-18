@@ -37,7 +37,7 @@ export interface JarvisActionContext {
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
-  getWeather?: (place?: string) => Promise<string | null>;
+  getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
   notify?: (msg: string) => void;
 }
 
@@ -361,12 +361,12 @@ export class JarvisVoiceAgent {
 
     // Weather (free Open-Meteo, no key): "what's the weather", "weather in Nairobi", "how's the weather in Haubstadt today".
     // Right after "Which city?", a short place name on its own is the answer.
-    const weatherFollowUp = this.lastAction === 'weather_needs_place' && text.split(/\s+/).length <= 4 && !COMMAND_START.test(text);
-    if (weatherFollowUp || isWeatherRequest(lower)) {
+    const answeredPlace = this.lastAction === 'weather_needs_place' ? placeReply(text) : undefined;
+    if (answeredPlace || isWeatherRequest(lower)) {
       if (!this.context.getWeather) return { handled: true, actionName: 'weather_unavailable', speechReply: 'Weather is not available right now.' };
-      const place = weatherFollowUp ? text.replace(/[.!?]+$/, '').trim() : weatherPlace(text);
+      const place = answeredPlace ?? weatherPlace(text);
       try {
-        const summary = await this.context.getWeather(place);
+        const summary = await this.context.getWeather(place, /\btomorrow\b/.test(lower) ? 1 : 0);
         if (!summary) return { handled: true, actionName: 'weather_needs_place', speechReply: 'Which city? Say, for example, weather in Nairobi.' };
         return { handled: true, actionName: 'weather', speechReply: summary };
       } catch (err) {
@@ -588,15 +588,24 @@ const DURATION = new RegExp(`\\b(\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).so
 export type VolumeRequest = { kind: 'up' | 'down' | 'mute' | 'unmute' } | { kind: 'set'; level: number };
 
 const VOLUME_THING = '(?:the )?(?:music|sound|volume|audio|song)';
-const VOLUME_UP = new RegExp(`^(?:turn (?:it|${VOLUME_THING}) up|turn up ${VOLUME_THING}|(?:volume|music|sound) up|(?:make it |play it )?louder|(?:increase|raise) ${VOLUME_THING}|pump it up)(?: (?:a (?:bit|little)|some|more))?$`);
-const VOLUME_DOWN = new RegExp(`^(?:turn (?:it|${VOLUME_THING}) down|turn down ${VOLUME_THING}|(?:volume|music|sound) down|(?:make it |play it )?(?:quieter|softer)|(?:decrease|lower|reduce) ${VOLUME_THING})(?: (?:a (?:bit|little)|some|more))?$`);
+const A_BIT = '(?: (?:a (?:little )?bit|a little|some|more|a notch))?';
+const VOLUME_UP = new RegExp(`^(?:turn (?:it|${VOLUME_THING}) up|turn up ${VOLUME_THING}|(?:volume|music|sound) up|(?:make it |play it )?louder|(?:increase|raise) ${VOLUME_THING}|pump it up)${A_BIT}$`);
+const VOLUME_DOWN = new RegExp(`^(?:turn (?:it|${VOLUME_THING}) down|turn down ${VOLUME_THING}|(?:volume|music|sound) down|(?:make it |play it )?(?:quieter|softer)|(?:decrease|lower|reduce) ${VOLUME_THING})${A_BIT}$`);
 const VOLUME_MUTE = new RegExp(`^(?:mute|silence)(?: it| ${VOLUME_THING})?$`);
 const VOLUME_UNMUTE = new RegExp(`^unmute(?: it| ${VOLUME_THING})?$`);
-const VOLUME_SET = new RegExp(`^(?:(?:set|put|turn|make|change) )?${VOLUME_THING.replace('volume|', '')}? ?volume (?:to |at )?(\\d{1,3})(?: ?(?:percent|%))?$`);
+const VOLUME_SET = new RegExp(`^(?:(?:set|put|turn|make|change) )?${VOLUME_THING.replace('volume|', '')}? ?volume (?:(?:up|down) )?(?:to |at )?(\\d{1,3})(?: ?(?:percent|%))?$`);
+
+/** "Can you please turn it up, please" is "turn it up": the polite words around a short request. */
+function withoutPoliteWords(said: string): string {
+  return said
+    .replace(/^(?:(?:hey |ok(?:ay)? )?kevo[\s,]+)?(?:(?:can|could|would|will) you(?: please)?|please|i want you to|go ahead and)[\s,]+/, '')
+    .replace(/[\s,]+(?:please|for me|thanks|thank you)$/, '')
+    .trim();
+}
 
 /** A whole request about the music volume, or null. "I have a long commute" and "how loud is a jet" are not. */
 export function parseVolumeRequest(lower: string): VolumeRequest | null {
-  const said = lower.replace(/[.!?]+$/, '').trim();
+  const said = withoutPoliteWords(lower.replace(/[.!?]+$/, '').trim());
   if (VOLUME_UP.test(said)) return { kind: 'up' };
   if (VOLUME_DOWN.test(said)) return { kind: 'down' };
   if (VOLUME_MUTE.test(said)) return { kind: 'mute' };
@@ -606,21 +615,33 @@ export function parseVolumeRequest(lower: string): VolumeRequest | null {
   return null;
 }
 
-/** "what's the weather", "how's the weather in Nairobi", "weather for Haubstadt today". Not "open Weather" (the app) or a song. */
+const WEATHER_WHEN = '(?: (?:today|now|right now|outside|tomorrow|this (?:morning|afternoon|evening)|tonight))?';
+const WEATHER_PLACE = '(?: (?:in|for|at|near) [a-z][a-z .,\'-]*?)?';
+/** The weather itself asked about, as the whole request. A question that only mentions weather goes to the AI. */
+const WEATHER_REQUEST = new RegExp(`^(?:(?:what'?s|what is|how'?s|how is|check|tell me|give me|get(?: me)?)(?: the)? )?weather(?: (?:like|forecast|looking|report))?${WEATHER_WHEN}${WEATHER_PLACE}${WEATHER_WHEN}( (?:going to be )?like)?$`);
+const MONTHS = /\b(?:january|february|march|april|may|june|july|august|september|october|november|december|next week|this week|weekend)\b/;
+
+/** "what's the weather", "how's the weather in Nairobi", "weather for Haubstadt today". Not "open Weather" (the app), a song, or "what is the difference between weather and climate". */
 export function isWeatherRequest(lower: string): boolean {
-  const said = lower.replace(/[.!?]+$/, '').trim();
-  if (!/\bweather\b/.test(said) || /^(?:open|launch|start|play|stream|search|google|look up)\b/.test(said) || /\b(?:song|music|album|app)\b/.test(said)) return false;
-  return /\b(?:what'?s|what is|how'?s|how is|check|tell me|give me|get)\b.*\bweather\b/.test(said)
-    || /^(?:the )?weather\b/.test(said);
+  const said = withoutPoliteWords(lower.replace(/[\u2018\u2019]/g, "'").replace(/[.!?]+$/, '').trim());
+  return WEATHER_REQUEST.test(said) && !MONTHS.test(said);
 }
 
 /** The place in a weather request, as said ("in New York today" gives "New York"), or undefined. */
 export function weatherPlace(text: string): string | undefined {
   const said = text.replace(/[.!?]+$/, '').trim();
-  const m = /\bweather\b(?:\s+like)?(?:\s+(?:today|now|right now|outside|tomorrow))?\s+(?:in|for|at|near)\s+(.+)$/i.exec(said);
+  const m = /\bweather\b(?:\s+(?:like|forecast|looking|report))?(?:\s+(?:today|now|right now|outside|tomorrow|tonight))?\s+(?:in|for|at|near)\s+(.+)$/i.exec(said);
   if (!m) return undefined;
-  const place = m[1].replace(/\s+(?:today|now|right now|please|tomorrow|outside)$/i, '').trim();
+  const place = m[1].replace(/\s+(?:today|now|right now|please|tomorrow|outside|tonight|this (?:morning|afternoon|evening)|(?:going to be )?like)$/i, '').trim();
   return place || undefined;
+}
+
+/** The answer to "Which city?": a short place name ("Nairobi", "in New York"), else undefined so the request is handled as usual. */
+export function placeReply(text: string): string | undefined {
+  const said = text.replace(/[.!?]+$/, '').trim().replace(/^(?:in|for|at)\s+/i, '');
+  if (!/^[a-z][a-z .,'-]*$/i.test(said) || said.split(/\s+/).length > 4) return undefined;
+  if (/^(?:no|nope|never ?mind|cancel|stop|nothing|forget it|yes|yeah|ok|okay|thanks|thank you|who|what|where|when|why|how|which|tell|can|could|would|will|is|are|do|does|open|play|search|set|show|take|pause|skip|turn|mute)\b/i.test(said)) return undefined;
+  return said;
 }
 
 type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
@@ -629,8 +650,16 @@ type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json():
  * Today's weather for a place, as one spoken line, from Open-Meteo (https://open-meteo.com: free, no key).
  * Fahrenheit and mph when `fahrenheit` is set (US English), else Celsius and km/h.
  */
-export async function fetchWeather(place: string, options: { fahrenheit?: boolean; fetchFn?: FetchLike } = {}): Promise<string> {
-  const get = options.fetchFn ?? ((url: string) => fetch(url));
+export async function fetchWeather(place: string, options: { fahrenheit?: boolean; day?: 0 | 1; fetchFn?: FetchLike } = {}): Promise<string> {
+  const plain: FetchLike = (url) => fetch(url, { signal: AbortSignal.timeout(8000) });
+  const send = options.fetchFn ?? plain;
+  const get: FetchLike = async (url) => {
+    try {
+      return await send(url);
+    } catch {
+      throw new Error('the weather service did not answer. Check the internet connection.');
+    }
+  };
   const asked = place.trim();
   if (!asked) throw new Error('say which city.');
   const geo = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(asked)}&count=1&language=en&format=json`);
@@ -638,12 +667,18 @@ export async function fetchWeather(place: string, options: { fahrenheit?: boolea
   const found = ((await geo.json()) as { results?: { latitude: number; longitude: number; name: string; country?: string }[] }).results?.[0];
   if (!found) throw new Error(`I could not find a place called ${asked}.`);
   const units = options.fahrenheit ? '&temperature_unit=fahrenheit&wind_speed_unit=mph' : '';
-  const res = await get(`https://api.open-meteo.com/v1/forecast?latitude=${found.latitude}&longitude=${found.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1${units}`);
+  const res = await get(`https://api.open-meteo.com/v1/forecast?latitude=${found.latitude}&longitude=${found.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2${units}`);
   if (!res.ok) throw new Error(`the weather service answered ${res.status}.`);
   const data = (await res.json()) as {
     current?: { temperature_2m?: number; weather_code?: number; wind_speed_10m?: number };
-    daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+    daily?: { weather_code?: number[]; temperature_2m_max?: number[]; temperature_2m_min?: number[] };
   };
+  if (options.day === 1) {
+    const hiT = data.daily?.temperature_2m_max?.[1];
+    const loT = data.daily?.temperature_2m_min?.[1];
+    if (typeof hiT !== 'number' || typeof loT !== 'number') throw new Error('the weather service sent no forecast for tomorrow.');
+    return `Tomorrow in ${found.name}: ${weatherCodeToText(data.daily?.weather_code?.[1] ?? -1)}, high ${Math.round(hiT)}, low ${Math.round(loT)}.`;
+  }
   const temp = data.current?.temperature_2m;
   if (typeof temp !== 'number') throw new Error('the weather service sent no temperature.');
   const hi = data.daily?.temperature_2m_max?.[0];
