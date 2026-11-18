@@ -14,6 +14,7 @@ import {
   getKevoSystemPrompt,
   executeKevoAction,
   executeKevoToolCalls,
+  parseKevoAskResponse,
   type KevoToolCall,
 } from '../src/workspace/jarvis/voice/kevo-actions';
 import type { JarvisActionContext } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
@@ -211,5 +212,63 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.strictEqual(res.handled, false);
     assert.strictEqual(res.actionName, '');
     assert.strictEqual(res.speechReply, '');
+  });
+
+  it('parses standard OpenAI tool calls and inline tool call tags', () => {
+    // 1. Standard OpenAI tool_calls
+    const standardResp = {
+      choices: [
+        {
+          message: {
+            content: null,
+            tool_calls: [
+              {
+                function: {
+                  name: 'open_app',
+                  arguments: JSON.stringify({ name: 'Brave' }),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const parsedStandard = parseKevoAskResponse(standardResp);
+    assert.strictEqual(parsedStandard.text, undefined);
+    assert.strictEqual(parsedStandard.tool_calls?.length, 1);
+    assert.strictEqual(parsedStandard.tool_calls[0].name, 'open_app');
+    assert.strictEqual(parsedStandard.tool_calls[0].arguments.name, 'Brave');
+
+    // 2. Inline <tool_call> tags
+    const inlineResp = {
+      choices: [
+        {
+          message: {
+            content:
+              'Opening your app: <tool_call>\n{"name": "open_app", "arguments": {"name": "Spotify"}}\n</tool_call>',
+          },
+        },
+      ],
+    };
+    const parsedInline = parseKevoAskResponse(inlineResp);
+    assert.strictEqual(parsedInline.text, 'Opening your app:');
+    assert.strictEqual(parsedInline.tool_calls?.length, 1);
+    assert.strictEqual(parsedInline.tool_calls[0].name, 'open_app');
+    assert.strictEqual(parsedInline.tool_calls[0].arguments.name, 'Spotify');
+    assert.ok(!parsedInline.text.includes('<tool_call>'));
+
+    // 3. Plain conversational text
+    const textResp = {
+      choices: [
+        {
+          message: {
+            content: 'Hello, I am Kevo.',
+          },
+        },
+      ],
+    };
+    const parsedText = parseKevoAskResponse(textResp);
+    assert.strictEqual(parsedText.text, 'Hello, I am Kevo.');
+    assert.strictEqual(parsedText.tool_calls?.length, 0);
   });
 });

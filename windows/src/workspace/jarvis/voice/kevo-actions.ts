@@ -539,3 +539,77 @@ export async function executeKevoToolCalls(
     speechReply: replies.join(' '),
   };
 }
+
+/** Parses raw OpenAI-compatible response into KevoAskReply, handling standard tool_calls and inline <tool_call> tags. */
+export function parseKevoAskResponse(response: any): KevoAskReply {
+  const toolCalls: KevoToolCall[] = [];
+  const choice = response?.choices?.[0]?.message;
+  if (!choice) return { text: undefined, tool_calls: [] };
+
+  if (Array.isArray(choice.tool_calls)) {
+    for (const tc of choice.tool_calls) {
+      if (tc?.function?.name) {
+        let args = {};
+        if (typeof tc.function.arguments === 'string') {
+          try {
+            args = JSON.parse(tc.function.arguments);
+          } catch {
+            args = {};
+          }
+        } else if (typeof tc.function.arguments === 'object' && tc.function.arguments !== null) {
+          args = tc.function.arguments;
+        }
+        toolCalls.push({
+          name: tc.function.name,
+          arguments: args,
+        });
+      }
+    }
+  }
+
+  let text = choice.content || '';
+  if (text.includes('<tool_call>')) {
+    let cleaned = text;
+    while (cleaned.includes('<tool_call>')) {
+      const start = cleaned.indexOf('<tool_call>');
+      const end = cleaned.indexOf('</tool_call>');
+      if (end !== -1 && end > start) {
+        const rawJson = cleaned.substring(start + '<tool_call>'.length, end).trim();
+        try {
+          const parsed = JSON.parse(rawJson);
+          if (parsed && typeof parsed.name === 'string') {
+            toolCalls.push({
+              name: parsed.name,
+              arguments: parsed.arguments || {},
+            });
+          }
+        } catch {
+          // ignore malformed block
+        }
+        cleaned = cleaned.substring(0, start) + cleaned.substring(end + '</tool_call>'.length);
+      } else {
+        const rawJson = cleaned.substring(start + '<tool_call>'.length).trim();
+        try {
+          const parsed = JSON.parse(rawJson);
+          if (parsed && typeof parsed.name === 'string') {
+            toolCalls.push({
+              name: parsed.name,
+              arguments: parsed.arguments || {},
+            });
+          }
+        } catch {
+          // ignore malformed block
+        }
+        cleaned = cleaned.substring(0, start);
+        break;
+      }
+    }
+    text = cleaned;
+  }
+
+  text = text.replace(/<tool_call>/g, '').replace(/<\/tool_call>/g, '').trim();
+  return {
+    text: text || undefined,
+    tool_calls: toolCalls,
+  };
+}

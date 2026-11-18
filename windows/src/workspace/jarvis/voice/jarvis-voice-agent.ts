@@ -6,6 +6,8 @@
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, type JarvisTurn } from './jarvis-memory';
 
+export type JarvisAskAiResult = string | { text: string; actionName?: string };
+
 export interface JarvisActionContext {
   switchView: (view: string) => void;
   playMusic?: () => void;
@@ -20,7 +22,7 @@ export interface JarvisActionContext {
   openQuickCapture?: () => void;
   saveQuickNote?: (text: string) => Promise<void>;
   /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
-  askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<string>;
+  askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
   cancelAI?: () => void;
   /** Opens a web search for the words in the owner's browser. */
@@ -698,12 +700,16 @@ export class JarvisVoiceAgent {
             release.forEach(onPart);
           });
         };
-        let aiAnswer = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding() });
+        let aiResult = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding() });
+        let aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
+        let aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';
         if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
         // The same answer as last time means the model is stuck on the history, not answering: ask once more afresh.
         if (previous && squash(aiAnswer) === previous) {
           clearJarvisHistory();
-          aiAnswer = await this.context.askAI(text, { history: [], onPart: holding() });
+          aiResult = await this.context.askAI(text, { history: [], onPart: holding() });
+          aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
+          aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';
           if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
           if (squash(aiAnswer) === previous) {
             return { handled: true, actionName: 'ai_stuck', speechReply: 'I am not sure how to answer that. Try asking it another way.' };
@@ -714,7 +720,7 @@ export class JarvisVoiceAgent {
         appendJarvisTurn('assistant', aiAnswer);
         return {
           handled: true,
-          actionName: 'ai_conversation',
+          actionName: aiAction,
           speechReply: aiAnswer,
         };
       } catch (err) {
