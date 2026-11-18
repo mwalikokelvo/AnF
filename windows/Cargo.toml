@@ -14,6 +14,9 @@ license = "MIT"
 [profile.dev.package.libsqlite3-sys]
 opt-level = 3
 
+[profile.release.package.libsqlite3-sys]
+opt-level = 3
+
 [profile.release]
 opt-level = "s"
 lto = false
