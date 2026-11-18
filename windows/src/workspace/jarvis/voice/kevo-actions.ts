@@ -31,7 +31,7 @@
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
-import { rememberFact } from './jarvis-memory';
+import { rememberFact, listFacts, type KevoFact } from './jarvis-memory';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -465,6 +465,44 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       }
     },
   },
+  {
+    name: 'recall_facts',
+    description: 'Search or retrieve remembered facts and preferences about the user or environment.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional search term or topic to filter remembered facts' },
+      },
+    },
+    execute: async (args: { query?: string }, ctx: JarvisActionContext) => {
+      try {
+        const facts = ctx.listFacts ? await ctx.listFacts(args?.query) : await listFacts(args?.query);
+        if (!facts || facts.length === 0) {
+          return {
+            handled: true,
+            actionName: 'recall_facts',
+            speechReply: args?.query
+              ? `I do not have any remembered facts about ${args.query}, sir.`
+              : 'I have not remembered any facts yet, sir.',
+            data: [],
+          };
+        }
+        const bulletPoints = facts.slice(-10).map((f: any) => f.fact).join('. ');
+        return {
+          handled: true,
+          actionName: 'recall_facts',
+          speechReply: `Here is what I remember: ${bulletPoints}.`,
+          data: facts,
+        };
+      } catch (err) {
+        return {
+          handled: false,
+          actionName: 'recall_facts',
+          speechReply: `Could not retrieve memories: ${String(err)}`,
+        };
+      }
+    },
+  },
 ];
 
 /** Map of action name to definition for O(1) lookup. */
@@ -490,8 +528,8 @@ export function getOpenAITools(): OpenAITool[] {
   }));
 }
 
-/** Generates a capability sheet for Kevo's system prompt (Phase 2 Step 2.3). */
-export function getCapabilitySheet(): string {
+/** Generates a capability sheet for Kevo's system prompt (Phase 2 Step 2.3, Phase 3 Step 3.3). */
+export function getCapabilitySheet(facts?: KevoFact[]): string {
   const lines: string[] = [
     "You are Kevo, a helpful voice and desktop assistant on the user's computer.",
     "You run locally and offline.",
@@ -512,6 +550,15 @@ export function getCapabilitySheet(): string {
   lines.push("- Follow-up window: After Kevo answers, the microphone stays open for 5 seconds for follow-up requests without repeating the wake word.");
   lines.push("- Barge-in: The user can speak over Kevo at any time to interrupt.");
   lines.push("- Changing voice: The user can change the voice by saying 'change voice' or 'switch voice to <name>' (voices include Nath, Burt, Kevo, Jean).");
+
+  if (facts && facts.length > 0) {
+    lines.push("");
+    lines.push("# Remembered Facts:");
+    for (const f of facts.slice(-15)) {
+      lines.push(`- [${f.category}] ${f.fact}`);
+    }
+  }
+
   lines.push("");
   lines.push("Instructions:");
   lines.push("Answer directly in one to three short sentences of plain text. No lists, no markdown. If you do not know, say so in one sentence.");
@@ -519,8 +566,8 @@ export function getCapabilitySheet(): string {
   return lines.join("\n");
 }
 
-export function getKevoSystemPrompt(): string {
-  return getCapabilitySheet();
+export function getKevoSystemPrompt(facts?: KevoFact[]): string {
+  return getCapabilitySheet(facts);
 }
 
 /** Dispatches an action by name with arguments against a JarvisActionContext. */

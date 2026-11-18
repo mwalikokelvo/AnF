@@ -181,4 +181,27 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
 
     agent.dispose();
   });
+
+  it('handles recall queries instantly on fast path with no model loaded (Step 3.3)', async () => {
+    const mockFacts = [
+      { id: '1', fact: 'I prefer TypeScript', category: 'code', created_at: 1, updated_at: 1 },
+    ];
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        listFacts: async () => mockFacts,
+      })
+    );
+
+    const res = await agent.processVoiceInput('what do you remember about me?');
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'recall_facts');
+    assert.match(res.speechReply, /I prefer TypeScript/);
+
+    const res2 = await agent.processVoiceInput('what do you know about me?');
+    assert.strictEqual(res2.handled, true);
+    assert.strictEqual(res2.actionName, 'recall_facts');
+    assert.match(res2.speechReply, /I prefer TypeScript/);
+
+    agent.dispose();
+  });
 });

@@ -189,6 +189,34 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.match(res.speechReply, /I will remember that: I like jazz/);
   });
 
+  it('executes recall_facts action and injects facts into system prompt (Step 3.3)', async () => {
+    const mockFacts = [
+      { id: 'f1', fact: 'User likes dark chocolate', category: 'diet', created_at: 1, updated_at: 1 },
+      { id: 'f2', fact: 'User works in TypeScript', category: 'work', created_at: 2, updated_at: 2 },
+    ];
+    const ctx = mockContext({
+      listFacts: async (q) => {
+        if (!q) return mockFacts;
+        return mockFacts.filter((f) => f.fact.toLowerCase().includes(q.toLowerCase()));
+      },
+    });
+
+    const res = await executeKevoAction('recall_facts', {}, ctx);
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'recall_facts');
+    assert.match(res.speechReply, /dark chocolate/);
+    assert.match(res.speechReply, /TypeScript/);
+
+    const resQuery = await executeKevoAction('recall_facts', { query: 'chocolate' }, ctx);
+    assert.strictEqual(resQuery.handled, true);
+    assert.match(resQuery.speechReply, /dark chocolate/);
+
+    const prompt = getKevoSystemPrompt(mockFacts);
+    assert.match(prompt, /# Remembered Facts:/);
+    assert.match(prompt, /- \[diet\] User likes dark chocolate/);
+    assert.match(prompt, /- \[work\] User works in TypeScript/);
+  });
+
   it('returns graceful unhandled result for unknown action', async () => {
     const ctx = mockContext();
     const res = await executeKevoAction('non_existent_action', {}, ctx);
