@@ -12,6 +12,7 @@ import {
   getOpenAITools,
   getCapabilitySheet,
   getKevoSystemPrompt,
+  getCompactKevoSystemPrompt,
   executeKevoAction,
   executeKevoToolCalls,
   parseKevoAskResponse,
@@ -105,6 +106,25 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.ok(sheet.includes('/no_think'));
     // getKevoSystemPrompt() returns the prompt
     assert.strictEqual(getKevoSystemPrompt(), sheet);
+  });
+
+  it('generates a compact system prompt optimized for prefill latency and KV cache (Step 6.3)', () => {
+    const compact = getCompactKevoSystemPrompt();
+    assert.ok(compact.includes('/no_think'));
+    assert.ok(compact.includes('You are Kevo'));
+    // Compact prompt does not repeat all 24 tool definitions
+    assert.ok(!compact.includes('Capabilities (what Kevo can do)'));
+    assert.ok(compact.length < 300, `compact prompt is ${compact.length} chars, expected < 300`);
+
+    // With facts appended at the end
+    const withFacts = getCompactKevoSystemPrompt([
+      { id: '1', fact: 'User likes dark mode', category: 'preference', timestamp: 123 },
+    ]);
+    assert.ok(withFacts.includes('# Remembered Facts:'));
+    assert.ok(withFacts.includes('[preference] User likes dark mode'));
+
+    // getKevoSystemPrompt with compact option
+    assert.strictEqual(getKevoSystemPrompt(undefined, { compact: true }), compact);
   });
 
   it('executes app opening and URL actions', async () => {

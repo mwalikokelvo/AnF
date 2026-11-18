@@ -4,7 +4,25 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 6.2: streaming tool calling & low-latency sentence chunking).
+Last updated: 2026-11-18 by Antigravity (Kevo 6.3: context prefill optimization & prompt compaction).
+
+## 2026-11-18 — Kevo 6.3: context prefill optimization & prompt compaction (Antigravity)
+
+Phase 6 Step 6.3 (`docs/kevo-briefs/phase-6.md`, "6.3 Context Prefill Optimization & Prompt Compaction"):
+- Prompt Compaction & Cache Alignment (`windows/src/workspace/jarvis/voice/kevo-actions.ts`, `windows/src/workspace/main.ts`):
+  - Added `getCompactKevoSystemPrompt(facts)` providing a concise, non-redundant system prompt (~40 tokens) with static cache-aligned prefix and facts appended strictly at the tail to maximize KV-cache hits in `llama-server`.
+  - Added `options?: { compact?: boolean }` to `getKevoSystemPrompt` defaulting to full capability sheet for backward compatibility while enabling compact mode during inference.
+  - Updated `main.ts` `askAI` invocation to supply `{ compact: true }`.
+- Context History Compaction (`windows/src-tauri/src/workspace_commands.rs`):
+  - Updated `kevo_messages` in `workspace_commands.rs` to compact assistant turns (clamping to 300 characters) and bound history length to prevent prefill bloat.
+  - Added Rust unit test `assistant_turns_are_compacted_to_preserve_prefill_latency`.
+- Test Suite (`windows/tests/kevo-actions.test.ts`):
+  - Added test case validating `getCompactKevoSystemPrompt` character bounds (< 300 chars), `/no_think` preservation, and fact formatting.
+- Verification:
+  - 17/17 Rust unit tests in `workspace_commands` PASS (`cargo test --lib workspace_commands`).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 12/12 `check-release.mjs` PASS.
+  - 772/772 tests passed across 119 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 6.2: streaming tool calling & low-latency sentence chunking (Antigravity)
 
