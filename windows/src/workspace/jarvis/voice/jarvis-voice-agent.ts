@@ -35,7 +35,6 @@ export interface JarvisActionContext {
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
   notify?: (msg: string) => void;
-  notify?: (msg: string) => void;
   /** When true, actions are simulated without performing real side effects (Phase 0 step 0.4b). */
   dryRun?: boolean;
   /** Injectable clock for tests; returns timestamp in milliseconds. Defaults to Date.now. */
