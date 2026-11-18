@@ -812,6 +812,11 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - **New controls**: a Stop button while Kevo works or talks, and a box to type a request instead of speaking.
 - Version 0.1.53. Checks: `npm test` 584, `cargo test -p coucou --lib`, `check-release.mjs`, `jarvis-layout.mjs`. Not measured on a PC: the real time to first sentence depends on the owner's hardware and model; streaming against a live llama-server has not been run (only the line parser and sentence splitter are unit-tested).
 
+## 2026-11-15: preserve strict browser QA through intentional reloads
+- Main 5c626ea suppressed every failed asset request and every diagnostic containing live-editor in the Spotube bounds check. Replaced that blanket filter with request-scoped fixture navigation handling. Only requests already pending when the fixture explicitly reloads/closes a context are expected to end in net::ERR_ABORTED. Fresh requests, HTTP errors, console errors and page errors remain strict.
+- A real held HTTP request followed by reload reproduced the false failure before this fix. The new browser regression proves expected cancellation is accounted for and separately proves an active ERR_ABORTED asset, a real HTTP404 and an editor console error still fail collection. Existing layout assertions are unchanged. CI runs the regression before the Studio browser check.
+- TypeScript, 586 unit tests, contracts/styles and production frontend pass. Browser lifecycle, bounds, startup/dialog, source-switch, appearance and Studio cancellation checks pass locally. These are browser/IPC fixtures, not installed native playback, device upgrade or release acceptance. No production app code, version, signing identity, data or access permissions changed. The Android archive CI-access proposal remains unapplied pending an explicit answer.
+
 ## 2026-11-16: Kevo plan and roles; `main` locked (Claude)
 - `docs/KEVO-PLAN.md` is the plan every assistant follows for Kevo: six phases, each tested on the owner's PC before the next, and a role per assistant (Antigravity builds, Codex reviews, free assistants take small tasks, Claude plans, fixes hard bugs and merges).
 - Owner's decision: `main` is locked on GitHub. No direct pushes by anyone; changes arrive by pull request. Pointers added to `AGENTS.md` and `CLAUDE.md`.

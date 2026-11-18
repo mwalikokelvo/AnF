@@ -12,7 +12,7 @@ try{
    window.__themeCalls.push(operation);return{hasTrack:false,playing:false,title:'',artist:'',position:0,duration:0};
   }};
  });
- await page.reload();await go(page,'music');
+ await fx.reload(page);await go(page,'music');
  await page.getByRole('button',{name:'Open Spotube',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.spotube-connection-status')?.textContent==='Spotube ready.');
  await go(page,'settings');await page.getByLabel('Appearance',{exact:true}).selectOption('light');

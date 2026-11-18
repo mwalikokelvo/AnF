@@ -17,6 +17,7 @@ on:
       - 'scripts/app-qa/spotube-startup-dialogs.mjs'
       - 'scripts/app-qa/spotube-appearance.mjs'
       - 'scripts/app-qa/fixture.mjs'
+      - 'scripts/app-qa/fixture-request-lifecycle.mjs'
       - '.github/workflows/windows-gates.yml'
   pull_request:
     paths:
@@ -29,6 +30,7 @@ on:
       - 'scripts/app-qa/spotube-startup-dialogs.mjs'
       - 'scripts/app-qa/spotube-appearance.mjs'
       - 'scripts/app-qa/fixture.mjs'
+      - 'scripts/app-qa/fixture-request-lifecycle.mjs'
       - '.github/workflows/windows-gates.yml'
   workflow_dispatch:
 
@@ -83,6 +85,15 @@ jobs:
         run: |
           npx vite build
           if($LASTEXITCODE){throw 'Frontend asset build failed'}
+      - name: Verify expected navigation aborts and genuine asset failures
+        run: |
+          $env:ANF_FIXTURE_REQUEST_REPORT=Join-Path $env:RUNNER_TEMP 'fixture-request-lifecycle.json'
+          try{
+            node scripts/app-qa/fixture-request-lifecycle.mjs
+            if($LASTEXITCODE){throw 'Browser request lifecycle regression failed'}
+          }finally{
+            if(Test-Path -LiteralPath $env:ANF_FIXTURE_REQUEST_REPORT){Get-Content -LiteralPath $env:ANF_FIXTURE_REQUEST_REPORT}
+          }
       - name: Verify cancelled start and fresh retry in real browser media element
         run: |
           $env:ANF_STUDIO_CANCEL_REPORT=Join-Path $env:RUNNER_TEMP 'studio-cancel.json'
