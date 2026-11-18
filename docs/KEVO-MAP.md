@@ -17,7 +17,7 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src/workspace/jarvis/voice/jarvis-memory.ts` | Last few turns sent to the AI as context |
 | `src/workspace/main.ts` | Gives Kevo its actions (`openApp`, `openUrl`, `searchWeb`, `askAI`, …) via Tauri `invoke` |
 | `src-tauri/src/kevo_system.rs` | Windows side: find and open Start Menu apps (`best_app_match`), system actions |
-| `src-tauri/src/kevo_ears.rs` | Phase 1 hearing on the PC (sherpa-onnx, feature `kevo-ears`, on in `npm run pack` and CI tests); step 1.1 holds only the VAD build test |
+| `src-tauri/src/kevo_ears.rs` | Phase 1 hearing on the PC (sherpa-onnx, feature `kevo-ears`, on in `npm run pack` and CI tests); pinned models (VAD, KWS, streaming transcription) fetched through `model_download`; test-only until step 1.3 |
 | `src-tauri/src/kevo_hud.rs` | HUD state bus: `kevo://state` `{state, line, badge, level}`, sent only on change, loudness at most 20/s and only while speaking; `kevo_hud_set` from the desk's `refresh` |
 | `src-tauri/src/kevo_approval.rs` | Approval gate: `ask` emits `kevo://approve` `{id, action, summary}` and waits for `kevo_hud_answer(id, approved)`; 60 s without an answer is deny, one request at a time, unknown ids refused. Risky actions (send to another device, delete, run a script) must go through it |
 | `src-tauri/src/kevo_autotest.rs` | Autotest prerelease checker, SHA-256 and `github-actions[bot]` check, detached helper runner, self-test clip reader and result saver |
