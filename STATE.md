@@ -4,18 +4,18 @@ Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `
 
 paused: no
 lock: 
-phase: 0 (all steps merged; PC test of kevo-test-v0.1.60 cannot start: the test build failed to publish). Owner account merged Phase 1 1.4-1.6 (#200-#202) and Phase 2 2.1-2.7 + #175 cases (#203-#210) and the Phase 3 brief (#211) between 09:12Z and 10:28Z, ahead of the Phase 0/1 PC passes
+phase: 0 (all steps merged; PC test of kevo-test-v0.1.60 cannot start: the test build failed to publish). Owner account merged Phase 1 1.4-1.6 (#200-#202), Phase 2 (#203-#210), Phase 3 brief (#211), and agy/ Phases 3-5 plus the Phase 6 brief and 6.1 (through #230, 12:14Z) ahead of the Phase 0/1 PC passes and the combined Phase 3-5 PC test; version still 0.1.60
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: none. Board empty: every kevo issue closed by the owner account at 10:26Z
 pc_test:
-waiting_for: owner: fix the release permission (see blocked), then rerun the kevo-test job of Windows run 44273650347 (24506fd, #199) to publish kevo-test-v0.1.60. main Windows still red on 791827e from #200/#202 (wake 5/20 vs 19/20; "Kevo's own voice triggered VAD stop" from 1.6); Phase 2/3 merges did not touch kevo_ears.rs. Revert question from 09:49Z still unanswered; do not merge or revert for it
+waiting_for: owner: fix the release permission (see blocked), then rerun the kevo-test job of Windows run 44273650347 (24506fd, #199) to publish kevo-test-v0.1.60. main Windows still red on 6e304f1-era commits (737d818, 75a2f58: kevo_ears audio_tests_in_ci_verifies_pipeline_offline_from_wav and kevos_own_speech_alone_gives_no_wake_and_no_stop, same as since #200). Revert question from 09:49Z still unanswered; do not merge or revert for it
 blocked: kevo-test publish, 2026-11-18: `gh release create kevo-test-v0.1.60` gets HTTP 403 "Resource not accessible by integration" (attempt 2 by owner 10:26Z, attempt 3 by autopilot 10:30Z; job has contents: write). v0.1.59 published fine at 06:01Z with the same workflow, so a repo setting changed (repo renamed anf -> AnF meanwhile). Two strikes: no more reruns until the owner changes the setting
 last_passed_version: none yet
 owner_needed: 1) Settings -> Actions -> General -> Workflow permissions: "Read and write", and check no ruleset/immutable-release setting blocks github-actions creating releases or kevo-test-v* tags; then rerun the failed kevo-test job. 2) Install 0.1.60 once (AnF-Windows-setup, https://github.com/mwalikokelvo/AnF/actions/runs/44273650347/artifacts/14415537795) and turn on "Run Kevo test builds and Kevo's self-test automatically". Notified 10:36Z
-last_main: 791827e (Windows red since #200)
+last_main: 6e304f1 (Windows red since #200)
 chain: 0
 next_due: 2026-11-18T16:35Z
-quiet_fingerprint: d6d97204748e6562b9be32f41fb3ff1c7bb7344d644459ba467383ce518f731e
+quiet_fingerprint: 7d83a09130639f1f32f5d5d6f7e993902fce871b6f07dbdf993b9f159fe7364b
 
 ## Run log (newest last, keep 60)
 
@@ -47,3 +47,4 @@ quiet_fingerprint: d6d97204748e6562b9be32f41fb3ff1c7bb7344d644459ba467383ce518f7
 - 2026-11-18T09:49Z (Claude, interactive): #199 merged by owner account 09:11Z; #200-#202 and #196 merged right after with checks unfinished. main red from #200 (wake 5/20, same on Linux; tuning tops out at 9/20). Asked owner about reverting 1.4-1.6.
 - 2026-11-18T10:28Z (Claude, interactive check-in): 0.1.60 build green (run 44273650347) but kevo-test publish 403 twice (setting, not code). main now at e88ca23 (#209 agy/kevo-2.7, Phase 2 merging too); ad5b909 Windows failure. Revert question unanswered.
 - 2026-11-18T10:36Z (autopilot): board empty (owner account merged #200-#211 incl. Phase 2 and the Phase 3 brief, closed all kevo issues). kevo-test-v0.1.60 publish (run 44273650347) fails with 403 on release create, twice (owner rerun + one autopilot rerun): set blocked, notified owner. main Windows still red (wake 5/20; 1.6 own-voice VAD stop). No PR work.
+- 2026-11-18T12:30Z (autopilot): 2b.7 waiting. main moved 791827e -> 6e304f1 (owner account merged agy/ Phase 3-5 steps, Phase 6 brief and 6.1, #212-#230); no open PRs, no open kevo issues, no team:claude work. main Windows still red (same 2 kevo_ears tests); kevo-test publish still blocked on the owner's release setting. No action, no notification (owner told 10:36Z).
