@@ -11,6 +11,10 @@ export interface JarvisActionContext {
   playMusic?: () => void;
   pauseMusic?: () => void;
   nextTrack?: () => void;
+  setVolume?: (level: number) => void;
+  volumeUp?: () => void;
+  volumeDown?: () => void;
+  muteMusic?: () => void;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
   /** Opens an installed app by name; resolves to the name of the app it opened. */
@@ -149,7 +153,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -195,6 +199,27 @@ export class JarvisVoiceAgent {
       }, duration.ms);
       this.timers.add(timer);
       return done('timer_set', about ? `I will remind you in ${duration.label}.` : `Timer set for ${duration.label}.`);
+    }
+
+
+    // Volume control for music
+    if (/(volume up|louder|turn it up|increase volume)/.test(lower) && this.context.volumeUp) {
+      this.context.volumeUp();
+      return done('volume_up', 'Volume increased.');
+    }
+    if (/(volume down|softer|turn it down|decrease volume)/.test(lower) && this.context.volumeDown) {
+      this.context.volumeDown();
+      return done('volume_down', 'Volume decreased.');
+    }
+    if (/(mute|silence|quiet music)/.test(lower) && this.context.muteMusic) {
+      this.context.muteMusic();
+      return done('mute', 'Music muted.');
+    }
+    const volMatch = /(?:set |make )?(?:the )?volume (?:to |at )?(\d{1,3})/.exec(lower);
+    if (volMatch && this.context.setVolume) {
+      const level = Math.min(100, Math.max(0, parseInt(volMatch[1], 10)));
+      this.context.setVolume(level);
+      return done('volume_set', `Volume set to ${level} percent.`);
     }
 
     const sum = solveArithmetic(lower);
