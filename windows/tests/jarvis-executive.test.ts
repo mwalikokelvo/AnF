@@ -10,22 +10,37 @@ describe('JarvisExecutive', () => {
     assert.ok(b.date.length > 0);
     assert.ok(b.greeting.length > 0);
     assert.ok(b.chunks.length > 0, 'has at least one chunk');
-    assert.ok(b.fullText.length > 100, 'fullText is substantial');
+    assert.ok(b.fullText.length > 50, 'fullText is substantial');
     assert.ok(b.fullText.includes('sir'), 'fullText contains "sir"');
   });
 
-  it('chunks include all 5 agents by default', async () => {
+  it('chunks represent real local workspace capabilities by default with zero made-up numbers', async () => {
     const exec = new JarvisExecutive();
     const b = await exec.generateBriefing();
     const names = b.chunks.map(c => c.agentName);
-    assert.ok(names.some(n => n.includes('Revenue')));
-    assert.ok(names.some(n => n.includes('Ads')));
-    assert.ok(names.some(n => n.includes('Support')));
-    assert.ok(names.some(n => n.includes('Tom')));
-    assert.ok(names.some(n => n.includes('Scout')));
+    assert.ok(names.some(n => n.includes('Vault') || n.includes('Knowledge')));
+    assert.ok(names.some(n => n.includes('Reading')));
+    assert.ok(names.some(n => n.includes('Schedule')));
+    assert.ok(names.some(n => n.includes('System')));
+    // Fictional metrics MUST NOT appear anywhere
+    assert.ok(!b.fullText.includes('30,000'), 'no fake $30k MRR');
+    assert.ok(!b.fullText.includes('2459'), 'no fake subscriber count');
+    assert.ok(!b.fullText.includes('18,740'), 'no fake total subscribers');
+    assert.ok(!b.fullText.includes('$475'), 'no fake ad spend');
   });
 
-  it('injecting agent data overrides defaults', async () => {
+  it('omits external business telemetry when missing or marked demo', async () => {
+    const exec = new JarvisExecutive();
+    const b = await exec.generateBriefing({}, {
+      revenue: { mrr: 3_000_000, newCustomers7d: 2459, activeSubscribers: 18740, isDemo: true },
+      ads: { totalSpend: 47500, roas: 1.5, activeCampaigns: 3, isDemo: true },
+    });
+    const names = b.chunks.map(c => c.agentName);
+    assert.ok(!names.some(n => n === 'Revenue'), 'demo revenue omitted');
+    assert.ok(!names.some(n => n === 'Ads'), 'demo ads omitted');
+  });
+
+  it('includes external business telemetry when verified and non-demo', async () => {
     const exec = new JarvisExecutive();
     const b = await exec.generateBriefing({}, {
       revenue: { mrr: 5_000_000, newCustomers7d: 500, activeSubscribers: 10000, isDemo: false },
@@ -66,9 +81,24 @@ describe('JarvisExecutive', () => {
     await assert.doesNotReject(() => exec.executeVoiceBriefing());
   });
 
-  it('summary is a non-empty string', async () => {
+  it('summary is a non-empty string and reflects actual chunks', async () => {
     const exec = new JarvisExecutive();
-    const b = await exec.generateBriefing();
-    assert.ok(b.summary.length > 0);
+    const b = await exec.generateBriefing({}, {
+      vault: { totalNotes: 15, status: 'operational' },
+      reading: { pendingItems: 4 },
+      schedule: { remindersToday: 2 },
+    });
+    assert.ok(b.summary.includes('Vault: 15'));
+    assert.ok(b.summary.includes('Reading: 4'));
+    assert.ok(b.summary.includes('Reminders: 2'));
+  });
+
+  it('renderSummaryCard produces elements with verified local badges', async () => {
+    const exec = new JarvisExecutive();
+    const b = await exec.generateBriefing({}, {
+      vault: { totalNotes: 5 },
+    });
+    const card = exec.renderSummaryCard(b);
+    assert.ok(card.innerHTML.includes('Verified Local Data'));
   });
 });
