@@ -4,7 +4,20 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 5.2: concrete action verifiers).
+Last updated: 2026-11-18 by Antigravity (Kevo 5.3: honest spoken feedback & failure diagnosis).
+
+## 2026-11-18 — Kevo 5.3: honest spoken feedback & failure diagnosis (Antigravity)
+
+Phase 5 Step 5.3 (`docs/kevo-briefs/phase-5.md`, "5.3 Honest Spoken Feedback & Failure Diagnosis"):
+- Honest Spoken Feedback Across Voice Agent Fast Paths (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Propagated structured verification metadata (`status`, `verified`, `error`, `reason`) across all fast-path branches (`open_app`, `open_site`, `youtube_search`, `web_search`, `take_note`, `recall_facts`, `forget_fact`, `list_reminders`, `cancel_reminder`, `create_reminder`).
+  - Ensured failures never speak "Done" or presumptive success; instead announce honest diagnosis with root causes (`NOT_FOUND`, `EXECUTION_FAILED`, `NO_MATCH`, `INVALID_ARGUMENT`).
+  - Maintained full backwards compatibility with Phase 0/1/2 evaluation baselines while ensuring truthful error feedback.
+- Verification & Test Suite (`windows/tests/kevo-fastpath.test.ts`):
+  - Added fast-path failure diagnosis tests asserting `status === 'failure'`, `verified === false`, and exact taxonomy reasons for missing apps, browser failures, and missing reminders.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 735/735 tests passed across 104 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 5.2: concrete action verifiers (Antigravity)
 
