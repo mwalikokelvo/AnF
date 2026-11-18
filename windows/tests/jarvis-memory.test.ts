@@ -6,7 +6,16 @@ import {
   formatJarvisHistoryForPrompt,
   getJarvisHistory,
   healHistory,
+  rememberFact,
+  listFacts,
+  deleteFact,
+  clearFacts,
+  formatRememberedFactsForPrompt,
+  syncJarvisHistoryFromNative,
+  type JarvisTurn,
+  type KevoFact,
 } from '../src/workspace/jarvis/voice/jarvis-memory.js';
+import { Bridge } from '../src/core/bridge.js';
 
 describe('Kevo conversational memory', () => {
   beforeEach(() => {
@@ -40,5 +49,76 @@ describe('Kevo conversational memory', () => {
     }
     assert.equal(getJarvisHistory().length, 20);
     assert.equal(getJarvisHistory()[0].text, 'msg-15');
+  });
+
+  it('remembers facts, lists them, and supports category queries', async () => {
+    await clearFacts();
+
+    const fact1 = await rememberFact('Prefers dark chocolate', 'diet');
+    assert.strictEqual(fact1.fact, 'Prefers dark chocolate');
+    assert.strictEqual(fact1.category, 'diet');
+    assert.ok(fact1.id.startsWith('fact_'));
+
+    const fact2 = await rememberFact('Writes code in TypeScript');
+    assert.strictEqual(fact2.category, 'general');
+
+    const all = await listFacts();
+    assert.strictEqual(all.length, 2);
+
+    const filtered = await listFacts('chocolate');
+    assert.strictEqual(filtered.length, 1);
+    assert.strictEqual(filtered[0].id, fact1.id);
+  });
+
+  it('deletes specific facts and clears all facts', async () => {
+    await clearFacts();
+    const fact = await rememberFact('Temporary memory');
+    assert.strictEqual((await listFacts()).length, 1);
+
+    const deleted = await deleteFact(fact.id);
+    assert.strictEqual(deleted, true);
+    assert.strictEqual((await listFacts()).length, 0);
+
+    await rememberFact('Memory 1');
+    await rememberFact('Memory 2');
+    assert.strictEqual((await listFacts()).length, 2);
+
+    const cleared = await clearFacts();
+    assert.strictEqual(cleared, true);
+    assert.strictEqual((await listFacts()).length, 0);
+  });
+
+  it('formats remembered facts cleanly for prompt injection', () => {
+    const facts: KevoFact[] = [
+      { id: '1', fact: 'Likes jazz', category: 'music', created_at: 1, updated_at: 1 },
+      { id: '2', fact: 'Uses Windows 11', category: 'device', created_at: 2, updated_at: 2 },
+    ];
+    const promptSection = formatRememberedFactsForPrompt(facts);
+    assert.match(promptSection, /# Remembered Facts/);
+    assert.match(promptSection, /- \[music\] Likes jazz/);
+    assert.match(promptSection, /- \[device\] Uses Windows 11/);
+  });
+
+  it('syncs history from native Bridge when available', async () => {
+    clearJarvisHistory();
+    const orig = Bridge.kevoMemoryLoadHistory;
+    const origWindow = (globalThis as any).window;
+    try {
+      (globalThis as any).window = {
+        __TAURI__: { core: { invoke: async () => {} } },
+      };
+      Bridge.kevoMemoryLoadHistory = async (limit?: number) => [
+        { id: 't1', role: 'user', text: 'Restored turn', at: 12345 },
+        { id: 't2', role: 'assistant', text: 'Restored reply', at: 12346 },
+      ];
+      await syncJarvisHistoryFromNative();
+      const history = getJarvisHistory();
+      assert.strictEqual(history.length, 2);
+      assert.strictEqual(history[0].text, 'Restored turn');
+      assert.strictEqual(history[1].text, 'Restored reply');
+    } finally {
+      Bridge.kevoMemoryLoadHistory = orig;
+      (globalThis as any).window = origWindow;
+    }
   });
 });

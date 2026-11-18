@@ -70,6 +70,20 @@ export const Bridge = {
     call<unknown>("kevo_ask", { id, query, history, model, tools, system }),
   kevoCancel: () => call<void>("kevo_cancel"),
   kevoPreloadModel: (model?: string) => call<void>("kevo_preload_model", { model }),
+  kevoMemoryRememberFact: (fact: string, category?: string) =>
+    call<{ id: string; fact: string; category: string; created_at: number; updated_at: number }>("kevo_memory_remember_fact", { fact, category }),
+  kevoMemoryListFacts: (query?: string) =>
+    call<Array<{ id: string; fact: string; category: string; created_at: number; updated_at: number }>>("kevo_memory_list_facts", { query }),
+  kevoMemoryDeleteFact: (id: string) =>
+    call<boolean>("kevo_memory_delete_fact", { id }),
+  kevoMemoryClearFacts: () =>
+    call<boolean>("kevo_memory_clear_facts"),
+  kevoMemoryLoadHistory: (limit?: number) =>
+    call<Array<{ id: string; role: 'user' | 'assistant'; text: string; at: number }>>("kevo_memory_load_history", { limit }),
+  kevoMemorySaveTurn: (role: string, text: string) =>
+    call<void>("kevo_memory_save_turn", { role, text }),
+  kevoMemoryClearHistory: () =>
+    call<boolean>("kevo_memory_clear_history"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),
