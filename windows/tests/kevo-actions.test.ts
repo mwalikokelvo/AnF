@@ -242,6 +242,45 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.match(resById.speechReply, /I have forgotten that/);
   });
 
+  it('executes reminder actions (Step 4.2: create_reminder, list_reminders, cancel_reminder)', async () => {
+    let createdMsg = '';
+    let createdTriggerAt = 0;
+    let cancelledId = '';
+    const mockReminders = [
+      { id: 'rem1', message: 'Take medicine', trigger_at: Date.now() + 60000, created_at: Date.now(), fired: false },
+    ];
+    const ctx = mockContext({
+      createReminder: async (msg, triggerAt) => {
+        createdMsg = msg;
+        createdTriggerAt = triggerAt;
+        return { id: 'rem2', message: msg, trigger_at: triggerAt, created_at: Date.now(), fired: false };
+      },
+      listReminders: async () => mockReminders,
+      cancelReminder: async (target) => {
+        cancelledId = target;
+        return true;
+      },
+    });
+
+    const resCreate = await executeKevoAction('create_reminder', { message: 'Feed the cat', delay_seconds: 120 }, ctx);
+    assert.strictEqual(resCreate.handled, true);
+    assert.strictEqual(resCreate.actionName, 'create_reminder');
+    assert.strictEqual(createdMsg, 'Feed the cat');
+    assert.ok(createdTriggerAt > Date.now());
+    assert.match(resCreate.speechReply, /Reminder set for Feed the cat/);
+
+    const resList = await executeKevoAction('list_reminders', {}, ctx);
+    assert.strictEqual(resList.handled, true);
+    assert.strictEqual(resList.actionName, 'list_reminders');
+    assert.match(resList.speechReply, /Take medicine/);
+
+    const resCancel = await executeKevoAction('cancel_reminder', { query: 'medicine' }, ctx);
+    assert.strictEqual(resCancel.handled, true);
+    assert.strictEqual(resCancel.actionName, 'cancel_reminder');
+    assert.strictEqual(cancelledId, 'medicine');
+    assert.match(resCancel.speechReply, /Cancelled reminder for medicine/);
+  });
+
   it('returns graceful unhandled result for unknown action', async () => {
     const ctx = mockContext();
     const res = await executeKevoAction('non_existent_action', {}, ctx);

@@ -239,4 +239,44 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
 
     agent.dispose();
   });
+
+  it('handles reminder commands instantly on fast path with no model loaded (Step 4.2)', async () => {
+    let createdMsg = '';
+    let cancelled = '';
+    const mockReminders = [
+      { id: 'rem1', message: 'Call Mom', trigger_at: Date.now() + 60000, created_at: Date.now(), fired: false },
+    ];
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        createReminder: async (msg, triggerAt) => {
+          createdMsg = msg;
+          return { id: 'rem2', message: msg, trigger_at: triggerAt, created_at: Date.now(), fired: false };
+        },
+        listReminders: async () => mockReminders,
+        cancelReminder: async (q) => {
+          cancelled = q;
+          return true;
+        },
+      })
+    );
+
+    const resSet = await agent.processVoiceInput('set a reminder to call Mom');
+    assert.strictEqual(resSet.handled, true);
+    assert.strictEqual(resSet.actionName, 'create_reminder');
+    assert.strictEqual(createdMsg, 'call Mom');
+    assert.match(resSet.speechReply, /Reminder set for call Mom/);
+
+    const resList = await agent.processVoiceInput('what are my reminders?');
+    assert.strictEqual(resList.handled, true);
+    assert.strictEqual(resList.actionName, 'list_reminders');
+    assert.match(resList.speechReply, /Call Mom/);
+
+    const resCancel = await agent.processVoiceInput('cancel reminder for call Mom');
+    assert.strictEqual(resCancel.handled, true);
+    assert.strictEqual(resCancel.actionName, 'cancel_reminder');
+    assert.strictEqual(cancelled, 'call Mom');
+    assert.match(resCancel.speechReply, /Cancelled reminder for call Mom/);
+
+    agent.dispose();
+  });
 });

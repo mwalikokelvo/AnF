@@ -40,6 +40,7 @@ import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
 import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
+import {createReminder,listReminders,cancelReminder,clearReminders} from './jarvis/voice/jarvis-schedule';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -325,6 +326,10 @@ const jarvisActionContext: JarvisActionContext = {
     listFacts:async query=>listFacts(query),
     deleteFact:async id=>deleteFact(id),
     clearFacts:async()=>clearFacts(),
+    createReminder:async(message,triggerAt,recurring)=>createReminder(message,triggerAt,recurring),
+    listReminders:async includeFired=>listReminders(includeFired),
+    cancelReminder:async id=>cancelReminder(id),
+    clearReminders:async()=>clearReminders(),
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
 };
