@@ -17,7 +17,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
-import { JarvisExecutive } from './jarvis-executive';
+import { JarvisExecutive, isRealWorkspaceDataOnly, setRealWorkspaceDataOnly } from './jarvis-executive';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
@@ -215,7 +215,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
         ? await options.voiceActionContext.getVaultNoteCount()
         : (options?.voiceActionContext?.notes?.length ?? 0);
 
-      const briefing = await executive.generateBriefing({}, {
+      const briefing = await executive.generateBriefing({
+        realDataOnly: isRealWorkspaceDataOnly(),
+      }, {
         vault: { totalNotes: vaultNotes, status: 'operational' },
         reading: { pendingItems: pendingReading },
         schedule: {
@@ -383,7 +385,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       const vaultCount = options?.voiceActionContext?.getVaultNoteCount
         ? await options.voiceActionContext.getVaultNoteCount()
         : (options?.voiceActionContext?.notes?.length ?? 0);
-      const b = await executive.generateBriefing({}, {
+      const b = await executive.generateBriefing({
+        realDataOnly: isRealWorkspaceDataOnly(),
+      }, {
         vault: { totalNotes: vaultCount, status: 'operational' },
         reading: { pendingItems: pendingReading },
         schedule: {
@@ -661,8 +665,40 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const onlineBox = document.createElement('input');
   onlineBox.type = 'checkbox';
   onlineBox.checked = onlineVoicesAllowed();
-  onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
-  onlineToggle.append(onlineBox, ' Natural online voices (replies are sent to Microsoft to be spoken)');
+
+  // Step 7.4: Voice engine indicator (neural online vs native local offline)
+  const voiceEngineIndicator = document.createElement('span');
+  voiceEngineIndicator.className = 'jarvis-voice-engine-badge';
+  const updateVoiceEngineIndicator = () => {
+    const isOnline = onlineVoicesAllowed();
+    voiceEngineIndicator.textContent = isOnline
+      ? 'Voice: Natural online (Neural)'
+      : 'Voice: Native local system (Offline)';
+    voiceEngineIndicator.title = isOnline
+      ? 'Replies use natural online voice synthesis via Microsoft'
+      : 'Replies use native offline speech synthesis installed on this PC';
+  };
+  updateVoiceEngineIndicator();
+
+  onlineBox.addEventListener('change', () => {
+    setOnlineVoicesAllowed(onlineBox.checked);
+    updateVoiceEngineIndicator();
+    hud.pulseMessage(onlineBox.checked ? 'Natural online voices enabled' : 'Native local voices active (offline)');
+  });
+  onlineToggle.append(onlineBox, ' Natural online voices');
+
+  // Step 7.4: Executive briefing real workspace data toggle
+  const realDataToggle = document.createElement('label');
+  realDataToggle.className = 'jarvis-real-data-toggle';
+  realDataToggle.title = 'When checked, executive briefings only report real verified local workspace data.';
+  const realDataBox = document.createElement('input');
+  realDataBox.type = 'checkbox';
+  realDataBox.checked = isRealWorkspaceDataOnly();
+  realDataBox.addEventListener('change', () => {
+    setRealWorkspaceDataOnly(realDataBox.checked);
+    hud.pulseMessage(realDataBox.checked ? 'Executive briefings: real workspace data only' : 'Executive briefings: all sources');
+  });
+  realDataToggle.append(realDataBox, ' Real data only');
 
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
@@ -711,7 +747,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  voiceBar.append(btnRunSelfTest, onlineToggle, speechStatusEl);
+  voiceBar.append(btnRunSelfTest, onlineToggle, voiceEngineIndicator, speechStatusEl);
 
   // When launched with --kevo-selftest, start listening in dry-run, execute the self-test, and quit
   void Bridge.isKevoSelftest().then(async (selftestActive) => {
@@ -731,7 +767,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   });
 
   const btnRefreshTeam = makeBtn('Refresh telemetry', '', () => void refreshTeamCards());
-  toolbar.append(btnBriefing, btnRefreshTeam, btnAutoTriage, btnAddTask, btnScoutAngle);
+  toolbar.append(btnBriefing, realDataToggle, btnRefreshTeam, btnAutoTriage, btnAddTask, btnScoutAngle);
 
   // Action Activity & Verification Card (Phase 5 Step 5.4)
   const actionSection = document.createElement('section');
