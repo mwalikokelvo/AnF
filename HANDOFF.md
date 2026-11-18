@@ -4,7 +4,19 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 3.5: restart survival and memory test suite — Phase 3 complete).
+Last updated: 2026-11-18 by Antigravity (Phase 4 Brief written).
+
+## 2026-11-18 — Phase 4 brief written (Antigravity)
+
+Phase 4 Brief (`docs/kevo-briefs/phase-4.md`, "Schedule: reminders and daily briefing across restarts"):
+- Defined Phase 4 scope per `docs/KEVO-PLAN.md` (reminders and daily briefing surviving a restart, version 0.4.x, CI gate merges).
+- Step breakdown:
+  - 4.1 Persistent schedule and reminder store (`windows/src-tauri/src/kevo_schedule.rs`, `jarvis-schedule.ts`).
+  - 4.2 Reminder action and tool calling (`kevo-actions.ts`, fast path in `jarvis-voice-agent.ts`).
+  - 4.3 Daily briefing scheduler.
+  - 4.4 Minimised window alert & native audio notification.
+  - 4.5 Schedule UI & test suite.
+- Updated `docs/KEVO-PLAN.md` table pointing to `kevo-briefs/phase-4.md`.
 
 ## 2026-11-18 — Kevo 3.5: restart survival and memory test suite (Antigravity)
 
