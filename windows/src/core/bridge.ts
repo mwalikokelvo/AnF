@@ -55,6 +55,16 @@ export const Bridge = {
   openInVSCode: (path: string | null) => call<boolean>("open_in_vscode", { path }),
 
   quit: () => call<void>("quit_app"),
+  quitApp: () => call<void>("quit_app"),
+
+  isKevoSelftest: () => call<boolean>("is_kevo_selftest"),
+  kevoSelftestGetClips: () => call<string>("kevo_selftest_get_clips"),
+  kevoSelftestReadClip: (file: string) => call<number[]>("kevo_selftest_read_clip", { file }),
+  kevoSelftestSaveResult: (resultJson: string) => call<string>("kevo_selftest_save_result", { resultJson }),
+  kevoGraphicsCard: () => call<string>("kevo_graphics_card"),
+  systemStats: () => call<Record<string, unknown>>("system_stats"),
+  kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),
+  kevoHudAnswer: (id: number | string, approved: boolean) => call<void>("kevo_hud_answer", { id, approved }),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),

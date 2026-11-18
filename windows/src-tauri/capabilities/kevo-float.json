@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "kevo-float",
+  "description": "The Kevo float window may only drag itself; everything else goes through AnF's own commands.",
+  "windows": ["kevo-float"],
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
+}
