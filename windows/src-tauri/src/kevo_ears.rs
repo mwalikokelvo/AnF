@@ -748,5 +748,4 @@ mod tests {
         // Step 1.4 target: at least 9 of 10 requests accurately transcribed
         assert!(pass_count >= 9, "Request transcription {pass_count}/10 is below threshold");
     }
-    }
 }
