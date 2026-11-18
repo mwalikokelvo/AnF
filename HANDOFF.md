@@ -4,7 +4,32 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.3: what Kevo knows about itself).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.4: instant commands stay instant).
+
+## 2026-11-18 — Kevo 2.4: instant commands stay instant (Antigravity)
+
+Phase 2 Step 2.4 (`docs/kevo-briefs/phase-2.md`, "2.4 Instant commands stay instant"):
+- Verified and enforced fast-path instant execution in `jarvis-voice-agent.ts`:
+  - Instant commands resolve synchronously before any AI/model routing:
+    - `stop` / `cancel` / `never mind` (dismiss)
+    - `repeat` / `say that again`
+    - `time` (`tell_time` / `speakClock`)
+    - `date` (`tell_date` / `speakDate`)
+    - `timers` (`timer_set`, `timer_cancel`, `timer_unclear`)
+    - `sums` (`solveArithmetic` calculation)
+    - `open <exact installed app or AnF place>` (`open_app`, `navigate_*`)
+    - `help`, `name`, `microphone` (`mic_help`)
+  - Guaranteed operation with zero model loaded (`askAI` undefined).
+  - All non-fast-path requests cleanly fall through to the local model.
+- Dedicated unit test suite (`windows/tests/kevo-fastpath.test.ts`):
+  - Validates stop and repeat with no model loaded.
+  - Validates clock and date with no model loaded.
+  - Validates timer creation and cancellation with no model loaded.
+  - Validates arithmetic computation with no model loaded.
+  - Validates exact app and workspace navigation with no model loaded.
+  - Validates help, name, and microphone help with no model loaded.
+  - Validates fallback to model for conversational and general intelligence queries.
+- Verification: 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS, `kevo-fastpath.test.ts` 7/7 PASS.
 
 ## 2026-11-18 — Kevo 2.3: what Kevo knows about itself (Antigravity)
 
