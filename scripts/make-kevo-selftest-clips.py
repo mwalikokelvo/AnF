@@ -46,23 +46,17 @@ MODELS = {
         "dataset": "LibriTTS-R (http://www.openslr.org/141/)",
         "license": "CC BY 4.0",
     },
-    "en_GB-vctk-medium": {
-        "path": "en/en_GB/vctk/medium/en_GB-vctk-medium",
-        "sha256": "4e9fc85ab9009385319fc6bae7f55577f8a2d7ee77fd9159a5500eb6531f41e6",
-        "config_sha256": "7f85e6391ed0f7f46e4abd19345929a16be931a0c9945086f96692dce2087fa8",
-        "dataset": "VCTK (https://datashare.ed.ac.uk/handle/10283/3443)",
-        "license": "CC BY 4.0",
-    },
 }
 
 # Voice id -> (model, speaker name in the model's speaker_id_map, or None).
 VOICES = {
     "ljspeech": ("en_US-ljspeech-medium", None),
     "libritts-3922": ("en_US-libritts_r-medium", "3922"),
-    "libritts-8699": ("en_US-libritts_r-medium", "8699"),
-    "vctk-p239": ("en_GB-vctk-medium", "p239"),
-    "vctk-p236": ("en_GB-vctk-medium", "p236"),
-    "vctk-p264": ("en_GB-vctk-medium", "p264"),
+    "libritts-100": ("en_US-libritts_r-medium", "100"),
+    "libritts-2299": ("en_US-libritts_r-medium", "2299"),
+    "libritts-2401": ("en_US-libritts_r-medium", "2401"),
+    "libritts-2404": ("en_US-libritts_r-medium", "2404"),
+    "libritts-2853": ("en_US-libritts_r-medium", "2853"),
 }
 
 # Step 0.5 table. Clips play in this order; the later ones of a check come
@@ -80,10 +74,13 @@ CHECKS = [
 REQUEST_VOICES = ["ljspeech", "libritts-3922"]
 
 # The name may be said "KEE-vo" or "KEH-vo": (text, stressed vowel to say instead of "iː").
-WAKE_TEXTS = [("Kevo.", None), ("Hey Kevo.", None), ("Kevo.", "ɛ"), ("Hey Kevo.", "ɛ")]
+WAKE_TEXTS = [("Kevo.", None), ("Hey, Kevo.", None), ("Kevo.", "ɛ"), ("Hey, Kevo.", "ɛ")]
 # A name called on its own is said a little slower than Piper's default pace.
 WAKE_PACE = 1.15
-WAKE_VOICES = ["ljspeech", "libritts-3922", "libritts-8699", "vctk-p239", "vctk-p236"]
+# Chosen for clarity, not for the keyword spotter: of 40 random LibriTTS-R and
+# 20 VCTK speakers, these five were the first (by number) of the 13 whose 8 test
+# "Kevo" clips Whisper small.en all heard as the name. LJ Speech managed 3 of 8.
+WAKE_VOICES = ["libritts-100", "libritts-2299", "libritts-2401", "libritts-2404", "libritts-2853"]
 
 LOOKALIKES = ["Cave.", "Kevin.", "Carbo.", "Heavy.", "Kevlar.",
               "Gravy.", "Chevy.", "Hey Kevin.", "Navy.", "Clever."]
