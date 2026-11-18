@@ -96,7 +96,7 @@ if (typeof g.document === 'undefined') {
   };
 }
 
-import { createDeskCompanionView, type DeskCompanionState } from '../../android/web/desk-companion';
+import { createDeskCompanionView, type DeskCompanionState, processLocalPhoneVoiceCommand } from '../../android/web/desk-companion';
 
 describe('Kevo Phase 8 Step 8.1: Android Desk Companion View & UI Components', () => {
   it('instantiates desk companion view with default idle state', () => {
@@ -265,5 +265,49 @@ describe('Kevo Phase 8 Step 8.1: Android Desk Companion View & UI Components', (
     assert.strictEqual(companion.getActiveApproval(), null);
     assert.strictEqual(approvedCalled, false);
     assert.strictEqual(companion.getState(), 'idle');
+  });
+
+  it('processLocalPhoneVoiceCommand handles standalone instant queries offline', () => {
+    let spoken = '';
+    let stopped = false;
+    let switchedView = '';
+
+    const actions = {
+      speak: (t: string) => { spoken = t; },
+      stopSpeaking: () => { stopped = true; },
+      switchView: (v: string) => { switchedView = v; },
+    };
+
+    const resTime = processLocalPhoneVoiceCommand('what time is it', actions);
+    assert.strictEqual(resTime.handled, true);
+    assert.strictEqual(resTime.action, 'tell_time');
+    assert.ok(spoken.includes('It is currently'));
+
+    const resDate = processLocalPhoneVoiceCommand('tell me the date', actions);
+    assert.strictEqual(resDate.handled, true);
+    assert.strictEqual(resDate.action, 'tell_date');
+    assert.ok(spoken.includes('Today is'));
+
+    const resStop = processLocalPhoneVoiceCommand('stop', actions);
+    assert.strictEqual(resStop.handled, true);
+    assert.strictEqual(resStop.action, 'stop');
+    assert.strictEqual(stopped, true);
+
+    const resNav = processLocalPhoneVoiceCommand('open writing', actions);
+    assert.strictEqual(resNav.handled, true);
+    assert.strictEqual(resNav.action, 'open_writing');
+    assert.strictEqual(switchedView, 'writing');
+
+    const resOffline = processLocalPhoneVoiceCommand('do complex math', actions);
+    assert.strictEqual(resOffline.handled, true);
+    assert.strictEqual(resOffline.action, 'offline_notice');
+    assert.ok(spoken.includes('offline voice mode'));
+  });
+
+  it('handleStandaloneCommand triggers standalone phone parser', () => {
+    const companion = createDeskCompanionView();
+    const res = companion.handleStandaloneCommand('what time is it');
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.action, 'tell_time');
   });
 });

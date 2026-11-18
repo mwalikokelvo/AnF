@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 8.3: Remote Approval Cards on Android).
+Last updated: 2026-11-18 by Antigravity (Kevo 8.4: Standalone Voice on Android).
+
+## 2026-11-18 — Kevo 8.4: Standalone Voice on Android (Antigravity)
+
+Phase 8 Step 8.4 (`docs/kevo-briefs/phase-8.md`, "8.4 Standalone Voice on Android"):
+- Android Standalone Voice Engine (`android/web/desk-companion.ts`):
+  - Built `processLocalPhoneVoiceCommand(query, actions)` offline voice parser:
+    - Time and date instant queries (`tell_time`, `tell_date`).
+    - Stop / quiet / cancel command (`stop`).
+    - View routing (`open_writing`, `open_documents`, `open_music`, `open_home`).
+    - Honest offline notice for general queries when disconnected from PC.
+  - Implemented `speakLocal(text)` and `stopSpeakingLocal()` using Android's native speech bridge (`window.AnFAndroid?.speak`) with graceful fallback to `window.speechSynthesis`.
+  - Added `handleStandaloneCommand(query)` to `DeskCompanionView`.
+- Android Web Desk Companion Wiring (`android/web/main.ts`):
+  - Updated `onHoldToTalkEnd` to route commands to local phone voice parser when Wi-Fi pairing is unconfigured/offline, and to PC via `/v1/kevo/command` when connected.
+- Automated Tests & Verification:
+  - Added 2 new unit tests in `windows/tests/kevo-desk-companion.test.ts` (10 tests total in file) verifying standalone command parsing, speech synthesis dispatching, view switching, and fallback offline notices.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 830/830 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 8.3: Remote Approval Cards on Android (Antigravity)
 

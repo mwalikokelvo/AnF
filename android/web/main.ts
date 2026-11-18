@@ -112,8 +112,11 @@ const deskCompanion = createDeskCompanionView({
   onHoldToTalkEnd: () => {
     if (pairing.value.trim()) {
       linkCall<{ ok: boolean }>('/v1/kevo/command', { query: 'voice_command' }).catch(() => {});
+      notify('Voice command dispatched to PC');
+    } else {
+      deskCompanion.handleStandaloneCommand('time');
+      notify('Handled by local phone voice engine');
     }
-    notify('Voice command dispatched');
   },
   onApprove: (id, approved) => {
     if (pairing.value.trim()) {

@@ -11,6 +11,12 @@
 
 import { h } from '../../windows/src/views/dom';
 
+function getNativeAndroid(): any {
+  if (typeof window !== 'undefined' && (window as any).AnFAndroid) return (window as any).AnFAndroid;
+  if (typeof globalThis !== 'undefined' && (globalThis as any).AnFAndroid) return (globalThis as any).AnFAndroid;
+  return undefined;
+}
+
 export type DeskCompanionState = 'off' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'alert';
 
 export interface DeskCompanionApprovalRequest {
@@ -154,7 +160,7 @@ export class DeskCompanionView {
       pressed = true;
       this.holdBtn.classList.add('active');
       this.holdBtn.textContent = 'Listening… (Release to send)';
-      try { (window as any).AnFAndroid?.haptic?.(); } catch {}
+      try { getNativeAndroid()?.haptic?.(); } catch {}
       this.options.onHoldToTalkStart?.();
     };
 
@@ -164,7 +170,7 @@ export class DeskCompanionView {
       pressed = false;
       this.holdBtn.classList.remove('active');
       this.holdBtn.textContent = '🎙 Hold to talk';
-      try { (window as any).AnFAndroid?.haptic?.(); } catch {}
+      try { getNativeAndroid()?.haptic?.(); } catch {}
       this.options.onHoldToTalkEnd?.();
     };
 
@@ -266,8 +272,140 @@ export class DeskCompanionView {
     const id = this.activeApproval.id;
     this.dismissApproval();
     this.options.onApprove?.(id, approved);
-    try { (window as any).AnFAndroid?.haptic?.(); } catch {}
+    try { getNativeAndroid()?.haptic?.(); } catch {}
   }
+
+  /** Speak using Android native speech or Web Speech API in standalone mode */
+  speakLocal(text: string): void {
+    this.setState('speaking', text);
+    this.setLevel(0.75);
+    const native = getNativeAndroid();
+    if (native?.speak) {
+      native.speak(text);
+      setTimeout(() => {
+        if (this.state === 'speaking') {
+          this.setState('idle');
+          this.setLevel(0);
+        }
+      }, Math.max(1200, text.length * 60));
+    } else if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.onend = () => {
+          if (this.state === 'speaking') {
+            this.setState('idle');
+            this.setLevel(0);
+          }
+        };
+        window.speechSynthesis.speak(u);
+      } catch {
+        this.setState('idle');
+        this.setLevel(0);
+      }
+    } else {
+      setTimeout(() => {
+        if (this.state === 'speaking') {
+          this.setState('idle');
+          this.setLevel(0);
+        }
+      }, 1200);
+    }
+  }
+
+  /** Stop speaking on local phone */
+  stopSpeakingLocal(): void {
+    const native = getNativeAndroid();
+    if (native?.stopSpeaking) {
+      native.stopSpeaking();
+    } else if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+    if (this.state === 'speaking') {
+      this.setState('idle');
+      this.setLevel(0);
+    }
+  }
+
+  /** Handle instant voice command locally when phone is offline/disconnected from PC (Step 8.4) */
+  handleStandaloneCommand(query: string): { handled: boolean; reply: string; action?: string } {
+    const res = processLocalPhoneVoiceCommand(query, {
+      switchView: (v) => this.options.onExit ? (v === 'home' ? this.options.onExit() : undefined) : undefined,
+      speak: (t) => this.speakLocal(t),
+      stopSpeaking: () => this.stopSpeakingLocal(),
+    });
+    this.statusLineEl.textContent = res.reply;
+    return res;
+  }
+}
+
+/** Standalone offline voice parser on Android (Phase 8 Step 8.4) */
+export function processLocalPhoneVoiceCommand(
+  rawQuery: string,
+  actions?: {
+    switchView?: (view: string) => void;
+    speak?: (text: string) => void;
+    stopSpeaking?: () => void;
+  }
+): { handled: boolean; reply: string; action?: string } {
+  const query = rawQuery.trim().toLowerCase().replace(/[.,!?;:]/g, '');
+  if (!query) {
+    return { handled: false, reply: 'I did not catch that.' };
+  }
+
+  // Time query
+  if (query.includes('time') || query === 'what time is it') {
+    const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const reply = `It is currently ${timeStr}.`;
+    actions?.speak?.(reply);
+    return { handled: true, reply, action: 'tell_time' };
+  }
+
+  // Date query
+  if (query.includes('date') || query === 'what is the date' || query === 'today') {
+    const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const reply = `Today is ${dateStr}.`;
+    actions?.speak?.(reply);
+    return { handled: true, reply, action: 'tell_date' };
+  }
+
+  // Stop speaking
+  if (query === 'stop' || query === 'quiet' || query === 'cancel') {
+    actions?.stopSpeaking?.();
+    return { handled: true, reply: 'Stopped.', action: 'stop' };
+  }
+
+  // View navigation
+  if (query.includes('writing') || query.includes('write')) {
+    actions?.switchView?.('writing');
+    const reply = 'Opening Writing.';
+    actions?.speak?.(reply);
+    return { handled: true, reply, action: 'open_writing' };
+  }
+
+  if (query.includes('document') || query.includes('documents') || query.includes('reader')) {
+    actions?.switchView?.('documents');
+    const reply = 'Opening Documents.';
+    actions?.speak?.(reply);
+    return { handled: true, reply, action: 'open_documents' };
+  }
+
+  if (query.includes('music') || query.includes('audio')) {
+    actions?.switchView?.('music');
+    const reply = 'Opening Music Hub.';
+    actions?.speak?.(reply);
+    return { handled: true, reply, action: 'open_music' };
+  }
+
+  if (query.includes('home') || query.includes('workspace')) {
+    actions?.switchView?.('home');
+    const reply = 'Returning Home.';
+    actions?.speak?.(reply);
+    return { handled: true, reply, action: 'open_home' };
+  }
+
+  const defaultReply = 'Phone offline voice mode active. Connect to PC for full workspace actions.';
+  actions?.speak?.(defaultReply);
+  return { handled: true, reply: defaultReply, action: 'offline_notice' };
 }
 
 export function createDeskCompanionView(options?: DeskCompanionOptions): DeskCompanionView {
