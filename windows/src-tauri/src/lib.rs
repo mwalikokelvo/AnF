@@ -517,6 +517,7 @@ pub fn run() {
             workspace_ask,
             kevo_ask,
             kevo_cancel,
+            log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,
             workspace_save_project,
