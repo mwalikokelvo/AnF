@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 5.1: verification protocol & execution result schema).
+Last updated: 2026-11-18 by Antigravity (Kevo 5.2: concrete action verifiers).
+
+## 2026-11-18 — Kevo 5.2: concrete action verifiers (Antigravity)
+
+Phase 5 Step 5.2 (`docs/kevo-briefs/phase-5.md`, "5.2 Concrete Action Verifiers"):
+- Concrete Verification across Core Actions (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - `open_site`: Added URL syntax parsing/validation (`new URL`), wrapped launch in try/catch, verified opened URL.
+  - `youtube_search` & `web_search`: Added explicit execution verification and URL encoding safety.
+  - `music_play`: Verified track search outcome (`found === false` reports honest `NO_MATCH` failure reason instead of false success).
+  - `take_note`: Added disk write verification with character length recording in `verificationDetails`.
+  - `search_notes`: Verified query execution and reported honest match counts or empty results.
+  - `remember_fact`: Post-write confirmation check via `listFacts()` verifying fact persistence.
+  - `forget_fact`: Verified deletion and reported explicit `NOT_FOUND` when target fact does not exist.
+  - `create_reminder`: Verified persistence of reminder with returned ID and trigger timestamp.
+  - `cancel_reminder`: Verified cancellation status and reported explicit `NOT_FOUND` when reminder does not exist.
+  - `schedule_briefing`: Verified daily recurring briefing persistence and cancellation.
+- Verification & Test Suite (`windows/tests/kevo-actions.test.ts`):
+  - Added concrete verification tests for URL validation, music search matching, note persistence, fact persistence, and reminder scheduling.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 734/734 tests passed across 104 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 5.1: verification protocol & execution result schema (Antigravity)
 

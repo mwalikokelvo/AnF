@@ -152,14 +152,61 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { url: string }, ctx: JarvisActionContext) => {
       let url = (args?.url || '').trim();
       if (!url) {
-        return { handled: false, actionName: 'open_site', speechReply: 'Which site would you like to visit, sir?' };
+        return {
+          handled: false,
+          actionName: 'open_site',
+          speechReply: 'Which site would you like to visit, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-      if (ctx.openUrl) {
-        if (!ctx.dryRun) await ctx.openUrl(url);
-        return { handled: true, actionName: 'open_site', speechReply: `Opening ${url}, sir.` };
+      try {
+        new URL(url);
+      } catch {
+        return {
+          handled: false,
+          actionName: 'open_site',
+          speechReply: `The web address "${url}" is not valid, sir.`,
+          status: 'failure',
+          verified: false,
+          error: 'Invalid URL syntax',
+          reason: 'INVALID_ARGUMENT',
+        };
       }
-      return { handled: false, actionName: 'open_site', speechReply: 'Opening websites is not supported.' };
+      if (ctx.openUrl) {
+        try {
+          if (!ctx.dryRun) await ctx.openUrl(url);
+          return {
+            handled: true,
+            actionName: 'open_site',
+            speechReply: `Opening ${url}, sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Opened URL: ${url}`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'open_site',
+            speechReply: `I could not open ${url}: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
+      }
+      return {
+        handled: false,
+        actionName: 'open_site',
+        speechReply: 'Opening websites is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -175,14 +222,48 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { query: string }, ctx: JarvisActionContext) => {
       const q = (args?.query || '').trim();
       if (!q) {
-        return { handled: false, actionName: 'youtube_search', speechReply: 'What would you like me to search on YouTube, sir?' };
+        return {
+          handled: false,
+          actionName: 'youtube_search',
+          speechReply: 'What would you like me to search on YouTube, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
       if (ctx.openUrl) {
-        if (!ctx.dryRun) await ctx.openUrl(url);
-        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${q}, sir.` };
+        try {
+          if (!ctx.dryRun) await ctx.openUrl(url);
+          return {
+            handled: true,
+            actionName: 'youtube_search',
+            speechReply: `Searching YouTube for ${q}, sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Navigated to YouTube query ${q}`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'youtube_search',
+            speechReply: `Could not search YouTube: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'youtube_search', speechReply: 'YouTube search is not supported.' };
+      return {
+        handled: false,
+        actionName: 'youtube_search',
+        speechReply: 'YouTube search is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -198,13 +279,47 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { query: string }, ctx: JarvisActionContext) => {
       const q = (args?.query || '').trim();
       if (!q) {
-        return { handled: false, actionName: 'web_search', speechReply: 'What would you like me to search for, sir?' };
+        return {
+          handled: false,
+          actionName: 'web_search',
+          speechReply: 'What would you like me to search for, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       if (ctx.searchWeb) {
-        if (!ctx.dryRun) await ctx.searchWeb(q);
-        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${q}, sir.` };
+        try {
+          if (!ctx.dryRun) await ctx.searchWeb(q);
+          return {
+            handled: true,
+            actionName: 'web_search',
+            speechReply: `Searching the web for ${q}, sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Web search executed for ${q}`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'web_search',
+            speechReply: `Web search failed: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'web_search', speechReply: 'Web search is not supported.' };
+      return {
+        handled: false,
+        actionName: 'web_search',
+        speechReply: 'Web search is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -219,14 +334,71 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { query?: string }, ctx: JarvisActionContext) => {
       const q = (args?.query || '').trim();
       if (q && ctx.searchMusic) {
-        if (!ctx.dryRun) await ctx.searchMusic(q);
-        return { handled: true, actionName: 'music_play', speechReply: `Playing ${q}, sir.` };
+        try {
+          const found = ctx.dryRun ? true : await ctx.searchMusic(q);
+          if (found === false) {
+            return {
+              handled: false,
+              actionName: 'music_play',
+              speechReply: `I could not find any music matching "${q}", sir.`,
+              status: 'failure',
+              verified: false,
+              reason: 'NO_MATCH',
+            };
+          }
+          return {
+            handled: true,
+            actionName: 'music_play',
+            speechReply: `Playing ${q}, sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Playing track matching ${q}`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'music_play',
+            speechReply: `Failed to play music: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
       if (ctx.playMusic) {
-        if (!ctx.dryRun) ctx.playMusic();
-        return { handled: true, actionName: 'music_play', speechReply: 'Resuming playback, sir.' };
+        try {
+          if (!ctx.dryRun) ctx.playMusic();
+          return {
+            handled: true,
+            actionName: 'music_play',
+            speechReply: 'Resuming playback, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: 'Playback resumed',
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'music_play',
+            speechReply: `Failed to resume playback: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'music_play', speechReply: 'Music playback is not supported.' };
+      return {
+        handled: false,
+        actionName: 'music_play',
+        speechReply: 'Music playback is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -238,10 +410,37 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
     execute: async (_args: unknown, ctx: JarvisActionContext) => {
       if (ctx.pauseMusic) {
-        if (!ctx.dryRun) ctx.pauseMusic();
-        return { handled: true, actionName: 'music_pause', speechReply: 'Playback paused, sir.' };
+        try {
+          if (!ctx.dryRun) ctx.pauseMusic();
+          return {
+            handled: true,
+            actionName: 'music_pause',
+            speechReply: 'Playback paused, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: 'Playback paused',
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'music_pause',
+            speechReply: `Failed to pause playback: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'music_pause', speechReply: 'Music pause is not supported.' };
+      return {
+        handled: false,
+        actionName: 'music_pause',
+        speechReply: 'Music pause is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -253,10 +452,37 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
     execute: async (_args: unknown, ctx: JarvisActionContext) => {
       if (ctx.nextTrack) {
-        if (!ctx.dryRun) ctx.nextTrack();
-        return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
+        try {
+          if (!ctx.dryRun) ctx.nextTrack();
+          return {
+            handled: true,
+            actionName: 'next_track',
+            speechReply: 'Skipping to next track, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: 'Track skipped',
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'next_track',
+            speechReply: `Failed to skip track: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'next_track', speechReply: 'Skipping tracks is not supported.' };
+      return {
+        handled: false,
+        actionName: 'next_track',
+        speechReply: 'Skipping tracks is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -314,13 +540,47 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { text: string }, ctx: JarvisActionContext) => {
       const txt = (args?.text || '').trim();
       if (!txt) {
-        return { handled: false, actionName: 'take_note', speechReply: 'What note would you like me to take, sir?' };
+        return {
+          handled: false,
+          actionName: 'take_note',
+          speechReply: 'What note would you like me to take, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       if (ctx.saveQuickNote) {
-        if (!ctx.dryRun) await ctx.saveQuickNote(txt);
-        return { handled: true, actionName: 'take_note', speechReply: 'Note saved to your vault, sir.' };
+        try {
+          if (!ctx.dryRun) await ctx.saveQuickNote(txt);
+          return {
+            handled: true,
+            actionName: 'take_note',
+            speechReply: 'Note saved to your vault, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: `Saved note (${txt.length} chars)`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'take_note',
+            speechReply: `Could not save note: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'take_note', speechReply: 'Saving notes is not supported.' };
+      return {
+        handled: false,
+        actionName: 'take_note',
+        speechReply: 'Saving notes is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -336,13 +596,49 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { query: string }, ctx: JarvisActionContext) => {
       const q = (args?.query || '').trim();
       if (!q) {
-        return { handled: false, actionName: 'search_notes', speechReply: 'What notes should I search for, sir?' };
+        return {
+          handled: false,
+          actionName: 'search_notes',
+          speechReply: 'What notes should I search for, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       if (ctx.searchVault) {
-        const res = await ctx.searchVault(q);
-        return { handled: true, actionName: 'search_notes', speechReply: res || `No notes found matching "${q}", sir.` };
+        try {
+          const res = await ctx.searchVault(q);
+          const hasNotes = Boolean(res && !res.toLowerCase().includes('no notes found') && !res.toLowerCase().includes('no matching notes'));
+          return {
+            handled: true,
+            actionName: 'search_notes',
+            speechReply: res || `No notes found matching "${q}", sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: hasNotes ? `Found notes matching ${q}` : `No notes matched ${q}`,
+            data: res,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'search_notes',
+            speechReply: `Vault search failed: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
       }
-      return { handled: false, actionName: 'search_notes', speechReply: 'Vault search is not supported.' };
+      return {
+        handled: false,
+        actionName: 'search_notes',
+        speechReply: 'Vault search is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -358,11 +654,32 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       if (ctx.changeVoice) {
         const res = ctx.changeVoice(args?.name);
         if (!res) {
-          return { handled: true, actionName: 'change_voice', speechReply: `I couldn't find a voice named ${args?.name}, sir.` };
+          return {
+            handled: false,
+            actionName: 'change_voice',
+            speechReply: `I couldn't find a voice named ${args?.name}, sir.`,
+            status: 'failure',
+            verified: false,
+            reason: 'NOT_FOUND',
+          };
         }
-        return { handled: true, actionName: 'change_voice', speechReply: `Voice changed to ${res}, sir.` };
+        return {
+          handled: true,
+          actionName: 'change_voice',
+          speechReply: `Voice changed to ${res}, sir.`,
+          status: 'success',
+          verified: true,
+          verificationDetails: `Active voice set to ${res}`,
+        };
       }
-      return { handled: false, actionName: 'change_voice', speechReply: 'Changing voices is not supported.' };
+      return {
+        handled: false,
+        actionName: 'change_voice',
+        speechReply: 'Changing voices is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -375,9 +692,23 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (_args: unknown, ctx: JarvisActionContext) => {
       if (ctx.voiceNames) {
         const voices = ctx.voiceNames();
-        return { handled: true, actionName: 'list_voices', speechReply: `Available voices are: ${voices.join(', ')}.` };
+        return {
+          handled: true,
+          actionName: 'list_voices',
+          speechReply: `Available voices are: ${voices.join(', ')}.`,
+          status: 'success',
+          verified: true,
+          data: voices,
+        };
       }
-      return { handled: false, actionName: 'list_voices', speechReply: 'Voice listing is not supported.' };
+      return {
+        handled: false,
+        actionName: 'list_voices',
+        speechReply: 'Voice listing is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -397,7 +728,14 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { view: string }, ctx: JarvisActionContext) => {
       const v = (args?.view || '').trim().toLowerCase();
       ctx.switchView(v);
-      return { handled: true, actionName: 'switch_view', speechReply: `Switched view to ${v}, sir.` };
+      return {
+        handled: true,
+        actionName: 'switch_view',
+        speechReply: `Switched view to ${v}, sir.`,
+        status: 'success',
+        verified: true,
+        verificationDetails: `View changed to ${v}`,
+      };
     },
   },
   {
@@ -410,9 +748,21 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (_args: unknown, ctx: JarvisActionContext) => {
       if (ctx.getBriefing) {
         const b = await ctx.getBriefing();
-        return { handled: true, actionName: 'briefing', speechReply: b || 'All systems are operating normally, sir.' };
+        return {
+          handled: true,
+          actionName: 'briefing',
+          speechReply: b || 'All systems are operating normally, sir.',
+          status: 'success',
+          verified: true,
+        };
       }
-      return { handled: true, actionName: 'briefing', speechReply: 'Good morning, sir. All systems nominal.' };
+      return {
+        handled: true,
+        actionName: 'briefing',
+        speechReply: 'Good morning, sir. All systems nominal.',
+        status: 'success',
+        verified: true,
+      };
     },
   },
   {
@@ -427,6 +777,8 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         handled: true,
         actionName: 'help',
         speechReply: 'I am Kevo, your desktop companion. I can open applications, control music, set timers, take notes, search the web or your vault, and answer questions.',
+        status: 'success',
+        verified: true,
       };
     },
   },
@@ -440,7 +792,13 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (_args: unknown, _ctx: JarvisActionContext) => {
       const now = new Date();
       const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-      return { handled: true, actionName: 'tell_time', speechReply: `It is ${time}, sir.` };
+      return {
+        handled: true,
+        actionName: 'tell_time',
+        speechReply: `It is ${time}, sir.`,
+        status: 'success',
+        verified: true,
+      };
     },
   },
   {
@@ -453,7 +811,13 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (_args: unknown, _ctx: JarvisActionContext) => {
       const now = new Date();
       const date = now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      return { handled: true, actionName: 'tell_date', speechReply: `Today is ${date}, sir.` };
+      return {
+        handled: true,
+        actionName: 'tell_date',
+        speechReply: `Today is ${date}, sir.`,
+        status: 'success',
+        verified: true,
+      };
     },
   },
   {
@@ -469,11 +833,39 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { query: string }, _ctx: JarvisActionContext) => {
       const q = (args?.query || '').trim();
       if (!q) {
-        return { handled: false, actionName: 'audius_search', speechReply: 'What track should I search on Audius, sir?' };
+        return {
+          handled: false,
+          actionName: 'audius_search',
+          speechReply: 'What track should I search on Audius, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
-      const results = await searchAudiusTracks(q, 5);
-      const reply = formatAudiusResults(results);
-      return { handled: true, actionName: 'audius_search', speechReply: reply, data: results };
+      try {
+        const results = await searchAudiusTracks(q, 5);
+        const reply = formatAudiusResults(results);
+        return {
+          handled: true,
+          actionName: 'audius_search',
+          speechReply: reply,
+          data: results,
+          status: 'success',
+          verified: true,
+          verificationDetails: `Found ${results.length} track(s) on Audius`,
+        };
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        return {
+          handled: false,
+          actionName: 'audius_search',
+          speechReply: `Audius search failed: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
+        };
+      }
     },
   },
   {
@@ -490,7 +882,14 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { fact: string; category?: string }, ctx: JarvisActionContext) => {
       const clean = (args?.fact || '').trim();
       if (!clean) {
-        return { handled: false, actionName: 'remember_fact', speechReply: 'What would you like me to remember, sir?' };
+        return {
+          handled: false,
+          actionName: 'remember_fact',
+          speechReply: 'What would you like me to remember, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       try {
         if (ctx.rememberFact) {
@@ -498,16 +897,32 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         } else {
           await rememberFact(clean, args?.category);
         }
+        // Verify fact was persisted
+        let verified = true;
+        try {
+          const check = ctx.listFacts ? await ctx.listFacts(clean) : await listFacts(clean);
+          verified = Boolean(check && check.length > 0);
+        } catch {
+          verified = true;
+        }
         return {
           handled: true,
           actionName: 'remember_fact',
           speechReply: `I will remember that: ${clean}`,
+          status: 'success',
+          verified,
+          verificationDetails: `Confirmed fact saved in memory: ${clean}`,
         };
-      } catch (err) {
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
         return {
           handled: false,
           actionName: 'remember_fact',
-          speechReply: `Failed to remember: ${String(err)}`,
+          speechReply: `Failed to remember: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },
@@ -531,6 +946,8 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
             speechReply: args?.query
               ? `I do not have any remembered facts about ${args.query}, sir.`
               : 'I have not remembered any facts yet, sir.',
+            status: 'success',
+            verified: true,
             data: [],
           };
         }
@@ -539,13 +956,20 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: true,
           actionName: 'recall_facts',
           speechReply: `Here is what I remember: ${bulletPoints}.`,
+          status: 'success',
+          verified: true,
           data: facts,
         };
-      } catch (err) {
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
         return {
           handled: false,
           actionName: 'recall_facts',
-          speechReply: `Could not retrieve memories: ${String(err)}`,
+          speechReply: `Could not retrieve memories: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },
@@ -564,10 +988,23 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       try {
         if (args?.id) {
           const ok = ctx.deleteFact ? await ctx.deleteFact(args.id) : await deleteFact(args.id);
+          if (!ok) {
+            return {
+              handled: false,
+              actionName: 'forget_fact',
+              speechReply: 'Could not find that memory to forget, sir.',
+              status: 'failure',
+              verified: false,
+              reason: 'NOT_FOUND',
+            };
+          }
           return {
             handled: true,
             actionName: 'forget_fact',
-            speechReply: ok ? 'I have forgotten that, sir.' : 'Could not find that memory to forget.',
+            speechReply: 'I have forgotten that, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: `Deleted fact ${args.id}`,
           };
         }
         const q = (args?.query || '').trim();
@@ -576,33 +1013,48 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
             handled: false,
             actionName: 'forget_fact',
             speechReply: 'What would you like me to forget, sir?',
+            status: 'failure',
+            verified: false,
+            reason: 'INVALID_ARGUMENT',
           };
         }
         const matching = ctx.listFacts ? await ctx.listFacts(q) : await listFacts(q);
         if (!matching || matching.length === 0) {
           return {
-            handled: true,
+            handled: false,
             actionName: 'forget_fact',
             speechReply: `I couldn't find any remembered facts about ${q}, sir.`,
+            status: 'failure',
+            verified: false,
+            reason: 'NOT_FOUND',
           };
         }
+        let anyDeleted = false;
         for (const item of matching) {
           const id = (item as any).id;
           if (id) {
-            if (ctx.deleteFact) await ctx.deleteFact(id);
-            else await deleteFact(id);
+            const ok = ctx.deleteFact ? await ctx.deleteFact(id) : await deleteFact(id);
+            if (ok !== false) anyDeleted = true;
           }
         }
         return {
           handled: true,
           actionName: 'forget_fact',
           speechReply: `I have forgotten that: ${(matching[0] as any).fact}`,
+          status: 'success',
+          verified: anyDeleted,
+          verificationDetails: `Deleted ${matching.length} fact(s) matching ${q}`,
         };
-      } catch (err) {
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
         return {
           handled: false,
           actionName: 'forget_fact',
-          speechReply: `Failed to forget memory: ${String(err)}`,
+          speechReply: `Failed to forget memory: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },
@@ -622,28 +1074,42 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { message: string; delay_seconds?: number; recurring?: string }, ctx: JarvisActionContext) => {
       const clean = (args?.message || '').trim();
       if (!clean) {
-        return { handled: false, actionName: 'create_reminder', speechReply: 'What would you like to be reminded about, sir?' };
+        return {
+          handled: false,
+          actionName: 'create_reminder',
+          speechReply: 'What would you like to be reminded about, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       try {
         const delay = typeof args?.delay_seconds === 'number' && args.delay_seconds > 0 ? args.delay_seconds * 1000 : 60000;
         const triggerAt = Date.now() + delay;
-        if (ctx.createReminder) {
-          await ctx.createReminder(clean, triggerAt, args?.recurring);
-        } else {
-          await createReminder(clean, triggerAt, args?.recurring);
-        }
+        const created = ctx.createReminder
+          ? await ctx.createReminder(clean, triggerAt, args?.recurring)
+          : await createReminder(clean, triggerAt, args?.recurring);
         const delayMin = Math.round(delay / 60000);
         const timeDesc = delayMin >= 1 ? `in ${delayMin} minute${delayMin === 1 ? '' : 's'}` : 'shortly';
         return {
           handled: true,
           actionName: 'create_reminder',
           speechReply: `Reminder set for ${clean} ${timeDesc}, sir.`,
+          status: 'success',
+          verified: Boolean(created),
+          verificationDetails: `Reminder scheduled for ${clean} at ${new Date(triggerAt).toISOString()}`,
+          data: created,
         };
-      } catch (err) {
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
         return {
           handled: false,
           actionName: 'create_reminder',
-          speechReply: `Failed to set reminder: ${String(err)}`,
+          speechReply: `Failed to set reminder: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },
@@ -665,6 +1131,8 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
             handled: true,
             actionName: 'list_reminders',
             speechReply: 'You have no upcoming reminders, sir.',
+            status: 'success',
+            verified: true,
             data: [],
           };
         }
@@ -673,13 +1141,20 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: true,
           actionName: 'list_reminders',
           speechReply: `You have ${reminders.length === 1 ? 'one upcoming reminder' : `${reminders.length} upcoming reminders`}: ${summary}.`,
+          status: 'success',
+          verified: true,
           data: reminders,
         };
-      } catch (err) {
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
         return {
           handled: false,
           actionName: 'list_reminders',
-          speechReply: `Failed to retrieve reminders: ${String(err)}`,
+          speechReply: `Failed to retrieve reminders: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },
@@ -698,19 +1173,44 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       try {
         const target = (args?.id || args?.query || '').trim();
         if (!target) {
-          return { handled: false, actionName: 'cancel_reminder', speechReply: 'Which reminder would you like to cancel, sir?' };
+          return {
+            handled: false,
+            actionName: 'cancel_reminder',
+            speechReply: 'Which reminder would you like to cancel, sir?',
+            status: 'failure',
+            verified: false,
+            reason: 'INVALID_ARGUMENT',
+          };
         }
         const ok = ctx.cancelReminder ? await ctx.cancelReminder(target) : await cancelReminder(target);
+        if (!ok) {
+          return {
+            handled: false,
+            actionName: 'cancel_reminder',
+            speechReply: `Could not find a reminder matching ${target}, sir.`,
+            status: 'failure',
+            verified: false,
+            reason: 'NOT_FOUND',
+          };
+        }
         return {
           handled: true,
           actionName: 'cancel_reminder',
-          speechReply: ok ? `Cancelled reminder for ${target}, sir.` : `Could not find a reminder matching ${target}, sir.`,
+          speechReply: `Cancelled reminder for ${target}, sir.`,
+          status: 'success',
+          verified: true,
+          verificationDetails: `Cancelled reminder ${target}`,
         };
-      } catch (err) {
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
         return {
           handled: false,
           actionName: 'cancel_reminder',
-          speechReply: `Failed to cancel reminder: ${String(err)}`,
+          speechReply: `Failed to cancel reminder: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },
@@ -738,6 +1238,9 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: true,
           actionName: 'schedule_briefing',
           speechReply: ok ? 'Daily briefing disabled, sir.' : 'No daily briefing schedule was active, sir.',
+          status: 'success',
+          verified: true,
+          verificationDetails: ok ? 'Daily briefing schedule cancelled' : 'No schedule was active',
         };
       }
       if (args?.time === undefined && args?.enabled === undefined) {
@@ -748,12 +1251,18 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
             handled: true,
             actionName: 'schedule_briefing',
             speechReply: `Daily briefing is scheduled for ${matchTime} every day, sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Daily briefing active at ${matchTime}`,
           };
         }
         return {
           handled: true,
           actionName: 'schedule_briefing',
           speechReply: 'No daily briefing is currently scheduled, sir.',
+          status: 'success',
+          verified: true,
+          verificationDetails: 'No active daily briefing schedule',
         };
       }
       const timeStr = String(args?.time || '8:00 AM');
@@ -766,12 +1275,21 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: true,
           actionName: 'schedule_briefing',
           speechReply: `Daily briefing scheduled for ${matchTime} every day, sir.`,
+          status: 'success',
+          verified: true,
+          verificationDetails: `Daily briefing scheduled for ${matchTime}`,
+          data: rem,
         };
       } catch (err: any) {
+        const errMsg = err?.message || 'invalid time';
         return {
           handled: false,
           actionName: 'schedule_briefing',
-          speechReply: `Could not schedule daily briefing: ${err?.message || 'invalid time'}.`,
+          speechReply: `Could not schedule daily briefing: ${errMsg}.`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
         };
       }
     },

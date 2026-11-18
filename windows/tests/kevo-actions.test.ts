@@ -474,4 +474,116 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.strictEqual(chainedFail.status, 'failure');
     assert.strictEqual(chainedFail.verified, false);
   });
+
+  it('verifies concrete action outcomes and reports honest failure reasons (Step 5.2)', async () => {
+    let noteSaved = '';
+    const factsStore: { id: string; fact: string }[] = [];
+    const remindersStore: { id: string; message: string; trigger_at: number }[] = [];
+
+    const ctx = mockContext({
+      dryRun: false,
+      openUrl: async (url) => {
+        if (url.includes('invalid-scheme')) throw new Error('Unsupported protocol');
+      },
+      searchMusic: async (q) => {
+        return q.includes('lofi'); // only lofi matches
+      },
+      saveQuickNote: async (txt) => {
+        if (txt.includes('fail')) throw new Error('Disk write failed');
+        noteSaved = txt;
+      },
+      rememberFact: async (f) => {
+        factsStore.push({ id: `f_${Date.now()}`, fact: f });
+      },
+      listFacts: async (q) => {
+        if (!q) return factsStore;
+        return factsStore.filter((f) => f.fact.includes(q));
+      },
+      deleteFact: async (id) => {
+        const idx = factsStore.findIndex((f) => f.id === id);
+        if (idx !== -1) {
+          factsStore.splice(idx, 1);
+          return true;
+        }
+        return false;
+      },
+      createReminder: async (msg, triggerAt) => {
+        const rem = { id: `rem_${Date.now()}`, message: msg, trigger_at: triggerAt };
+        remindersStore.push(rem);
+        return rem;
+      },
+      cancelReminder: async (target) => {
+        const idx = remindersStore.findIndex((r) => r.id === target || r.message.includes(target));
+        if (idx !== -1) {
+          remindersStore.splice(idx, 1);
+          return true;
+        }
+        return false;
+      },
+    });
+
+    // 1. open_site URL validation & verification
+    const validSite = await executeKevoAction('open_site', { url: 'https://example.com' }, ctx);
+    assert.strictEqual(validSite.status, 'success');
+    assert.strictEqual(validSite.verified, true);
+    assert.ok(validSite.verificationDetails?.includes('https://example.com'));
+
+    // 2. music_play NO_MATCH verification
+    const musicFound = await executeKevoAction('music_play', { query: 'lofi beats' }, ctx);
+    assert.strictEqual(musicFound.status, 'success');
+    assert.strictEqual(musicFound.verified, true);
+
+    const musicMiss = await executeKevoAction('music_play', { query: 'obscure track 12345' }, ctx);
+    assert.strictEqual(musicMiss.status, 'failure');
+    assert.strictEqual(musicMiss.verified, false);
+    assert.strictEqual(musicMiss.reason, 'NO_MATCH');
+    assert.match(musicMiss.speechReply, /could not find any music/i);
+
+    // 3. take_note verification
+    const noteOk = await executeKevoAction('take_note', { text: 'buy groceries' }, ctx);
+    assert.strictEqual(noteOk.status, 'success');
+    assert.strictEqual(noteOk.verified, true);
+    assert.strictEqual(noteSaved, 'buy groceries');
+    assert.ok(noteOk.verificationDetails?.includes('13 chars'));
+
+    const noteFail = await executeKevoAction('take_note', { text: 'fail writing' }, ctx);
+    assert.strictEqual(noteFail.status, 'failure');
+    assert.strictEqual(noteFail.verified, false);
+    assert.strictEqual(noteFail.reason, 'EXECUTION_FAILED');
+    assert.match(noteFail.speechReply, /could not save note/i);
+
+    // 4. remember_fact & forget_fact verification
+    const remOk = await executeKevoAction('remember_fact', { fact: 'User prefers dark mode' }, ctx);
+    assert.strictEqual(remOk.status, 'success');
+    assert.strictEqual(remOk.verified, true);
+    assert.strictEqual(factsStore.length, 1);
+
+    const forgetOk = await executeKevoAction('forget_fact', { query: 'dark mode' }, ctx);
+    assert.strictEqual(forgetOk.status, 'success');
+    assert.strictEqual(forgetOk.verified, true);
+    assert.strictEqual(factsStore.length, 0);
+
+    const forgetNotFound = await executeKevoAction('forget_fact', { query: 'nonexistent fact' }, ctx);
+    assert.strictEqual(forgetNotFound.status, 'failure');
+    assert.strictEqual(forgetNotFound.verified, false);
+    assert.strictEqual(forgetNotFound.reason, 'NOT_FOUND');
+    assert.match(forgetNotFound.speechReply, /couldn't find any remembered facts/i);
+
+    // 5. create_reminder & cancel_reminder verification
+    const createRem = await executeKevoAction('create_reminder', { message: 'Feed cat', delay_seconds: 60 }, ctx);
+    assert.strictEqual(createRem.status, 'success');
+    assert.strictEqual(createRem.verified, true);
+    assert.strictEqual(remindersStore.length, 1);
+
+    const cancelRem = await executeKevoAction('cancel_reminder', { query: 'Feed cat' }, ctx);
+    assert.strictEqual(cancelRem.status, 'success');
+    assert.strictEqual(cancelRem.verified, true);
+    assert.strictEqual(remindersStore.length, 0);
+
+    const cancelNotFound = await executeKevoAction('cancel_reminder', { query: 'Nonexistent reminder' }, ctx);
+    assert.strictEqual(cancelNotFound.status, 'failure');
+    assert.strictEqual(cancelNotFound.verified, false);
+    assert.strictEqual(cancelNotFound.reason, 'NOT_FOUND');
+    assert.match(cancelNotFound.speechReply, /could not find a reminder/i);
+  });
 });
