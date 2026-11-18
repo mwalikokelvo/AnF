@@ -312,7 +312,7 @@ const jarvisActionContext: JarvisActionContext = {
       try{
         const tools = getOpenAITools();
         const facts = await listFacts().catch(() => []);
-        const system = getKevoSystemPrompt(facts);
+        const system = getKevoSystemPrompt(facts, { compact: true });
         const res = await invoke<KevoAskReply | string>('kevo_ask',{
           id,
           query,

@@ -1387,7 +1387,24 @@ export function getCapabilitySheet(facts?: KevoFact[]): string {
   return lines.join("\n");
 }
 
-export function getKevoSystemPrompt(facts?: KevoFact[]): string {
+export function getCompactKevoSystemPrompt(facts?: KevoFact[]): string {
+  const lines: string[] = [
+    "You are Kevo, a helpful offline voice assistant on the user's computer. Answer directly in one to three short plain sentences without markdown or lists.",
+    "When a request matches an available tool, invoke the tool with appropriate arguments. Otherwise answer conversationally. /no_think",
+  ];
+  if (facts && facts.length > 0) {
+    lines.push("# Remembered Facts:");
+    for (const f of facts.slice(-10)) {
+      lines.push(`- [${f.category}] ${f.fact}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+export function getKevoSystemPrompt(facts?: KevoFact[], options?: { compact?: boolean }): string {
+  if (options?.compact) {
+    return getCompactKevoSystemPrompt(facts);
+  }
   return getCapabilitySheet(facts);
 }
 

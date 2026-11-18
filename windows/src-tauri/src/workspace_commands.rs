@@ -56,6 +56,7 @@ struct KevoPart {
 const KEVO_SYSTEM: &str = "You are Kevo, a helpful offline voice assistant on the user's computer. Answer directly in one to three short sentences of plain text. No lists, no markdown. If you do not know, say so in one sentence. You can open apps and websites, search YouTube and the web, play and pause music, skip tracks, set timers, take notes, tell time and date, and change your voice. The wake word is 'Kevo', followed by a 5-second follow-up window where the user can speak without repeating the wake word. To change voice, the user can say 'change voice'. /no_think";
 
 /// The messages sent for a spoken question: the Kevo instructions, a few recent turns, then the question.
+/// Uses bounded turns and compacted assistant responses to optimize context prefill and maximize KV-cache reuse.
 fn kevo_messages(query: &str, history: &[Value], system: Option<&str>) -> Vec<Value> {
     let mut messages = vec![json!({"role":"system","content":system.unwrap_or(KEVO_SYSTEM)})];
     let recent = &history[history.len().saturating_sub(8)..];
@@ -63,10 +64,11 @@ fn kevo_messages(query: &str, history: &[Value], system: Option<&str>) -> Vec<Va
     let skip = recent.iter().position(|m| m["role"] == "user").unwrap_or(recent.len());
     for m in &recent[skip..] {
         if let (Some(role @ ("user" | "assistant")), Some(text)) = (m["role"].as_str(), m["text"].as_str()) {
-            messages.push(json!({"role":role,"content":short(text, 600)}));
+            let max_chars = if role == "assistant" { 300 } else { 400 };
+            messages.push(json!({"role":role,"content":short(text.trim(), max_chars)}));
         }
     }
-    messages.push(json!({"role":"user","content":query}));
+    messages.push(json!({"role":"user","content":query.trim()}));
     messages
 }
 
@@ -930,5 +932,19 @@ mod kevo_tests {
         // A decimal point is not the end of a sentence.
         let mut number = String::from("Pi is roughly 3.14159 and e is");
         assert_eq!(take_sentences(&mut number), None);
+    }
+
+    #[test]
+    fn assistant_turns_are_compacted_to_preserve_prefill_latency() {
+        let long_reply = "A".repeat(1000);
+        let history = vec![
+            json!({"role": "user", "text": "tell me a long story"}),
+            json!({"role": "assistant", "text": long_reply}),
+        ];
+        let messages = kevo_messages("continue", &history, None);
+        assert_eq!(messages.len(), 1 + 2 + 1);
+        let assistant_msg = &messages[2];
+        assert_eq!(assistant_msg["role"], "assistant");
+        assert_eq!(assistant_msg["content"].as_str().unwrap().len(), 300);
     }
 }
