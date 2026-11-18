@@ -9,8 +9,13 @@ import {
   validateVoicePackage,
   serializeThingsBookVoicePackage,
   deserializeThingsBookVoicePackage,
+  packageVoiceMemos,
+  exportVoicePackage,
+  importVoicePackage,
+  extractVoicePackageSummary,
   type ThingsBookVoicePackage,
 } from '../src/workspace/jarvis/thingsbook-voice';
+import { toVoiceWire, fromVoiceWire } from '../../android/web/sync';
 
 describe('Phase 9 Step 9.1: ThingsBook Voice Contract & Serialization Specs', () => {
   it('createVoiceItem produces contract-compliant voice item with checksum', () => {
@@ -121,6 +126,100 @@ describe('Phase 9 Step 9.1: ThingsBook Voice Contract & Serialization Specs', ()
     assert.throws(
       () => deserializeThingsBookVoicePackage('{ "version": "thingsbook-voice-v1", items: [ truncated...'),
       /Failed to parse ThingsBookVoicePackage JSON/
+    );
+  });
+});
+
+describe('Phase 9 Step 9.2: Cross-Device Voice Artifact Packaging & Exchange', () => {
+  it('packageVoiceMemos bundles artifacts into validated ThingsBookVoicePackage', () => {
+    const item = createVoiceItem({
+      id: 'memo-10',
+      timestamp: 1773831000000,
+      durationMs: 3200,
+      transcript: 'Drafting new proposal',
+      audioBase64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
+    });
+
+    const pkg = packageVoiceMemos({
+      deviceId: 'desk-companion-tablet',
+      items: [item],
+      now: 1773832000000,
+    });
+
+    assert.strictEqual(pkg.version, THINGSBOOK_VOICE_PROTOCOL_VERSION);
+    assert.strictEqual(pkg.deviceId, 'desk-companion-tablet');
+    assert.strictEqual(pkg.exportedAt, 1773832000000);
+    assert.strictEqual(pkg.items.length, 1);
+  });
+
+  it('exportVoicePackage formats .anfvoice file with correct MIME and filename', () => {
+    const pkg = packageVoiceMemos({
+      deviceId: 'anf-laptop',
+      items: [],
+      now: 1773830400000,
+    });
+
+    const exported = exportVoicePackage(pkg);
+    assert.ok(exported.filename.startsWith('kevo-voice-anf-laptop-'));
+    assert.ok(exported.filename.endsWith('.anfvoice'));
+    assert.strictEqual(exported.mime, 'application/vnd.thingsbook.voice+json');
+    assert.ok(exported.size > 0);
+
+    const reimported = importVoicePackage(exported.data);
+    assert.strictEqual(reimported.deviceId, 'anf-laptop');
+  });
+
+  it('extractVoicePackageSummary counts artifacts and audio bytes accurately', () => {
+    const audioData = 'A'.repeat(400); // 400 base64 chars = 300 bytes
+    const item1 = createVoiceItem({
+      id: 'i-1',
+      timestamp: 1773830000000,
+      durationMs: 1000,
+      transcript: 'First',
+      audioBase64: audioData,
+    });
+    const item2 = createVoiceItem({
+      id: 'i-2',
+      timestamp: 1773835000000,
+      durationMs: 2000,
+      transcript: 'Second',
+    });
+
+    const pkg = packageVoiceMemos({
+      items: [item1, item2],
+      briefings: [{
+        id: 'b-1',
+        date: '2026-11-18',
+        summary: 'Good progress.',
+        chunks: [],
+        generatedAt: 1773830000000,
+      }],
+      reminders: [{
+        id: 'r-1',
+        message: 'Reminder',
+        triggerAt: 1773840000000,
+        completed: false,
+        createdAt: 1773830000000,
+      }],
+    });
+
+    const summary = extractVoicePackageSummary(pkg);
+    assert.strictEqual(summary.itemCount, 2);
+    assert.strictEqual(summary.briefingCount, 1);
+    assert.strictEqual(summary.reminderCount, 1);
+    assert.strictEqual(summary.totalAudioBytes, 300);
+    assert.strictEqual(summary.latestItemTimestamp, 1773835000000);
+  });
+
+  it('toVoiceWire and fromVoiceWire in android/web/sync.ts round-trip cleanly', () => {
+    const pkg = packageVoiceMemos({ deviceId: 'phone-01' });
+    const wire = toVoiceWire(pkg);
+    const parsed = fromVoiceWire(wire);
+    assert.deepStrictEqual(parsed, pkg);
+
+    assert.throws(
+      () => toVoiceWire({ version: 'bad-version' }),
+      /Invalid ThingsBook voice package version/
     );
   });
 });

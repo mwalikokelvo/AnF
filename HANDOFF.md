@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 9.1: ThingsBook Voice Contract & Serialization Specs).
+Last updated: 2026-11-18 by Antigravity (Kevo 9.2: Cross-Device Voice Artifact Packaging & Exchange).
+
+## 2026-11-18 — Kevo 9.2: Cross-Device Voice Artifact Packaging & Exchange (Antigravity)
+
+Phase 9 Step 9.2 (`docs/kevo-briefs/phase-9.md`, "9.2 Cross-Device Voice Artifact Packaging & Exchange"):
+- Voice Artifact Packaging & Export (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Added `packageVoiceMemos()` assembling voice items, briefings, and reminders into validated ThingsBookVoicePackages.
+  - Added `exportVoicePackage()` formatting downloadable `.anfvoice` file payloads with MIME type `application/vnd.thingsbook.voice+json`.
+  - Added `importVoicePackage()` validating imported packages.
+  - Added `extractVoicePackageSummary()` providing read-only metadata analysis (item counts, briefing counts, reminder counts, total audio byte sizes, latest timestamp).
+- Android Sync Integration (`android/web/sync.ts`):
+  - Added `toVoiceWire()` and `fromVoiceWire()` helpers for cross-device wire serialization with strict version validation.
+- Automated Tests & Verification:
+  - Added 4 new tests in `windows/tests/kevo-thingsbook-voice.test.ts` (9 tests total in file) covering artifact bundling, `.anfvoice` export/import round-trips, metadata summary calculation, and wire sync serialization.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 843/843 tests passed across 129 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 9.1: ThingsBook Voice Contract & Serialization Specs (Antigravity)
 

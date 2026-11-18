@@ -244,3 +244,73 @@ export function mergeVoicePackages(
     reminders: Array.from(reminderMap.values()).sort((a, b) => a.triggerAt - b.triggerAt),
   };
 }
+
+/** Package voice memos, briefings, and reminders into a validated ThingsBookVoicePackage (Step 9.2) */
+export function packageVoiceMemos(params: {
+  deviceId?: string;
+  items?: ThingsBookVoiceItem[];
+  briefings?: ThingsBookVoiceBriefing[];
+  reminders?: ThingsBookVoiceReminder[];
+  now?: number;
+}): ThingsBookVoicePackage {
+  const pkg: ThingsBookVoicePackage = {
+    version: THINGSBOOK_VOICE_PROTOCOL_VERSION,
+    exportedAt: params.now ?? Date.now(),
+    deviceId: params.deviceId ? params.deviceId.slice(0, 64) : 'anf-node',
+    items: params.items ?? [],
+    briefings: params.briefings ?? [],
+    reminders: params.reminders ?? [],
+  };
+  if (!validateVoicePackage(pkg)) {
+    throw new Error('Failed to package voice memos: input data violates thingsbook-voice-v1 schema.');
+  }
+  return pkg;
+}
+
+/** Export a ThingsBookVoicePackage as a downloadable .anfvoice file payload (Step 9.2) */
+export function exportVoicePackage(pkg: ThingsBookVoicePackage): {
+  filename: string;
+  mime: string;
+  data: string;
+  size: number;
+} {
+  const data = serializeThingsBookVoicePackage(pkg);
+  const dateStr = new Date(pkg.exportedAt).toISOString().slice(0, 10);
+  const filename = `kevo-voice-${pkg.deviceId}-${dateStr}.anfvoice`;
+  return {
+    filename,
+    mime: 'application/vnd.thingsbook.voice+json',
+    data,
+    size: new TextEncoder().encode(data).length,
+  };
+}
+
+/** Import and validate a .anfvoice file payload (Step 9.2) */
+export function importVoicePackage(payload: string): ThingsBookVoicePackage {
+  return deserializeThingsBookVoicePackage(payload);
+}
+
+/** Extract metadata summary of a package without mutating (Step 9.2) */
+export function extractVoicePackageSummary(pkg: ThingsBookVoicePackage): {
+  itemCount: number;
+  briefingCount: number;
+  reminderCount: number;
+  totalAudioBytes: number;
+  latestItemTimestamp: number;
+} {
+  let totalAudioBytes = 0;
+  let latest = 0;
+  for (const it of pkg.items) {
+    if (it.audioBase64) {
+      totalAudioBytes += Math.floor((it.audioBase64.length * 3) / 4);
+    }
+    if (it.timestamp > latest) latest = it.timestamp;
+  }
+  return {
+    itemCount: pkg.items.length,
+    briefingCount: pkg.briefings.length,
+    reminderCount: pkg.reminders.length,
+    totalAudioBytes,
+    latestItemTimestamp: latest,
+  };
+}
