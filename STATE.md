@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-18T18:26:51Z
 phase: 6 merged by owner account through 6.5 (#231-#235) and the Phase 7 brief (#237, 14:15Z) ahead of any PC pass; Phase 7 gate: owner voice decision needed. version still 0.1.60
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: #238 (agy/fix-issue-236, owner account; fixes #236 and folds in #233, bumps 0.1.61), CI running on 391c3a9 16:12Z; an interactive Claude session is driving it (merge check-in 16:43Z). #233 open, red (same main failures), superseded by #238
