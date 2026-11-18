@@ -18,8 +18,15 @@ export interface KevoStateEvent {
   summary?: string;
 }
 
+export interface ApprovalRequestData {
+  id: number | string;
+  action: string;
+  summary: string;
+}
+
 export interface KevoFloatOptions {
   onResize?: (expanded: boolean) => void;
+  onAnswerApproval?: (id: number | string, approved: boolean) => void;
   foldDelayMs?: number;
 }
 
@@ -37,9 +44,16 @@ export interface KevoFloatView {
   summaryCard: HTMLElement;
   summaryTextEl: HTMLElement;
   summaryCloseBtn: HTMLElement;
+  approvalCard: HTMLElement;
+  approvalSummaryEl: HTMLElement;
+  approvalActionEl: HTMLElement;
+  approveBtn: HTMLElement;
+  denyBtn: HTMLElement;
   applyState: (event: KevoStateEvent) => void;
   showMessage: (msg: string) => void;
   setSummary: (text: string | null) => void;
+  showApproval: (request: ApprovalRequestData | null) => void;
+  getPendingApproval: () => ApprovalRequestData | null;
   getState: () => KevoHudState;
   isExpanded: () => boolean;
   setHover: (hovering: boolean) => void;
@@ -169,8 +183,61 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
     setSummary(null);
   });
 
+  // ── Approval card (State 3 / H.4b)
+  let pendingApproval: ApprovalRequestData | null = null;
+
+  const approvalCard = document.createElement('div');
+  approvalCard.className = 'approval-card';
+  approvalCard.setAttribute('data-state', 'closed');
+  approvalCard.style.display = 'none';
+
+  const approvalHeader = document.createElement('div');
+  approvalHeader.className = 'approval-header';
+
+  const approvalBadge = document.createElement('span');
+  approvalBadge.className = 'approval-badge';
+  approvalBadge.textContent = 'Approval required';
+
+  const approvalActionEl = document.createElement('span');
+  approvalActionEl.className = 'approval-action';
+
+  approvalHeader.append(approvalBadge, approvalActionEl);
+
+  const approvalSummaryEl = document.createElement('p');
+  approvalSummaryEl.className = 'approval-summary';
+
+  const approvalButtons = document.createElement('div');
+  approvalButtons.className = 'approval-buttons';
+
+  const approveBtn = document.createElement('button');
+  approveBtn.className = 'approval-btn approve-btn';
+  approveBtn.textContent = 'Approve';
+
+  const denyBtn = document.createElement('button');
+  denyBtn.className = 'approval-btn deny-btn';
+  denyBtn.textContent = 'Deny';
+
+  approvalButtons.append(approveBtn, denyBtn);
+  approvalCard.append(approvalHeader, approvalSummaryEl, approvalButtons);
+
+  approveBtn.addEventListener('click', () => {
+    if (pendingApproval) {
+      const id = pendingApproval.id;
+      showApproval(null);
+      options?.onAnswerApproval?.(id, true);
+    }
+  });
+
+  denyBtn.addEventListener('click', () => {
+    if (pendingApproval) {
+      const id = pendingApproval.id;
+      showApproval(null);
+      options?.onAnswerApproval?.(id, false);
+    }
+  });
+
   pill.append(micro, telemetryBody);
-  root.append(pill, summaryCard);
+  root.append(pill, summaryCard, approvalCard);
 
   function clearFoldTimer(): void {
     if (foldTimer !== null) {
@@ -283,10 +350,26 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
     scheduleFold();
   }
 
+  function showApproval(request: ApprovalRequestData | null): void {
+    pendingApproval = request;
+    if (!request) {
+      approvalCard.style.display = 'none';
+      approvalCard.setAttribute('data-state', 'closed');
+      approvalSummaryEl.textContent = '';
+      approvalActionEl.textContent = '';
+      return;
+    }
+    approvalSummaryEl.textContent = request.summary;
+    approvalActionEl.textContent = request.action;
+    approvalCard.setAttribute('data-state', 'open');
+    approvalCard.style.display = 'flex';
+  }
+
   function destroy(): void {
     clearFoldTimer();
     pill.remove();
     summaryCard.remove();
+    approvalCard.remove();
   }
 
   return {
@@ -303,9 +386,16 @@ export function createKevoFloat(root: HTMLElement, options?: KevoFloatOptions): 
     summaryCard,
     summaryTextEl,
     summaryCloseBtn,
+    approvalCard,
+    approvalSummaryEl,
+    approvalActionEl,
+    approveBtn,
+    denyBtn,
     applyState,
     showMessage,
     setSummary,
+    showApproval,
+    getPendingApproval: () => pendingApproval,
     getState: () => currentState,
     isExpanded: () => expanded,
     setHover,

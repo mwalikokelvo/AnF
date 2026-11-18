@@ -141,3 +141,62 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     assert.equal(opened, true);
   });
 });
+
+describe('Kevo approval voice answers (H.4b)', () => {
+  it('answers pending approval with yes/approve/sure (true) and cancel/no/deny (false) only while a card is open', async () => {
+    let answeredId: number | null = null;
+    let answeredApproved: boolean | null = null;
+
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      answerApproval: async (id, approved) => {
+        answeredId = id;
+        answeredApproved = approved;
+      },
+    });
+
+    // 1. When NO card is open: "yes" and "cancel" do not answer approvals
+    const resNoApprovalYes = await agent.processVoiceInput('yes');
+    assert.notEqual(resNoApprovalYes.actionName, 'approval_approved');
+    assert.equal(answeredId, null);
+
+    const resNoApprovalCancel = await agent.processVoiceInput('cancel');
+    assert.notEqual(resNoApprovalCancel.actionName, 'approval_denied');
+    assert.equal(answeredId, null);
+
+    // 2. Set an active pending approval: "yes" approves it
+    agent.setPendingApproval({
+      id: 101,
+      action: 'Run script',
+      summary: 'Run backup script',
+    });
+
+    const resApprove = await agent.processVoiceInput('yes');
+    assert.equal(resApprove.handled, true);
+    assert.equal(resApprove.actionName, 'approval_approved');
+    assert.equal(answeredId, 101);
+    assert.equal(answeredApproved, true);
+    assert.equal(agent.getPendingApproval(), null, 'pending approval cleared after answering');
+
+    // Subsequent "yes" now has no pending approval
+    answeredId = null;
+    answeredApproved = null;
+    const resAfterClear = await agent.processVoiceInput('yes');
+    assert.notEqual(resAfterClear.actionName, 'approval_approved');
+    assert.equal(answeredId, null);
+
+    // 3. Set another pending approval: "cancel" denies it
+    agent.setPendingApproval({
+      id: 102,
+      action: 'Delete file',
+      summary: 'Delete test.md',
+    });
+
+    const resDeny = await agent.processVoiceInput('cancel');
+    assert.equal(resDeny.handled, true);
+    assert.equal(resDeny.actionName, 'approval_denied');
+    assert.equal(answeredId, 102);
+    assert.equal(answeredApproved, false);
+    assert.equal(agent.getPendingApproval(), null);
+  });
+});

@@ -6,6 +6,10 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo H.4b approval card view (Antigravity)
+
+Added HUD approval card view with Approve and Deny buttons (`kevo-float.css`, `float.ts`), voice approval handling ("yes"/"sure"/"approve" -> true, "cancel"/"no"/"deny" -> false only while a card is open in `jarvis-voice-agent.ts`), wired to Rust command `kevo_hud_answer`, with unit tests in `kevo_approval.rs`, browser fixture tests in `kevo-float.test.ts`, and voice tests in `jarvis-voice.test.ts`. Left: self-test (H.8) and remaining HUD integration.
+
 ## 2026-11-17 — Kevo H.6 summary card (Antigravity)
 
 Added summary card under the pill for longer answers and background searches with 3-line clamp, click-to-expand full text, close button, and browser tests; left: H.4 (approval card).
