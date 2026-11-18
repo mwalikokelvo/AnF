@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId, getSelectedVoiceProfile } from '../src/workspace/jarvis/voice/jarvis-voice-pack';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 
 describe('Kevo Voice Pack & Profiles', () => {
   it('loads voice pack items including all user provided voices', () => {
@@ -141,3 +142,75 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     assert.equal(opened, true);
   });
 });
+
+describe('Kevo 0.2 fix 2: Calvo and Kalvo wake words in listener (#158)', () => {
+  function fakeRecogniser() {
+    const g = globalThis as any;
+    const prev = g.window;
+    const box: { rec: any } = { rec: null };
+    g.window = {
+      SpeechRecognition: class {
+        start() { this.onstart?.(); }
+        stop() { this.onend?.(); }
+        abort() {}
+        onstart: any;
+        onend: any;
+        constructor() { box.rec = this; }
+      },
+    };
+    return { box, restore: () => { g.window = prev; } };
+  }
+
+  const final = (text: string) => ({
+    resultIndex: 0,
+    results: [Object.assign([{ transcript: text }], { isFinal: true })],
+  });
+
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it('drives listener with "Calvo, what is 12 times 8?" while not awake and checks request comes through', async () => {
+    const { box, restore } = fakeRecogniser();
+    try {
+      const heard: string[] = [];
+      const wakeWordsDetected: string[] = [];
+
+      // followUpMs: 20 so awake window from start tap expires quickly
+      const listener = new JarvisVoiceListener({
+        settleMs: 0,
+        followUpMs: 20,
+        requireWakeWord: true,
+        onFinalSpeech: (text) => heard.push(text),
+        onWakeWord: (w) => wakeWordsDetected.push(w),
+      });
+
+      listener.start();
+      // Wait for initial start tap awake window to expire
+      await wait(30);
+      assert.equal(listener.isAwake(), false, 'listener must not be awake before wake word is spoken');
+
+      // 1. Unrecognized name while not awake must be dropped
+      box.rec.onresult(final('Dave, what is 12 times 8?'));
+      assert.deepEqual(heard, [], 'unrecognized name while not awake must be dropped');
+
+      // 2. "Calvo, what is 12 times 8?" while not awake wakes listener and passes command through
+      box.rec.onresult(final('Calvo, what is 12 times 8?'));
+      assert.deepEqual(heard, ['what is 12 times 8?']);
+      assert.ok(wakeWordsDetected.includes('calvo'));
+
+      // Wait again for awake window to expire
+      heard.length = 0;
+      await wait(30);
+      assert.equal(listener.isAwake(), false);
+
+      // 3. "Kalvo, what is 12 times 8?" also wakes listener and passes command through
+      box.rec.onresult(final('Kalvo, what is 12 times 8?'));
+      assert.deepEqual(heard, ['what is 12 times 8?']);
+      assert.ok(wakeWordsDetected.includes('kalvo'));
+
+      listener.stop();
+    } finally {
+      restore();
+    }
+  });
+});
+
