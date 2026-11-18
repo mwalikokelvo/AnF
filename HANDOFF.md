@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 4.5: schedule UI and full test suite).
+Last updated: 2026-11-18 by Antigravity (Phase 5 Brief: verified actions).
+
+## 2026-11-18 — Kevo Phase 5 brief: verified actions (Antigravity)
+
+Phase 5 Brief (`docs/kevo-briefs/phase-5.md`):
+- Specified 5-step implementation plan for Phase 5 ("Verified actions: each action checks its result; never 'done' when it failed"):
+  - 5.1: Structured Verification Protocol & Execution Result Schema (`status`, `verified`, error taxonomy).
+  - 5.2: Concrete Action Verifiers (post-execution checking for apps, sites, notes, memory, reminders, music).
+  - 5.3: Honest Spoken Feedback & Failure Diagnosis (no optimistic "done"; truthful error reporting).
+  - 5.4: Command Desk Action Status & Verification Badges (`verified`, `failed`).
+  - 5.5: Comprehensive Action Verification Test Suite.
+- Linked brief in `docs/KEVO-PLAN.md`.
 
 ## 2026-11-18 — Kevo 4.5: schedule UI and full test suite (Antigravity)
 
