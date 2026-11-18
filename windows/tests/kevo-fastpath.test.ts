@@ -320,4 +320,48 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
 
     agent.dispose();
   });
+
+  it('delivers honest spoken feedback and failure diagnosis on fast path (Step 5.3)', async () => {
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        openApp: async (name) => {
+          if (name.includes('Nonexistent')) throw new Error(`I could not find an app called ${name} in the Start Menu.`);
+          return name;
+        },
+        openUrl: async (url) => {
+          if (url.includes('youtube')) throw new Error('Network error: host unreachable');
+        },
+        cancelReminder: async (_target) => false, // not found
+      })
+    );
+
+    // App not found reports failure honestly with NOT_FOUND reason
+    const resAppFail = await agent.processVoiceInput('open NonexistentApp');
+    assert.strictEqual(resAppFail.handled, true);
+    assert.strictEqual(resAppFail.actionName, 'open_app_failed');
+    assert.strictEqual(resAppFail.status, 'failure');
+    assert.strictEqual(resAppFail.verified, false);
+    assert.strictEqual(resAppFail.reason, 'NOT_FOUND');
+    assert.match(resAppFail.speechReply, /could not find an app/i);
+
+    // Browser failure reports honest diagnosis
+    const resUrlFail = await agent.processVoiceInput('search YouTube for jazz');
+    assert.strictEqual(resUrlFail.handled, true);
+    assert.strictEqual(resUrlFail.actionName, 'open_site_failed');
+    assert.strictEqual(resUrlFail.status, 'failure');
+    assert.strictEqual(resUrlFail.verified, false);
+    assert.strictEqual(resUrlFail.reason, 'EXECUTION_FAILED');
+    assert.match(resUrlFail.speechReply, /could not open the browser/i);
+
+    // Reminder not found returns failure with NOT_FOUND
+    const resCancelFail = await agent.processVoiceInput('cancel reminder for gym');
+    assert.strictEqual(resCancelFail.handled, true);
+    assert.strictEqual(resCancelFail.actionName, 'cancel_reminder');
+    assert.strictEqual(resCancelFail.status, 'failure');
+    assert.strictEqual(resCancelFail.verified, false);
+    assert.strictEqual(resCancelFail.reason, 'NOT_FOUND');
+    assert.match(resCancelFail.speechReply, /could not find a reminder/i);
+
+    agent.dispose();
+  });
 });

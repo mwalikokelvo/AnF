@@ -521,17 +521,17 @@ export class JarvisVoiceAgent {
     if (/^(what do you (remember|know)( about (me|myself))?|list (your |my )?memories)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
       const allFacts = this.context.listFacts ? await this.context.listFacts() : await listFacts();
       if (!allFacts || allFacts.length === 0) {
-        return { handled: true, actionName: 'recall_facts', speechReply: 'I have not remembered any facts yet, sir.' };
+        return { handled: true, actionName: 'recall_facts', speechReply: 'I have not remembered any facts yet, sir.', status: 'success', verified: true };
       }
       const summary = allFacts.slice(-5).map((f: any) => f.fact).join('. ');
-      return { handled: true, actionName: 'recall_facts', speechReply: `Here is what I remember: ${summary}.` };
+      return { handled: true, actionName: 'recall_facts', speechReply: `Here is what I remember: ${summary}.`, status: 'success', verified: true };
     }
 
     // Fast path for memory forget (Phase 3 Step 3.4)
     if (/^(?:forget (?:all|everything)(?: (?:you know|memories|facts))?|clear (?:all )?(?:memories|facts))$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
       if (this.context.clearFacts) await this.context.clearFacts();
       else await clearFacts();
-      return { handled: true, actionName: 'forget_fact', speechReply: 'I have forgotten all remembered facts, sir.' };
+      return { handled: true, actionName: 'forget_fact', speechReply: 'I have forgotten all remembered facts, sir.', status: 'success', verified: true };
     }
 
     const forgetMatch = /^(?:please\s+)?(?:forget(?:\s+that|\s+what i said about|\s+my preference (?:for|about)|\s+everything (?:you know )?about|:)?)\s+(.+)$/i.exec(text.trim());
@@ -544,9 +544,9 @@ export class JarvisVoiceAgent {
             if (this.context.deleteFact) await this.context.deleteFact((f as any).id);
             else await deleteFact((f as any).id);
           }
-          return { handled: true, actionName: 'forget_fact', speechReply: `I have forgotten that: ${(matching[0] as any).fact}` };
+          return { handled: true, actionName: 'forget_fact', speechReply: `I have forgotten that: ${(matching[0] as any).fact}`, status: 'success', verified: true };
         }
-        return { handled: true, actionName: 'forget_fact', speechReply: `I do not remember anything about ${target}, sir.` };
+        return { handled: true, actionName: 'forget_fact', speechReply: `I do not remember anything about ${target}, sir.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
       }
     }
 
@@ -554,10 +554,10 @@ export class JarvisVoiceAgent {
     if (/^(what (are my reminders|reminders do i have)|list (my |all )?reminders|show (my |all )?reminders)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
       const reminders = this.context.listReminders ? await this.context.listReminders() : await listReminders();
       if (!reminders || reminders.length === 0) {
-        return { handled: true, actionName: 'list_reminders', speechReply: 'You have no upcoming reminders, sir.' };
+        return { handled: true, actionName: 'list_reminders', speechReply: 'You have no upcoming reminders, sir.', status: 'success', verified: true };
       }
       const summary = reminders.map((r: any) => r.message).join(', ');
-      return { handled: true, actionName: 'list_reminders', speechReply: `You have ${reminders.length === 1 ? 'one upcoming reminder' : `${reminders.length} upcoming reminders`}: ${summary}.` };
+      return { handled: true, actionName: 'list_reminders', speechReply: `You have ${reminders.length === 1 ? 'one upcoming reminder' : `${reminders.length} upcoming reminders`}: ${summary}.`, status: 'success', verified: true };
     }
 
     // Fast path for reminder cancelling (Phase 4 Step 4.2)
@@ -567,13 +567,16 @@ export class JarvisVoiceAgent {
       if (!q || q.toLowerCase() === 'all' || q.toLowerCase() === 'everything') {
         if (this.context.clearReminders) await this.context.clearReminders();
         else await clearReminders();
-        return { handled: true, actionName: 'cancel_reminder', speechReply: 'All reminders cleared, sir.' };
+        return { handled: true, actionName: 'cancel_reminder', speechReply: 'All reminders cleared, sir.', status: 'success', verified: true };
       }
       const ok = this.context.cancelReminder ? await this.context.cancelReminder(q) : await cancelReminder(q);
       return {
         handled: true,
         actionName: 'cancel_reminder',
         speechReply: ok ? `Cancelled reminder for ${q}, sir.` : `Could not find a reminder matching ${q}, sir.`,
+        status: ok ? 'success' : 'failure',
+        verified: ok,
+        reason: ok ? undefined : 'NOT_FOUND',
       };
     }
 
@@ -595,6 +598,8 @@ export class JarvisVoiceAgent {
           handled: true,
           actionName: 'create_reminder',
           speechReply: `Reminder set for ${cleanMsg || remText}, sir.`,
+          status: 'success',
+          verified: true,
         };
       }
     }
@@ -611,13 +616,14 @@ export class JarvisVoiceAgent {
     if (tube && (this.context.openUrl || this.context.dryRun)) {
       const what = /^(?:any|a|some)\s+(?:song|music|track|video)s?$|^(?:something|anything|music|songs?)$/.test(tube[1]) ? 'popular songs' : tube[1];
       if (this.context.dryRun) {
-        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.`, status: 'success', verified: true };
       }
       try {
         await this.context.openUrl!(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
-        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.`, status: 'success', verified: true };
       } catch (err) {
-        return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+        const errorMsg = String(err).replace(/^Error:\s*/, '');
+        return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${errorMsg}`, status: 'failure', verified: false, error: errorMsg, reason: 'EXECUTION_FAILED' };
       }
     }
 
@@ -625,26 +631,28 @@ export class JarvisVoiceAgent {
     if (site && (this.context.openUrl || this.context.dryRun)) {
       const { url, name } = SITES[site[1]];
       if (this.context.dryRun) {
-        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.`, status: 'success', verified: true };
       }
       try {
         await this.context.openUrl!(url);
-        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.`, status: 'success', verified: true };
       } catch (err) {
-        return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+        const errorMsg = String(err).replace(/^Error:\s*/, '');
+        return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${errorMsg}`, status: 'failure', verified: false, error: errorMsg, reason: 'EXECUTION_FAILED' };
       }
     }
 
     const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+?)[.!?]*$/.exec(lower);
     if (web && (this.context.searchWeb || this.context.dryRun)) {
       if (this.context.dryRun) {
-        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.`, status: 'success', verified: true };
       }
       try {
         await this.context.searchWeb!(web[1]);
-        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.`, status: 'success', verified: true };
       } catch (err) {
-        return { handled: true, actionName: 'web_search_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+        const errorMsg = String(err).replace(/^Error:\s*/, '');
+        return { handled: true, actionName: 'web_search_failed', speechReply: `I could not open the browser: ${errorMsg}`, status: 'failure', verified: false, error: errorMsg, reason: 'EXECUTION_FAILED' };
       }
     }
 
@@ -836,13 +844,14 @@ export class JarvisVoiceAgent {
       this.lastSubject = app[1];
       this.lastSubjectTime = this.now();
       if (this.context.dryRun) {
-        return { handled: true, actionName: 'open_app', speechReply: `Opening ${app[1]}.` };
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${app[1]}.`, status: 'success', verified: true };
       }
       try {
         const opened = await this.context.openApp!(app[1]);
-        return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.`, status: 'success', verified: true, verificationDetails: `Opened ${opened}` };
       } catch (err) {
-        return { handled: true, actionName: 'open_app_failed', speechReply: String(err).replace(/^Error:\s*/, '') };
+        const errorMsg = String(err).replace(/^Error:\s*/, '');
+        return { handled: true, actionName: 'open_app_failed', speechReply: errorMsg, status: 'failure', verified: false, error: errorMsg, reason: 'NOT_FOUND' };
       }
     }
 
@@ -856,14 +865,30 @@ export class JarvisVoiceAgent {
         .replace(/^(take a note(:|\s+that)?|note that|write this down(:|\s+that)?)\s*/i, '')
         .trim();
       if (noteContent && (this.context.saveQuickNote || this.context.dryRun)) {
-        if (!this.context.dryRun) {
-          await this.context.saveQuickNote!(noteContent);
+        try {
+          if (!this.context.dryRun) {
+            await this.context.saveQuickNote!(noteContent);
+          }
+          return {
+            handled: true,
+            actionName: 'take_note',
+            speechReply: `Note captured: ${noteContent.slice(0, 40)}...`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Saved note (${noteContent.length} chars)`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'take_note',
+            speechReply: `Could not save note: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
         }
-        return {
-          handled: true,
-          actionName: 'take_note',
-          speechReply: `Note captured: ${noteContent.slice(0, 40)}...`,
-        };
       }
     }
 
