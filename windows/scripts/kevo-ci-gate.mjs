@@ -127,47 +127,54 @@ async function main() {
     console.log('llama-server is healthy and ready.');
   }
 
-  const outMjs = path.join(testsDir, '.kevo-phrases-gate.mjs');
+  const gateTests = [
+    { name: 'phrase list gate', entry: path.join(testsDir, 'kevo-phrases.test.ts'), out: path.join(testsDir, '.kevo-phrases-gate.mjs') },
+    { name: 'performance & reasoning evaluation suite', entry: path.join(testsDir, 'kevo-performance.test.ts'), out: path.join(testsDir, '.kevo-perf-gate.mjs') },
+  ];
 
   try {
-    console.log('Bundling kevo-phrases.test.ts for gate run...');
-    await build({
-      entryPoints: [path.join(testsDir, 'kevo-phrases.test.ts')],
-      bundle: true,
-      platform: 'node',
-      format: 'esm',
-      target: 'node20',
-      packages: 'external',
-      loader: { '.css': 'empty' },
-      outfile: outMjs,
-    });
+    for (const gate of gateTests) {
+      console.log(`Bundling ${gate.name} (${path.basename(gate.entry)})...`);
+      await build({
+        entryPoints: [gate.entry],
+        bundle: true,
+        platform: 'node',
+        format: 'esm',
+        target: 'node20',
+        packages: 'external',
+        loader: { '.css': 'empty' },
+        outfile: gate.out,
+      });
 
-    console.log('Executing phrase list through real kevo_ask path...');
-    const runnerEnv = {
-      ...process.env,
-      KEVO_CI_GATE: '1',
-    };
-    if (serverProc) {
-      runnerEnv.KEVO_LLAMA_SERVER_URL = serverUrl;
-    }
+      console.log(`Executing ${gate.name}...`);
+      const runnerEnv = {
+        ...process.env,
+        KEVO_CI_GATE: '1',
+      };
+      if (serverProc) {
+        runnerEnv.KEVO_LLAMA_SERVER_URL = serverUrl;
+      }
 
-    const testChild = spawn(process.execPath, ['--test', outMjs], {
-      stdio: 'inherit',
-      env: runnerEnv,
-    });
+      const testChild = spawn(process.execPath, ['--test', gate.out], {
+        stdio: 'inherit',
+        env: runnerEnv,
+      });
 
-    const exitCode = await new Promise((resolve) => {
-      testChild.on('close', resolve);
-    });
+      const exitCode = await new Promise((resolve) => {
+        testChild.on('close', resolve);
+      });
 
-    if (exitCode !== 0) {
-      console.error(`::error::Kevo phrase list gate failed with exit code ${exitCode}.`);
-      process.exitCode = exitCode;
-    } else {
-      console.log('Kevo phrase list gate passed at >= 95% threshold!');
+      if (exitCode !== 0) {
+        console.error(`::error::${gate.name} failed with exit code ${exitCode}.`);
+        process.exitCode = exitCode;
+        return;
+      }
+      console.log(`${gate.name} passed successfully!`);
     }
   } finally {
-    await rm(outMjs, { force: true });
+    for (const gate of gateTests) {
+      await rm(gate.out, { force: true });
+    }
     if (serverProc) {
       console.log('Shutting down llama-server...');
       serverProc.kill('SIGTERM');
