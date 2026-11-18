@@ -27,6 +27,16 @@ export function kevoState(s: { micOn: boolean; awake: boolean; thinking: boolean
   return s.awake ? 'listening' : 'idle';
 }
 
+/** Tells Rust each change of Kevo's state, for the float HUD (`kevo://state`): once per change, never a repeat. */
+export function kevoHudReporter(invoke: (cmd: 'kevo_hud_set', args: { state: KevoState }) => Promise<unknown>): (state: KevoState) => void {
+  let sent: KevoState | undefined;
+  return (state) => {
+    if (state === sent) return;
+    sent = state;
+    invoke('kevo_hud_set', { state }).catch(() => {}); // no Tauri (browser fixture): the orb still works
+  };
+}
+
 function injectHudStyles(): void {
   if (document.getElementById('jarvis-hud-styles')) return;
   const style = document.createElement('style');

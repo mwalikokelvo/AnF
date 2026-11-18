@@ -31,6 +31,7 @@ mod files;
 mod hooks;
 mod integrations;
 mod island;
+mod kevo_hud;
 mod kevo_system;
 mod log;
 mod pipe;
@@ -467,6 +468,7 @@ pub fn run() {
         .manage(Chat::default())
         .manage(Jobs::default())
         .manage(KevoTurn::default())
+        .manage(kevo_hud::KevoHud::default())
         .manage(projects::Store::default())
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
@@ -517,6 +519,7 @@ pub fn run() {
             workspace_ask,
             kevo_ask,
             kevo_cancel,
+            kevo_hud::kevo_hud_set,
             workspace_begin,
             workspace_cancel,
             workspace_save_project,
