@@ -16,7 +16,9 @@ DerivedData/
 *.icloud
 
 # Local only (never published)
-.claude/
+.claude/*
+!.claude/agents/
+!.claude/settings.json
 _prive/
 
 # Local release artifacts and build tools
