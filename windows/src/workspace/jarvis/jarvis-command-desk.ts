@@ -143,6 +143,17 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   });
 
   // ── Voice Companion Engine Setup
+  interface ActionHistoryEntry {
+    time: string;
+    request: string;
+    actionName: string;
+    status: 'success' | 'failure' | 'unverified';
+    verified: boolean;
+    reason?: string;
+    ms: number;
+  }
+  const actionHistory: ActionHistoryEntry[] = [];
+  let renderActionList: () => void = () => {};
   let unmuteTimer: ReturnType<typeof setTimeout> | undefined;
   let thinking = false;
   let lastReply = '';
@@ -270,14 +281,36 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       hud.setReply(shown);
       (stream ??= speaker.beginStream()).push(part);
     };
+    let actionStatus: 'success' | 'failure' | 'unverified' = 'unverified';
+    let actionVerified = false;
+    let actionReason: string | undefined = undefined;
     try {
-      ({ actionName, speechReply: reply } = await voiceAgent.processVoiceInput(request, onPart));
-    } catch (err) {
+      const res = await voiceAgent.processVoiceInput(request, onPart);
+      actionName = res.actionName;
+      reply = res.speechReply;
+      actionStatus = res.status ?? (res.handled ? 'success' : 'failure');
+      actionVerified = res.verified ?? (actionStatus === 'success');
+      actionReason = res.reason ?? res.error;
+    } catch (err: any) {
       actionName = 'error';
       reply = 'That did not work: ' + String(err).replace(/^Error:\s*/, '');
+      actionStatus = 'failure';
+      actionVerified = false;
+      actionReason = 'EXECUTION_FAILED';
     } finally {
       thinking = false;
     }
+    const elapsed = Date.now() - heardAt;
+    actionHistory.unshift({
+      time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      request,
+      actionName,
+      status: actionStatus,
+      verified: actionVerified,
+      reason: actionReason,
+      ms: elapsed,
+    });
+    renderActionList();
     if (asked !== turn) {
       // Stopped, or a new conversation was started, while Kevo was working: this answer is not wanted.
       record();
@@ -519,6 +552,72 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
+  // Action Activity & Verification Card (Phase 5 Step 5.4)
+  const actionSection = document.createElement('section');
+  actionSection.className = 'jarvis-action-card';
+  actionSection.setAttribute('aria-label', 'Kevo Action Activity & Verification');
+
+  const actionHeader = document.createElement('div');
+  actionHeader.className = 'jarvis-panel-header';
+  const actionTitle = document.createElement('h3');
+  actionTitle.className = 'jarvis-panel-title';
+  actionTitle.textContent = 'Action Activity & Verification';
+
+  const clearActionBtn = makeBtn('Clear activity', 'jarvis-btn-dim', () => {
+    actionHistory.length = 0;
+    renderActionList();
+  });
+  actionHeader.append(actionTitle, clearActionBtn);
+
+  const actionListEl = document.createElement('ul');
+  actionListEl.className = 'jarvis-action-list';
+
+  renderActionList = function(): void {
+    actionListEl.replaceChildren();
+    if (actionHistory.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'jarvis-action-empty';
+      empty.textContent = 'No actions executed yet. Spoken and typed actions will be verified here in real time.';
+      actionListEl.appendChild(empty);
+      return;
+    }
+    for (const item of actionHistory.slice(0, 20)) {
+      const li = document.createElement('li');
+      li.className = 'jarvis-action-item';
+
+      const badge = document.createElement('span');
+      if (item.status === 'success' && item.verified) {
+        badge.className = 'jarvis-action-badge jarvis-action-badge-success';
+        badge.textContent = '✓ Verified';
+      } else if (item.status === 'failure') {
+        badge.className = 'jarvis-action-badge jarvis-action-badge-failure';
+        badge.textContent = item.reason ? `✗ Failed: ${item.reason}` : '✗ Failed';
+      } else {
+        badge.className = 'jarvis-action-badge jarvis-action-badge-unverified';
+        badge.textContent = '? Unverified';
+      }
+
+      const name = document.createElement('span');
+      name.className = 'jarvis-action-name';
+      name.textContent = item.actionName;
+
+      const req = document.createElement('span');
+      req.className = 'jarvis-action-req';
+      req.textContent = `"${item.request}"`;
+      req.title = item.request;
+
+      const meta = document.createElement('span');
+      meta.className = 'jarvis-action-meta';
+      meta.textContent = `${item.ms}ms · ${item.time}`;
+
+      li.append(badge, name, req, meta);
+      actionListEl.appendChild(li);
+    }
+  };
+
+  renderActionList();
+  actionSection.append(actionHeader, actionListEl);
+
   // Memory Card (Phase 3 Step 3.4)
   const memorySection = document.createElement('section');
   memorySection.className = 'jarvis-memory-card';
@@ -668,7 +767,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   team.append(teamTitle, agentRow, briefingPanel, toolbar);
 
   // The page already shows "Kevo" as its title, so the desk does not repeat it.
-  root.append(hud.root, typeBox, voiceBar, memorySection, scheduleSection, team);
+  root.append(hud.root, typeBox, voiceBar, actionSection, memorySection, scheduleSection, team);
 
   function destroy(): void {
     listener.stop();
@@ -761,6 +860,19 @@ function injectDeskStyles(): void {
     .jarvis-schedule-del-btn { background: transparent; border: 1px solid var(--border, #2a3530); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--muted, #b0c4bd); }
     .jarvis-schedule-del-btn:hover { color: #f87171; border-color: #f87171; }
     .jarvis-schedule-empty { color: var(--muted, #b0c4bd); font-size: 13px; font-style: italic; }
+    .jarvis-action-card { background: var(--surface, #1e2522); border: 1px solid var(--border, #2a3530); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .jarvis-action-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .jarvis-action-item { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--bg, #141a18); border-radius: 6px; font-size: 13px; }
+    .jarvis-action-badge { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; }
+    .jarvis-action-badge-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .jarvis-action-badge-failure { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .jarvis-action-badge-unverified { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .jarvis-action-name { color: var(--accent, #a3e5cd); font-weight: 600; font-size: 12px; }
+    .jarvis-action-req { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink, #edf4ef); font-size: 13px; }
+    .jarvis-action-meta { font-size: 11px; color: var(--muted, #b0c4bd); white-space: nowrap; }
+    .jarvis-action-empty { color: var(--muted, #b0c4bd); font-size: 13px; font-style: italic; }
+    .jarvis-btn-dim { background: transparent; border: 1px solid var(--border, #2a3530); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--muted, #b0c4bd); }
+    .jarvis-btn-dim:hover { color: var(--ink, #edf4ef); border-color: var(--muted, #b0c4bd); }
     .jarvis-btn-danger { color: #f87171; }
     @media (prefers-reduced-motion: reduce) { .jarvis-btn, .jarvis-mic-btn { transition: none; } }
   `;
