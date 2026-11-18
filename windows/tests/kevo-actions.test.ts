@@ -62,6 +62,7 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
       'help',
       'tell_time',
       'tell_date',
+      'weather',
       'audius_search',
     ];
 

@@ -26,6 +26,7 @@
  * - help: describe capabilities
  * - tell_time: report current time
  * - tell_date: report today's date
+ * - weather: get current weather for a city
  * - audius_search: search music on Audius
  */
 
@@ -806,7 +807,7 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       return {
         handled: true,
         actionName: 'help',
-        speechReply: 'I am Kevo, your desktop companion. I can open applications, control music, set timers, take notes, search the web or your vault, and answer questions.',
+        speechReply: 'I am Kevo, your desktop companion. I can open applications, control music, set timers, take notes, search the web or your vault, check the weather, and answer questions.',
         status: 'success',
         verified: true,
       };
@@ -851,7 +852,98 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
   },
   {
-    name: 'audius_search',
+      {
+    name: 'weather',
+    description: 'Gets the current weather for a specified city using the free Open-Meteo API.',
+    parameters: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'City name to check the weather for (e.g. London, New York)' },
+      },
+      required: ['city'],
+    },
+    execute: async (args: { city: string }, _ctx: JarvisActionContext) => {
+      const city = (args?.city || '').trim();
+      if (!city) {
+        return {
+          handled: false,
+          actionName: 'weather',
+          speechReply: 'Which city should I check the weather for, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
+      }
+      try {
+        // Geocode
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en`;
+        const geoRes = await fetch(geoUrl);
+        if (!geoRes.ok) throw new Error('Geocoding failed');
+        const geo = await geoRes.json();
+        if (!geo.results || geo.results.length === 0) {
+          return {
+            handled: false,
+            actionName: 'weather',
+            speechReply: `I could not find a city called ${city}, sir.`,
+            status: 'failure',
+            verified: false,
+            reason: 'CITY_NOT_FOUND',
+          };
+        }
+        const place = geo.results[0];
+        // Weather
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh`;
+        const wRes = await fetch(weatherUrl);
+        if (!wRes.ok) throw new Error('Weather fetch failed');
+        const w = await wRes.json();
+        const current = w.current;
+        const temp = Math.round(current.temperature_2m);
+        const humidity = current.relative_humidity_2m;
+        const wind = Math.round(current.wind_speed_10m);
+        // Simple weather code mapping (WMO)
+        const codes: Record<number, string> = {
+          0: 'clear skies',
+          1: 'mainly clear',
+          2: 'partly cloudy',
+          3: 'overcast',
+          45: 'foggy',
+          48: 'depositing rime fog',
+          51: 'light drizzle',
+          61: 'slight rain',
+          63: 'moderate rain',
+          65: 'heavy rain',
+          71: 'slight snow',
+          73: 'moderate snow',
+          75: 'heavy snow',
+          80: 'slight rain showers',
+          95: 'thunderstorm',
+        };
+        const condition = codes[current.weather_code] || 'unknown conditions';
+        const reply = `In ${place.name}, it is currently ${temp} degrees Celsius with ${condition}. Humidity is ${humidity} percent and the wind is ${wind} kilometers per hour.`;
+        return {
+          handled: true,
+          actionName: 'weather',
+          speechReply: reply,
+          data: { city: place.name, temperature: temp, condition, humidity, wind },
+          status: 'success',
+          verified: true,
+          verificationDetails: 'Fetched from Open-Meteo',
+        };
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        return {
+          handled: false,
+          actionName: 'weather',
+          speechReply: `Sorry, I could not get the weather for ${city}: ${errMsg}`,
+          status: 'failure',
+          verified: false,
+          error: errMsg,
+          reason: 'EXECUTION_FAILED',
+        };
+      }
+    },
+  },
+name: 'audius_search',
     description: 'Searches free music tracks on Audius and returns speech-friendly results.',
     parameters: {
       type: 'object',
