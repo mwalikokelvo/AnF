@@ -525,6 +525,18 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     return lastReply;
   });
 
+  kevoLinkBus.setApprovalHandler((id, approved) => {
+    const current = voiceAgent.getPendingApproval();
+    if (current && String(current.id) === String(id)) {
+      if (current.answer) {
+        void current.answer(approved);
+      } else if (options?.voiceActionContext?.answerApproval) {
+        void options.voiceActionContext.answerApproval(id, approved);
+      }
+      voiceAgent.setPendingApproval(null);
+    }
+  });
+
   /** Stops whatever Kevo is doing: the answer being written and the one being spoken. */
   function stopNow(): void {
     turn++;
@@ -998,6 +1010,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   function destroy(): void {
     kevoLinkBus.setCommandHandler(async () => {});
+    kevoLinkBus.setApprovalHandler(() => {});
     listener.stop();
     speaker.stop();
     clearTimeout(unmuteTimer);

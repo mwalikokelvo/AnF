@@ -4,7 +4,25 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 8.2: Wi-Fi State Bus & Pairing RPC).
+Last updated: 2026-11-18 by Antigravity (Kevo 8.3: Remote Approval Cards on Android).
+
+## 2026-11-18 — Kevo 8.3: Remote Approval Cards on Android (Antigravity)
+
+Phase 8 Step 8.3 (`docs/kevo-briefs/phase-8.md`, "8.3 Remote Approval Cards on Android"):
+- Android Desk Companion Approval Card Enhancements (`android/web/desk-companion.ts`):
+  - Added `approvalTimeoutTimer` and `timeoutMs` support in `showApprovalRequest(request, timeoutMs)`.
+  - Added `getActiveApproval()` inspection getter.
+  - Added auto-dismiss timeout handling reverting card and companion state back to `idle` upon expiration.
+  - Added safe manual dismissal in `dismissApproval()` without triggering approval callbacks.
+- Kevo Voice Agent & Link Bus Bi-directional Approval Bridge (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`, `windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Updated `JarvisVoiceAgent.setPendingApproval()` to automatically mirror pending approval requests to `kevoLinkBus`.
+  - Wired `kevoLinkBus.setApprovalHandler()` in `JarvisCommandDesk` to resolve pending approvals on `voiceAgent` and settle the PC approval gate when answered remotely from Android.
+- Automated Tests & Verification:
+  - Added 2 new unit tests in `windows/tests/kevo-desk-companion.test.ts` (verifying auto-dismiss on timeout expiration, and manual dismissal without triggering approval callbacks).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 828/828 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 8.2: Wi-Fi State Bus & Pairing RPC (Antigravity)
 

@@ -41,6 +41,7 @@ export class DeskCompanionView {
   private state: DeskCompanionState = 'idle';
   private level: number = 0;
   private activeApproval: DeskCompanionApprovalRequest | null = null;
+  private approvalTimeoutTimer?: ReturnType<typeof setTimeout>;
 
   private readonly orbEl: HTMLElement;
   private readonly coreEl: HTMLElement;
@@ -225,22 +226,39 @@ export class DeskCompanionView {
       : '○ Offline (Local Phone)';
   }
 
-  /** Display an approval request from PC Kevo (HUD Step H.4) */
-  showApprovalRequest(request: DeskCompanionApprovalRequest): void {
+  /** Display an approval request from PC Kevo (HUD Step H.4 / Step 8.3) */
+  showApprovalRequest(request: DeskCompanionApprovalRequest, timeoutMs?: number): void {
+    clearTimeout(this.approvalTimeoutTimer);
+    this.approvalTimeoutTimer = undefined;
     this.activeApproval = request;
     this.approvalAction.textContent = request.action;
     this.approvalSummary.textContent = request.summary;
     this.approvalCard.hidden = false;
     this.setState('alert', 'Approval Required');
+
+    if (timeoutMs && timeoutMs > 0) {
+      this.approvalTimeoutTimer = setTimeout(() => {
+        if (this.activeApproval?.id === request.id) {
+          this.dismissApproval();
+          this.options.notify?.('Approval request timed out.');
+        }
+      }, timeoutMs);
+    }
   }
 
   /** Dismiss active approval request */
   dismissApproval(): void {
+    clearTimeout(this.approvalTimeoutTimer);
+    this.approvalTimeoutTimer = undefined;
     this.activeApproval = null;
     this.approvalCard.hidden = true;
     if (this.state === 'alert') {
       this.setState('idle', 'Desk Companion Active');
     }
+  }
+
+  getActiveApproval(): DeskCompanionApprovalRequest | null {
+    return this.activeApproval;
   }
 
   private handleApproval(approved: boolean): void {

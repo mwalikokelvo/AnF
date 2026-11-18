@@ -224,4 +224,46 @@ describe('Kevo Phase 8 Step 8.1: Android Desk Companion View & UI Components', (
     exitBtn.click();
     assert.strictEqual(exited, true);
   });
+
+  it('auto-dismisses approval request when timeoutMs expires', async () => {
+    let notifiedMsg = '';
+    const companion = createDeskCompanionView({
+      notify: (msg) => { notifiedMsg = msg; },
+    });
+
+    companion.showApprovalRequest({
+      id: 'req-timeout',
+      action: 'Restart Kevo Core',
+      summary: 'Restarts speech and listener pipelines',
+    }, 50);
+
+    assert.ok(companion.getActiveApproval());
+    assert.strictEqual(companion.getState(), 'alert');
+
+    // Wait 70ms for timeout to fire
+    await new Promise((r) => setTimeout(r, 70));
+
+    assert.strictEqual(companion.getActiveApproval(), null);
+    assert.strictEqual(companion.getState(), 'idle');
+    assert.ok(notifiedMsg.includes('timed out'));
+  });
+
+  it('allows manual dismiss of approval without invoking onApprove', () => {
+    let approvedCalled = false;
+    const companion = createDeskCompanionView({
+      onApprove: () => { approvedCalled = true; },
+    });
+
+    companion.showApprovalRequest({
+      id: 'req-dismiss',
+      action: 'Test action',
+      summary: 'Testing dismiss',
+    });
+
+    assert.ok(companion.getActiveApproval());
+    companion.dismissApproval();
+    assert.strictEqual(companion.getActiveApproval(), null);
+    assert.strictEqual(approvedCalled, false);
+    assert.strictEqual(companion.getState(), 'idle');
+  });
 });
