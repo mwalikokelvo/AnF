@@ -40,9 +40,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Back-to-back merges into main each keep their own build.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Each push to main gets its own group (GitHub keeps only one pending run per group), so back-to-back merges each build.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: true
 
 # Publishing is paused: Defender flags the unsigned installer as
 # Trojan:Win32/Wacatac.H!ml (false positive, reported to Microsoft). Tags still
@@ -312,8 +312,9 @@ jobs:
     permissions:
       actions: read
       contents: write
+    # Only runs for the same version wait on each other; the first publishes it, the rest find it and skip.
     concurrency:
-      group: kevo-test-publish
+      group: kevo-test-v${{ needs.build.outputs.version }}
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
