@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-17T21:18Z
+lock: 2026-11-18T00:27Z
 phase: 0
 step: 0.1 (#148) and 0.3 (#150) team:claude since 14:25Z (Codex stalled); 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158 listener aliases), fix 3 (#159 binding phrase entries) and fix 4 (#160 follow-up expiry), all team:claude, wait on #155; 0.4b (#152) waits on 0.1 and 0.3 (board: issues #148-#155, #158-#160)
 open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, ready for review): has the 0.1.58 bump and is level with main; Codex found 3 issues on c3c615a (first-person skip questions, multiword negation before skip and before the clock), fixed in 5945796; all threads resolved; @codex review asked 20:29Z. Also open, not yet looked at by the autopilot: #163 (Kevo HUD track brief, issue #162, owner account).
