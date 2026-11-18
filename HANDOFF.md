@@ -4,7 +4,25 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 8.5: Automated Verification & Desk Companion Test Suite).
+Last updated: 2026-11-18 by Antigravity (Kevo 9.1: ThingsBook Voice Contract & Serialization Specs).
+
+## 2026-11-18 — Kevo 9.1: ThingsBook Voice Contract & Serialization Specs (Antigravity)
+
+Phase 9 Step 9.1 (`docs/kevo-briefs/phase-9.md`, "9.1 ThingsBook Voice Contract & Serialization Specs"):
+- ThingsBook Voice Normative Specification (`docs/contracts/thingsbook-voice-v1.md`):
+  - Documented protocol version `"thingsbook-voice-v1"` and envelope schema (`version`, `exportedAt`, `deviceId`, `items`, `briefings`, `reminders`).
+  - Defined strict data structure validation, SHA-256 item checksum rules, and size caps (25 MB max package size).
+  - Explicit architectural isolation boundary: hosts interface via documented wire protocol and never link internal ThingsBook `_core` crates.
+- Protocol Implementation (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Implemented `createVoiceItem()`, `computeItemChecksum()`, `validateVoiceItem()`, `validateVoiceBriefing()`, `validateVoiceReminder()`, and `validateVoicePackage()`.
+  - Implemented `serializeThingsBookVoicePackage()` and `deserializeThingsBookVoicePackage()` with schema validation, length enforcement, and version mismatch protection.
+  - Implemented `mergeVoicePackages()` for deterministic conflict resolution (LWW for items and briefings, monotonic `completed: true` for reminders).
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-thingsbook-voice.test.ts` (5 tests covering voice item generation, checksum computation, strict briefing/reminder schema validation, lossless round-trip serialization, and version/payload corruption guards).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 839/839 tests passed across 129 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 8.5: Automated Verification & Desk Companion Test Suite (Antigravity)
 
