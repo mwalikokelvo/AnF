@@ -90,7 +90,19 @@ mod ears_impl {
     const KWS_TOKENS: &[u8] = include_bytes!("../resources/kevo-ears/kws-tokens.txt");
     const ASR_TOKENS: &[u8] = include_bytes!("../resources/kevo-ears/asr-tokens.txt");
 
-    pub const KEYWORDS: &str = "▁K E VO @KEVO\n▁HE Y ▁K E VO @HEY_KEVO\n";
+    pub const KEYWORDS: &str = "\
+▁K E VO @KEVO
+▁HE Y ▁K E VO @HEY_KEVO
+▁K E VI LL E @KEVO
+▁HE Y ▁K E VI LL E @HEY_KEVO
+▁HE ▁K I VI LL E @HEY_KEVO
+▁K I VI L @KEVO
+▁PA Y ▁K E VI LL E @HEY_KEVO
+▁K E Y B O @KEVO
+▁P ▁ VO @KEVO
+▁P E VO @KEVO
+▁PA K Y E V A @HEY_KEVO
+";
 
     pub fn models_dir() -> PathBuf {
         crate::platform::local_dir().join("kevo-ears").join("models")
@@ -124,7 +136,7 @@ mod ears_impl {
                 model: Some(path(dir, "kevo-vad")),
                 threshold: 0.5,
                 min_silence_duration: 0.25,
-                min_speech_duration: 0.25,
+                min_speech_duration: 0.20,
                 window_size: 512,
                 max_speech_duration: 20.0,
             },
@@ -154,6 +166,7 @@ mod ears_impl {
         KeywordSpotter::create(&KeywordSpotterConfig {
             model_config: transducer(dir, "kws", KWS_TOKENS),
             keywords_buf: Some(KEYWORDS.into()),
+            keywords_threshold: 0.20,
             ..Default::default()
         })
     }
@@ -231,9 +244,11 @@ mod ears_impl {
     impl EchoCanceller {
         pub fn new(filter_len: usize, step_size: f32) -> Self {
             let len = filter_len.max(16);
+            let mut weights = vec![0.0; len];
+            weights[0] = 1.0;
             Self {
                 filter_len: len,
-                weights: vec![0.0; len],
+                weights,
                 history: vec![0.0; len],
                 history_idx: 0,
                 mu: step_size,

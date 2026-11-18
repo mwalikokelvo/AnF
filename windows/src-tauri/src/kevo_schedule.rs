@@ -55,7 +55,9 @@ pub fn load_store(path: &Path) -> KevoScheduleStore {
 
 pub fn save_store(path: &Path, store: &KevoScheduleStore) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
-        platform::ensure_private_dir(parent)?;
+        if parent != std::env::temp_dir() {
+            platform::ensure_private_dir(parent)?;
+        }
     }
     let data = serde_json::to_string_pretty(store)?;
     let tmp = path.with_extension("json.tmp");
@@ -306,13 +308,21 @@ mod tests {
     use super::*;
 
     fn test_file(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("kevo-test-sched-{name}.json"))
+        let dir = std::env::temp_dir().join(format!("kevo-test-sched-{name}-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        dir.join("kevo-schedule.json")
+    }
+
+    fn cleanup(path: &Path) {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir_all(parent);
+        }
     }
 
     #[test]
     fn creates_and_lists_active_reminders() {
         let path = test_file("create_list");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         let r1 = create_reminder_in(&path, "Take vitamins".to_string(), 100_000, None).unwrap();
         assert_eq!(r1.message, "Take vitamins");
@@ -325,13 +335,13 @@ mod tests {
         let active = list_reminders_in(&path, None).unwrap();
         assert_eq!(active.len(), 2);
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn cancels_and_clears_reminders() {
         let path = test_file("cancel_clear");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         let r = create_reminder_in(&path, "Check oven".to_string(), 150_000, None).unwrap();
         let cancelled = cancel_reminder_in(&path, &r.id).unwrap();
@@ -348,13 +358,13 @@ mod tests {
         assert!(cleared);
         assert!(list_reminders_in(&path, None).unwrap().is_empty());
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn fires_due_reminders_once_and_spawns_daily_recurring() {
         let path = test_file("fire_due");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         let _r1 = create_reminder_in(&path, "Past one-shot".to_string(), 1_000, None).unwrap();
         let _r2 = create_reminder_in(&path, "Daily reminder".to_string(), 2_000, Some("daily".to_string())).unwrap();
@@ -376,13 +386,13 @@ mod tests {
         assert!(active.iter().any(|r| r.message == "Future reminder"));
         assert!(active.iter().any(|r| r.message == "Daily reminder" && r.trigger_at == 2_000 + 86_400_000));
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn survives_restart_and_corrupt_recovery() {
         let path = test_file("restart_corrupt");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         let _ = create_reminder_in(&path, "Persistent task".to_string(), 500_000, None).unwrap();
 
@@ -396,6 +406,6 @@ mod tests {
         let recovered = load_store(&path);
         assert!(recovered.reminders.is_empty());
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 }

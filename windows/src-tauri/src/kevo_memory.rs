@@ -63,7 +63,9 @@ pub fn load_store(path: &Path) -> KevoMemoryStore {
 
 pub fn save_store(path: &Path, store: &KevoMemoryStore) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
-        platform::ensure_private_dir(parent)?;
+        if parent != std::env::temp_dir() {
+            platform::ensure_private_dir(parent)?;
+        }
     }
     let data = serde_json::to_string_pretty(store)?;
     let tmp = path.with_extension("json.tmp");
@@ -251,13 +253,21 @@ mod tests {
     use super::*;
 
     fn test_file(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("kevo-test-memory-{name}.json"))
+        let dir = std::env::temp_dir().join(format!("kevo-test-memory-{name}-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        dir.join("kevo-memory.json")
+    }
+
+    fn cleanup(path: &Path) {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::remove_dir_all(parent);
+        }
     }
 
     #[test]
     fn remembers_and_lists_facts() {
         let path = test_file("remember_list");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         let fact1 = remember_fact_in(&path, "User prefers dark chocolate".to_string(), Some("food".to_string())).unwrap();
         assert_eq!(fact1.fact, "User prefers dark chocolate");
@@ -273,13 +283,13 @@ mod tests {
         assert_eq!(search.len(), 1);
         assert_eq!(search[0].id, fact1.id);
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn deletes_fact_and_clears() {
         let path = test_file("delete_clear");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         let fact = remember_fact_in(&path, "Temporary fact".to_string(), None).unwrap();
         let deleted = delete_fact_in(&path, &fact.id).unwrap();
@@ -293,13 +303,13 @@ mod tests {
         assert!(cleared);
         assert!(list_facts_in(&path, None).unwrap().is_empty());
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn saves_and_bounds_turns() {
         let path = test_file("turns_bounds");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         for i in 0..60 {
             save_turn_in(&path, "user".to_string(), format!("Query {i}")).unwrap();
@@ -309,25 +319,27 @@ mod tests {
         assert_eq!(turns.len(), MAX_TURNS);
         assert_eq!(turns.last().unwrap().text, "Query 59");
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn recovers_from_corrupt_file() {
         let path = test_file("corrupt");
+        cleanup(&path);
+        let _ = std::fs::create_dir_all(path.parent().unwrap());
         std::fs::write(&path, "{ not valid json").unwrap();
 
         let store = load_store(&path);
         assert!(store.facts.is_empty());
         assert!(store.turns.is_empty());
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 
     #[test]
     fn persists_across_restart_and_purges_deleted() {
         let path = test_file("restart_survival");
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
 
         // Initial process run writes facts and turns
         let f1 = remember_fact_in(&path, "User lives in Evansville".to_string(), Some("location".to_string())).unwrap();
@@ -350,6 +362,6 @@ mod tests {
         assert_eq!(reloaded.facts[0].fact, "User likes jazz");
         assert!(!reloaded.facts.iter().any(|f| f.id == f1.id));
 
-        let _ = std::fs::remove_file(&path);
+        cleanup(&path);
     }
 }
