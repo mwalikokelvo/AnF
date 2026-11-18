@@ -311,3 +311,77 @@ describe('Kevo Phase 8 Step 8.1: Android Desk Companion View & UI Components', (
     assert.strictEqual(res.action, 'tell_time');
   });
 });
+
+describe('Kevo Phase 8 Step 8.5: Automated Verification & Desk Companion Test Suite', () => {
+  it('waveform visualizer applies scale transform across all 7 frequency bars', () => {
+    const companion = createDeskCompanionView();
+    companion.setState('speaking');
+    companion.setLevel(0.85);
+
+    const waveform = companion.root.querySelector<FakeEl>('.desk-kevo-waveform');
+    assert.ok(waveform);
+    assert.strictEqual(waveform.children.length, 7);
+
+    for (const child of waveform.children) {
+      if (child instanceof FakeEl) {
+        assert.ok(child.style['transform']?.includes('scaleY'));
+      }
+    }
+  });
+
+  it('handles simulated Wi-Fi disconnect and reconnection state recovery', () => {
+    const companion = createDeskCompanionView();
+    companion.setConnected(true, 'Studio-PC');
+    assert.strictEqual(companion.root.querySelector<FakeEl>('.desk-connection-badge')?.classList.contains('connected'), true);
+
+    // Wi-Fi disconnect event
+    companion.setConnected(false);
+    const badgeDisconnected = companion.root.querySelector<FakeEl>('.desk-connection-badge');
+    assert.strictEqual(badgeDisconnected?.classList.contains('disconnected'), true);
+    assert.ok(badgeDisconnected?.textContent?.includes('Offline'));
+
+    // Wi-Fi reconnection event
+    companion.setConnected(true, 'Studio-PC');
+    const badgeReconnected = companion.root.querySelector<FakeEl>('.desk-connection-badge');
+    assert.strictEqual(badgeReconnected?.classList.contains('connected'), true);
+    assert.ok(badgeReconnected?.textContent?.includes('Studio-PC Connected'));
+  });
+
+  it('hold-to-talk button dispatches start and end callbacks with active styling', () => {
+    let talkStarted = false;
+    let talkEnded = false;
+
+    const companion = createDeskCompanionView({
+      onHoldToTalkStart: () => { talkStarted = true; },
+      onHoldToTalkEnd: () => { talkEnded = true; },
+    });
+
+    const btn = companion.root.querySelector<FakeEl>('.desk-hold-talk-btn');
+    assert.ok(btn);
+
+    // Simulate mousedown
+    const mousedownListeners = btn.listeners['mousedown'] ?? [];
+    for (const fn of mousedownListeners) fn({ preventDefault() {} });
+
+    assert.strictEqual(talkStarted, true);
+    assert.strictEqual(btn.classList.contains('active'), true);
+    assert.ok(btn.textContent.includes('Listening'));
+
+    // Simulate mouseup
+    const mouseupListeners = btn.listeners['mouseup'] ?? [];
+    for (const fn of mouseupListeners) fn({ preventDefault() {} });
+
+    assert.strictEqual(talkEnded, true);
+    assert.strictEqual(btn.classList.contains('active'), false);
+    assert.ok(btn.textContent.includes('Hold to talk'));
+  });
+
+  it('verifies zero hardcoded mock figures or simulated cloud data in desk companion', () => {
+    const companion = createDeskCompanionView();
+    const rendered = JSON.stringify(companion.root);
+    assert.strictEqual(rendered.includes('$30,000'), false);
+    assert.strictEqual(rendered.includes('18,740'), false);
+    assert.strictEqual(rendered.includes('$475'), false);
+    assert.strictEqual(rendered.includes('24,500'), false);
+  });
+});

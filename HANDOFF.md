@@ -4,7 +4,21 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 8.4: Standalone Voice on Android).
+Last updated: 2026-11-18 by Antigravity (Kevo 8.5: Automated Verification & Desk Companion Test Suite).
+
+## 2026-11-18 — Kevo 8.5: Automated Verification & Desk Companion Test Suite (Antigravity)
+
+Phase 8 Step 8.5 (`docs/kevo-briefs/phase-8.md`, "8.5 Automated Verification & Desk Companion Test Suite"):
+- Automated Companion Verification Suite (`windows/tests/kevo-desk-companion.test.ts`):
+  - Added test for waveform visualizer scaling and styles across all 7 frequency visualizer bars.
+  - Added test verifying graceful handling of simulated Wi-Fi disconnect, badge toggles, and reconnection recovery.
+  - Added test verifying hold-to-talk press, active CSS state, and release flows with haptic dispatching.
+  - Added test asserting zero hardcoded mock metrics (`$30,000`, `18,740`, `$475`, `24,500`) or simulated cloud data in desk companion.
+- Complete Phase 8 Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 834/834 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 8.4: Standalone Voice on Android (Antigravity)
 
