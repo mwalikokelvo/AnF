@@ -10,6 +10,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createKevoFloat, type KevoHudState, type KevoStateEvent } from '../src/kevo-float/float.js';
+import { handlePillDrop, categorizeFile, MAX_DROP_BYTES } from '../src/kevo-float/drop.js';
+import type { DragDropPayload, DroppedFile } from '../src/core/bridge.js';
 
 type MockEventListener = (event?: unknown) => void;
 
@@ -420,5 +422,175 @@ describe('Kevo float telemetry pill (H.3)', () => {
     assert.equal(float.lineCurrEl.textContent, longText);
     assert.equal(float.badgeEl.textContent, 'Offline · 4.2 s');
     assert.ok(float.linesEl.children.length === 2);
+  });
+});
+
+describe('Kevo float file drop (H.5)', () => {
+  it('categorizes supported and unsupported file extensions', () => {
+    assert.equal(categorizeFile('notes.md'), 'markdown_text');
+    assert.equal(categorizeFile('document.markdown'), 'markdown_text');
+    assert.equal(categorizeFile('plain.txt'), 'markdown_text');
+    assert.equal(categorizeFile('book.epub'), 'epub');
+    assert.equal(categorizeFile('voice.mp3'), 'audio');
+    assert.equal(categorizeFile('clip.wav'), 'audio');
+    assert.equal(categorizeFile('recording.m4a'), 'audio');
+    assert.equal(categorizeFile('song.flac'), 'audio');
+    assert.equal(categorizeFile('audio.ogg'), 'audio');
+    assert.equal(categorizeFile('app.exe'), 'unsupported');
+    assert.equal(categorizeFile('archive.zip'), 'unsupported');
+    assert.equal(categorizeFile('image.png'), 'unsupported');
+  });
+
+  it('drops markdown files: calls ingest and reports saved to vault', async () => {
+    let ingestCalls = 0;
+    let messageShown = '';
+
+    const payload: DragDropPayload = {
+      type: 'drop',
+      file: {
+        name: 'meeting.md',
+        ingest: async () => {
+          ingestCalls++;
+          return { name: 'meeting.md', path: 'C:\\vault\\meeting.md', size: 1024 };
+        },
+      },
+    };
+
+    let vaultImported: DroppedFile | null = null;
+    await handlePillDrop(payload, {
+      showMessage: (msg) => { messageShown = msg; },
+      importVault: async (file) => { vaultImported = file; },
+    });
+
+    assert.equal(ingestCalls, 1, 'ingest called for markdown file');
+    assert.ok(messageShown.includes('Saved meeting.md to vault'));
+    assert.equal(vaultImported?.name, 'meeting.md');
+  });
+
+  it('drops text files: calls ingest and reports saved to vault', async () => {
+    let ingestCalls = 0;
+    let messageShown = '';
+
+    const payload: DragDropPayload = {
+      type: 'drop',
+      file: {
+        name: 'notes.txt',
+        ingest: async () => {
+          ingestCalls++;
+          return { name: 'notes.txt', path: 'C:\\vault\\notes.txt', size: 500 };
+        },
+      },
+    };
+
+    await handlePillDrop(payload, {
+      showMessage: (msg) => { messageShown = msg; },
+    });
+
+    assert.equal(ingestCalls, 1, 'ingest called for txt file');
+    assert.ok(messageShown.includes('Saved notes.txt to vault'));
+  });
+
+  it('drops epub books: calls ingest and reports imported', async () => {
+    let ingestCalls = 0;
+    let messageShown = '';
+    let epubImported: DroppedFile | null = null;
+
+    const payload: DragDropPayload = {
+      type: 'drop',
+      file: {
+        name: 'guide.epub',
+        ingest: async () => {
+          ingestCalls++;
+          return { name: 'guide.epub', path: 'C:\\docs\\guide.epub', size: 500000 };
+        },
+      },
+    };
+
+    await handlePillDrop(payload, {
+      showMessage: (msg) => { messageShown = msg; },
+      importEpub: async (file) => { epubImported = file; },
+    });
+
+    assert.equal(ingestCalls, 1, 'ingest called for epub file');
+    assert.ok(messageShown.includes('Imported guide.epub'));
+    assert.equal(epubImported?.name, 'guide.epub');
+  });
+
+  it('drops audio files: calls ingest and reports transcribing', async () => {
+    let ingestCalls = 0;
+    let messageShown = '';
+    let audioImported: DroppedFile | null = null;
+
+    const payload: DragDropPayload = {
+      type: 'drop',
+      file: {
+        name: 'voice.wav',
+        ingest: async () => {
+          ingestCalls++;
+          return { name: 'voice.wav', path: 'C:\\audio\\voice.wav', size: 2048000 };
+        },
+      },
+    };
+
+    await handlePillDrop(payload, {
+      showMessage: (msg) => { messageShown = msg; },
+      importAudio: async (file) => { audioImported = file; },
+    });
+
+    assert.equal(ingestCalls, 1, 'ingest called for audio file');
+    assert.ok(messageShown.includes('Transcribing voice.wav'));
+    assert.equal(audioImported?.name, 'voice.wav');
+  });
+
+  it('refuses unsupported file types: shows message and makes no ingest call', async () => {
+    const unsupportedFiles = ['malware.exe', 'backup.zip', 'photo.png', 'archive.tar.gz'];
+
+    for (const name of unsupportedFiles) {
+      let ingestCalls = 0;
+      let messageShown = '';
+
+      const payload: DragDropPayload = {
+        type: 'drop',
+        file: {
+          name,
+          ingest: async () => {
+            ingestCalls++;
+            return { name, path: '', size: 100 };
+          },
+        },
+      };
+
+      await handlePillDrop(payload, {
+        showMessage: (msg) => { messageShown = msg; },
+      });
+
+      assert.equal(ingestCalls, 0, `no ingest call for unsupported file: ${name}`);
+      assert.equal(messageShown, "I can't take that file yet", `refusal message for: ${name}`);
+    }
+  });
+
+  it('refuses files exceeding the 200 MB bridge size limit', async () => {
+    let ingestCalls = 0;
+    let messageShown = '';
+
+    const payload: DragDropPayload = {
+      type: 'drop',
+      file: {
+        name: 'huge_book.epub',
+        size: 250 * 1024 * 1024, // 250 MB (exceeds 200 MB)
+        ingest: async () => {
+          ingestCalls++;
+          return { name: 'huge_book.epub', path: '', size: 250 * 1024 * 1024 };
+        },
+      },
+    };
+
+    await handlePillDrop(payload, {
+      showMessage: (msg) => { messageShown = msg; },
+      maxSize: MAX_DROP_BYTES,
+    });
+
+    assert.equal(ingestCalls, 0, 'no ingest call for oversized file');
+    assert.ok(messageShown.includes('File exceeds 200 MB limit'));
   });
 });
