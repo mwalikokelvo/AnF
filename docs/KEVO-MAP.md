@@ -17,6 +17,7 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src/workspace/main.ts` | Gives Kevo its actions (`openApp`, `openUrl`, `searchWeb`, `askAI`, …) via Tauri `invoke` |
 | `src-tauri/src/kevo_system.rs` | Windows side: find and open Start Menu apps (`best_app_match`), system actions |
 | `src-tauri/src/kevo_hud.rs` | HUD state bus: `kevo://state` `{state, line, badge, level}`, sent only on change, loudness at most 20/s and only while speaking; `kevo_hud_set` from the desk's `refresh` |
+| `src-tauri/src/kevo_approval.rs` | Approval gate: `ask` emits `kevo://approve` `{id, action, summary}` and waits for `kevo_hud_answer(id, approved)`; 60 s without an answer is deny, one request at a time, unknown ids refused. Risky actions (send to another device, delete, run a script) must go through it |
 | `src-tauri/src/workspace_commands.rs` | `kevo_ask` / `kevo_cancel`: the local AI call and its system prompt (`KEVO_SYSTEM`) |
 | `tests/jarvis-*.test.ts`, `tests/kevo-*.test.ts` | Node tests; `kevo-phase0-session2.test.ts` holds the requests from the owner's recording |
 

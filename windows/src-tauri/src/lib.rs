@@ -31,6 +31,7 @@ mod files;
 mod hooks;
 mod integrations;
 mod island;
+// Public: the gate has no caller until Phase 5's actions, and pub keeps it from reading as dead code.
 pub mod kevo_approval;
 mod kevo_float;
 mod kevo_hud;
