@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 1.4: audio tests in CI).
+Last updated: 2026-11-18 by Antigravity (Kevo 1.5: self-test on the PC).
+
+## 2026-11-18 — Kevo 1.5: self-test on the PC (Antigravity)
+
+Phase 1 Step 1.5 (`docs/kevo-briefs/phase-1.md`, "1.5 Self-test on the PC"):
+- Updated `windows/src/workspace/jarvis/kevo-selftest.ts`:
+  - Gains wake rate threshold evaluation (at least 19 of 20 wake clips wake Kevo).
+  - Gains false wake threshold evaluation across look-alike and background speech (at most 1 false wake).
+  - Handles background speech clips (`kind: 'background'`), tracking counts and duration without logging heard text.
+  - Samples and reports host idle CPU usage over 60s of silence (`idleCpuPercent60s`) in `selftest-<version>.json`.
+- Rust backend (`windows/src-tauri/src/kevo_autotest.rs` & `lib.rs`):
+  - Added `kevo_measure_idle_cpu` Tauri command sampling host CPU over a configurable window using `sysinfo`.
+  - Exposed via `Bridge.kevoMeasureIdleCpu` in `windows/src/core/bridge.ts`.
+- Unit tests (`windows/tests/kevo-selftest.test.ts`):
+  - Verified `idleCpuPercent60s` reported in `KevoSelfTestReport` and saved JSON.
+  - Tested wake rate boundary enforcement (>=19 passes, <19 fails).
+  - Tested false wake boundary enforcement (<=1 passes, >1 fails) with background speech clips.
+- Verification: 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS, `kevo-selftest.test.ts` 5/5 PASS.
 
 ## 2026-11-18 — Kevo 1.4: audio tests in CI (Antigravity)
 
