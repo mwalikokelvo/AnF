@@ -12,6 +12,8 @@ import {
   getOpenAITools,
   getCapabilitySheet,
   executeKevoAction,
+  executeKevoToolCalls,
+  type KevoToolCall,
 } from '../src/workspace/jarvis/voice/kevo-actions';
 import type { JarvisActionContext } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 
@@ -161,5 +163,41 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     const res = await executeKevoAction('non_existent_action', {}, ctx);
     assert.strictEqual(res.handled, false);
     assert.match(res.speechReply, /not recognized/);
+  });
+
+  it('executes chained tool calls in sequence (Step 2.2: Tool calling)', async () => {
+    const executed: string[] = [];
+    const parts: string[] = [];
+    const ctx = mockContext({
+      dryRun: false,
+      openApp: async (name) => {
+        executed.push(`open:${name}`);
+        return name;
+      },
+      openUrl: async (url) => {
+        executed.push(`url:${url}`);
+      },
+    });
+
+    const calls: KevoToolCall[] = [
+      { name: 'open_app', arguments: { name: 'Brave' } },
+      { name: 'youtube_search', arguments: { query: 'lofi' } },
+    ];
+
+    const res = await executeKevoToolCalls(calls, ctx, (part) => parts.push(part));
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'open_app+youtube_search');
+    assert.deepEqual(executed, ['open:Brave', 'url:https://www.youtube.com/results?search_query=lofi']);
+    assert.strictEqual(parts.length, 2);
+    assert.match(res.speechReply, /Opening Brave/);
+    assert.match(res.speechReply, /Searching YouTube for lofi/);
+  });
+
+  it('handles empty tool call array gracefully', async () => {
+    const ctx = mockContext();
+    const res = await executeKevoToolCalls([], ctx);
+    assert.strictEqual(res.handled, false);
+    assert.strictEqual(res.actionName, '');
+    assert.strictEqual(res.speechReply, '');
   });
 });

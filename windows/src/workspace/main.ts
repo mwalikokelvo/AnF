@@ -37,7 +37,8 @@ import {createOpdsPanel} from './opds-panel';
 import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
-import {fetchWeather} from './jarvis/voice/jarvis-voice-agent';
+import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
+import {getOpenAITools,executeKevoToolCalls,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -246,11 +247,7 @@ let audioStudio:ReturnType<typeof createAudioStudio>;
 const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=message;},beforePlay:async()=>{audioStudio?.stop();audioStudio?.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
 
 let kevoTurn=0;
-const jarvisCommandDesk=createJarvisCommandDesk({
-  onNotify:msg=>{status.textContent=msg;},
-  // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
-  log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
-  voiceActionContext:{
+const jarvisActionContext: JarvisActionContext = {
     switchView:view=>showView(view),
     pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},
     playMusic:()=>{void musicHub.play();},
@@ -301,13 +298,33 @@ const jarvisCommandDesk=createJarvisCommandDesk({
     askAI:async(query,options)=>{
       const id=++kevoTurn;
       const off=await listen<{id:number;text:string}>('kevo-reply-part',e=>{if(e.payload.id===id)options?.onPart?.(e.payload.text);});
-      try{return await invoke<string>('kevo_ask',{id,query,history:options?.history??[],model:model.value});}
+      try{
+        const tools = getOpenAITools();
+        const res = await invoke<KevoAskReply | string>('kevo_ask',{
+          id,
+          query,
+          history:options?.history??[],
+          model:model.value,
+          tools,
+        });
+        if (typeof res === 'string') return res;
+        if (res.tool_calls && res.tool_calls.length > 0) {
+          const executed = await executeKevoToolCalls(res.tool_calls, jarvisActionContext, options?.onPart);
+          return executed.speechReply || res.text || '';
+        }
+        return res.text || '';
+      }
       finally{off();}
     },
     cancelAI:()=>{void invoke('kevo_cancel');},
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
-  }
+};
+const jarvisCommandDesk=createJarvisCommandDesk({
+  onNotify:msg=>{status.textContent=msg;},
+  // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
+  log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
+  voiceActionContext:jarvisActionContext
 });
 section('jarvis','Kevo',jarvisCommandDesk.root);
 section('documents','Documents',h('h2',{text:'Your source material'}),h('p',{class:'hint',text:'Add PDFs, EPUB books, Word documents, text, or images. Up to four sources. PDFs support 600 pages, 50 MB per file, and 2 MB of extracted text. Saved web pages keep the article and leave out menus, banners, and footers. Answers use selected excerpts; scanned text may contain OCR errors.'}),file,webResearch,h('div',{class:'row'},url,button('Read webpage',async active=>{await addWebSource(url.value,active);})),opds.root,libraryControls(sourceList),sourceList);

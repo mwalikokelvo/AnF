@@ -4,7 +4,26 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.1: one action list).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.2: tool calling).
+
+## 2026-11-18 — Kevo 2.2: tool calling (Antigravity)
+
+Phase 2 Step 2.2 (`docs/kevo-briefs/phase-2.md`, "2.2 Tool calling"):
+- Local AI runtime (`windows/src-tauri/src/local_ai.rs`):
+  - Added `--jinja` flag when starting `llama-server` to enable Jinja chat template evaluation.
+  - Automatically loads and passes `--chat-template-file` if `chat-template.jinja` is present in `local-ai/`.
+  - Added `reply_tools` supporting OpenAI-compatible `tools` parameter and `tool_choice: "auto"`.
+  - Implemented `parse_tool_calls_and_clean_text` and `parse_kevo_ask_response`: parses standard OpenAI `choices[0].message.tool_calls` as well as inline `<tool_call>...</tool_call>` blocks, completely stripping `<tool_call>` tags from text so zero raw tags ever leak to the user.
+- Workspace commands (`windows/src-tauri/src/workspace_commands.rs`):
+  - Updated `kevo_ask` Tauri command to accept optional `tools: Option<Vec<Value>>`, returning structured `KevoAskReply` (`Value` containing `text` and `tool_calls`).
+- Kevo Actions & Command Desk integration:
+  - `windows/src/workspace/jarvis/voice/kevo-actions.ts`: exported `KevoToolCall`, `KevoAskReply`, and `executeKevoToolCalls` executing sequenced tool calls in order against `JarvisActionContext`, joining action names with `+` and aggregating speech.
+  - `windows/src/core/bridge.ts`: added `kevoAsk` and `kevoCancel`.
+  - `windows/src/workspace/main.ts`: wired `askAI` to pass `getOpenAITools()`, parse tool calls, and execute chained tool calls sequentially via `executeKevoToolCalls`.
+- Tests & Verification:
+  - Rust unit tests in `local_ai.rs`: `parses_single_and_chained_tool_calls_and_cleans_tags` and `parses_openai_tool_calls_response` (7/7 PASS).
+  - TypeScript unit tests in `windows/tests/kevo-actions.test.ts`: chained tool execution in sequence and empty tool call handling (9/9 PASS).
+  - Verification: 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS.
 
 ## 2026-11-18 — Kevo 2.1: one action list (Antigravity)
 
