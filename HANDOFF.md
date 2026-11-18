@@ -4,7 +4,29 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.5: Automated Verification & Integrity Test Suite).
+Last updated: 2026-11-18 by Antigravity (Kevo 8.1: Android Desk Companion View & UI Components).
+
+## 2026-11-18 — Kevo 8.1: Android Desk Companion View & UI Components (Antigravity)
+
+Phase 8 Step 8.1 (`docs/kevo-briefs/phase-8.md`, "8.1 Android Desk Companion View & UI Components" and HUD Step H.7):
+- Created Phase 8 and Phase 9 specifications (`docs/kevo-briefs/phase-8.md`, `docs/kevo-briefs/phase-9.md`).
+- Android Desk Companion View (`android/web/desk-companion.ts`, `android/web/style.css`):
+  - Built `DeskCompanionView` and `createDeskCompanionView(options)` full-screen/docked view for Android.
+  - Implemented glowing animated Kevo orb with CSS-driven state styling (`idle`, `listening`, `thinking`, `speaking`, `alert`, `off`).
+  - Added multi-bar speech level waveform visualizer driven by loudness level (0 to 1).
+  - Added tactile "Hold to talk" button with native Android haptic feedback (`AnFAndroid.haptic()`).
+  - Added remote approval card modal (HUD Step H.4) with "Approve" and "Deny" actions.
+  - Added connection badge ("● PC Connected" vs "○ Offline").
+- Android Web Navigation Integration (`android/web/main.ts`, `windows/src/workspace/anf-brand.ts`):
+  - Added `companion: 'ask'` mode to `modeOf` dictionary.
+  - Mounted `deskCompanion` section and exposed "Desk" button in studio tools and home panel.
+  - Added companion SVG icon to `sectionIcon()`.
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-desk-companion.test.ts` (8 comprehensive tests verifying state transitions, level clamping, approval handling, denial, connection toggles, and exit callbacks).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 821/821 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.5: Automated Verification & Integrity Test Suite (Antigravity)
 
