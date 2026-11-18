@@ -17,6 +17,8 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src/workspace/jarvis/voice/jarvis-memory.ts` | Last few turns sent to the AI as context |
 | `src/workspace/main.ts` | Gives Kevo its actions (`openApp`, `openUrl`, `searchWeb`, `askAI`, …) via Tauri `invoke` |
 | `src-tauri/src/kevo_system.rs` | Windows side: find and open Start Menu apps (`best_app_match`), system actions |
+| `src-tauri/src/kevo_autotest.rs` | Autotest prerelease checker, SHA-256 and `github-actions[bot]` check, detached helper runner, self-test clip reader and result saver |
+| `src/workspace/jarvis/kevo-selftest.ts` | Self-test runner in dry-run mode evaluating clips, recording wake/lookalike counts, request timings, and generating `selftest-<version>.json` |
 | `src-tauri/src/log.rs` | `kevo_log_append` / `kevo_log_save` / `kevo_log_open_folder`: `kevo/kevo-log.jsonl` in AnF's data folder, cut to the newest 2,000 lines past 3,000; never sent anywhere |
 | `src-tauri/src/workspace_commands.rs` | `kevo_ask` / `kevo_cancel`: the local AI call and its system prompt (`KEVO_SYSTEM`) |
 | `tests/jarvis-*.test.ts`, `tests/kevo-*.test.ts` | Node tests; `kevo-phase0-session2.test.ts` holds the requests from the owner's recording |

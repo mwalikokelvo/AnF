@@ -40,8 +40,8 @@ export class JarvisVoiceListener {
   private onListeningStateChange?: (listening: boolean) => void;
   private stateListeners: ((listening: boolean) => void)[] = [];
   private onInterimSpeech?: (transcript: string) => void;
-  private onFinalSpeech?: (transcript: string) => void;
-  private onWakeWord?: (wakeWord: string) => void;
+  public onFinalSpeech?: (transcript: string) => void;
+  public onWakeWord?: (wakeWord: string) => void;
   private onError?: (err: string, code?: string) => void;
   private onIgnored?: (text: string, reason: KevoIgnoredReason) => void;
   private requireWakeWord: boolean;
