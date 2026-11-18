@@ -52,6 +52,7 @@
     ],
     "resources": {
       "../target/release/coucou-hook.exe": "coucou-hook.exe",
+      "resources/kevo-selftest/*": "resources/kevo-selftest/",
       "../local-ai/*.dll": "local-ai/",
       "../local-ai/llama-server.exe": "local-ai/llama-server.exe",
       "../local-ai/model.gguf": "local-ai/model.gguf",

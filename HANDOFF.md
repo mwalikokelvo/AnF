@@ -4,7 +4,15 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 6.3: context prefill optimization & prompt compaction).
+Last updated: 2026-11-18 by Claude (package Kevo self-test clips).
+
+## 2026-11-18 — Package Kevo's self-test clips (Claude)
+
+On the owner's PC, "Run self-test" failed with "No manifest returned by kevo_selftest_get_clips": `resources/kevo-selftest/` was never packaged, so `find_selftest_resource_dir` found nothing (the bridge turns the Rust error into `null`).
+- `tauri.conf.json` bundles `resources/kevo-selftest/*` into the installer at `resources/kevo-selftest/`.
+- `scripts/pack.mjs` copies the clips next to `AnF.exe` in the portable build (used by `kevo-test-v*` zips) and fails the pack if `clips.json` is missing.
+- Tested: `check-release` 12 pass, JSON and script syntax. Packaging itself: this PR's `Windows` workflow.
+
 
 ## 2026-11-18 — Kevo 6.3: context prefill optimization & prompt compaction (Antigravity)
 
