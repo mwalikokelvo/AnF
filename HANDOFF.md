@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 4.3: daily briefing scheduler).
+Last updated: 2026-11-18 by Antigravity (Kevo 4.4: minimised window alert and native audio notification).
+
+## 2026-11-18 — Kevo 4.4: minimised window alert and native audio notification (Antigravity)
+
+Phase 4 Step 4.4 (`docs/kevo-briefs/phase-4.md`, "4.4 Minimised window alert & audio notification"):
+- Native Audio Chime & Window Attention (`windows/src-tauri/src/kevo_schedule.rs`, `windows/src-tauri/src/lib.rs`):
+  - Implemented `play_system_alert_sound` calling Windows `MessageBeep(MB_ICONASTERISK)` for native notification chimes with zero external dependencies.
+  - Added `alert_reminder_triggered` checking whether window is minimized or unfocused and calling `request_user_attention(UserAttentionType::Critical)` to flash the taskbar.
+  - Automatically triggered native chime and attention flash on every fired reminder in `spawn_schedule_ticker`.
+  - Added and registered `kevo_schedule_trigger_alert` Tauri command.
+- Bridge & Frontend Alerting (`windows/src/core/bridge.ts`, `windows/src/workspace/jarvis/voice/jarvis-schedule.ts`, `windows/src/workspace/main.ts`):
+  - Exposed `Bridge.kevoScheduleTriggerAlert`.
+  - Added `playWebAlertChime()` Web Audio API two-tone chime fallback for headless/browser environments.
+  - Added `triggerReminderAlert()` with Web Notification fallback.
+  - Wired `kevo://reminder-alert` listener in workspace `main.ts`.
+- Verification:
+  - 4/4 Rust unit tests in `kevo_schedule` PASS (`cargo test --lib kevo_schedule`).
+  - 11/11 unit tests in `jarvis-schedule.test.ts` PASS.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 732/732 tests passed across 104 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 4.3: daily briefing scheduler (Antigravity)
 

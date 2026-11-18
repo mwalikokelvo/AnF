@@ -209,6 +209,40 @@ pub fn check_and_fire_due_reminders(path: &Path, now_ms: u64) -> Result<Vec<Kevo
     Ok(fired_reminders)
 }
 
+#[cfg(windows)]
+pub fn play_system_alert_sound() {
+    #[link(name = "user32")]
+    extern "system" {
+        fn MessageBeep(u_type: u32) -> i32;
+    }
+    unsafe {
+        // 0x00000040 is MB_ICONASTERISK (SystemAsterisk notification chime)
+        let _ = MessageBeep(0x00000040);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn play_system_alert_sound() {}
+
+pub fn alert_reminder_triggered(app: &AppHandle, title: &str, message: &str) {
+    play_system_alert_sound();
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window("workspace") {
+        let is_min = win.is_minimized().unwrap_or(false);
+        let is_focused = win.is_focused().unwrap_or(false);
+        if is_min || !is_focused {
+            let _ = win.request_user_attention(Some(tauri::UserAttentionType::Critical));
+        }
+    }
+    let _ = app.emit(
+        "kevo://reminder-alert",
+        serde_json::json!({
+            "title": title,
+            "message": message,
+        }),
+    );
+}
+
 pub fn spawn_schedule_ticker(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
@@ -217,6 +251,7 @@ pub fn spawn_schedule_ticker(app: AppHandle) {
             if let Ok(fired) = check_and_fire_due_reminders(&schedule_file_path(), now) {
                 for rem in fired {
                     let _ = app.emit("kevo://reminder-triggered", &rem);
+                    alert_reminder_triggered(&app, "Kevo Reminder", &rem.message);
                 }
             }
         }
@@ -224,6 +259,16 @@ pub fn spawn_schedule_ticker(app: AppHandle) {
 }
 
 // Tauri commands
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn kevo_schedule_trigger_alert(
+    app: AppHandle,
+    title: String,
+    message: String,
+) -> Result<(), String> {
+    alert_reminder_triggered(&app, &title, &message);
+    Ok(())
+}
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn kevo_schedule_create_reminder(
