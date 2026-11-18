@@ -207,7 +207,7 @@
   { "say": "I want you to tell me the time", "expect": "tell_time", "source": "variant" },
   { "say": "Go ahead and tell me the time", "expect": "tell_time", "source": "variant" },
   { "say": "I need you to tell me the time", "expect": "tell_time", "source": "variant" },
-  { "say": "Did you say, skip this song?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Did you say, skip this song?", "expect": "ai_conversation", "source": "variant", "fixed": "issue-175" },
   { "say": "Would you say, tell me the time?", "expect": "ai_conversation", "source": "variant" },
   { "say": "Skip this song. Is the next song any good?", "expect": "next_track", "source": "variant" },
   { "say": "Don't skip this song, actually, skip this song", "expect": "next_track", "source": "variant" },
@@ -219,5 +219,8 @@
   { "say": "Advance to the next track", "expect": "next_track", "source": "variant" },
   { "say": "five minutes is fine", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
   { "say": "five minutes will do", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
-  { "say": "five minutes from now", "before": ["set a timer"], "expect": "timer_set", "source": "variant" }
+  { "say": "five minutes from now", "before": ["set a timer"], "expect": "timer_set", "source": "variant" },
+  { "say": "Are you asking me to say, skip this song?", "expect": "ai_conversation", "source": "variant", "fixed": "issue-175" },
+  { "say": "Skip this song. I do not know whether the next song is any better.", "expect": "next_track", "source": "variant", "fixed": "issue-175" },
+  { "say": "Skip this song and tell me the time", "expect": "next_track+tell_time", "source": "variant", "fixed": "issue-175" }
 ]

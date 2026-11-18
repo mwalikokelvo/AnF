@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.7: remove what the model now covers).
+Last updated: 2026-11-18 by Antigravity (Kevo Phase 2: phrase cases from #157 / #175).
+
+## 2026-11-18 — Kevo Phase 2: phrase cases from #157 (#175) (Antigravity)
+
+Phase 2 phrase cases from review round on #157 (Issue #175):
+- Quotation Leads:
+  - Extended `QUOTE_LEAD` to support `are|is|was|were|am` leads (e.g. `Are you asking me to say, skip this song?`), correctly routing quotation queries to `ai_conversation` rather than triggering `next_track`.
+- Epistemic Negation in Clause Trailing:
+  - Updated `asksFor` to distinguish epistemic uncertainty ("I do not know whether the next song is any better") from command cancellation/negation ("Actually don't skip it"), ensuring `next_track` properly fires when the skip was commanded and followed by commentary.
+- Multi-Action Split Requests:
+  - Added time/clock command patterns (`tell me (?:the )?time`, `clock`) to `splitRequests`, allowing chained compound requests like `Skip this song and tell me the time` to split and execute cleanly as `next_track+tell_time`.
+- Phrase List & Fixed Binding:
+  - Added all four cases from #175 with `fixed: "issue-175"` binding annotations to `windows/tests/kevo-phrases.json`.
+- Verification:
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - All 705 unit tests across 101 suites pass (100% PASS).
+  - 100% pass on fixed entries and owner phrases.
 
 ## 2026-11-18 — Kevo 2.7: remove what the model now covers (Antigravity)
 
