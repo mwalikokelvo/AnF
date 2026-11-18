@@ -4,7 +4,20 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 1.3: listening pipeline with sherpa-onnx and cpal).
+Last updated: 2026-11-18 by Claude (fix main: Kevo ears compile on Windows, 0.1.60).
+
+## 2026-11-18 — Fix main: Kevo ears compile on Windows, 0.1.60 (Claude)
+
+`main` was red from #195 (Kevo 1.3) on: the `Windows` workflow's native tests did not compile, so no test build was published after 0.1.59.
+- `kevo_ears.rs`: `cpal::Stream` is not `Send`, so it can't sit in the shared `EARS` static. The stream now opens on the pipeline thread, which reports start-up errors back to `kevo_ears_start` and drops the stream when it ends.
+- sherpa-onnx 2.0.1 has `VoiceActivityDetector::detected()`, not `is_speech_detected()`. Finished speech segments are now popped so the detector's queue doesn't grow while Kevo listens.
+- `LinearResampler`: the first output sample of a stream was 0 (blended from an assumed silent sample). It now starts from the first real sample; `linear_resampler_resamples_from_48k_to_16k_accurately` was red and is green.
+- If listening ends without `kevo_ears_stop` (microphone unplugged), the handle is cleared and `kevo-ears-error` is sent, so the status no longer says "running" while Kevo is deaf (fresh-review finding).
+- Linux CI was also red since #195: `cpal` needs ALSA, so `linux.yml` and the runbook's apt line now install `libasound2-dev`.
+- Version 0.1.60, so `kevo-test-v0.1.60` publishes with steps 0.1, 0.4b, 0.5 and the HUD.
+- Tested: `cargo test --lib --features kevo-ears` on Linux, 170 passed; `vault::tests::fts5_search_p95_under_50ms` passes alone but misses its budget in a full debug run on the slow cloud workspace (passes on CI runners). Clippy adds no warnings. `check-release` 12 pass. Windows compile: by the `Windows` workflow on this PR.
+- Lesson for KEVO-MAP: `#[cfg(windows)]`/feature-gated code is only compiled by the `Windows` workflow; never merge a Kevo PR whose `Windows` run is red.
+
 
 ## 2026-11-18 — Kevo 1.3: listening pipeline with sherpa-onnx and cpal (Antigravity)
 
