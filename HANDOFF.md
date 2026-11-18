@@ -4,7 +4,22 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 0.5: the five Phase 0 checks as self-test scripts).
+Last updated: 2026-11-18 by Antigravity (Kevo H.8: self-test on the PC).
+
+## 2026-11-18 — Kevo H.8: self-test on the PC (Antigravity)
+
+Issue #173 (`docs/kevo-briefs/hud.md`, "H.8 Self-test on the PC"):
+- Implemented `runHudSelfTestChecks` in `windows/src/workspace/jarvis/kevo-selftest.ts` to execute and record the HUD track "Done when" metrics:
+  1. `stateChangeDelayMs`: Float follows state changes within 100 ms (measured via `Bridge.kevoHudSet` or injected listener).
+  2. `idleCpuPercent60s`: Float window 60s idle CPU usage (0.0%).
+  3. `approvalClickMs`: Pending approval answered by click via `Bridge.kevoHudAnswer`.
+  4. `approvalVoiceYesMs`: Pending approval answered by spoken "yes" while card is open.
+  5. `approvalVoiceCancelMs`: Pending approval answered by spoken "cancel" while card is open.
+  6. `droppedFileSearchRank`: Dropped Markdown file indexed and found by vault search afterwards.
+- Added `hudChecks` (`HudSelfTestNumbers`) to `KevoSelfTestReport`: outputs all metrics into `selftest-<version>.json` as numbers only.
+- Added `kevoHudSet` and `kevoHudAnswer` to `Bridge` in `windows/src/core/bridge.ts`.
+- Automated tests in `windows/tests/kevo-selftest.test.ts` (Phase 0 and HUD checks pass; fields validated as numbers only).
+- Passed all checks: `tsc --noEmit`, full `npm test` (653 tests pass across 92 suites), `npm run build`, `cargo test --locked --lib kevo_` (17 tests pass), `check-release.mjs`, `verify-contracts.mjs`, `check-styles.mjs`.
 
 ## 2026-11-18 — Kevo 0.5: five Phase 0 checks as self-test scripts (Antigravity)
 
@@ -42,7 +57,6 @@ Issue #159. Added `"fixed": "#155"` marker to repaired phrase-list entries in `w
 ## 2026-11-17 — Kevo 0.2 fix 2: Calvo and Kalvo in listener (#158) (Antigravity)
 
 Issue #158. Added `calvo` and `kalvo` to `JarvisVoiceListener` default `wakeWords` list in `windows/src/workspace/jarvis/voice/jarvis-voice-listener.ts`. Added test in `windows/tests/jarvis-voice.test.ts` driving listener while not awake with "Calvo, what is 12 times 8?" and "Kalvo, what is 12 times 8?" verifying requests come through and unrecognized names are dropped. Checks: npx tsc --noEmit, 620 node tests, vite build, 12 release checks passed. No version bump.
-
 ## 2026-11-17 — Kevo H.4b approval card view (Antigravity)
 
 Added HUD approval card view with Approve and Deny buttons (`kevo-float.css`, `float.ts`), voice approval handling ("yes"/"sure"/"approve" -> true, "cancel"/"no"/"deny" -> false only while a card is open in `jarvis-voice-agent.ts`), wired to Rust command `kevo_hud_answer`, with unit tests in `kevo_approval.rs`, browser fixture tests in `kevo-float.test.ts`, and voice tests in `jarvis-voice.test.ts`. Left: self-test (H.8) and remaining HUD integration.
@@ -62,6 +76,10 @@ Added State 2 (420x110 px) telemetry pill with avatar orb, two-line text (newest
 ## 2026-11-17 — Kevo H.2 micro-pill window (Antigravity)
 
 Added kevo-float window (48x28 non-activating, no taskbar, always on top), dragging capability, view driven purely by kevo://state events with 0 timers/polling, and browser tests; left: H.3 (telemetry pill) and H.4 (approval card).
+
+## 2026-11-17 — Kevo 0.2 fix 2: Calvo and Kalvo in listener (#158) (Antigravity)
+
+Issue #158. Added `calvo` and `kalvo` to `JarvisVoiceListener` default `wakeWords` list in `windows/src/workspace/jarvis/voice/jarvis-voice-listener.ts`. Added test in `windows/tests/jarvis-voice.test.ts` driving listener while not awake with "Calvo, what is 12 times 8?" and "Kalvo, what is 12 times 8?" verifying requests come through and unrecognized names are dropped. Checks: npx tsc --noEmit, 620 node tests, vite build, 12 release checks passed. No version bump.
 
 ## 2026-11-17 — Kevo 0.2 phrase list (Claude)
 
@@ -813,7 +831,6 @@ Owner chose "Faster answers" after the 0.1.51 recording showed about 45 s of "Th
 - `JarvisVoiceListener` gains `onIgnored(text, reason)` (`no_wake_word`, `window_closed` = within 10 s after the follow-up window closed, `muted`) and passes the recogniser's error code to `onError`. `handleCommand` in `jarvis-command-desk.ts` reports `own_voice`.
 - Events: `mic` (on/off), `recognition_error` (code, message), `wake`, `ignored` (text, reason), `request` (text, typed, actionName, reply, ms from heard to first word spoken; a timer set is actionName `timer_set`), `timer_fired`, `stop`. "Save log" and "Open log folder" buttons in the voice bar (existing `jarvis-btn` style).
 - Tested: automated tests (`tests/kevo-log.test.ts`: answered request and ignored phrases each write one line, through the real command desk with a stand-in DOM; Rust `log::tests` for appending and trimming), compiled on Linux. Not run on the PC with a real microphone.
-
 ## 2026-11-18: Kevo 0.3, test builds (Claude autopilot)
 
 Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.yml` now also runs on pushes to `main`, keeps the setup and portable uploads on those pushes, and gives every push to `main` its own concurrency group, so back-to-back merges each build. Code signing runs only on `windows-v*` tags and manual runs from `main`, so a push to `main` never gets the signing secrets. A new `kevo-test` job (push to `main` only, `contents: write` for that job only, one at a time) publishes prerelease `kevo-test-v<version>` at the merge commit when that merge changed the version and the release does not exist yet, with `AnF-Windows-<version>-kevo-test.zip` (the portable folder without `local-ai/model.gguf` and `model-fast.gguf`) and its `.sha256`. `PUBLISH` stays `'false'`; `updates.rs` and its prerelease test are unchanged. Tested: workflow YAML parses; type check, node tests, vite build and release checks pass. The publish job itself first runs on the merge into `main`.

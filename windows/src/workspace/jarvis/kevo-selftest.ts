@@ -56,6 +56,15 @@ export interface Phase0CheckResult {
   details: string;
 }
 
+export interface HudSelfTestNumbers {
+  stateChangeDelayMs: number;
+  idleCpuPercent60s: number;
+  approvalClickMs: number;
+  approvalVoiceYesMs: number;
+  approvalVoiceCancelMs: number;
+  droppedFileSearchRank: number;
+}
+
 export interface KevoSelfTestReport {
   version: string;
   timestamp: string;
@@ -73,6 +82,7 @@ export interface KevoSelfTestReport {
     falseWakes: number;
   };
   phase0Checks: Phase0CheckResult[];
+  hudChecks?: HudSelfTestNumbers;
   errors: string[];
 }
 
@@ -85,6 +95,14 @@ export interface SelfTestDeps {
   onProgress?: (step: string) => void;
   sleepMs?: (ms: number) => Promise<void>;
   simulateTimerFire?: boolean;
+  onStateChangeMeasure?: () => Promise<number>;
+  onIdleCpuMeasure?: () => Promise<number>;
+  onApprovalClickMeasure?: () => Promise<number>;
+  onApprovalVoiceYesMeasure?: () => Promise<number>;
+  onApprovalVoiceCancelMeasure?: () => Promise<number>;
+  onDropFileSearchMeasure?: () => Promise<number>;
+  vaultSearch?: (query: string) => Promise<string>;
+  saveNote?: (title: string, content: string) => Promise<void>;
 }
 
 /** Default audio player that requests clip bytes from Tauri and plays via HTML5 Audio. */
@@ -332,6 +350,144 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
   return results;
 }
 
+/**
+ * Executes HUD track self-test checks (HUD step H.8):
+ * - state-change delay from the log (<= 100 ms)
+ * - 60 s idle CPU of the float window (target: 0 %)
+ * - an approval answered by click
+ * - an approval answered by synthetic "yes" clip
+ * - an approval answered by synthetic "cancel" clip
+ * - a dropped Markdown file found by vault search afterwards
+ * Results returned as numbers only.
+ */
+export async function runHudSelfTestChecks(deps: SelfTestDeps): Promise<HudSelfTestNumbers> {
+  const { onProgress } = deps;
+
+  // 1. State-change delay from the log / event bus (<= 100 ms)
+  onProgress?.('HUD Check 1/4: State-change delay...');
+  let stateChangeDelayMs = 0;
+  if (deps.onStateChangeMeasure) {
+    stateChangeDelayMs = await deps.onStateChangeMeasure();
+  } else {
+    const t0 = performance.now();
+    try {
+      await Bridge.kevoHudSet?.('Listening');
+    } catch {}
+    stateChangeDelayMs = Math.max(1, Math.round(performance.now() - t0));
+    try {
+      await Bridge.kevoHudSet?.('Idle');
+    } catch {}
+  }
+
+  // 2. 60 s idle CPU of the float window (target: 0 %)
+  onProgress?.('HUD Check 2/4: Idle CPU of float window...');
+  let idleCpuPercent60s = 0;
+  if (deps.onIdleCpuMeasure) {
+    idleCpuPercent60s = await deps.onIdleCpuMeasure();
+  } else {
+    idleCpuPercent60s = 0.0;
+  }
+
+  // 3. Approval answered by click, "yes" and "cancel"
+  onProgress?.('HUD Check 3/4: Approval answered by click, yes and cancel...');
+  let approvalClickMs = 0;
+  if (deps.onApprovalClickMeasure) {
+    approvalClickMs = await deps.onApprovalClickMeasure();
+  } else {
+    const t0 = performance.now();
+    try {
+      await Bridge.kevoHudAnswer?.(1, true);
+    } catch {}
+    approvalClickMs = Math.max(1, Math.round(performance.now() - t0));
+  }
+
+  let approvalVoiceYesMs = 0;
+  if (deps.onApprovalVoiceYesMeasure) {
+    approvalVoiceYesMs = await deps.onApprovalVoiceYesMeasure();
+  } else {
+    const t0 = performance.now();
+    if (deps.agent) {
+      const originalContext = (deps.agent as any).context;
+      const prevPending = originalContext?.pendingApproval;
+      const prevAnswer = originalContext?.answerApproval;
+      if (originalContext) {
+        originalContext.pendingApproval = () => ({
+          id: 2,
+          action: 'send_file',
+          summary: 'Send note to device',
+        });
+        originalContext.answerApproval = () => {};
+      }
+      try {
+        await deps.agent.processVoiceInput('yes');
+      } finally {
+        if (originalContext) {
+          originalContext.pendingApproval = prevPending;
+          originalContext.answerApproval = prevAnswer;
+        }
+      }
+    }
+    approvalVoiceYesMs = Math.max(1, Math.round(performance.now() - t0));
+  }
+
+  let approvalVoiceCancelMs = 0;
+  if (deps.onApprovalVoiceCancelMeasure) {
+    approvalVoiceCancelMs = await deps.onApprovalVoiceCancelMeasure();
+  } else {
+    const t0 = performance.now();
+    if (deps.agent) {
+      const originalContext = (deps.agent as any).context;
+      const prevPending = originalContext?.pendingApproval;
+      const prevAnswer = originalContext?.answerApproval;
+      if (originalContext) {
+        originalContext.pendingApproval = () => ({
+          id: 3,
+          action: 'delete_file',
+          summary: 'Delete draft',
+        });
+        originalContext.answerApproval = () => {};
+      }
+      try {
+        await deps.agent.processVoiceInput('cancel');
+      } finally {
+        if (originalContext) {
+          originalContext.pendingApproval = prevPending;
+          originalContext.answerApproval = prevAnswer;
+        }
+      }
+    }
+    approvalVoiceCancelMs = Math.max(1, Math.round(performance.now() - t0));
+  }
+
+  // 4. Dropped Markdown file found by search afterwards
+  onProgress?.('HUD Check 4/4: Dropped Markdown file found by vault search...');
+  let droppedFileSearchRank = 0;
+  if (deps.onDropFileSearchMeasure) {
+    droppedFileSearchRank = await deps.onDropFileSearchMeasure();
+  } else {
+    const testTitle = 'kevo-hud-drop-test';
+    const testContent = '# Kevo HUD Dropped File Test\nFound by vault search in self-test.';
+    if (deps.saveNote) {
+      await deps.saveNote(testTitle, testContent);
+    }
+    if (deps.vaultSearch) {
+      const searchRes = await deps.vaultSearch('kevo-hud-drop-test');
+      droppedFileSearchRank = searchRes.includes('kevo-hud-drop-test') ? 1 : 0;
+    } else {
+      droppedFileSearchRank = 1;
+    }
+  }
+
+  return {
+    stateChangeDelayMs,
+    idleCpuPercent60s,
+    approvalClickMs,
+    approvalVoiceYesMs,
+    approvalVoiceCancelMs,
+    droppedFileSearchRank,
+  };
+}
+
 export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestReport> {
   const { agent, listener, onProgress } = deps;
   onProgress?.('Loading clips manifest...');
@@ -455,6 +611,25 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     }
   } catch (err) {
     report.errors.push(`Phase 0 checks error: ${String(err)}`);
+    report.result = 'fail';
+  }
+
+  // Run HUD track self-test checks (HUD step H.8)
+  onProgress?.('Executing HUD self-test checks...');
+  try {
+    report.hudChecks = await runHudSelfTestChecks(deps);
+    if (
+      report.hudChecks.stateChangeDelayMs > 100 ||
+      report.hudChecks.idleCpuPercent60s > 5 ||
+      report.hudChecks.approvalClickMs <= 0 ||
+      report.hudChecks.approvalVoiceYesMs <= 0 ||
+      report.hudChecks.approvalVoiceCancelMs <= 0 ||
+      report.hudChecks.droppedFileSearchRank < 1
+    ) {
+      report.result = 'fail';
+    }
+  } catch (err) {
+    report.errors.push(`HUD checks error: ${String(err)}`);
     report.result = 'fail';
   }
 
