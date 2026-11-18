@@ -40,7 +40,16 @@ import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
 import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
-import {createReminder,listReminders,cancelReminder,clearReminders} from './jarvis/voice/jarvis-schedule';
+import {
+  createReminder,
+  listReminders,
+  cancelReminder,
+  clearReminders,
+  scheduleDailyBriefing,
+  getDailyBriefingSchedule,
+  cancelDailyBriefingSchedule,
+  type KevoReminder,
+} from './jarvis/voice/jarvis-schedule';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -330,6 +339,15 @@ const jarvisActionContext: JarvisActionContext = {
     listReminders:async includeFired=>listReminders(includeFired),
     cancelReminder:async id=>cancelReminder(id),
     clearReminders:async()=>clearReminders(),
+    getBriefing:async()=>{
+      const {JarvisExecutive}=await import('./jarvis/jarvis-executive');
+      const exec=new JarvisExecutive();
+      const b=await exec.generateBriefing({voiceEnabled:false});
+      return `${b.greeting} ${b.summary}`;
+    },
+    scheduleDailyBriefing:async(timeStr:string)=>scheduleDailyBriefing(timeStr),
+    getDailyBriefingSchedule:async()=>getDailyBriefingSchedule(),
+    cancelDailyBriefing:async()=>cancelDailyBriefingSchedule(),
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
 };
@@ -338,6 +356,15 @@ const jarvisCommandDesk=createJarvisCommandDesk({
   // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
   log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
   voiceActionContext:jarvisActionContext
+});
+void listen<KevoReminder>('kevo://reminder-triggered', async (event) => {
+  const rem = event.payload;
+  if (rem && rem.message && rem.message.toLowerCase().includes('briefing')) {
+    const summary = jarvisActionContext.getBriefing ? await jarvisActionContext.getBriefing() : 'Daily briefing ready, sir.';
+    status.textContent = `Daily Briefing: ${summary}`;
+  } else if (rem && rem.message) {
+    status.textContent = `Reminder: ${rem.message}`;
+  }
 });
 section('jarvis','Kevo',jarvisCommandDesk.root);
 section('documents','Documents',h('h2',{text:'Your source material'}),h('p',{class:'hint',text:'Add PDFs, EPUB books, Word documents, text, or images. Up to four sources. PDFs support 600 pages, 50 MB per file, and 2 MB of extracted text. Saved web pages keep the article and leave out menus, banners, and footers. Answers use selected excerpts; scanned text may contain OCR errors.'}),file,webResearch,h('div',{class:'row'},url,button('Read webpage',async active=>{await addWebSource(url.value,active);})),opds.root,libraryControls(sourceList),sourceList);

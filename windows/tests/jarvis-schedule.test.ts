@@ -6,6 +6,12 @@ import {
   cancelReminder,
   clearReminders,
   checkDueReminders,
+  parseTimeOfDay,
+  calculateNextDailyOccurrence,
+  formatTimeOfDay,
+  scheduleDailyBriefing,
+  getDailyBriefingSchedule,
+  cancelDailyBriefingSchedule,
   type KevoReminder,
 } from '../src/workspace/jarvis/voice/jarvis-schedule.js';
 import { Bridge } from '../src/core/bridge.js';
@@ -102,5 +108,71 @@ describe('Kevo persistent schedule store', () => {
       Bridge.kevoScheduleListReminders = orig;
       (globalThis as any).window = origWindow;
     }
+  });
+
+  describe('Daily Briefing Scheduler (Phase 4 Step 4.3)', () => {
+    it('parses valid time of day strings and rejects malformed formats', () => {
+      assert.deepStrictEqual(parseTimeOfDay('8 AM'), { hours: 8, minutes: 0 });
+      assert.deepStrictEqual(parseTimeOfDay('8:00 AM'), { hours: 8, minutes: 0 });
+      assert.deepStrictEqual(parseTimeOfDay('8am'), { hours: 8, minutes: 0 });
+      assert.deepStrictEqual(parseTimeOfDay('8:30 PM'), { hours: 20, minutes: 30 });
+      assert.deepStrictEqual(parseTimeOfDay('14:45'), { hours: 14, minutes: 45 });
+      assert.deepStrictEqual(parseTimeOfDay('noon'), { hours: 12, minutes: 0 });
+      assert.deepStrictEqual(parseTimeOfDay('midnight'), { hours: 0, minutes: 0 });
+
+      assert.strictEqual(parseTimeOfDay('invalid'), null);
+      assert.strictEqual(parseTimeOfDay('25:00'), null);
+      assert.strictEqual(parseTimeOfDay('8:61'), null);
+    });
+
+    it('calculates the next daily occurrence timestamp accurately', () => {
+      // 7:00 AM base date
+      const base1 = new Date(2026, 10, 18, 7, 0, 0);
+      const next1 = calculateNextDailyOccurrence(8, 0, base1);
+      const targetDate1 = new Date(next1);
+      assert.strictEqual(targetDate1.getDate(), 18);
+      assert.strictEqual(targetDate1.getHours(), 8);
+
+      // 9:00 AM base date (already past 8 AM today)
+      const base2 = new Date(2026, 10, 18, 9, 0, 0);
+      const next2 = calculateNextDailyOccurrence(8, 0, base2);
+      const targetDate2 = new Date(next2);
+      assert.strictEqual(targetDate2.getDate(), 19);
+      assert.strictEqual(targetDate2.getHours(), 8);
+    });
+
+    it('formats time of day correctly for UI and speech display', () => {
+      assert.strictEqual(formatTimeOfDay(8, 0), '8:00 AM');
+      assert.strictEqual(formatTimeOfDay(14, 30), '2:30 PM');
+      assert.strictEqual(formatTimeOfDay(0, 15), '12:15 AM');
+      assert.strictEqual(formatTimeOfDay(12, 0), '12:00 PM');
+    });
+
+    it('schedules, queries, replaces, and cancels recurring daily briefing', async () => {
+      // Initially none
+      assert.strictEqual(await getDailyBriefingSchedule(), null);
+
+      // Schedule at 8:00 AM
+      const scheduled = await scheduleDailyBriefing('8:00 AM');
+      assert.ok(scheduled.id.startsWith('rem_'));
+      assert.strictEqual(scheduled.recurring, 'daily');
+      assert.match(scheduled.message, /Daily briefing/);
+
+      const active = await getDailyBriefingSchedule();
+      assert.ok(active);
+      assert.strictEqual(active.id, scheduled.id);
+
+      // Reschedule at 9:30 AM replaces earlier schedule
+      const rescheduled = await scheduleDailyBriefing('9:30 AM');
+      const allReminders = await listReminders();
+      const briefingReminders = allReminders.filter((r) => r.message.toLowerCase().includes('briefing'));
+      assert.strictEqual(briefingReminders.length, 1);
+      assert.strictEqual(briefingReminders[0].id, rescheduled.id);
+
+      // Cancel briefing schedule
+      const cancelled = await cancelDailyBriefingSchedule();
+      assert.strictEqual(cancelled, true);
+      assert.strictEqual(await getDailyBriefingSchedule(), null);
+    });
   });
 });

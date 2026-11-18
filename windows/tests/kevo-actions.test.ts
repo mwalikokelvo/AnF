@@ -281,6 +281,41 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.match(resCancel.speechReply, /Cancelled reminder for medicine/);
   });
 
+  it('executes schedule_briefing action (Step 4.3)', async () => {
+    let scheduledTime = '';
+    let cancelled = false;
+    const ctx = mockContext({
+      scheduleDailyBriefing: async (timeStr) => {
+        scheduledTime = timeStr;
+        return { id: 'rem_b1', message: `Daily briefing (${timeStr})`, trigger_at: Date.now() + 10000, recurring: 'daily' };
+      },
+      cancelDailyBriefing: async () => {
+        cancelled = true;
+        return true;
+      },
+      getDailyBriefingSchedule: async () => ({
+        id: 'rem_b1',
+        message: 'Daily briefing (8:00 AM)',
+        trigger_at: Date.now() + 10000,
+      }),
+    });
+
+    const resSchedule = await executeKevoAction('schedule_briefing', { time: '8:00 AM' }, ctx);
+    assert.strictEqual(resSchedule.handled, true);
+    assert.strictEqual(resSchedule.actionName, 'schedule_briefing');
+    assert.strictEqual(scheduledTime, '8:00 AM');
+    assert.match(resSchedule.speechReply, /Daily briefing scheduled for 8:00 AM every day/);
+
+    const resStatus = await executeKevoAction('schedule_briefing', {}, ctx);
+    assert.strictEqual(resStatus.handled, true);
+    assert.match(resStatus.speechReply, /Daily briefing is scheduled for 8:00 AM every day/);
+
+    const resDisable = await executeKevoAction('schedule_briefing', { enabled: false }, ctx);
+    assert.strictEqual(resDisable.handled, true);
+    assert.strictEqual(cancelled, true);
+    assert.match(resDisable.speechReply, /Daily briefing disabled/);
+  });
+
   it('returns graceful unhandled result for unknown action', async () => {
     const ctx = mockContext();
     const res = await executeKevoAction('non_existent_action', {}, ctx);

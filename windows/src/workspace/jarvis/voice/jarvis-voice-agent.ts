@@ -5,7 +5,15 @@
  */
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
-import { createReminder, listReminders, cancelReminder, clearReminders } from './jarvis-schedule';
+import {
+  createReminder,
+  listReminders,
+  cancelReminder,
+  clearReminders,
+  scheduleDailyBriefing,
+  getDailyBriefingSchedule,
+  cancelDailyBriefingSchedule,
+} from './jarvis-schedule';
 
 export type JarvisAskAiResult = string | { text: string; actionName?: string };
 
@@ -38,6 +46,12 @@ export interface JarvisActionContext {
   cancelReminder?: (idOrQuery: string) => Promise<boolean>;
   /** Clears all reminders. */
   clearReminders?: () => Promise<boolean>;
+  /** Schedules the recurring daily briefing. */
+  scheduleDailyBriefing?: (timeStr: string) => Promise<any>;
+  /** Gets active daily briefing schedule. */
+  getDailyBriefingSchedule?: () => Promise<any | null>;
+  /** Cancels the active daily briefing schedule. */
+  cancelDailyBriefing?: () => Promise<boolean>;
   /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
   askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
@@ -641,6 +655,64 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Daily Briefing Scheduler (Phase 4 Step 4.3)
+    // 1. "schedule daily briefing at 8 AM", "set morning briefing for 8:30"
+    const scheduleBriefingMatch = /^(?:please\s+)?(?:schedule|set(?: up)?|turn on|enable)\s+(?:a\s+|the\s+)?(?:daily\s+|morning\s+)?briefing(?:\s+(?:at|for)\s+(.+))?$/i.exec(text.trim());
+    if (scheduleBriefingMatch) {
+      const timeStr = scheduleBriefingMatch[1]?.trim().replace(/[.!?]+$/, '') || '8:00 AM';
+      try {
+        const rem = this.context.scheduleDailyBriefing
+          ? await this.context.scheduleDailyBriefing(timeStr)
+          : await scheduleDailyBriefing(timeStr);
+        const matchTime = /\((.+?)\)/.exec(rem.message)?.[1] || timeStr;
+        return {
+          handled: true,
+          actionName: 'schedule_briefing',
+          speechReply: `Daily briefing scheduled for ${matchTime} every day, sir.`,
+        };
+      } catch (err: any) {
+        return {
+          handled: true,
+          actionName: 'schedule_briefing',
+          speechReply: `Could not schedule daily briefing: ${err?.message || 'invalid time'}.`,
+        };
+      }
+    }
+
+    // 2. "turn off daily briefing", "disable daily briefing", "cancel daily briefing"
+    const cancelBriefingMatch = /^(?:please\s+)?(?:turn off|disable|cancel|stop|remove)\s+(?:the\s+)?(?:daily\s+|morning\s+)?briefing(?:\s+schedule)?$/i.exec(text.trim());
+    if (cancelBriefingMatch) {
+      const cancelled = this.context.cancelDailyBriefing
+        ? await this.context.cancelDailyBriefing()
+        : await cancelDailyBriefingSchedule();
+      return {
+        handled: true,
+        actionName: 'schedule_briefing',
+        speechReply: cancelled ? 'Daily briefing disabled, sir.' : 'No daily briefing schedule was active, sir.',
+      };
+    }
+
+    // 3. "when is my daily briefing?", "check daily briefing"
+    const checkBriefingMatch = /^(?:when is|what is|check|status of)\s+(?:the\s+|my\s+)?(?:daily\s+|morning\s+)?briefing(?:\s+scheduled)?$/i.exec(text.trim().replace(/[.!?]+$/, ''));
+    if (checkBriefingMatch) {
+      const active = this.context.getDailyBriefingSchedule
+        ? await this.context.getDailyBriefingSchedule()
+        : await getDailyBriefingSchedule();
+      if (active) {
+        const timeLabel = /\((.+?)\)/.exec(active.message)?.[1] || new Date(active.trigger_at).toLocaleTimeString();
+        return {
+          handled: true,
+          actionName: 'schedule_briefing',
+          speechReply: `Daily briefing is scheduled for ${timeLabel} every day, sir.`,
+        };
+      }
+      return {
+        handled: true,
+        actionName: 'schedule_briefing',
+        speechReply: 'No daily briefing is currently scheduled, sir.',
+      };
+    }
+
     // 1. Briefing command
     if (lower.includes('briefing') || lower.includes('morning update') || lower.includes('status report')) {
       if (this.context.getBriefing) {
@@ -651,6 +723,11 @@ export class JarvisVoiceAgent {
           speechReply: briefingSummary || 'Executive briefing ready, sir.',
         };
       }
+      return {
+        handled: true,
+        actionName: 'briefing',
+        speechReply: 'Good morning, sir. All systems nominal. Ready for your command.',
+      };
     }
 
     // 2. Music & Media Commands

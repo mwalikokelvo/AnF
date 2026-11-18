@@ -176,3 +176,82 @@ export async function checkDueReminders(nowMs = Date.now()): Promise<KevoReminde
   if (fired.length > 0) persistLocalStore();
   return fired;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Daily Briefing Scheduler (Phase 4 Step 4.3)
+// ─────────────────────────────────────────────────────────────
+
+export function parseTimeOfDay(timeStr: string): { hours: number; minutes: number } | null {
+  const clean = timeStr.trim().toLowerCase();
+  if (clean === 'noon') return { hours: 12, minutes: 0 };
+  if (clean === 'midnight') return { hours: 0, minutes: 0 };
+
+  const match = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i.exec(clean);
+  if (!match) return null;
+
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const period = match[3]?.toLowerCase();
+
+  if (minutes < 0 || minutes > 59) return null;
+
+  if (period === 'pm' && hours < 12) {
+    hours += 12;
+  } else if (period === 'am' && hours === 12) {
+    hours = 0;
+  }
+
+  if (hours < 0 || hours > 23) return null;
+
+  return { hours, minutes };
+}
+
+export function calculateNextDailyOccurrence(hours: number, minutes: number, fromDate = new Date()): number {
+  const target = new Date(fromDate.getTime());
+  target.setHours(hours, minutes, 0, 0);
+  if (target.getTime() <= fromDate.getTime()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime();
+}
+
+export function formatTimeOfDay(hours: number, minutes: number): string {
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  const displayMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`;
+  return `${displayHours}:${displayMinutes} ${period}`;
+}
+
+export async function scheduleDailyBriefing(timeStr: string, fromDate = new Date()): Promise<KevoReminder> {
+  const parsed = parseTimeOfDay(timeStr);
+  if (!parsed) {
+    throw new Error(`Invalid time of day: "${timeStr}". Please specify a valid time, e.g. "8:00 AM".`);
+  }
+  // Cancel any existing daily briefing schedule
+  await cancelDailyBriefingSchedule();
+
+  const triggerAt = calculateNextDailyOccurrence(parsed.hours, parsed.minutes, fromDate);
+  const timeLabel = formatTimeOfDay(parsed.hours, parsed.minutes);
+  const reminder = await createReminder(`Daily briefing (${timeLabel})`, triggerAt, 'daily');
+  return reminder;
+}
+
+export async function getDailyBriefingSchedule(): Promise<KevoReminder | null> {
+  const reminders = await listReminders();
+  const found = reminders.find(
+    (r) => !r.fired && r.recurring === 'daily' && r.message.toLowerCase().includes('briefing')
+  );
+  return found || null;
+}
+
+export async function cancelDailyBriefingSchedule(): Promise<boolean> {
+  const reminders = await listReminders();
+  const briefingReminders = reminders.filter(
+    (r) => !r.fired && r.message.toLowerCase().includes('briefing') && r.recurring === 'daily'
+  );
+  if (briefingReminders.length === 0) return false;
+  for (const r of briefingReminders) {
+    await cancelReminder(r.id);
+  }
+  return true;
+}

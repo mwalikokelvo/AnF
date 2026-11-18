@@ -32,7 +32,14 @@
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
-import { createReminder, listReminders, cancelReminder } from './jarvis-schedule';
+import {
+  createReminder,
+  listReminders,
+  cancelReminder,
+  scheduleDailyBriefing,
+  cancelDailyBriefingSchedule,
+  getDailyBriefingSchedule,
+} from './jarvis-schedule';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -234,9 +241,12 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       }
       if (ctx.announce) {
         if (!ctx.dryRun) {
-          setTimeout(() => {
+          const t = setTimeout(() => {
             ctx.announce?.(args.label ? `Timer for ${args.label} is up, sir!` : 'Your timer is done, sir!');
           }, sec * 1000);
+          if (typeof t === 'object' && typeof (t as any)?.unref === 'function') {
+            (t as any).unref();
+          }
         }
         const desc = sec >= 60 ? `${Math.round(sec / 60)} minute${Math.round(sec / 60) > 1 ? 's' : ''}` : `${sec} seconds`;
         return { handled: true, actionName: 'timer_set', speechReply: `Timer set for ${desc}, sir.` };
@@ -665,6 +675,67 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: false,
           actionName: 'cancel_reminder',
           speechReply: `Failed to cancel reminder: ${String(err)}`,
+        };
+      }
+    },
+  },
+  {
+    name: 'schedule_briefing',
+    description: 'Schedules, inspects, or cancels the automated recurring daily morning briefing.',
+    parameters: {
+      type: 'object',
+      properties: {
+        time: {
+          type: 'string',
+          description: 'Target time of day (e.g. "8:00 AM", "08:00", "7:30 AM").',
+        },
+        enabled: {
+          type: 'boolean',
+          description: 'Set to true to schedule/enable or false to disable the daily briefing.',
+        },
+      },
+    },
+    execute: async (args: { time?: string; enabled?: boolean }, ctx: JarvisActionContext) => {
+      if (args?.enabled === false) {
+        const ok = ctx.cancelDailyBriefing ? await ctx.cancelDailyBriefing() : await cancelDailyBriefingSchedule();
+        return {
+          handled: true,
+          actionName: 'schedule_briefing',
+          speechReply: ok ? 'Daily briefing disabled, sir.' : 'No daily briefing schedule was active, sir.',
+        };
+      }
+      if (args?.time === undefined && args?.enabled === undefined) {
+        const current = ctx.getDailyBriefingSchedule ? await ctx.getDailyBriefingSchedule() : await getDailyBriefingSchedule();
+        if (current) {
+          const matchTime = /\((.+?)\)/.exec(current.message)?.[1] || new Date(current.trigger_at).toLocaleTimeString();
+          return {
+            handled: true,
+            actionName: 'schedule_briefing',
+            speechReply: `Daily briefing is scheduled for ${matchTime} every day, sir.`,
+          };
+        }
+        return {
+          handled: true,
+          actionName: 'schedule_briefing',
+          speechReply: 'No daily briefing is currently scheduled, sir.',
+        };
+      }
+      const timeStr = String(args?.time || '8:00 AM');
+      try {
+        const rem = ctx.scheduleDailyBriefing
+          ? await ctx.scheduleDailyBriefing(timeStr)
+          : await scheduleDailyBriefing(timeStr);
+        const matchTime = /\((.+?)\)/.exec(rem.message)?.[1] || timeStr;
+        return {
+          handled: true,
+          actionName: 'schedule_briefing',
+          speechReply: `Daily briefing scheduled for ${matchTime} every day, sir.`,
+        };
+      } catch (err: any) {
+        return {
+          handled: false,
+          actionName: 'schedule_briefing',
+          speechReply: `Could not schedule daily briefing: ${err?.message || 'invalid time'}.`,
         };
       }
     },

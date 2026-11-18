@@ -4,7 +4,36 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 4.2: reminder action and tool calling).
+Last updated: 2026-11-18 by Antigravity (Kevo 4.3: daily briefing scheduler).
+
+## 2026-11-18 — Kevo 4.3: daily briefing scheduler (Antigravity)
+
+Phase 4 Step 4.3 (`docs/kevo-briefs/phase-4.md`, "4.3 Daily briefing scheduler"):
+- Schedule Engine Time Calculation & Daily Briefing Helpers (`windows/src/workspace/jarvis/voice/jarvis-schedule.ts`):
+  - Added robust `parseTimeOfDay` supporting 12-hour AM/PM formats ("8 AM", "8:30 PM"), 24-hour formats ("14:30"), and named times ("noon", "midnight").
+  - Added `calculateNextDailyOccurrence` computing next timestamp today or tomorrow.
+  - Implemented `scheduleDailyBriefing(timeStr)` ensuring single active briefing schedule replacing prior ones.
+  - Implemented `getDailyBriefingSchedule()` and `cancelDailyBriefingSchedule()`.
+- Unified Action Registry (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Added `schedule_briefing` action with parameters `{ time?: string, enabled?: boolean }`.
+  - Added timer `.unref()` handling to avoid lingering Node process handles.
+- Fast Path Handlers (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Added instant zero-model voice handlers for daily briefing scheduling:
+    - "schedule daily briefing at 8 AM", "set morning briefing for 8:30"
+    - "turn off daily briefing", "disable daily briefing"
+    - "when is my daily briefing?", "check daily briefing"
+  - Maintained instant fallback for "briefing" requests.
+- Main Workspace Context & Event Listener (`windows/src/workspace/main.ts`):
+  - Wired `scheduleDailyBriefing`, `getDailyBriefingSchedule`, `cancelDailyBriefing`, and `getBriefing` into `jarvisActionContext`.
+  - Added listener for `kevo://reminder-triggered` dispatching daily briefing notifications.
+- Verification:
+  - 4/4 Rust unit tests in `kevo_schedule` PASS (`cargo test --lib kevo_schedule`).
+  - 9/9 unit tests in `jarvis-schedule.test.ts` PASS.
+  - 15/15 unit tests in `kevo-actions.test.ts` PASS.
+  - 12/12 unit tests in `kevo-fastpath.test.ts` PASS.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 730/730 tests passed across 103 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 4.2: reminder action and tool calling (Antigravity)
 

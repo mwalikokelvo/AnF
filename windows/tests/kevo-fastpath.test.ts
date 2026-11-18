@@ -279,4 +279,45 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
 
     agent.dispose();
   });
+
+  it('handles daily briefing scheduling instantly on fast path with no model loaded (Step 4.3)', async () => {
+    let scheduledTime = '';
+    let cancelled = false;
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        scheduleDailyBriefing: async (timeStr) => {
+          scheduledTime = timeStr;
+          return { id: 'rem_b1', message: `Daily briefing (${timeStr})`, trigger_at: Date.now() + 10000, recurring: 'daily' };
+        },
+        cancelDailyBriefing: async () => {
+          cancelled = true;
+          return true;
+        },
+        getDailyBriefingSchedule: async () => ({
+          id: 'rem_b1',
+          message: 'Daily briefing (8:00 AM)',
+          trigger_at: Date.now() + 10000,
+        }),
+      })
+    );
+
+    const resSchedule = await agent.processVoiceInput('schedule daily briefing at 8 AM');
+    assert.strictEqual(resSchedule.handled, true);
+    assert.strictEqual(resSchedule.actionName, 'schedule_briefing');
+    assert.strictEqual(scheduledTime, '8 AM');
+    assert.match(resSchedule.speechReply, /Daily briefing scheduled for 8 AM every day/);
+
+    const resStatus = await agent.processVoiceInput('when is my daily briefing?');
+    assert.strictEqual(resStatus.handled, true);
+    assert.strictEqual(resStatus.actionName, 'schedule_briefing');
+    assert.match(resStatus.speechReply, /Daily briefing is scheduled for 8:00 AM every day/);
+
+    const resDisable = await agent.processVoiceInput('turn off daily briefing');
+    assert.strictEqual(resDisable.handled, true);
+    assert.strictEqual(resDisable.actionName, 'schedule_briefing');
+    assert.strictEqual(cancelled, true);
+    assert.match(resDisable.speechReply, /Daily briefing disabled/);
+
+    agent.dispose();
+  });
 });
