@@ -31,6 +31,7 @@ mod files;
 mod hooks;
 mod integrations;
 mod island;
+mod kevo_float;
 mod kevo_hud;
 mod kevo_system;
 mod log;
@@ -519,6 +520,7 @@ pub fn run() {
             workspace_ask,
             kevo_ask,
             kevo_cancel,
+            kevo_float::kevo_float_open,kevo_float::kevo_float_close,
             kevo_hud::kevo_hud_set,
             workspace_begin,
             workspace_cancel,

@@ -1,0 +1,69 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  user-select: none;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.pill {
+  box-sizing: border-box;
+  width: 48px;
+  height: 28px;
+  border-radius: 14px;
+  background: #101e21f2;
+  border: 1px solid #385052;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: grab;
+  padding: 0 8px;
+}
+
+.pill:active {
+  cursor: grabbing;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #555;
+  transition: background 150ms ease;
+  flex-shrink: 0;
+}
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: transform 50ms ease, opacity 50ms ease;
+}
+
+/* State-driven dot colours: reuses orb's colours from jarvis-hud.ts */
+[data-state="off"] .dot { background: #555555; }
+[data-state="idle"] .dot { background: #a3e5cd; }
+[data-state="listening"] .dot { background: #68d8ff; }
+[data-state="thinking"] .dot { background: #f5c842; }
+[data-state="speaking"] .dot { background: #a3e5cd; }
+[data-state="alert"] .dot { background: #ff6b6b; }
+[data-state="sleeping"] .dot { background: #7a7a9e; }
+
+/* Pulse visibility */
+[data-state="speaking"] .pulse {
+  visibility: visible;
+}
+:not([data-state="speaking"]) .pulse {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot, .pulse { transition: none; }
+}
