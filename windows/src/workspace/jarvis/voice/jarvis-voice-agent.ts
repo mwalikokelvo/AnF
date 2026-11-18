@@ -94,7 +94,7 @@ const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:y
 
 /** The start of something Kevo can do, as opposed to a question for the AI. */
 // What may come before a command in its clause: filler, "please", or a polite "can you".
-const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:please\s+|just\s+)?)?/;
+const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:(?:please|just)\s+)*)?/;
 
 // Inside a sentence: a fresh start that cancels a hanging "don't", a quotation lead, a question word.
 const CORRECTION = /^(?:on second thought|actually|now|instead|no wait|wait)\b/;
@@ -124,7 +124,7 @@ const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|c
 export function stripLeadIn(text: string): string {
   const whole = text.trim();
   const rest = whole
-    .replace(/^(?:(?:in the meantime|meanwhile|also|now|and|ok(?:ay)?|so|then)[\s,]+)*(?:(?:can|could|would|will) you(?: please)?|please|i (?:need|want) you to|go ahead and)[\s,]+/i, '')
+    .replace(/^(?:(?:in the meantime|meanwhile|also|now|and|ok(?:ay)?|so|then)[\s,]+)*(?:(?:can|could|would|will) you|please|i (?:need|want) you to|go ahead and)(?:\s+(?:please|just))*[\s,]+/i, '')
     .replace(/[\s,]+please(?=[.!?]*$)/i, '')
     .replace(/\?+$/, '');
   return rest !== whole && COMMAND_START.test(rest) ? rest : whole;

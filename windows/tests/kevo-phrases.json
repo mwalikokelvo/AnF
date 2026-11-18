@@ -189,5 +189,8 @@
   { "say": "What happens if I say, tell me the time?", "expect": "ai_conversation", "source": "variant" },
   { "say": "Don't. On second thought, skip this song.", "expect": "next_track", "source": "variant" },
   { "say": "I said don't. Now tell me the time.", "expect": "tell_time", "source": "variant" },
-  { "say": "Skip to the next track", "expect": "next_track", "source": "variant" }
+  { "say": "Skip to the next track", "expect": "next_track", "source": "variant" },
+  { "say": "Can you please just skip this song?", "expect": "next_track", "source": "variant" },
+  { "say": "Could you just please tell me the time?", "expect": "tell_time", "source": "variant" },
+  { "say": "Can you please just open Brave", "expect": "open_app", "source": "variant" }
 ]
