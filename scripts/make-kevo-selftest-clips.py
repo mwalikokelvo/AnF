@@ -46,23 +46,17 @@ MODELS = {
         "dataset": "LibriTTS-R (http://www.openslr.org/141/)",
         "license": "CC BY 4.0",
     },
-    "en_GB-vctk-medium": {
-        "path": "en/en_GB/vctk/medium/en_GB-vctk-medium",
-        "sha256": "4e9fc85ab9009385319fc6bae7f55577f8a2d7ee77fd9159a5500eb6531f41e6",
-        "config_sha256": "7f85e6391ed0f7f46e4abd19345929a16be931a0c9945086f96692dce2087fa8",
-        "dataset": "VCTK (https://datashare.ed.ac.uk/handle/10283/3443)",
-        "license": "CC BY 4.0",
-    },
 }
 
 # Voice id -> (model, speaker name in the model's speaker_id_map, or None).
 VOICES = {
     "ljspeech": ("en_US-ljspeech-medium", None),
     "libritts-3922": ("en_US-libritts_r-medium", "3922"),
-    "libritts-8699": ("en_US-libritts_r-medium", "8699"),
-    "vctk-p239": ("en_GB-vctk-medium", "p239"),
-    "vctk-p236": ("en_GB-vctk-medium", "p236"),
-    "vctk-p264": ("en_GB-vctk-medium", "p264"),
+    "libritts-100": ("en_US-libritts_r-medium", "100"),
+    "libritts-2299": ("en_US-libritts_r-medium", "2299"),
+    "libritts-2401": ("en_US-libritts_r-medium", "2401"),
+    "libritts-2404": ("en_US-libritts_r-medium", "2404"),
+    "libritts-2853": ("en_US-libritts_r-medium", "2853"),
 }
 
 # Step 0.5 table. Clips play in this order; the later ones of a check come
@@ -79,11 +73,14 @@ CHECKS = [
 ]
 REQUEST_VOICES = ["ljspeech", "libritts-3922"]
 
-# The name may be said "KEE-vo" or "KEH-vo": "Kevvo" makes Piper say the second.
-WAKE_TEXTS = ["Kevo.", "Hey Kevo.", "Kevvo.", "Hey Kevvo."]
+# The name may be said "KEE-vo" or "KEH-vo": (text, stressed vowel to say instead of "iː").
+WAKE_TEXTS = [("Kevo.", None), ("Hey, Kevo.", None), ("Kevo.", "ɛ"), ("Hey, Kevo.", "ɛ")]
 # A name called on its own is said a little slower than Piper's default pace.
 WAKE_PACE = 1.15
-WAKE_VOICES = ["ljspeech", "libritts-3922", "libritts-8699", "vctk-p239", "vctk-p236"]
+# Chosen for clarity, not for the keyword spotter: of 40 random LibriTTS-R and
+# 20 VCTK speakers, these five were the first (by number) of the 13 whose 8 test
+# "Kevo" clips Whisper small.en all heard as the name. LJ Speech managed 3 of 8.
+WAKE_VOICES = ["libritts-100", "libritts-2299", "libritts-2401", "libritts-2404", "libritts-2853"]
 
 LOOKALIKES = ["Cave.", "Kevin.", "Carbo.", "Heavy.", "Kevlar.",
               "Gravy.", "Chevy.", "Hey Kevin.", "Navy.", "Clever."]
@@ -104,14 +101,34 @@ def fetch_model(name, cache):
     return onnx
 
 
-def synthesize(voices, voice_id, text, out_path, length_scale=None):
+def phonemes_for(voice, text, vowel=None):
+    """The voice's own espeak phonemes for `text`, after a short pause.
+
+    Piper drops or garbles the first consonant of an utterance ("Kevo" came out
+    as "Pivo" or "Heevo", "Heavy" as "Pivvy"), so every clip starts with a pause
+    phoneme. `vowel` replaces the name's stressed vowel: "iː" -> "ɛ" says KEH-vo.
+    """
+    phonemes = "".join([" "] + [p for sentence in voice.phonemize(text) for p in sentence])
+    if vowel:
+        phonemes = phonemes.replace("kˈiː", "kˈ" + vowel)
+    return list(phonemes)
+
+
+def synthesize(voices, voice_id, text, out_path, length_scale=None, vowel=None):
     from piper import SynthesisConfig
 
     voice, speaker = voices[voice_id]
+    ids = voice.phonemes_to_ids(phonemes_for(voice, text, vowel))
+    audio = voice.phoneme_ids_to_audio(ids, SynthesisConfig(speaker_id=speaker, length_scale=length_scale))
+    # Same scaling as Piper's own synthesize(): peak-normalized 16-bit.
+    audio = (audio / max(float(abs(audio).max()), 1e-8) * 32767).clip(-32767, 32767).astype("<i2")
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw.wav"
         with wave.open(str(raw), "wb") as w:
-            voice.synthesize_wav(text, w, syn_config=SynthesisConfig(speaker_id=speaker, length_scale=length_scale))
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(voice.config.sample_rate)
+            w.writeframes(audio.tobytes())
         # 16 kHz mono 16-bit, with 0.3 s of silence before and after.
         subprocess.run(
             ["ffmpeg", "-loglevel", "error", "-y", "-i", str(raw),
@@ -204,9 +221,9 @@ def main():
 def make_clips(voices, out):
     clips, checks = [], []
 
-    def add(clip_id, kind, voice_id, text, expect, check=None, length_scale=None):
+    def add(clip_id, kind, voice_id, text, expect, check=None, length_scale=None, vowel=None):
         file = f"{clip_id}.wav"
-        seconds = synthesize(voices, voice_id, text, out / file, length_scale)
+        seconds = synthesize(voices, voice_id, text, out / file, length_scale, vowel)
         clip = {"id": clip_id, "file": file, "kind": kind, "voice": voice_id,
                 "words": text.rstrip("."), "seconds": seconds, "expect": expect}
         if check:
@@ -222,11 +239,10 @@ def make_clips(voices, out):
             checks.append({"check": check, "voice": voice_id, "clips": ids})
 
     for i in range(20):
-        text = WAKE_TEXTS[i % len(WAKE_TEXTS)]
+        text, vowel = WAKE_TEXTS[i % len(WAKE_TEXTS)]
         voice_id = WAKE_VOICES[i % len(WAKE_VOICES)]
-        add(f"wake-{i + 1:02d}", "wake", voice_id, text, {"wake": True}, length_scale=WAKE_PACE)
-        if "Kevvo" in text:
-            clips[-1]["words"] = text.replace("Kevvo", "Kevo").rstrip(".")
+        add(f"wake-{i + 1:02d}", "wake", voice_id, text, {"wake": True}, length_scale=WAKE_PACE, vowel=vowel)
+        if vowel:
             clips[-1]["note"] = "said KEH-vo"
 
     for i, text in enumerate(LOOKALIKES):
