@@ -93,6 +93,21 @@ function opensOnlyABrowser(request: string): boolean {
 const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?|(?:play|search|find|look up|watch|put on|show(?: me)?)\s+.+?\s+(?:on|in|from)\s+youtube|(?:search|look up)\s+youtube\s+for\s+.+|(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+.+)[.!?]*$/i;
 
 /** The start of something Kevo can do, as opposed to a question for the AI. */
+// What may come before a command in its clause: filler, "please", or a polite "can you".
+const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:please\s+|just\s+)?)?/;
+
+/**
+ * True when the clause holding `phrase` is a request to Kevo: after the lead it starts with `verb`.
+ * Questions ("do I need to skip this song?") and negations ("can you not skip it?") start otherwise.
+ * A negation left hanging before a comma ("please don't, under any circumstances, skip it") reaches past it.
+ */
+function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
+  const clauses = lower.split(/[,.;!?]+/);
+  const at = clauses.findIndex((c) => phrase.test(c));
+  return at >= 0 && verb.test(clauses[at].trim().replace(REQUEST_LEAD, ''))
+    && !clauses.slice(0, at).some((c) => /\b(?:not|don'?t|never)\s*$/.test(c));
+}
+
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
 
 /** "In the meantime, can you open Brave browser?" is the command "open Brave browser". A question stays as it is. */
@@ -188,7 +203,7 @@ export class JarvisVoiceAgent {
     // "five minutes" right after "For how long?" is the timer's length.
     // "Not five minutes" is not an answer, and "play five minutes" is another command: only a length, with filler words.
     const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower)
-      && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|make it|like)\b[\s,]*)*$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
+      && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|in|make it|like)\b[\s,]*)*$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
     if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
@@ -219,7 +234,7 @@ export class JarvisVoiceAgent {
     // A typed "Hey Kevo, why…" is the question after the name.
     // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word.
     // "Calvo," is Kevo misheard; only that spelling, so "Calves, cows are livestock" keeps its first word.
-    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo\b)|kevo\b|(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)(?=[,:]))[\s,.:!]+(?=\S)/i, '');
+    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|hello|ok|okay|yo)[\s,]+(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo\b)|kevo\b|(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)(?=[,:]))[\s,.:!]+(?=\S)/i, '');
     let requests = splitRequests(stripLeadIn(unnamed));
     // "Open Brave and play YouTube": opening the site already opens the browser. Starting the browser as well
     // races it, and the late browser window lands a blank New Tab over YouTube (session 3).
@@ -290,9 +305,8 @@ export class JarvisVoiceAgent {
       lower.includes('what time') ||
       lower === 'time' ||
       lower.includes('current time') ||
-      // Only the clock: "tell me the time complexity of quicksort" is a question for the AI.
-      // A negation anywhere earlier in the same clause ("please don't ever tell me the time") keeps it quiet.
-      (/\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) && !/\b(?:not|don'?t|never)\b[^,.;!?]*\btell me\b/.test(lower)) ||
+      // Only the clock: "tell me the time complexity of quicksort" and "why did you tell me the time?" are for the AI.
+      (/\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) && asksFor(lower, /\btell me the (?:current )?time\b/, /^tell me\b/)) ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -433,10 +447,8 @@ export class JarvisVoiceAgent {
       }
     }
 
-    // A negation earlier in the same clause ("please do not try to skip this song") keeps it playing;
-    // "should I skip this song?" and "can I skip this track?" are questions, "can you skip this song?" is a request.
-    if (/\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/.test(lower) && !/\b(?:not|don'?t|never)\b[^,.;!?]*\b(?:skip|next)\b/.test(lower)
-      && !/^(?:should|shall|what|why|how|when|is|does|do you think)\b|^(?:can|could|may|might) (?:i|we)\b|\b(?:should|shall) (?:i|we)\b|\bif (?:i|we|you)\b/.test(lower)) {
+    // "Can you skip this song?" is a request; "should I skip this song?" and "please don't skip it" are not.
+    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:skip|next|go|jump|move|play|switch)\b/)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }

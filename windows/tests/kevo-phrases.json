@@ -171,5 +171,17 @@
   { "say": "Stop.", "expect": "dismiss", "source": "variant" },
   { "say": "Tell me about black holes.", "expect": "ai_conversation", "source": "variant" },
   { "say": "What is the capital of Kenya?", "expect": "ai_conversation", "source": "variant" },
-  { "say": "Cave diving is fun", "expect": "ai_conversation", "source": "variant" }
+  { "say": "Cave diving is fun", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Why did you tell me the time?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Could you explain why people tell me the time?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Please don't, under any circumstances, tell me the time", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Do I need to skip this song?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Would you recommend I skip this track?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Did you skip the song?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Are you going to skip this track?", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Please don't, under any circumstances, skip this song", "expect": "ai_conversation", "source": "variant" },
+  { "say": "Skip this song if you can", "expect": "next_track", "source": "variant" },
+  { "say": "Hello Calvo, open YouTube", "expect": "open_site", "source": "variant" },
+  { "say": "Yo Calvo, open YouTube", "expect": "open_site", "source": "variant" },
+  { "say": "in five minutes", "before": ["set a timer"], "expect": "timer_set", "source": "variant" }
 ]
