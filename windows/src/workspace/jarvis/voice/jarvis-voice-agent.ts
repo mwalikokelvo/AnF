@@ -43,12 +43,22 @@ export interface JarvisActionContext {
   /** Turns weather on or off, remembered on this computer. */
   setWeatherEnabled?: (on: boolean) => void;
   notify?: (msg: string) => void;
+  /** Currently pending approval request (H.4b). */
+  pendingApproval?: () => PendingApproval | null;
+  answerApproval?: (id: number | string, approved: boolean) => Promise<unknown> | void;
   /** When true, actions are simulated without performing real side effects (Phase 0 step 0.4b). */
   dryRun?: boolean;
   /** Injectable clock for tests; returns timestamp in milliseconds. Defaults to Date.now. */
   now?: () => number;
   /** Expiration time for follow-up questions/subjects in milliseconds. Defaults to 30,000 (30 s). */
   followUpExpiryMs?: number;
+}
+
+export interface PendingApproval {
+  id: number | string;
+  action: string;
+  summary: string;
+  answer?: (approved: boolean) => Promise<unknown> | void;
 }
 
 export interface ActionResult {
@@ -297,6 +307,16 @@ export class JarvisVoiceAgent {
     this.timers.clear();
   }
 
+  private currentApproval: PendingApproval | null = null;
+
+  setPendingApproval(approval: PendingApproval | null): void {
+    this.currentApproval = approval;
+  }
+
+  getPendingApproval(): PendingApproval | null {
+    return this.currentApproval ?? this.context.pendingApproval?.() ?? null;
+  }
+
   /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
     // A typed "Hey Kevo, why…" is the question after the name.
@@ -374,6 +394,30 @@ export class JarvisVoiceAgent {
     }
 
     let lower = text.toLowerCase();
+
+    // Spoken approval check when an approval card is open (H.4b)
+    const approval = this.getPendingApproval();
+    if (approval) {
+      const norm = lower.replace(/[.!?]+$/, '').trim();
+      if (['yes', 'sure', 'approve', 'ok', 'okay', 'go ahead', 'confirm', 'allow'].includes(norm)) {
+        if (approval.answer) {
+          await approval.answer(true);
+        } else if (this.context.answerApproval) {
+          await this.context.answerApproval(approval.id, true);
+        }
+        this.setPendingApproval(null);
+        return { handled: true, actionName: 'approval_approved', speechReply: 'Approved, sir.' };
+      }
+      if (['no', 'cancel', 'deny', 'stop', "don't", 'reject'].includes(norm)) {
+        if (approval.answer) {
+          await approval.answer(false);
+        } else if (this.context.answerApproval) {
+          await this.context.answerApproval(approval.id, false);
+        }
+        this.setPendingApproval(null);
+        return { handled: true, actionName: 'approval_denied', speechReply: 'Cancelled, sir.' };
+      }
+    }
 
     // Clock / calendar (Phase 2B)
     if (

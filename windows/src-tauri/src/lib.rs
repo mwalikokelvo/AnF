@@ -31,6 +31,10 @@ mod files;
 mod hooks;
 mod integrations;
 mod island;
+// Public: the gate has no caller until Phase 5's actions, and pub keeps it from reading as dead code.
+pub mod kevo_approval;
+mod kevo_float;
+mod kevo_hud;
 mod kevo_system;
 pub mod kevo_autotest;
 mod log;
@@ -468,6 +472,8 @@ pub fn run() {
         .manage(Chat::default())
         .manage(Jobs::default())
         .manage(KevoTurn::default())
+        .manage(kevo_hud::KevoHud::default())
+        .manage(kevo_approval::Approvals::default())
         .manage(projects::Store::default())
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
@@ -518,6 +524,9 @@ pub fn run() {
             workspace_ask,
             kevo_ask,
             kevo_cancel,
+            kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
+            kevo_hud::kevo_hud_set,
+            kevo_approval::kevo_hud_answer,
             log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,

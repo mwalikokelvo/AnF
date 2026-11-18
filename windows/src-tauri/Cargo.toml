@@ -38,6 +38,10 @@ sha2 = "0.11"
 md-5 = "0.10"
 ring = "0.17"
 
+[dev-dependencies]
+# Paused test clock for the approval gate's 60 s timeout (kevo_approval tests).
+tokio = { version = "1", features = ["test-util"] }
+
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
 windows = { version = "0.61", features = [

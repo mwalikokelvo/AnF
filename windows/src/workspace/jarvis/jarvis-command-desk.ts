@@ -15,7 +15,8 @@
  * └──────────────────┴──────────────────────────┘
  */
 
-import { createJarvisHud, kevoState } from './jarvis-hud';
+import { invoke } from '@tauri-apps/api/core';
+import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
 import { JarvisExecutive } from './jarvis-executive';
 import { RevenueConnector } from './connectors/revenue-connector';
 import { AdsConnector } from './connectors/ads-connector';
@@ -156,10 +157,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     // A timer that went off while this was being said is said next.
     void speaker.speak(text).then(() => { if (pending.length && !thinking && !speaker.getIsSpeaking()) sayPending(); });
   }
-  /** Shows on the orb what Kevo is doing right now. */
-  const refresh = () => hud.setState(kevoState({
-    micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
-  }));
+  const reportState = kevoHudReporter(invoke);
+  /** Shows on the orb, and tells the float HUD, what Kevo is doing right now. */
+  const refresh = () => {
+    const state = kevoState({
+      micOn: listener.getListeningState(), awake: listener.isAwake(), thinking, speaking: speaker.getIsSpeaking(),
+    });
+    hud.setState(state);
+    reportState(state);
+  };
   const speaker = new JarvisSpeaker({
     onStart: () => {
       markSpoken?.();
