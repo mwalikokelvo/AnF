@@ -53,7 +53,7 @@ impl Engine {
         self.process.lock().unwrap().take();
     }
 
-    async fn start(&self, profile: &str, context:usize) -> Result<(String, String), String> {
+    pub async fn start(&self, profile: &str, context:usize) -> Result<(String, String), String> {
         {
             let mut current = self.process.lock().unwrap();
             if let Some(p) = current.as_mut() {
