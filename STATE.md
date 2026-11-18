@@ -3,19 +3,19 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-18T20:26Z
+lock: 
 phase: 6 merged by owner account through 6.5 (#231-#235) and the Phase 7 brief (#237, 14:15Z) ahead of any PC pass; Phase 7 gate: owner voice decision needed. version still 0.1.60
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
-open_pr: #238 (agy/fix-issue-236, owner account) red on 391c3a9 (Windows + Linux); interactive Claude took it over 17:09Z on claude/fix-main-236 (no PR yet). #239 (agy/kevo-7.1, owner account, Phase 7.1 stacked on #238) red on 5afd18b (Linux phrase-list gate). #233 dirty, superseded by #238
+open_pr: #238 closed; #245 (claude/fix-main-236, 0.1.61) merged 20:08Z as ebfbcfc. Owner-account agy/ PRs #239-#244, #247-#254 (Phase 7.1-9.4) open, several red; Phase 7 gate, so autopilot does not merge them (interactive Claude reviewing them, check-in 21:04Z). #255/#256 claude/ UI PRs, not Kevo
 pc_test:
-waiting_for: interactive session fixing main (#236, claude/fix-main-236); autopilot does not touch #238/#233/#239 meanwhile. Owner voice decision for Phase 7 (notified 14:29Z; runbook: stop building before Phase 7; #239 is Phase 7 work, not merged by the autopilot until the owner decides). Autopilot: do not merge anything onto red main
+waiting_for: main Windows run 44387868200 on ebfbcfc (0.1.61) in progress: when green and kevo-test-v0.1.61 published, set pc_test pending 0.1.61 (interactive check-ins 20:50Z/21:00Z also watch it). Owner voice decision for Phase 7 (notified 14:29Z); #246 (1.6 fix, team:claude) waits for Phase 1.1-1.5 PC pass. Autopilot: no merges of Phase 7+ work
 blocked: kevo-test publish, 2026-11-18: `gh release create kevo-test-v0.1.60` gets HTTP 403 "Resource not accessible by integration" (attempt 2 by owner 10:26Z, attempt 3 by autopilot 10:30Z; job has contents: write). v0.1.59 published fine at 06:01Z with the same workflow, so a repo setting changed (repo renamed anf -> AnF meanwhile). Two strikes: no more reruns until the owner changes the setting
 last_passed_version: none yet
 owner_needed: none right now (owner turned on: auto self-test switch, Actions read+write, branch protection status checks on main; release immutability unticked to test)
-last_main: 7910695 (Windows red since #200)
+last_main: ebfbcfc (#245, 0.1.61; Windows run in progress)
 chain: 0
-next_due: 2026-11-18T20:43Z
-quiet_fingerprint: 7db8319a4fa19bff9d2a22f8ede5e00ba3ea1bd156c80b6eed7a4718448fc961
+next_due: 2026-11-18T21:15Z
+quiet_fingerprint: 7ed52ea92d202839712ca91548b128e448f24d059b5b34130cc436f24a06a8a7
 
 ## Run log (newest last, keep 60)
 
@@ -53,3 +53,4 @@ quiet_fingerprint: 7db8319a4fa19bff9d2a22f8ede5e00ba3ea1bd156c80b6eed7a4718448fc
 - 2026-11-18T15:09Z (Claude, interactive): kevo-test-v0.1.60 publish 403 is not a setting: GITHUB_TOKEN cannot create a tag on an older commit whose .github/workflows differ from main tip (24506fd vs main differ in linux.yml; 0.1.59 was tagged at the tip). Do not re-run old kevo-test jobs; the next version bump publishes from the tip. main now requires status checks (owner set 18 Nov).
 - 2026-11-18T16:30Z (autopilot): 2b.7 waiting. New #238 (agy/fix-issue-236 + 0.1.61 bump + #233) CI running on 391c3a9; an interactive Claude session owns its merge (check-in 16:43Z), so no autopilot action on #238/#233. main unchanged at 7910695; Phase 7 gate still waits on the owner. No notification.
 - 2026-11-18T18:30Z (autopilot): 2b.7 waiting. New #239 (owner account, agy/kevo-7.1, Phase 7.1) red on Linux phrase-list gate; Phase 7 gate still waits on the owner, so no action on it. #238 red; interactive Claude owns the main fix on claude/fix-main-236. main unchanged at 7910695. No notification.
+- 2026-11-18T20:30Z (autopilot): 2b.7 waiting. main moved 7910695 -> ebfbcfc (#245 fix for #236 + 0.1.61, merged 20:08Z); its Windows run still in progress, kevo-test-v0.1.61 not yet published. Open agy/ Phase 7.1-9.4 PRs (#239-#254) stay unmerged by the autopilot (Phase 7 owner gate). New #246 (1.6 fix) waits for the Phase 1 PC pass. No notification.
