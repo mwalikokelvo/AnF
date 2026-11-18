@@ -5,7 +5,17 @@ export * from './float';
 
 const root = document.getElementById('kevo-float-root');
 if (root) {
-  const floatView = createKevoFloat(root);
+  const floatView = createKevoFloat(root, {
+    onResize: (expanded) => {
+      try {
+        import('@tauri-apps/api/core').then(({ invoke }) => {
+          invoke('kevo_float_resize', { expanded }).catch(() => {});
+        }).catch(() => {});
+      } catch {
+        // Not running inside Tauri
+      }
+    },
+  });
 
   // Listen for the Tauri state event when running in Tauri
   try {

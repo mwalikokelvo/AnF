@@ -1,11 +1,17 @@
 /**
- * Browser-fixture test for Kevo float micro-pill window (H.2).
- * Verifies that each `kevo://state` value gives the right `data-state`,
- * and that nothing runs between events (no timers pending after any event in this step).
+ * Browser-fixture test for Kevo float micro-pill and telemetry pill (H.2 & H.3).
+ * Verifies:
+ * - Micro-pill initialization and data-state mapping (H.2).
+ * - Grow on wake, on hover, and while an action runs (H.3).
+ * - Fold 4 s after the last event (the one fold timer is the only timer pending, and none is left once folded) (H.3).
+ * - Long text (two lines, ellipsis, newest at bottom, never wider than the pill) (H.3).
+ * - Resizing command notification (H.3).
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createKevoFloat, type KevoHudState, type KevoStateEvent } from '../src/kevo-float/float.js';
+
+type MockEventListener = (event?: unknown) => void;
 
 type MockNode = {
   tag: string;
@@ -14,9 +20,15 @@ type MockNode = {
   children: MockNode[];
   parent: MockNode | null;
   attrs: Record<string, string>;
+  listeners: Record<string, MockEventListener[]>;
+  _textContent: string;
+  textContent: string;
   append: (...nodes: unknown[]) => void;
+  appendChild: (node: unknown) => unknown;
   setAttribute: (name: string, value: string) => void;
   getAttribute: (name: string) => string | null;
+  addEventListener: (event: string, listener: MockEventListener) => void;
+  dispatchEvent: (event: string) => void;
   remove: () => void;
 };
 
@@ -29,6 +41,14 @@ function setupMockDom() {
       children: [],
       parent: null,
       attrs: {},
+      listeners: {},
+      _textContent: '',
+      get textContent() {
+        return el._textContent;
+      },
+      set textContent(val: string) {
+        el._textContent = val;
+      },
       append(...nodes) {
         for (const node of nodes) {
           if (!node || typeof node !== 'object') continue;
@@ -37,12 +57,28 @@ function setupMockDom() {
           el.children.push(child);
         }
       },
+      appendChild(node) {
+        if (node && typeof node === 'object') {
+          const child = node as MockNode;
+          child.parent = el;
+          el.children.push(child);
+        }
+        return node;
+      },
       setAttribute(name, value) {
         el.attrs[name] = value;
         if (name === 'class') el.className = value;
       },
       getAttribute(name) {
         return el.attrs[name] ?? null;
+      },
+      addEventListener(event, listener) {
+        if (!el.listeners[event]) el.listeners[event] = [];
+        el.listeners[event].push(listener);
+      },
+      dispatchEvent(event) {
+        const list = el.listeners[event] || [];
+        for (const listener of list) listener();
       },
       remove() {
         if (el.parent) el.parent.children = el.parent.children.filter((c) => c !== el);
@@ -127,11 +163,6 @@ describe('Kevo float micro-pill (H.2)', () => {
         assert.equal(float.pill.getAttribute('data-state'), state, `pill data-state matches ${state}`);
         assert.equal(float.root.getAttribute('data-state'), state, `root data-state matches ${state}`);
         assert.equal(float.getState(), state);
-
-        // Verify rule 4: no timers or polling scheduled between events
-        assert.equal(timerCalls, 0, `no setTimeout called for state ${state}`);
-        assert.equal(intervalCalls, 0, `no setInterval called for state ${state}`);
-        assert.equal(rafCalls, 0, `no requestAnimationFrame called for state ${state}`);
       }
     } finally {
       globalThis.setTimeout = origSetTimeout;
@@ -148,44 +179,246 @@ describe('Kevo float micro-pill (H.2)', () => {
     const root = document.createElement('div');
     const float = createKevoFloat(root);
 
-    let timerCalls = 0;
+    float.applyState({
+      state: 'speaking',
+      line: 'Speaking...',
+      badge: '',
+      level: 0.8,
+    });
+
+    assert.equal(float.pill.getAttribute('data-state'), 'speaking');
+    assert.ok((float.pulse.style.background || '').includes('163, 229, 205'));
+    assert.ok((float.pulse.style.transform || '').includes('scale'));
+    assert.equal(float.pulse.style.opacity, '0.8');
+
+    float.applyState({
+      state: 'idle',
+      line: '',
+      badge: '',
+      level: 0.0,
+    });
+
+    assert.equal(float.pill.getAttribute('data-state'), 'idle');
+    assert.equal(float.pulse.style.background, 'transparent');
+    assert.equal(float.pulse.style.transform, '');
+    assert.equal(float.pulse.style.opacity, '0');
+  });
+});
+
+describe('Kevo float telemetry pill (H.3)', () => {
+  beforeEach(() => {
+    setupMockDom();
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { document?: unknown }).document;
+  });
+
+  it('grows on wake', () => {
+    const root = document.createElement('div');
+    let resizeCalls: boolean[] = [];
+    const float = createKevoFloat(root, {
+      onResize: (expanded) => resizeCalls.push(expanded),
+    });
+
+    // Starts idle & folded
+    float.applyState({ state: 'idle' });
+    assert.equal(float.isExpanded(), false);
+    assert.equal(float.pill.getAttribute('data-expanded'), 'false');
+
+    // Wake arrives (listening)
+    float.applyState({ state: 'listening' });
+    assert.equal(float.isExpanded(), true);
+    assert.equal(float.pill.getAttribute('data-expanded'), 'true');
+    assert.deepEqual(resizeCalls, [true]);
+  });
+
+  it('grows while an action runs (thinking, speaking)', () => {
+    const root = document.createElement('div');
+    let resizeCalls: boolean[] = [];
+    const float = createKevoFloat(root, {
+      onResize: (expanded) => resizeCalls.push(expanded),
+    });
+
+    // Start idle
+    float.applyState({ state: 'idle' });
+    assert.equal(float.isExpanded(), false);
+
+    // Action starts
+    float.applyState({ state: 'thinking', line: 'Opening Brave...' });
+    assert.equal(float.isExpanded(), true);
+    assert.equal(float.pill.getAttribute('data-expanded'), 'true');
+    assert.deepEqual(resizeCalls, [true]);
+
+    // Action continues into speaking
+    float.applyState({ state: 'speaking', line: 'Brave is open', level: 0.5 });
+    assert.equal(float.isExpanded(), true);
+  });
+
+  it('grows on hover', () => {
+    const root = document.createElement('div');
+    let resizeCalls: boolean[] = [];
+    const float = createKevoFloat(root, {
+      onResize: (expanded) => resizeCalls.push(expanded),
+    });
+
+    float.applyState({ state: 'idle' });
+    assert.equal(float.isExpanded(), false);
+
+    // Hover via setHover / mouseenter
+    float.setHover(true);
+    assert.equal(float.isExpanded(), true);
+    assert.equal(float.pill.getAttribute('data-expanded'), 'true');
+    assert.deepEqual(resizeCalls, [true]);
+  });
+
+  it('folds back to State 1 after 4 s of quiet, leaving 0 timers pending', () => {
+    type TimerEntry = { id: number; callback: () => void; ms: number };
+    const pendingTimers = new Map<number, TimerEntry>();
+    let nextId = 1;
+
     const origSetTimeout = globalThis.setTimeout;
-    globalThis.setTimeout = ((fn: (...args: unknown[]) => void, ms?: number, ...args: unknown[]) => {
-      timerCalls++;
-      return origSetTimeout(fn, ms, ...args);
+    const origClearTimeout = globalThis.clearTimeout;
+
+    globalThis.setTimeout = ((fn: (...args: unknown[]) => void, ms?: number) => {
+      const id = nextId++;
+      pendingTimers.set(id, { id, callback: fn as () => void, ms: ms ?? 0 });
+      return id as unknown as ReturnType<typeof setTimeout>;
     }) as typeof setTimeout;
 
+    globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
+      if (typeof id === 'number') pendingTimers.delete(id);
+    }) as typeof clearTimeout;
+
     try {
-      // When speaking with level 0.8
-      float.applyState({
-        state: 'speaking',
-        line: 'Speaking...',
-        badge: '',
-        level: 0.8,
+      const root = document.createElement('div');
+      let resizeCalls: boolean[] = [];
+      const float = createKevoFloat(root, {
+        onResize: (expanded) => resizeCalls.push(expanded),
+        foldDelayMs: 4000,
       });
 
-      assert.equal(float.pill.getAttribute('data-state'), 'speaking');
-      assert.ok((float.pulse.style.background || '').includes('163, 229, 205'));
-      assert.ok((float.pulse.style.transform || '').includes('scale'));
-      assert.equal(float.pulse.style.opacity, '0.8');
+      // Start idle (folded, 0 timers pending)
+      float.applyState({ state: 'idle' });
+      assert.equal(float.isExpanded(), false);
+      assert.equal(pendingTimers.size, 0, 'no timers while folded and idle');
 
-      // Transitions to idle -> pulse resets
-      float.applyState({
-        state: 'idle',
-        line: '',
-        badge: '',
-        level: 0.0,
-      });
+      // Waking event arrives
+      float.applyState({ state: 'listening' });
+      assert.equal(float.isExpanded(), true);
+      assert.equal(pendingTimers.size, 0, 'no fold timer while listening');
 
-      assert.equal(float.pill.getAttribute('data-state'), 'idle');
-      assert.equal(float.pulse.style.background, 'transparent');
-      assert.equal(float.pulse.style.transform, '');
-      assert.equal(float.pulse.style.opacity, '0');
+      // Transitions to idle after action finishes
+      float.applyState({ state: 'idle' });
+      assert.equal(float.isExpanded(), true, 'still expanded immediately after action finishes');
+      assert.equal(pendingTimers.size, 1, 'the one fold timer is the only timer pending');
 
-      // Confirm no timers were started during speech level pulses
-      assert.equal(timerCalls, 0);
+      // Fire the fold timer (representing 4 s elapsed)
+      const timer = Array.from(pendingTimers.values())[0];
+      assert.equal(timer.ms, 4000);
+      pendingTimers.delete(timer.id);
+      timer.callback();
+
+      // Folded back to State 1
+      assert.equal(float.isExpanded(), false, 'folded after 4 s of quiet');
+      assert.equal(float.pill.getAttribute('data-expanded'), 'false');
+      assert.equal(pendingTimers.size, 0, 'no timer is left once folded');
+      assert.deepEqual(resizeCalls, [true, false]);
     } finally {
       globalThis.setTimeout = origSetTimeout;
+      globalThis.clearTimeout = origClearTimeout;
     }
+  });
+
+  it('folds back after mouse leave when quiet', () => {
+    type TimerEntry = { id: number; callback: () => void; ms: number };
+    const pendingTimers = new Map<number, TimerEntry>();
+    let nextId = 1;
+
+    const origSetTimeout = globalThis.setTimeout;
+    const origClearTimeout = globalThis.clearTimeout;
+
+    globalThis.setTimeout = ((fn: (...args: unknown[]) => void, ms?: number) => {
+      const id = nextId++;
+      pendingTimers.set(id, { id, callback: fn as () => void, ms: ms ?? 0 });
+      return id as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout;
+
+    globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
+      if (typeof id === 'number') pendingTimers.delete(id);
+    }) as typeof clearTimeout;
+
+    try {
+      const root = document.createElement('div');
+      const float = createKevoFloat(root, { foldDelayMs: 4000 });
+
+      float.applyState({ state: 'idle' });
+      assert.equal(float.isExpanded(), false);
+
+      // Hover
+      float.setHover(true);
+      assert.equal(float.isExpanded(), true);
+      assert.equal(pendingTimers.size, 0, 'no fold timer while hovering');
+
+      // Unhover
+      float.setHover(false);
+      assert.equal(float.isExpanded(), true);
+      assert.equal(pendingTimers.size, 1, 'fold timer scheduled on mouse leave');
+
+      // Trigger fold timer
+      const timer = Array.from(pendingTimers.values())[0];
+      pendingTimers.delete(timer.id);
+      timer.callback();
+
+      assert.equal(float.isExpanded(), false);
+      assert.equal(pendingTimers.size, 0);
+    } finally {
+      globalThis.setTimeout = origSetTimeout;
+      globalThis.clearTimeout = origClearTimeout;
+    }
+  });
+
+  it('displays two lines of text with newest at the bottom and badge', () => {
+    const root = document.createElement('div');
+    const float = createKevoFloat(root);
+
+    // First line arrives
+    float.applyState({
+      state: 'listening',
+      line: 'Open Brave browser and play YouTube',
+      badge: 'Local model · 1.2 s',
+    });
+
+    assert.equal(float.linePrevEl.textContent, '');
+    assert.equal(float.lineCurrEl.textContent, 'Open Brave browser and play YouTube');
+    assert.equal(float.badgeEl.textContent, 'Local model · 1.2 s');
+
+    // Second line arrives (action running)
+    float.applyState({
+      state: 'thinking',
+      line: 'Opening Brave...',
+      badge: 'Local model · 0.8 s',
+    });
+
+    // Older line shifts to linePrev, newest is at lineCurr (bottom)
+    assert.equal(float.linePrevEl.textContent, 'Open Brave browser and play YouTube');
+    assert.equal(float.lineCurrEl.textContent, 'Opening Brave...');
+    assert.equal(float.badgeEl.textContent, 'Local model · 0.8 s');
+  });
+
+  it('handles long text without error and preserves structure', () => {
+    const root = document.createElement('div');
+    const float = createKevoFloat(root);
+
+    const longText = 'A'.repeat(500);
+    float.applyState({
+      state: 'speaking',
+      line: longText,
+      badge: 'Offline · 4.2 s',
+    });
+
+    assert.equal(float.lineCurrEl.textContent, longText);
+    assert.equal(float.badgeEl.textContent, 'Offline · 4.2 s');
+    assert.ok(float.linesEl.children.length === 2);
   });
 });

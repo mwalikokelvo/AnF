@@ -520,7 +520,7 @@ pub fn run() {
             workspace_ask,
             kevo_ask,
             kevo_cancel,
-            kevo_float::kevo_float_open,kevo_float::kevo_float_close,
+            kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
             kevo_hud::kevo_hud_set,
             workspace_begin,
             workspace_cancel,
