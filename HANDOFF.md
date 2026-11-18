@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Claude (fix main: Kevo ears compile on Windows, 0.1.60).
+Last updated: 2026-11-18 by Antigravity (Kevo 1.4: audio tests in CI).
+
+## 2026-11-18 — Kevo 1.4: audio tests in CI (Antigravity)
+
+Phase 1 Step 1.4 (`docs/kevo-briefs/phase-1.md`, "1.4 Audio tests in CI"):
+- Added `audio_tests_in_ci_verifies_pipeline_offline_from_wav` in `windows/src-tauri/src/kevo_ears.rs`:
+  - Wake rate test across all 20 synthetic wake clips (`wake-01.wav` .. `wake-20.wav`) verifying >= 19/20 wake target.
+  - False wake test across 10 look-alike clips (`lookalike-01.wav` .. `lookalike-10.wav`) verifying <= 1 false wake target.
+  - Request transcription test across the 10 Phase 0 request clips in both voices (`req-time`, `req-help`, `req-timer`, `req-open-brave`, `req-black-holes`) verifying transcription accuracy >= 9/10.
+- Linux CI (`.github/workflows/linux.yml`):
+  - Installed `strace` and added offline verification step under `strace -f -e trace=connect` asserting that audio pipeline decoding makes zero connections to non-loopback addresses.
+- Verification: `check-release.mjs` 12 checks PASS, `npx tsc --noEmit` PASS.
 
 ## 2026-11-18 — Fix main: Kevo ears compile on Windows, 0.1.60 (Claude)
 

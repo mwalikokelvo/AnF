@@ -664,4 +664,88 @@ mod tests {
         let text = asr.get_result(&stream).map(|r| r.text).unwrap_or_default();
         assert!(text.contains("WHAT TIME IS IT"), "heard {text:?} for \"Kevo, what time is it?\"");
     }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn audio_tests_in_ci_verifies_pipeline_offline_from_wav() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create keyword spotter");
+        let asr = recognizer(dir).expect("create streaming recognizer");
+        let tail = vec![0.0; RATE as usize / 2];
+
+        // 1. Wake clips: test all 20 synthetic wake clips across voices
+        let mut wake_count = 0;
+        for n in 1..=20 {
+            let stream = kws.create_stream();
+            stream.accept_waveform(RATE, &clip(&format!("wake-{n:02}")));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            let mut detected = false;
+            while kws.is_ready(&stream) {
+                kws.decode(&stream);
+                if let Some(hit) = kws.get_result(&stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        detected = true;
+                    }
+                    kws.reset(&stream);
+                }
+            }
+            if detected {
+                wake_count += 1;
+            }
+        }
+        // Step 1.4 target: wake rate >= 19/20
+        assert!(wake_count >= 19, "Wake rate {wake_count}/20 is below the 19/20 target");
+
+        // 2. Look-alike clips: test 10 look-alike words
+        let mut false_wakes = 0;
+        for n in 1..=10 {
+            let stream = kws.create_stream();
+            stream.accept_waveform(RATE, &clip(&format!("lookalike-{n:02}")));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            while kws.is_ready(&stream) {
+                kws.decode(&stream);
+                if let Some(hit) = kws.get_result(&stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        false_wakes += 1;
+                    }
+                    kws.reset(&stream);
+                }
+            }
+        }
+        // Step 1.4 target: false wakes <= 1 in 10
+        assert!(false_wakes <= 1, "False wakes {false_wakes}/10 exceeded the target of at most 1");
+
+        // 3. Requests transcription against Phase 0 synthetic clips (2 voices each)
+        let requests = [
+            ("req-time-ljspeech", "TIME"),
+            ("req-time-libritts-3922", "TIME"),
+            ("req-help-ljspeech", "WHAT"),
+            ("req-help-libritts-3922", "WHAT"),
+            ("req-timer-ljspeech", "TIMER"),
+            ("req-timer-libritts-3922", "TIMER"),
+            ("req-open-brave-ljspeech", "BRAVE"),
+            ("req-open-brave-libritts-3922", "BRAVE"),
+            ("req-black-holes-ljspeech", "BLACK"),
+            ("req-black-holes-libritts-3922", "BLACK"),
+        ];
+
+        let mut pass_count = 0;
+        for (name, expected) in requests {
+            let stream = asr.create_stream();
+            stream.accept_waveform(RATE, &clip(name));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            while asr.is_ready(&stream) {
+                asr.decode(&stream);
+            }
+            let text = asr.get_result(&stream).map(|r| r.text).unwrap_or_default();
+            if text.contains(expected) {
+                pass_count += 1;
+            }
+        }
+        // Step 1.4 target: at least 9 of 10 requests accurately transcribed
+        assert!(pass_count >= 9, "Request transcription {pass_count}/10 is below threshold");
+    }
 }
