@@ -5,6 +5,7 @@
  */
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
+import type { KevoActionStatus } from './kevo-actions';
 import {
   createReminder,
   listReminders,
@@ -97,6 +98,11 @@ export interface ActionResult {
   handled: boolean;
   actionName: string;
   speechReply: string;
+  status?: KevoActionStatus;
+  verified?: boolean;
+  error?: string;
+  reason?: string;
+  verificationDetails?: string;
 }
 
 function speakClock(): string {
@@ -251,7 +257,19 @@ export class JarvisVoiceAgent {
   /** Things Kevo can answer or do without the AI. Null when the request is not one of them. */
   private quickAnswer(text: string): ActionResult | null {
     const lower = text.toLowerCase().replace(/[.!?]+$/, '').trim();
-    const done = (actionName: string, speechReply: string): ActionResult => ({ handled: true, actionName, speechReply });
+    const done = (
+      actionName: string,
+      speechReply: string,
+      details?: { status?: KevoActionStatus; verified?: boolean; error?: string; reason?: string; verificationDetails?: string }
+    ): ActionResult => {
+      const res: ActionResult = { handled: true, actionName, speechReply };
+      if (details?.status !== undefined) res.status = details.status;
+      if (details?.verified !== undefined) res.verified = details.verified;
+      if (details?.error !== undefined) res.error = details.error;
+      if (details?.reason !== undefined) res.reason = details.reason;
+      if (details?.verificationDetails !== undefined) res.verificationDetails = details.verificationDetails;
+      return res;
+    };
 
     if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
     // Just a greeting or its name, however the recogniser spelled it: Kevo answers that it is there.
