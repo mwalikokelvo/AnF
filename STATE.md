@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock:
+lock: 2026-11-18T00:39:24Z
 phase: 0
 step: 0.1 (#148) team:claude, not started; 0.3 (#150) team:claude since 2026-11-17T14:25Z (Codex stalled), built in PR #174; 0.4a merged; 0.2 fix 1 (#155) in PR #157; 0.2 fix 2 (#158), fix 3 (#159), fix 4 (#160), all team:claude, wait on #155; 0.4b (#152) waits on 0.1 and 0.3. HUD track board #166-#173 created 2026-11-18T00:28Z: H.1 (#166, team:codex) handed to Codex 00:28Z (stall check 06:28Z); H.2/H.3/H.4b/H.6 are team:any (brief says Jules, Jules read-only); H.4a (#169) team:codex waits on H.1; H.5 team:any; H.8 (#173) team:claude waits on H.3, H.4b, H.5, 0.4b. H.7 waits for Phase 8.
 open_pr: #157 (0.2 fix 1, claude/kevo-0.2-fix-1, ready for review): head 5254eaf fixes 7 findings on 5945796 (4 Codex, 3 Cursor Bugbot); all threads resolved; @codex review asked 00:32Z. Branch is behind main (main has #161, #163): merge main at 2b.3. Version bump 0.1.58 already on the branch. #174 (0.3, claude/kevo-0.3, draft): head f1691f1, workflow-only (windows.yml + HANDOFF.md), @codex review asked 00:4xZ; no version bump yet (add at 2b.3, after #157 merges).
@@ -13,7 +13,7 @@ blocked:
 last_passed_version: none yet
 owner_needed: none now (the "Create PR" ask for #148/#150 is dropped: Claude took them over). Later: when step 0.4 is merged, install that build once and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
 last_main: 26fbc459c50969344793f3b94e5e8cd118e8c101
-chain: 0
+chain: 1
 next_due:
 quiet_fingerprint:
 
