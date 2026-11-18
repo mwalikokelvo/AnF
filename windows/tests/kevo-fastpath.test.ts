@@ -156,4 +156,29 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
     assert.match(resWithModel.speechReply, /Rayleigh/);
     agentWithModel.dispose();
   });
+
+  it('handles remember commands instantly on fast path with no model loaded (Step 3.2)', async () => {
+    let remembered = '';
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        rememberFact: async (f) => {
+          remembered = f;
+        },
+      })
+    );
+
+    const res = await agent.processVoiceInput('remember that I like dark chocolate');
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'remember_fact');
+    assert.match(res.speechReply, /I will remember that: I like dark chocolate/);
+    assert.strictEqual(remembered, 'I like dark chocolate');
+
+    const res2 = await agent.processVoiceInput('Remember: my dog is Milo');
+    assert.strictEqual(res2.handled, true);
+    assert.strictEqual(res2.actionName, 'remember_fact');
+    assert.match(res2.speechReply, /I will remember that: my dog is Milo/);
+    assert.strictEqual(remembered, 'my dog is Milo');
+
+    agent.dispose();
+  });
 });
