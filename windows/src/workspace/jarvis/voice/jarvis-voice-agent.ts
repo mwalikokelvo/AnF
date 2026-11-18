@@ -11,6 +11,8 @@ export interface JarvisActionContext {
   playMusic?: () => void;
   pauseMusic?: () => void;
   nextTrack?: () => void;
+  /** Changes the Music Hub volume and returns the new level, 0 to 100. */
+  setMusicVolume?: (change: VolumeRequest) => number;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
   /** Opens an installed app by name; resolves to the name of the app it opened. */
@@ -34,7 +36,29 @@ export interface JarvisActionContext {
   triageSupport?: () => number;
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
+  /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
+  getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
+  /** Whether the owner turned weather on by saying "turn on weather". Off until then: weather sends the city to Open-Meteo. */
+  weatherEnabled?: () => boolean;
+  /** Turns weather on or off, remembered on this computer. */
+  setWeatherEnabled?: (on: boolean) => void;
   notify?: (msg: string) => void;
+  /** Currently pending approval request (H.4b). */
+  pendingApproval?: () => PendingApproval | null;
+  answerApproval?: (id: number | string, approved: boolean) => Promise<unknown> | void;
+  /** When true, actions are simulated without performing real side effects (Phase 0 step 0.4b). */
+  dryRun?: boolean;
+  /** Injectable clock for tests; returns timestamp in milliseconds. Defaults to Date.now. */
+  now?: () => number;
+  /** Expiration time for follow-up questions/subjects in milliseconds. Defaults to 30,000 (30 s). */
+  followUpExpiryMs?: number;
+}
+
+export interface PendingApproval {
+  id: number | string;
+  action: string;
+  summary: string;
+  answer?: (approved: boolean) => Promise<unknown> | void;
 }
 
 export interface ActionResult {
@@ -149,7 +173,7 @@ export function stripLeadIn(text: string): string {
 /** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
 export function splitRequests(text: string): string[] {
   return text
-    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip)\b)/i)
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?weather|weather (?:in|for|today|tomorrow|now))\b)/i)
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3);
@@ -171,8 +195,25 @@ export class JarvisVoiceAgent {
   private generation = 0;
   /** What the previous request did, for follow-ups such as "open it" or naming the app after a miss. */
   private lastAction = '';
+  private lastActionTime = 0;
   /** The app or thing last talked about, which "open it" refers to. */
   private lastSubject = '';
+  private lastSubjectTime = 0;
+
+  private now(): number {
+    return this.context.now ? this.context.now() : Date.now();
+  }
+
+  private pruneFollowUpState(): void {
+    const limit = this.context.followUpExpiryMs ?? 30_000;
+    const current = this.now();
+    if (this.lastAction && current - this.lastActionTime > limit) {
+      this.lastAction = '';
+    }
+    if (this.lastSubject && current - this.lastSubjectTime > limit) {
+      this.lastSubject = '';
+    }
+  }
 
   /** Things Kevo can answer or do without the AI. Null when the request is not one of them. */
   private quickAnswer(text: string): ActionResult | null {
@@ -191,7 +232,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, search your notes or the web, take a note, set a timer, do sums, tell the time and date, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -243,6 +284,17 @@ export class JarvisVoiceAgent {
       return done('timer_set', about ? `I will remind you in ${duration.label}.` : `Timer set for ${duration.label}.`);
     }
 
+
+    // Music volume, only as a whole request: "turn it up", "volume down a bit", "mute", "set the volume to 40".
+    // Whole-request matching keeps "mute" out of "commute" and "louder" out of a question about loudness.
+    const volume = parseVolumeRequest(lower);
+    if (volume && this.context.setMusicVolume) {
+      const level = this.context.setMusicVolume(volume);
+      if (volume.kind === 'mute') return done('volume_mute', 'Music muted.');
+      if (volume.kind === 'unmute') return done('volume_unmute', `Music unmuted, at ${level} percent.`);
+      return done(volume.kind === 'set' ? 'volume_set' : volume.kind === 'up' ? 'volume_up' : 'volume_down', `Music volume ${level} percent.`);
+    }
+
     const sum = solveArithmetic(lower);
     if (sum) return done('arithmetic', sum);
 
@@ -253,6 +305,16 @@ export class JarvisVoiceAgent {
   dispose(): void {
     this.timers.forEach(clearTimeout);
     this.timers.clear();
+  }
+
+  private currentApproval: PendingApproval | null = null;
+
+  setPendingApproval(approval: PendingApproval | null): void {
+    this.currentApproval = approval;
+  }
+
+  getPendingApproval(): PendingApproval | null {
+    return this.currentApproval ?? this.context.pendingApproval?.() ?? null;
   }
 
   /** Carries out a request and remembers what was said, so "say that again" repeats any kind of answer. */
@@ -290,14 +352,19 @@ export class JarvisVoiceAgent {
   }
 
   private async handleOne(text: string, onPart?: (text: string) => void): Promise<ActionResult> {
+    this.pruneFollowUpState();
     const result = await this.handle(text, onPart);
     const short = text.replace(/[.!?]+$/, '').trim();
     // A short name that was not a command ("Brave browser") is what a following "open it" means.
     if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
+      this.lastSubjectTime = this.now();
     }
     // "Say that again" repeats the last answer, so a pending "For how long?" still stands. Nothing else carries over.
-    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') this.lastAction = result.actionName;
+    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') {
+      this.lastAction = result.actionName;
+      this.lastActionTime = this.now();
+    }
     return result;
   }
 
@@ -309,7 +376,9 @@ export class JarvisVoiceAgent {
   /** A new conversation: "open it" and follow-ups must not reach back into the old one. */
   resetConversation(): void {
     this.lastSubject = '';
+    this.lastSubjectTime = 0;
     this.lastAction = '';
+    this.lastActionTime = 0;
   }
 
   private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
@@ -325,6 +394,30 @@ export class JarvisVoiceAgent {
     }
 
     let lower = text.toLowerCase();
+
+    // Spoken approval check when an approval card is open (H.4b)
+    const approval = this.getPendingApproval();
+    if (approval) {
+      const norm = lower.replace(/[.!?]+$/, '').trim();
+      if (['yes', 'sure', 'approve', 'ok', 'okay', 'go ahead', 'confirm', 'allow'].includes(norm)) {
+        if (approval.answer) {
+          await approval.answer(true);
+        } else if (this.context.answerApproval) {
+          await this.context.answerApproval(approval.id, true);
+        }
+        this.setPendingApproval(null);
+        return { handled: true, actionName: 'approval_approved', speechReply: 'Approved, sir.' };
+      }
+      if (['no', 'cancel', 'deny', 'stop', "don't", 'reject'].includes(norm)) {
+        if (approval.answer) {
+          await approval.answer(false);
+        } else if (this.context.answerApproval) {
+          await this.context.answerApproval(approval.id, false);
+        }
+        this.setPendingApproval(null);
+        return { handled: true, actionName: 'approval_denied', speechReply: 'Cancelled, sir.' };
+      }
+    }
 
     // Clock / calendar (Phase 2B)
     if (
@@ -363,10 +456,13 @@ export class JarvisVoiceAgent {
     // "play any song in YouTube", "search YouTube for lofi", "play Adele on YouTube": YouTube's search, in the browser.
     const tube = /^(?:play|search|find|look up|watch|put on|show(?: me)?)\s+(.+?)\s+(?:on|in|from)\s+youtube[.!?]*$/.exec(lower)
       ?? /^(?:search|look up)\s+youtube\s+for\s+(.+?)[.!?]*$/.exec(lower);
-    if (tube && this.context.openUrl) {
+    if (tube && (this.context.openUrl || this.context.dryRun)) {
       const what = /^(?:any|a|some)\s+(?:song|music|track|video)s?$|^(?:something|anything|music|songs?)$/.test(tube[1]) ? 'popular songs' : tube[1];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
+      }
       try {
-        await this.context.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
+        await this.context.openUrl!(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
         return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -374,10 +470,13 @@ export class JarvisVoiceAgent {
     }
 
     const site = /^(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?[.!?]*$/.exec(lower);
-    if (site && this.context.openUrl) {
+    if (site && (this.context.openUrl || this.context.dryRun)) {
       const { url, name } = SITES[site[1]];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
+      }
       try {
-        await this.context.openUrl(url);
+        await this.context.openUrl!(url);
         return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -385,12 +484,40 @@ export class JarvisVoiceAgent {
     }
 
     const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+?)[.!?]*$/.exec(lower);
-    if (web && this.context.searchWeb) {
+    if (web && (this.context.searchWeb || this.context.dryRun)) {
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
+      }
       try {
-        await this.context.searchWeb(web[1]);
+        await this.context.searchWeb!(web[1]);
         return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
       } catch (err) {
         return { handled: true, actionName: 'web_search_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
+      }
+    }
+
+    // Weather (free Open-Meteo, no key): "what's the weather", "weather in Nairobi", "how's the weather in Haubstadt today".
+    // Right after "Which city?", a short place name on its own is the answer.
+    const weatherSwitch = parseWeatherSwitch(lower);
+    if (weatherSwitch !== null && this.context.setWeatherEnabled) {
+      this.context.setWeatherEnabled(weatherSwitch);
+      return weatherSwitch
+        ? { handled: true, actionName: 'weather_on', speechReply: 'Weather is on. Ask, for example, what is the weather in Nairobi.' }
+        : { handled: true, actionName: 'weather_off', speechReply: 'Weather is off.' };
+    }
+    const answeredPlace = this.lastAction === 'weather_needs_place' ? placeReply(text) : undefined;
+    if (answeredPlace || isWeatherRequest(lower)) {
+      if (!this.context.getWeather) return { handled: true, actionName: 'weather_unavailable', speechReply: 'Weather is not available right now.' };
+      if (!this.context.weatherEnabled?.()) {
+        return { handled: true, actionName: 'weather_off', speechReply: 'Weather is off. It asks the free Open-Meteo service, which gets the city you name. Say turn on weather to allow it.' };
+      }
+      const place = answeredPlace ?? weatherPlace(text);
+      try {
+        const summary = await this.context.getWeather(place, /\btomorrow\b/.test(lower) ? 1 : 0);
+        if (!summary) return { handled: true, actionName: 'weather_needs_place', speechReply: 'Which city? Say, for example, weather in Nairobi.' };
+        return { handled: true, actionName: 'weather', speechReply: summary };
+      } catch (err) {
+        return { handled: true, actionName: 'weather_failed', speechReply: `I could not get the weather: ${String(err).replace(/^Error:\s*/, '')}` };
       }
     }
 
@@ -490,10 +617,14 @@ export class JarvisVoiceAgent {
 
     // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
     const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+|an?\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
-    if (app && this.context.openApp) {
+    if (app && (this.context.openApp || this.context.dryRun)) {
       this.lastSubject = app[1];
+      this.lastSubjectTime = this.now();
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${app[1]}.` };
+      }
       try {
-        const opened = await this.context.openApp(app[1]);
+        const opened = await this.context.openApp!(app[1]);
         return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_app_failed', speechReply: String(err).replace(/^Error:\s*/, '') };
@@ -510,8 +641,10 @@ export class JarvisVoiceAgent {
       const noteContent = text
         .replace(/^(take a note(:|\s+that)?|note that|remember that|write this down(:|\s+that)?)\s*/i, '')
         .trim();
-      if (noteContent && this.context.saveQuickNote) {
-        await this.context.saveQuickNote(noteContent);
+      if (noteContent && (this.context.saveQuickNote || this.context.dryRun)) {
+        if (!this.context.dryRun) {
+          await this.context.saveQuickNote!(noteContent);
+        }
         return {
           handled: true,
           actionName: 'take_note',
@@ -605,6 +738,133 @@ const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, thre
 
 // Longest names first, so "forty five" is not read as "five".
 const DURATION = new RegExp(`\\b(\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).sort((x, y) => y.length - x.length).join('|')})\\s*(second|sec|minute|min|hour|hr)s?\\b`);
+
+export type VolumeRequest = { kind: 'up' | 'down' | 'mute' | 'unmute' } | { kind: 'set'; level: number };
+
+const VOLUME_THING = '(?:the )?(?:music|sound|volume|audio|song)';
+const A_BIT = '(?: (?:a (?:little )?bit|a little|some|more|a notch))?';
+const VOLUME_UP = new RegExp(`^(?:turn (?:it|${VOLUME_THING}) up|turn up ${VOLUME_THING}|(?:volume|music|sound) up|(?:make it |play it )?louder|(?:increase|raise) ${VOLUME_THING}|pump it up)${A_BIT}$`);
+const VOLUME_DOWN = new RegExp(`^(?:turn (?:it|${VOLUME_THING}) down|turn down ${VOLUME_THING}|(?:volume|music|sound) down|(?:make it |play it )?(?:quieter|softer)|(?:decrease|lower|reduce) ${VOLUME_THING})${A_BIT}$`);
+const VOLUME_MUTE = new RegExp(`^(?:mute|silence)(?: it| ${VOLUME_THING})?$`);
+const VOLUME_UNMUTE = new RegExp(`^unmute(?: it| ${VOLUME_THING})?$`);
+const VOLUME_SET = new RegExp(`^(?:(?:set|put|turn|make|change) )?${VOLUME_THING.replace('volume|', '')}? ?volume (?:(?:up|down) )?(?:to |at )?(\\d{1,3})(?: ?(?:percent|%))?$`);
+
+/** "Can you please turn it up, please" is "turn it up": the polite words around a short request. */
+function withoutPoliteWords(said: string): string {
+  return said
+    .replace(/^(?:(?:hey |ok(?:ay)? )?kevo[\s,]+)?(?:(?:can|could|would|will) you(?: please)?|please|i want you to|go ahead and)[\s,]+/, '')
+    .replace(/[\s,]+(?:please|for me|thanks|thank you)$/, '')
+    .trim();
+}
+
+/** A whole request about the music volume, or null. "I have a long commute" and "how loud is a jet" are not. */
+export function parseVolumeRequest(lower: string): VolumeRequest | null {
+  const said = withoutPoliteWords(lower.replace(/[.!?]+$/, '').trim());
+  if (VOLUME_UP.test(said)) return { kind: 'up' };
+  if (VOLUME_DOWN.test(said)) return { kind: 'down' };
+  if (VOLUME_MUTE.test(said)) return { kind: 'mute' };
+  if (VOLUME_UNMUTE.test(said)) return { kind: 'unmute' };
+  const set = VOLUME_SET.exec(said);
+  if (set) return { kind: 'set', level: Math.min(100, Number(set[1])) };
+  return null;
+}
+
+const WEATHER_WHEN = '(?: (?:today|now|right now|outside|tomorrow|this (?:morning|afternoon|evening)|tonight))?';
+const WEATHER_PLACE = '(?: (?:in|for|at|near) [a-z][a-z .,\'-]*?)?';
+/** The weather itself asked about, as the whole request. A question that only mentions weather goes to the AI. */
+const WEATHER_REQUEST = new RegExp(`^(?:(?:what'?s|what is|how'?s|how is|check|tell me|give me|get(?: me)?)(?: the)? )?weather(?: (?:like|forecast|looking|report))?${WEATHER_WHEN}${WEATHER_PLACE}${WEATHER_WHEN}( (?:going to be )?like)?$`);
+const MONTHS = /\b(?:january|february|march|april|may|june|july|august|september|october|november|december|next week|this week|weekend)\b/;
+
+/** "what's the weather", "how's the weather in Nairobi", "weather for Haubstadt today". Not "open Weather" (the app), a song, or "what is the difference between weather and climate". */
+export function isWeatherRequest(lower: string): boolean {
+  const said = withoutPoliteWords(lower.replace(/[\u2018\u2019]/g, "'").replace(/[.!?]+$/, '').trim());
+  return WEATHER_REQUEST.test(said) && !MONTHS.test(said);
+}
+
+/** "turn on weather" is true, "turn off weather" false, anything else null. */
+export function parseWeatherSwitch(lower: string): boolean | null {
+  const said = withoutPoliteWords(lower.replace(/[.!?]+$/, '').trim());
+  const m = /^(?:(?:turn|switch) (on|off) (?:the )?weather|(?:turn|switch) (?:the )?weather (on|off)|(enable|allow|disable) (?:the )?weather)$/.exec(said);
+  if (!m) return null;
+  const word = m[1] ?? m[2] ?? m[3];
+  return word === 'on' || word === 'enable' || word === 'allow';
+}
+
+/** The place in a weather request, as said ("in New York today" gives "New York"), or undefined. */
+export function weatherPlace(text: string): string | undefined {
+  const said = text.replace(/[.!?]+$/, '').trim();
+  const m = /\bweather\b(?:\s+(?:like|forecast|looking|report))?(?:\s+(?:today|now|right now|outside|tomorrow|tonight))?\s+(?:in|for|at|near)\s+(.+)$/i.exec(said);
+  if (!m) return undefined;
+  const place = m[1].replace(/\s+(?:today|now|right now|please|tomorrow|outside|tonight|this (?:morning|afternoon|evening)|(?:going to be )?like)$/i, '').trim();
+  return place || undefined;
+}
+
+/** The answer to "Which city?": a short place name ("Nairobi", "in New York"), else undefined so the request is handled as usual. */
+export function placeReply(text: string): string | undefined {
+  const said = text.replace(/[.!?]+$/, '').trim().replace(/^(?:in|for|at)\s+/i, '');
+  if (!/^[a-z][a-z .,'-]*$/i.test(said) || said.split(/\s+/).length > 4) return undefined;
+  if (/^(?:no|nope|never ?mind|cancel|stop|nothing|forget it|yes|yeah|ok|okay|thanks|thank you|who|what|where|when|why|how|which|tell|can|could|would|will|is|are|do|does|open|play|search|set|show|take|pause|skip|turn|mute)\b/i.test(said)) return undefined;
+  return said;
+}
+
+type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
+
+/**
+ * Today's weather for a place, as one spoken line, from Open-Meteo (https://open-meteo.com: free, no key).
+ * Fahrenheit and mph when `fahrenheit` is set (US English), else Celsius and km/h.
+ */
+export async function fetchWeather(place: string, options: { fahrenheit?: boolean; day?: 0 | 1; fetchFn?: FetchLike } = {}): Promise<string> {
+  const plain: FetchLike = (url) => fetch(url, { signal: AbortSignal.timeout(8000) });
+  const send = options.fetchFn ?? plain;
+  const get: FetchLike = async (url) => {
+    try {
+      return await send(url);
+    } catch {
+      throw new Error('the weather service did not answer. Check the internet connection.');
+    }
+  };
+  const asked = place.trim();
+  if (!asked) throw new Error('say which city.');
+  const geo = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(asked)}&count=1&language=en&format=json`);
+  if (!geo.ok) throw new Error(`the weather service answered ${geo.status}.`);
+  const found = ((await geo.json()) as { results?: { latitude: number; longitude: number; name: string; country?: string }[] }).results?.[0];
+  if (!found) throw new Error(`I could not find a place called ${asked}.`);
+  const units = options.fahrenheit ? '&temperature_unit=fahrenheit&wind_speed_unit=mph' : '';
+  const res = await get(`https://api.open-meteo.com/v1/forecast?latitude=${found.latitude}&longitude=${found.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2${units}`);
+  if (!res.ok) throw new Error(`the weather service answered ${res.status}.`);
+  const data = (await res.json()) as {
+    current?: { temperature_2m?: number; weather_code?: number; wind_speed_10m?: number };
+    daily?: { weather_code?: number[]; temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+  };
+  if (options.day === 1) {
+    const hiT = data.daily?.temperature_2m_max?.[1];
+    const loT = data.daily?.temperature_2m_min?.[1];
+    if (typeof hiT !== 'number' || typeof loT !== 'number') throw new Error('the weather service sent no forecast for tomorrow.');
+    return `Tomorrow in ${found.name}: ${weatherCodeToText(data.daily?.weather_code?.[1] ?? -1)}, high ${Math.round(hiT)}, low ${Math.round(loT)}.`;
+  }
+  const temp = data.current?.temperature_2m;
+  if (typeof temp !== 'number') throw new Error('the weather service sent no temperature.');
+  const hi = data.daily?.temperature_2m_max?.[0];
+  const lo = data.daily?.temperature_2m_min?.[0];
+  const wind = data.current?.wind_speed_10m;
+  const parts = [`In ${found.name} it is ${Math.round(temp)} degrees and ${weatherCodeToText(data.current?.weather_code ?? -1)}.`];
+  if (typeof hi === 'number' && typeof lo === 'number') parts.push(`Today's high is ${Math.round(hi)}, low ${Math.round(lo)}.`);
+  if (typeof wind === 'number') parts.push(`Wind ${Math.round(wind)} ${options.fahrenheit ? 'miles' : 'kilometres'} per hour.`);
+  return parts.join(' ');
+}
+
+/** WMO weather code (Open-Meteo's `weather_code`) in a few words. */
+export function weatherCodeToText(code: number): string {
+  if (code === 0) return 'clear';
+  if (code === 1 || code === 2) return 'partly cloudy';
+  if (code === 3) return 'cloudy';
+  if (code === 45 || code === 48) return 'foggy';
+  if (code >= 51 && code <= 57) return 'drizzling';
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return 'raining';
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snowing';
+  if (code >= 95 && code <= 99) return 'stormy';
+  return 'unsettled';
+}
 
 /** "5 minutes", "ninety seconds", "an hour and a half" is not handled; one number and one unit is. */
 export function parseDuration(text: string): { ms: number; label: string } | null {

@@ -164,11 +164,11 @@ describe('Kevo listener, session 3', () => {
     const { box, restore } = fakeRecogniser();
     try {
       const heard: string[] = [];
-      const listener = new JarvisVoiceListener({ settleMs: 10, followUpMs: 200, onFinalSpeech: (t) => heard.push(t) });
+      const listener = new JarvisVoiceListener({ settleMs: 10, followUpMs: 400, onFinalSpeech: (t) => heard.push(t) });
       listener.start();
-      await wait(120);
+      await wait(150);
       box.rec.onresult(interim('change your'));
-      await wait(150); // past the first window
+      await wait(300); // past the first window (150 + 300 = 450 ms > 400 ms)
       box.rec.onresult(final('change your voice'));
       await wait(50);
       assert.deepEqual(heard, ['change your voice']);

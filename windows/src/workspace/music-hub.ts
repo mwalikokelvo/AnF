@@ -3211,6 +3211,20 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   },
   refresh,
   ready,
+  /** Kevo's "turn it up", "mute", "volume 40": same effect as the slider, Mute button and +/- keys. Returns the level, 0 to 100. */
+  changeVolume:(change:{kind:'up'|'down'|'mute'|'unmute'}|{kind:'set';level:number}):number=>{
+   if(change.kind==='mute'||change.kind==='unmute'){
+    audio.muted=change.kind==='mute';
+    mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';
+    volumeLabel.textContent=audio.muted?'Muted':Math.round(prefs.volume*100)+'%';
+    return Math.round(prefs.volume*100);
+   }
+   const v=change.kind==='set'?change.level/100:prefs.volume+(change.kind==='up'?.1:-.1);
+   const level=Math.max(0,Math.min(1,Math.round(v*100)/100));
+   stopFade();audio.muted=false;audio.volume=prefs.volume=level;volume.value=String(level);
+   mute.setAttribute('aria-pressed','false');mute.textContent='Mute';volumeLabel.textContent=Math.round(level*100)+'%';save();
+   return Math.round(level*100);
+  },
   getState:()=>playbackState,
   getError:()=>playbackError,
   step,
