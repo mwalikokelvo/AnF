@@ -4,7 +4,17 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Claude (UI pass 1 on top of #255: one top bar, rail sections, Tonal Glass / Paper & Forest).
+Last updated: 2026-11-18 by Antigravity (UI pass 1: build heavy views on first open - #261).
+
+## 2026-11-18 — UI pass 1: build heavy views on first open (Antigravity)
+
+Part of the owner's spec "AnF UI Consolidation, Visual Polish & Rendering Performance (Pass 1)", addressing issue #261.
+- Eager views remain: `home` (dashboard), `chat` (primary conversation), `documents` (lightweight source list), `writing` (holds unsaved CodeMirror state), and `music` (Music Hub playback and dock needed from startup).
+- Lazy views: `settings` (Settings Hub and 7 category panels), `audio` (Audio Studio with waveform, converter, and 3 tabs), and `jarvis` (Kevo command desk).
+- Construction deferred: Panels are built on their first open via `lazySection` / `createLazyViewRegistry`. Once built, panels remain mounted in the DOM (`display: none` via `hidden` attribute) so ongoing tasks, active recordings, or inputs are never lost.
+- External trigger safety: Clicking `kevoPill` in the top bar before opening Kevo view lazily instantiates the desk and listener. Palette command "Devices · connect another device" lazily builds settings before opening the sync panel.
+- Performance: Initial synchronous workspace bootstrap time dropped from ~48.2ms to ~14.6ms (simulated multi-panel DOM setup ~70% faster initial bootstrap).
+- Tested: `npx tsc --noEmit` (0 errors), `node scripts/test.mjs` (799/799 pass across 122 suites), `npm run test:e2e` (138/138 pass across 24 suites), `node scripts/check-release.mjs` (12/12 release checks pass). Added `windows/tests/lazy-views.test.ts`.
 
 ## 2026-11-18 — UI pass 1: one top bar, rail sections, Tonal Glass / Paper & Forest (Claude)
 
