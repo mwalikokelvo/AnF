@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-18T14:27:34Z
 phase: 0 (all steps merged; PC test of kevo-test-v0.1.60 cannot start: the test build failed to publish). Owner account merged Phase 1 1.4-1.6 (#200-#202), Phase 2 (#203-#210), Phase 3 brief (#211), and agy/ Phases 3-5 plus the Phase 6 brief and 6.1 (through #230, 12:14Z) ahead of the Phase 0/1 PC passes and the combined Phase 3-5 PC test; version still 0.1.60
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: none. Board empty: every kevo issue closed by the owner account at 10:26Z
