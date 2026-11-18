@@ -69,6 +69,7 @@ export const Bridge = {
   kevoAsk: (id: number, query: string, history: unknown[], model: string, tools?: unknown[], system?: string) =>
     call<unknown>("kevo_ask", { id, query, history, model, tools, system }),
   kevoCancel: () => call<void>("kevo_cancel"),
+  kevoPreloadModel: (model?: string) => call<void>("kevo_preload_model", { model }),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),

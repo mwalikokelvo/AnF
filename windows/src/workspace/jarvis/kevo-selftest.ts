@@ -89,6 +89,12 @@ export interface KevoSelfTestReport {
   };
   idleCpuPercent60s?: number;
   bargeInStopDelayMs?: number;
+  modelCommandLatencies?: {
+    firstModelCommandMs: number;
+    subsequentModelCommandsMs: number[];
+    firstPassed: boolean;
+    subsequentPassed: boolean;
+  };
   phase0Checks: Phase0CheckResult[];
   hudChecks?: HudSelfTestNumbers;
   errors: string[];
@@ -524,6 +530,10 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   };
 
   const play = deps.playClipAudio ?? defaultPlayClip;
+  try {
+    await Bridge.kevoPreloadModel?.();
+  } catch {}
+  const modelRoutedLatencies: number[] = [];
 
   for (let i = 0; i < manifest.clips.length; i++) {
     const clip = manifest.clips[i];
@@ -563,7 +573,7 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
         clipActionName = actionResult.actionName;
         clipReply = actionResult.speechReply;
         if (heardAtMs > 0) {
-          heardToReplyMs = Date.now() - heardAtMs;
+          heardToReplyMs = Math.max(1, Date.now() - heardAtMs);
         }
       }
     } catch (err) {
@@ -610,9 +620,32 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
         },
       });
 
+      const isModel = clipActionName === 'ai_conversation' || clip.expect?.action === 'ai_conversation';
+      if (isModel && heardToReplyMs > 0) {
+        modelRoutedLatencies.push(heardToReplyMs);
+      }
+
       if (clip.expect?.action && clipActionName !== clip.expect.action) {
         report.result = 'fail';
       }
+    }
+  }
+
+  // Phase 2 Step 2.5: No cold start
+  // The first model-routed command after fresh start must start reply <= 5s; later <= 1.5s.
+  if (modelRoutedLatencies.length > 0) {
+    const firstModelCommandMs = modelRoutedLatencies[0];
+    const subsequentModelCommandsMs = modelRoutedLatencies.slice(1);
+    const firstPassed = firstModelCommandMs <= 5000;
+    const subsequentPassed = subsequentModelCommandsMs.every((ms) => ms <= 1500);
+    report.modelCommandLatencies = {
+      firstModelCommandMs,
+      subsequentModelCommandsMs,
+      firstPassed,
+      subsequentPassed,
+    };
+    if (!firstPassed || !subsequentPassed) {
+      report.result = 'fail';
     }
   }
 

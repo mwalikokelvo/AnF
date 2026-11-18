@@ -415,4 +415,76 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(highFalseWakeReport.lookalikeClips.falseWakes, 2);
     assert.strictEqual(highFalseWakeReport.result, 'fail');
   });
+
+  it('measures first model-routed command (<= 5s) and subsequent commands (<= 1.5s) (Step 2.5)', async () => {
+    let aiCount = 0;
+    const actionContext = {
+      switchView: () => {},
+      dryRun: true,
+      openApp: async (name: string) => name,
+      announce: () => {},
+      askAI: async (query: string) => `Answer ${++aiCount} to ${query}`,
+    };
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const manifest: SelftestClipsManifest = {
+      version: 1,
+      clips: [
+        {
+          id: 'req-1',
+          file: 'req-1.wav',
+          kind: 'request',
+          voice: 'lj',
+          words: 'explain relativity',
+          seconds: 2,
+          expect: { action: 'ai_conversation' },
+        },
+        {
+          id: 'req-2',
+          file: 'req-2.wav',
+          kind: 'request',
+          voice: 'lj',
+          words: 'explain gravity',
+          seconds: 2,
+          expect: { action: 'ai_conversation' },
+        },
+      ],
+    };
+
+    (Bridge as any).kevoSelftestGetClips = async () => JSON.stringify(manifest);
+
+    const playClipAudio = async (filename: string) => {
+      if (filename.includes('open-brave')) {
+        listener.onFinalSpeech?.('Kevo, open Brave browser');
+      } else if (filename.includes('timer')) {
+        listener.onFinalSpeech?.('Set a timer for ten seconds');
+      } else if (filename.includes('time')) {
+        listener.onFinalSpeech?.('Kevo, what time is it?');
+      } else if (filename.includes('help')) {
+        listener.onFinalSpeech?.('What can you do?');
+      } else if (filename.includes('black-holes')) {
+        listener.onFinalSpeech?.('tell me about black holes');
+      } else if (filename.includes('req-1')) {
+        listener.onFinalSpeech?.('explain relativity');
+      } else if (filename.includes('req-2')) {
+        listener.onFinalSpeech?.('explain gravity');
+      }
+    };
+
+    const passReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.60',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+    });
+
+    assert.ok(passReport.modelCommandLatencies);
+    assert.strictEqual(passReport.modelCommandLatencies.firstPassed, true);
+    assert.strictEqual(passReport.modelCommandLatencies.subsequentPassed, true);
+    assert.strictEqual(passReport.result, 'pass');
+  });
 });

@@ -119,6 +119,13 @@ pub async fn kevo_ask(
 pub fn kevo_cancel(turn: State<KevoTurn>) {
     turn.0.send_replace(0);
 }
+/// Preloads the local AI model so that model-routed commands start with zero cold start.
+#[tauri::command]
+pub async fn kevo_preload_model(chat: State<'_, Chat>, model: Option<String>) -> Result<(), String> {
+    let profile = model.as_deref().unwrap_or("fast");
+    chat.local.start(profile, 8192).await?;
+    Ok(())
+}
 #[tauri::command]
 pub fn workspace_begin(jobs: State<Jobs>) -> u64 {
     jobs.next()

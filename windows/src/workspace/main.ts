@@ -355,9 +355,18 @@ function updateGlobalPill(listening:boolean){
  pillStatus.textContent=listening?'Listening…':'Kevo';
 }
 
+function preloadKevoModel(){
+ void invoke('kevo_preload_model',{model:model.value}).catch(()=>{});
+}
+
 jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
  updateGlobalPill(listening);
+ if(listening) preloadKevoModel();
 });
+
+if(jarvisCommandDesk.listener.getListeningState()){
+ preloadKevoModel();
+}
 
 pillMic.addEventListener('click',()=>{
  if(jarvisCommandDesk.listener.getListeningState()){
