@@ -4,7 +4,28 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 3.3: context injection and recall).
+Last updated: 2026-11-18 by Antigravity (Kevo 3.4: forget action and memory card in UI).
+
+## 2026-11-18 — Kevo 3.4: forget action and memory card in UI (Antigravity)
+
+Phase 3 Step 3.4 (`docs/kevo-briefs/phase-3.md`, "3.4 Forget action and list with delete"):
+- Unified Action List Addition (`windows/src/workspace/jarvis/voice/kevo-actions.ts`):
+  - Added `forget_fact` action with schema parameters `{ query?: string, id?: string }`.
+  - Searches matching facts and calls `deleteFact` or `clearFacts`, speaking clean confirmation ("I have forgotten that: ...").
+- Fast-Path Spoken Forget (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Added fast-path instant forget for "forget that...", "forget what I said about...", "forget my preference...", and "forget all memories" / "clear all memories".
+  - Added `forget` to `COMMAND_START`.
+- Memory Card in Command Desk UI (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Added Remembered Facts card displaying all stored memories with categories and timestamps.
+  - One-click "Delete" button per memory and "Clear all memories" button with instant reactive UI update.
+- Context Plumbing (`windows/src/workspace/main.ts`):
+  - Wired `deleteFact` and `clearFacts` into `jarvisActionContext`.
+- Verification:
+  - Unit tests in `kevo-actions.test.ts` verifying `forget_fact` action execution.
+  - Unit tests in `kevo-fastpath.test.ts` verifying fast-path spoken forget commands and clear commands.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 715/715 tests passed across 101 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 3.3: context injection and recall (Antigravity)
 

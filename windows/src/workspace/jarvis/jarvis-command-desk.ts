@@ -27,7 +27,7 @@ import { JarvisVoiceListener, type VoiceListenerOptions } from './voice/jarvis-v
 import { KevoEarsListener } from './voice/kevo-ears-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
-import { clearJarvisHistory } from './voice/jarvis-memory';
+import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } from './voice/jarvis-memory';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
@@ -518,6 +518,68 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 
+  // Memory Card (Phase 3 Step 3.4)
+  const memorySection = document.createElement('section');
+  memorySection.className = 'jarvis-memory-card';
+  memorySection.setAttribute('aria-label', 'Kevo Memory');
+
+  const memHeader = document.createElement('div');
+  memHeader.className = 'jarvis-panel-header';
+  const memTitle = document.createElement('h3');
+  memTitle.className = 'jarvis-panel-title';
+  memTitle.textContent = 'Remembered Facts';
+
+  const clearMemBtn = makeBtn('Clear all memories', 'jarvis-btn-danger', async () => {
+    if (confirm('Forget all remembered facts? This cannot be undone.')) {
+      if (options?.voiceActionContext?.clearFacts) await options.voiceActionContext.clearFacts();
+      else await clearFacts();
+      await renderMemoryList();
+      hud.pulseMessage('All remembered facts cleared.');
+    }
+  });
+  memHeader.append(memTitle, clearMemBtn);
+
+  const memListEl = document.createElement('ul');
+  memListEl.className = 'jarvis-memory-list';
+
+  async function renderMemoryList(): Promise<void> {
+    const facts = (options?.voiceActionContext?.listFacts
+      ? await options.voiceActionContext.listFacts()
+      : await listFacts()) as KevoFact[];
+    memListEl.replaceChildren();
+    if (!facts || facts.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'jarvis-memory-empty';
+      empty.textContent = 'No remembered facts yet. Say "Remember that..." to teach Kevo a preference.';
+      memListEl.appendChild(empty);
+      return;
+    }
+    for (const f of facts) {
+      const li = document.createElement('li');
+      li.className = 'jarvis-memory-item';
+
+      const tag = document.createElement('span');
+      tag.className = 'jarvis-memory-tag';
+      tag.textContent = `[${f.category || 'general'}]`;
+
+      const text = document.createElement('span');
+      text.className = 'jarvis-memory-text';
+      text.textContent = f.fact;
+
+      const delBtn = makeBtn('Delete', 'jarvis-memory-del-btn', async () => {
+        if (options?.voiceActionContext?.deleteFact) await options.voiceActionContext.deleteFact(f.id);
+        else await deleteFact(f.id);
+        await renderMemoryList();
+      });
+
+      li.append(tag, text, delBtn);
+      memListEl.appendChild(li);
+    }
+  }
+
+  void renderMemoryList();
+  memorySection.append(memHeader, memListEl);
+
   const team = document.createElement('section');
   team.className = 'jarvis-team';
   team.setAttribute('aria-label', 'Team');
@@ -527,7 +589,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   team.append(teamTitle, agentRow, briefingPanel, toolbar);
 
   // The page already shows "Kevo" as its title, so the desk does not repeat it.
-  root.append(hud.root, typeBox, voiceBar, team);
+  root.append(hud.root, typeBox, voiceBar, memorySection, team);
 
   function destroy(): void {
     listener.stop();
@@ -602,6 +664,16 @@ function injectDeskStyles(): void {
     .agent-metric span { color: var(--muted, #b0c4bd); }
     .jarvis-dim { color: var(--muted, #b0c4bd); }
     .jarvis-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+    .jarvis-memory-card { background: var(--surface, #1e2522); border: 1px solid var(--border, #2a3530); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .jarvis-panel-header { display: flex; justify-content: space-between; align-items: center; }
+    .jarvis-memory-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .jarvis-memory-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg, #141a18); border-radius: 6px; font-size: 13px; }
+    .jarvis-memory-tag { color: var(--accent, #a3e5cd); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .jarvis-memory-text { flex: 1 1 auto; overflow-wrap: anywhere; }
+    .jarvis-memory-del-btn { background: transparent; border: 1px solid var(--border, #2a3530); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--muted, #b0c4bd); }
+    .jarvis-memory-del-btn:hover { color: #f87171; border-color: #f87171; }
+    .jarvis-memory-empty { color: var(--muted, #b0c4bd); font-size: 13px; font-style: italic; }
+    .jarvis-btn-danger { color: #f87171; }
     @media (prefers-reduced-motion: reduce) { .jarvis-btn, .jarvis-mic-btn { transition: none; } }
   `;
   document.head.appendChild(style);

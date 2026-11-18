@@ -31,7 +31,7 @@
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
-import { rememberFact, listFacts, type KevoFact } from './jarvis-memory';
+import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -499,6 +499,63 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: false,
           actionName: 'recall_facts',
           speechReply: `Could not retrieve memories: ${String(err)}`,
+        };
+      }
+    },
+  },
+  {
+    name: 'forget_fact',
+    description: 'Forget or remove a remembered fact, preference, or instruction.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Text or keyword of the fact to forget' },
+        id: { type: 'string', description: 'Specific ID of the fact to forget' },
+      },
+    },
+    execute: async (args: { query?: string; id?: string }, ctx: JarvisActionContext) => {
+      try {
+        if (args?.id) {
+          const ok = ctx.deleteFact ? await ctx.deleteFact(args.id) : await deleteFact(args.id);
+          return {
+            handled: true,
+            actionName: 'forget_fact',
+            speechReply: ok ? 'I have forgotten that, sir.' : 'Could not find that memory to forget.',
+          };
+        }
+        const q = (args?.query || '').trim();
+        if (!q) {
+          return {
+            handled: false,
+            actionName: 'forget_fact',
+            speechReply: 'What would you like me to forget, sir?',
+          };
+        }
+        const matching = ctx.listFacts ? await ctx.listFacts(q) : await listFacts(q);
+        if (!matching || matching.length === 0) {
+          return {
+            handled: true,
+            actionName: 'forget_fact',
+            speechReply: `I couldn't find any remembered facts about ${q}, sir.`,
+          };
+        }
+        for (const item of matching) {
+          const id = (item as any).id;
+          if (id) {
+            if (ctx.deleteFact) await ctx.deleteFact(id);
+            else await deleteFact(id);
+          }
+        }
+        return {
+          handled: true,
+          actionName: 'forget_fact',
+          speechReply: `I have forgotten that: ${(matching[0] as any).fact}`,
+        };
+      } catch (err) {
+        return {
+          handled: false,
+          actionName: 'forget_fact',
+          speechReply: `Failed to forget memory: ${String(err)}`,
         };
       }
     },

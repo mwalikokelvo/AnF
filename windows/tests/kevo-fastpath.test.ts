@@ -204,4 +204,39 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
 
     agent.dispose();
   });
+
+  it('handles forget commands instantly on fast path with no model loaded (Step 3.4)', async () => {
+    let deletedId = '';
+    let cleared = false;
+    const mockFacts = [
+      { id: 'f1', fact: 'I like jazz', category: 'music', created_at: 1, updated_at: 1 },
+    ];
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        listFacts: async (q) => (q && q.toLowerCase().includes('jazz') ? mockFacts : []),
+        deleteFact: async (id) => {
+          deletedId = id;
+          return true;
+        },
+        clearFacts: async () => {
+          cleared = true;
+          return true;
+        },
+      })
+    );
+
+    const res = await agent.processVoiceInput('forget that I like jazz');
+    assert.strictEqual(res.handled, true);
+    assert.strictEqual(res.actionName, 'forget_fact');
+    assert.match(res.speechReply, /I have forgotten that: I like jazz/);
+    assert.strictEqual(deletedId, 'f1');
+
+    const resClear = await agent.processVoiceInput('forget all memories');
+    assert.strictEqual(resClear.handled, true);
+    assert.strictEqual(resClear.actionName, 'forget_fact');
+    assert.match(resClear.speechReply, /forgotten all remembered facts/);
+    assert.strictEqual(cleared, true);
+
+    agent.dispose();
+  });
 });
