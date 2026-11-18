@@ -89,6 +89,7 @@ pub async fn kevo_ask(
     turn.0.send_replace(id);
     let mut changed = turn.0.subscribe();
     let messages = kevo_messages(query.trim(), &history);
+    let started = std::time::Instant::now();
     let mut unsent = String::new();
     let answer = async {
         let text = chat.local.reply_stream(&messages, &model, 160, |piece| {
@@ -108,6 +109,7 @@ pub async fn kevo_ask(
     if !rest.is_empty() {
         let _ = app.emit("kevo-reply-part", KevoPart { id, text: rest.to_string() });
     }
+    crate::kevo_hud::set_badge(&app, format!("Local model · {:.1} s", started.elapsed().as_secs_f32()));
     Ok(text)
 }
 /// Stops the answer Kevo is writing, if any.
