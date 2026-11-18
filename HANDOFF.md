@@ -4,7 +4,23 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.6: model choice and the CI gate).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.7: remove what the model now covers).
+
+## 2026-11-18 — Kevo 2.7: remove what the model now covers (Antigravity)
+
+Phase 2 Step 2.7 (`docs/kevo-briefs/phase-2.md`, "2.7 Remove what the model now covers"):
+- Regex Branch Cleanup in `jarvis-voice-agent.ts`:
+  - Removed obsolete regex branches and dead code (`runDevHealth`, `triageSupport` stubs) now handled by the unified action list (`kevo-actions.ts`) and the model.
+  - Kept fast-path instant execution strictly intact for stop, repeat, clock, date, timers, sums, exact app launch, and help/name/mic answers with zero model loaded.
+  - All existing unit tests and phrase-level tests continue to pass 100%.
+- Browser Hearing Option Removed:
+  - Removed `hearing?: 'pc' | 'browser'` option from `JarvisCommandDeskOptions` and cleaned up `kevo-hearing` localStorage logic in `windows/src/workspace/jarvis/jarvis-command-desk.ts`.
+  - In the desktop app on PC, `KevoEarsListener` (sherpa-onnx: Silero VAD + KWS + streaming ASR) is now the sole native hearing pipeline, with `JarvisVoiceListener` retained only for mock/headless tests.
+- Verification:
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - `kevo-fastpath.test.ts` (7/7 PASS).
+  - `kevo-phrases.test.ts` (100.0% phrase list pass rate).
 
 ## 2026-11-18 — Kevo 2.6: model choice and the CI gate (Antigravity)
 
