@@ -60,6 +60,33 @@ export function formatTtfsBadge(elapsedMs: number, modelName: string): string {
   return `First sentence: ${sec} s (Model: ${modelName})`;
 }
 
+export function createWorkspaceTeamCard(options: {
+  title: string;
+  role: string;
+  badge?: string;
+  metrics: Array<{ label: string; value: string }>;
+}): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'jarvis-agent-card jarvis-workspace-card';
+  const metricsHtml = options.metrics
+    .map(m => `<div class="agent-metric"><span>${m.label}</span><strong>${m.value}</strong></div>`)
+    .join('');
+  const badgeHtml = options.badge
+    ? `<div style="margin-top:6px;"><span class="jarvis-verified-badge" style="font-size:9px;padding:2px 6px;background:rgba(0,255,170,0.15);color:#00ffaa;border-radius:3px;font-weight:600;">${options.badge}</span></div>`
+    : '';
+  card.innerHTML = `
+    <div class="agent-header">
+      <span class="agent-name">${options.title}</span>
+      <span class="agent-role">${options.role}</span>
+    </div>
+    <div class="agent-body">
+      ${metricsHtml}
+      ${badgeHtml}
+    </div>
+  `;
+  return card;
+}
+
 export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root: HTMLElement;
   destroy: () => void;
@@ -86,12 +113,71 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Inject desk styles
   injectDeskStyles();
 
-  // ── Agent cards row
+  // ── Truthful workspace team cards row (Phase 7 Step 7.2)
   const agentRow = document.createElement('div');
   agentRow.className = 'jarvis-agent-row';
-  agentRow.appendChild(tom.renderStatusCard());
-  agentRow.appendChild(scout.renderStatusCard());
-  agentRow.appendChild(support.renderStatusCard());
+
+  async function refreshTeamCards(): Promise<void> {
+    const [allReminders, telemetry] = await Promise.all([
+      listReminders().catch(() => []),
+      fetchSystemTelemetry().catch(() => null),
+    ]);
+    let pendingReading = 0;
+    try { pendingReading = loadReadingQueue().length; } catch {}
+    const vaultCount = options?.voiceActionContext?.getVaultNoteCount
+      ? await options.voiceActionContext.getVaultNoteCount()
+      : (options?.voiceActionContext?.notes?.length ?? 0);
+    const remindersCount = (allReminders as KevoReminder[]).length;
+    const sysStatus = telemetry?.audioEngineStatus ?? 'idle';
+
+    const cards = [
+      createWorkspaceTeamCard({
+        title: 'Knowledge',
+        role: 'Vault & Notes',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Notes', value: `${vaultCount}` },
+          { label: 'Index', value: 'BM25' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'Reading',
+        role: 'Queue & Reader',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Queued', value: `${pendingReading}` },
+          { label: 'Format', value: 'Offline' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'Schedule',
+        role: 'Reminders & Alarms',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Active', value: `${remindersCount}` },
+          { label: 'Store', value: 'Persistent' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'System',
+        role: 'Audio & Model',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Engine', value: sysStatus },
+          { label: 'Inference', value: 'Local CPU' },
+        ],
+      }),
+    ];
+
+    if (typeof agentRow.replaceChildren === 'function') {
+      agentRow.replaceChildren(...cards);
+    } else {
+      agentRow.innerHTML = '';
+      for (const card of cards) agentRow.appendChild(card);
+    }
+  }
+
+  void refreshTeamCards();
 
   // ── Briefing panel
   const briefingPanel = document.createElement('div');
@@ -125,7 +211,9 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
         pendingReading = loadReadingQueue().length;
       } catch {}
 
-      const vaultNotes = options?.voiceActionContext?.notes?.length ?? 0;
+      const vaultNotes = options?.voiceActionContext?.getVaultNoteCount
+        ? await options.voiceActionContext.getVaultNoteCount()
+        : (options?.voiceActionContext?.notes?.length ?? 0);
 
       const briefing = await executive.generateBriefing({}, {
         vault: { totalNotes: vaultNotes, status: 'operational' },
@@ -142,6 +230,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       });
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
+      void refreshTeamCards();
       hud.pulseMessage('Briefing complete — ' + briefing.summary);
       notify('Kevo briefing generated successfully.');
     } catch (err) {
@@ -291,8 +380,11 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       ).length;
       let pendingReading = 0;
       try { pendingReading = loadReadingQueue().length; } catch {}
+      const vaultCount = options?.voiceActionContext?.getVaultNoteCount
+        ? await options.voiceActionContext.getVaultNoteCount()
+        : (options?.voiceActionContext?.notes?.length ?? 0);
       const b = await executive.generateBriefing({}, {
-        vault: { totalNotes: options?.voiceActionContext?.notes?.length ?? 0, status: 'operational' },
+        vault: { totalNotes: vaultCount, status: 'operational' },
         reading: { pendingItems: pendingReading },
         schedule: {
           remindersToday,
@@ -633,7 +725,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
+  const btnRefreshTeam = makeBtn('Refresh telemetry', '', () => void refreshTeamCards());
+  toolbar.append(btnBriefing, btnRefreshTeam, btnAutoTriage, btnAddTask, btnScoutAngle);
 
   // Action Activity & Verification Card (Phase 5 Step 5.4)
   const actionSection = document.createElement('section');

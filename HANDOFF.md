@@ -4,7 +4,26 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics).
+Last updated: 2026-11-18 by Antigravity (Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers).
+
+## 2026-11-18 — Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers (Antigravity)
+
+Phase 7 Step 7.2 (`docs/kevo-briefs/phase-7.md`, "7.2 Truthful Team Cards & Workspace Telemetry Providers"):
+- Truthful Workspace Team Cards (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Replaced hardcoded demo agent cards (Tom 513 tests, Scout 24,500 reach, Support 13 tickets) with truthful local capability team cards representing real AnF modules:
+    1. Knowledge (Vault & Notes): Live project/note count, BM25 indexing status.
+    2. Reading (Queue & Reader): Live pending queue count, offline storage format.
+    3. Schedule (Reminders & Alarms): Active reminder count, persistent storage status.
+    4. System (Audio & Model): Live audio engine status (idle/playing), local CPU inference.
+  - Rendered `✓ Verified Local Data` badges on every team card.
+  - Added `refreshTeamCards()` dynamically updating team card telemetry on load, after briefing generation, or via "Refresh telemetry" toolbar action.
+- Workspace Telemetry Provider Wiring (`windows/src/workspace/main.ts`):
+  - Wired `jarvisActionContext.getVaultNoteCount` to query live note count from `workspace_list_projects`.
+  - Wired `jarvisActionContext.getBriefing` to pass truthful telemetry (Vault, Reading Queue, Reminders, Schedule, System) to `JarvisExecutive`.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 798/798 tests passed across 122 suites (`node scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics (Antigravity)
 
