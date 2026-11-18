@@ -4,7 +4,23 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 4.4: minimised window alert and native audio notification).
+Last updated: 2026-11-18 by Antigravity (Kevo 4.5: schedule UI and full test suite).
+
+## 2026-11-18 — Kevo 4.5: schedule UI and full test suite (Antigravity)
+
+Phase 4 Step 4.5 (`docs/kevo-briefs/phase-4.md`, "4.5 Schedule UI & full test suite"):
+- Schedule & Reminder Desk UI (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Added "Reminders & Schedule" card (`scheduleSection`, `.jarvis-schedule-card`) with countdown timers (`formatCountdown`), recurrence tags, item delete buttons, and "Clear all reminders" action button.
+  - Added CSS styles for `.jarvis-schedule-*`.
+  - Mounted card into Jarvis command desk and populated initial list on mount.
+- Phrase Test Suite Coverage (`windows/tests/kevo-phrases.json`):
+  - Added 8 test phrases covering `create_reminder`, `list_reminders`, `cancel_reminder`, and `schedule_briefing`.
+- Verification:
+  - 4/4 Rust unit tests in `kevo_schedule` PASS (`cargo test --lib kevo_schedule`).
+  - Phrase list evaluation: 203/204 variants PASS (99.5%, > 95% threshold).
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 732/732 tests passed across 104 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 4.4: minimised window alert and native audio notification (Antigravity)
 

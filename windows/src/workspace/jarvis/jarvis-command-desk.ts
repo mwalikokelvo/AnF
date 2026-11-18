@@ -28,6 +28,7 @@ import { KevoEarsListener } from './voice/kevo-ears-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } from './voice/jarvis-memory';
+import { listReminders, cancelReminder, clearReminders, type KevoReminder } from './voice/jarvis-schedule';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
@@ -580,6 +581,84 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   void renderMemoryList();
   memorySection.append(memHeader, memListEl);
 
+  // Schedule Card (Phase 4 Step 4.5)
+  const scheduleSection = document.createElement('section');
+  scheduleSection.className = 'jarvis-schedule-card';
+  scheduleSection.setAttribute('aria-label', 'Kevo Reminders & Schedule');
+
+  const schedHeader = document.createElement('div');
+  schedHeader.className = 'jarvis-panel-header';
+  const schedTitle = document.createElement('h3');
+  schedTitle.className = 'jarvis-panel-title';
+  schedTitle.textContent = 'Reminders & Schedule';
+
+  const clearSchedBtn = makeBtn('Clear all reminders', 'jarvis-btn-danger', async () => {
+    if (confirm('Clear all scheduled reminders? This cannot be undone.')) {
+      if (options?.voiceActionContext?.clearReminders) await options.voiceActionContext.clearReminders();
+      else await clearReminders();
+      await renderScheduleList();
+      hud.pulseMessage('All reminders cleared.');
+    }
+  });
+  schedHeader.append(schedTitle, clearSchedBtn);
+
+  const schedListEl = document.createElement('ul');
+  schedListEl.className = 'jarvis-schedule-list';
+
+  function formatCountdown(targetMs: number): string {
+    const diff = targetMs - Date.now();
+    if (diff <= 0) return 'Due now';
+    const mins = Math.round(diff / 60000);
+    if (mins < 60) return `in ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    if (hours < 24) return `in ${hours}h ${remMins}m`;
+    const days = Math.floor(hours / 24);
+    return `in ${days}d`;
+  }
+
+  async function renderScheduleList(): Promise<void> {
+    const reminders = (options?.voiceActionContext?.listReminders
+      ? await options.voiceActionContext.listReminders()
+      : await listReminders()) as KevoReminder[];
+    schedListEl.replaceChildren();
+    if (!reminders || reminders.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'jarvis-schedule-empty';
+      empty.textContent = 'No upcoming reminders. Say "Remind me to..." or "Schedule daily briefing at 8 AM".';
+      schedListEl.appendChild(empty);
+      return;
+    }
+    for (const r of reminders) {
+      const li = document.createElement('li');
+      li.className = 'jarvis-schedule-item';
+
+      const tag = document.createElement('span');
+      tag.className = 'jarvis-schedule-tag';
+      tag.textContent = `[${r.recurring || 'reminder'}]`;
+
+      const text = document.createElement('span');
+      text.className = 'jarvis-schedule-text';
+      text.textContent = r.message;
+
+      const time = document.createElement('span');
+      time.className = 'jarvis-schedule-time';
+      time.textContent = formatCountdown(r.trigger_at);
+
+      const delBtn = makeBtn('Cancel', 'jarvis-schedule-del-btn', async () => {
+        if (options?.voiceActionContext?.cancelReminder) await options.voiceActionContext.cancelReminder(r.id);
+        else await cancelReminder(r.id);
+        await renderScheduleList();
+      });
+
+      li.append(tag, text, time, delBtn);
+      schedListEl.appendChild(li);
+    }
+  }
+
+  void renderScheduleList();
+  scheduleSection.append(schedHeader, schedListEl);
+
   const team = document.createElement('section');
   team.className = 'jarvis-team';
   team.setAttribute('aria-label', 'Team');
@@ -589,7 +668,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   team.append(teamTitle, agentRow, briefingPanel, toolbar);
 
   // The page already shows "Kevo" as its title, so the desk does not repeat it.
-  root.append(hud.root, typeBox, voiceBar, memorySection, team);
+  root.append(hud.root, typeBox, voiceBar, memorySection, scheduleSection, team);
 
   function destroy(): void {
     listener.stop();
@@ -673,6 +752,15 @@ function injectDeskStyles(): void {
     .jarvis-memory-del-btn { background: transparent; border: 1px solid var(--border, #2a3530); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--muted, #b0c4bd); }
     .jarvis-memory-del-btn:hover { color: #f87171; border-color: #f87171; }
     .jarvis-memory-empty { color: var(--muted, #b0c4bd); font-size: 13px; font-style: italic; }
+    .jarvis-schedule-card { background: var(--surface, #1e2522); border: 1px solid var(--border, #2a3530); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .jarvis-schedule-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .jarvis-schedule-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg, #141a18); border-radius: 6px; font-size: 13px; }
+    .jarvis-schedule-tag { color: var(--accent, #a3e5cd); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .jarvis-schedule-text { flex: 1 1 auto; overflow-wrap: anywhere; }
+    .jarvis-schedule-time { font-size: 11px; color: var(--muted, #b0c4bd); margin-right: 4px; }
+    .jarvis-schedule-del-btn { background: transparent; border: 1px solid var(--border, #2a3530); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--muted, #b0c4bd); }
+    .jarvis-schedule-del-btn:hover { color: #f87171; border-color: #f87171; }
+    .jarvis-schedule-empty { color: var(--muted, #b0c4bd); font-size: 13px; font-style: italic; }
     .jarvis-btn-danger { color: #f87171; }
     @media (prefers-reduced-motion: reduce) { .jarvis-btn, .jarvis-mic-btn { transition: none; } }
   `;
