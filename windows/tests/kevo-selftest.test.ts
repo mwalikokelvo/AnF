@@ -171,6 +171,11 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(typeof report.idleCpuPercent60s, 'number');
     assert.strictEqual(typeof parsedSaved.idleCpuPercent60s, 'number');
 
+    // Phase 1 step 1.6 barge-in stop delay reported
+    assert.strictEqual(typeof report.bargeInStopDelayMs, 'number');
+    assert.strictEqual(typeof parsedSaved.bargeInStopDelayMs, 'number');
+    assert.ok(report.bargeInStopDelayMs <= 300);
+
     // HUD track checks executed (H.8)
     assert.ok(report.hudChecks);
     assert.strictEqual(typeof report.hudChecks.stateChangeDelayMs, 'number');

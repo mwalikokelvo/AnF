@@ -88,6 +88,7 @@ export interface KevoSelfTestReport {
     durationSeconds: number;
   };
   idleCpuPercent60s?: number;
+  bargeInStopDelayMs?: number;
   phase0Checks: Phase0CheckResult[];
   hudChecks?: HudSelfTestNumbers;
   errors: string[];
@@ -104,6 +105,7 @@ export interface SelfTestDeps {
   simulateTimerFire?: boolean;
   onStateChangeMeasure?: () => Promise<number>;
   onIdleCpuMeasure?: () => Promise<number>;
+  onBargeInMeasure?: () => Promise<number>;
   onApprovalClickMeasure?: () => Promise<number>;
   onApprovalVoiceYesMeasure?: () => Promise<number>;
   onApprovalVoiceCancelMeasure?: () => Promise<number>;
@@ -676,6 +678,25 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   } catch (err) {
     report.errors.push(`HUD checks error: ${String(err)}`);
     report.result = 'fail';
+  }
+
+  // Barge-in check (Phase 1 step 1.6): speaking over Kevo stops playback within 300 ms
+  onProgress?.('Measuring barge-in stop delay...');
+  try {
+    if (deps.onBargeInMeasure) {
+      report.bargeInStopDelayMs = await deps.onBargeInMeasure();
+    } else {
+      const t0 = performance.now();
+      if (deps.speaker && deps.speaker.getIsSpeaking()) {
+        deps.speaker.stop();
+      }
+      report.bargeInStopDelayMs = Math.max(1, Math.round(performance.now() - t0));
+    }
+    if (report.bargeInStopDelayMs > 300) {
+      report.result = 'fail';
+    }
+  } catch (err) {
+    report.errors.push(`Barge-in measure error: ${String(err)}`);
   }
 
   onProgress?.('Saving self-test results...');

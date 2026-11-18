@@ -20,6 +20,7 @@ export interface KevoEarsEventSource {
 
 export interface KevoEarsListenerOptions extends VoiceListenerOptions {
   eventSource?: KevoEarsEventSource;
+  onBargeIn?: () => void;
 }
 
 export class KevoEarsListener {
@@ -30,6 +31,7 @@ export class KevoEarsListener {
   public onInterimSpeech?: (transcript: string) => void;
   public onFinalSpeech?: (transcript: string) => void;
   public onWakeWord?: (wakeWord: string) => void;
+  public onBargeIn?: () => void;
   public onError?: (err: string) => void;
   private requireWakeWord: boolean;
   private followUpMs: number;
@@ -49,6 +51,7 @@ export class KevoEarsListener {
   private unlistenPartial: (() => void) | undefined;
   private unlistenFinal: (() => void) | undefined;
   private unlistenError: (() => void) | undefined;
+  private unlistenBargeIn: (() => void) | undefined;
   private eventSource?: KevoEarsEventSource;
 
   constructor(options?: KevoEarsListenerOptions) {
@@ -61,6 +64,7 @@ export class KevoEarsListener {
     this.onInterimSpeech = options?.onInterimSpeech;
     this.onFinalSpeech = options?.onFinalSpeech;
     this.onWakeWord = options?.onWakeWord;
+    this.onBargeIn = options?.onBargeIn;
     this.onError = options?.onError;
     this.eventSource = options?.eventSource;
   }
@@ -183,11 +187,20 @@ export class KevoEarsListener {
     const listenFn = this.eventSource?.onEvent ?? onEvent;
 
     const uWake = await listenFn<string>('kevo-ears-wake', (wakeWord) => {
-      if (this.muted || !this.isRunning) return;
+      if (!this.isRunning) return;
+      if (this.muted) {
+        this.onBargeIn?.();
+      }
       this.keepAwake();
       this.onWakeWord?.(wakeWord || 'kevo');
     });
     this.unlistenWake = typeof uWake === 'function' ? uWake : undefined;
+
+    const uBargeIn = await listenFn<void>('kevo-ears-barge-in', () => {
+      if (!this.isRunning) return;
+      this.onBargeIn?.();
+    });
+    this.unlistenBargeIn = typeof uBargeIn === 'function' ? uBargeIn : undefined;
 
     const uPartial = await listenFn<string>('kevo-ears-partial', (transcript) => {
       if (this.muted || !this.isRunning) return;
@@ -233,6 +246,8 @@ export class KevoEarsListener {
     this.unlistenFinal = undefined;
     this.unlistenError?.();
     this.unlistenError = undefined;
+    this.unlistenBargeIn?.();
+    this.unlistenBargeIn = undefined;
   }
 
   private promoteInterim(): void {

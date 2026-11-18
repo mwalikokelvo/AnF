@@ -211,4 +211,28 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
 
     listener.stop();
   });
+
+  it('triggers onBargeIn when kevo-ears-barge-in fires or wake occurs while muted', async () => {
+    let bargeInCalled = false;
+    const listener = new KevoEarsListener({
+      eventSource,
+      onBargeIn: () => {
+        bargeInCalled = true;
+      },
+    });
+
+    listener.start();
+    await wait(10);
+
+    emitEvent('kevo-ears-barge-in', undefined);
+    assert.equal(bargeInCalled, true);
+
+    // Wake while muted also triggers barge-in (talking over Kevo)
+    bargeInCalled = false;
+    listener.setMuted(true);
+    emitEvent('kevo-ears-wake', 'kevo');
+    assert.equal(bargeInCalled, true);
+
+    listener.stop();
+  });
 });
