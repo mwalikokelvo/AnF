@@ -4,7 +4,26 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 2.4: instant commands stay instant).
+Last updated: 2026-11-18 by Antigravity (Kevo 2.5: no cold start).
+
+## 2026-11-18 — Kevo 2.5: no cold start (Antigravity)
+
+Phase 2 Step 2.5 (`docs/kevo-briefs/phase-2.md`, "2.5 No cold start"):
+- Model Warmup / Preload:
+  - Added `kevo_preload_model` Tauri command in `windows/src-tauri/src/workspace_commands.rs` (exposed in `lib.rs`).
+  - Preloads the model by invoking `chat.local.start(profile, 8192)` asynchronously in the background so weights and server loopback are warm before first query.
+  - Exposed `Bridge.kevoPreloadModel()` in `windows/src/core/bridge.ts`.
+  - Wired `windows/src/workspace/main.ts` to trigger `Bridge.kevoPreloadModel()` whenever the microphone turns on (and at startup if listening is enabled).
+- Latency Tracking & Self-Test Verification:
+  - Extended `runKevoSelfTest` in `windows/src/workspace/jarvis/kevo-selftest.ts` to track latencies for model-routed queries.
+  - Enforces Phase 2 Step 2.5 criteria:
+    - First model-routed command after fresh start must start reply within <= 5000 ms (`firstModelCommandMs <= 5000`).
+    - Subsequent model-routed commands must start reply within <= 1500 ms (`subsequentModelCommandsMs <= 1500`).
+  - Records latencies into `report.modelCommandLatencies` and fails report if thresholds are exceeded.
+- Verification:
+  - TypeScript unit test suite in `windows/tests/kevo-selftest.test.ts` (6/6 PASS).
+  - Rust tests in `workspace_commands::kevo_tests` (3/3 PASS).
+  - 12/12 `check-release.mjs` PASS, `npx tsc --noEmit` PASS.
 
 ## 2026-11-18 — Kevo 2.4: instant commands stay instant (Antigravity)
 
