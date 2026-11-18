@@ -4,7 +4,31 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Claude (UI pass 1 on top of #255: one top bar, rail sections, Tonal Glass / Paper & Forest).
+Last updated: 2026-11-18 by Antigravity (UI pass 1: Audio Studio 3 tabs with (i) info popover, #259).
+
+## 2026-11-18 — UI pass 1: Audio Studio as 3 tabs with an (i) info popover (Antigravity)
+
+Resolved GitHub issue #259:
+- Replaced Audio Studio's stacked accordions with a 3-tab sub-navigation (`windows/src/workspace/audio-studio.ts`):
+  - **Library & Queue**: Track imports, active track metadata editing, transport controls, waveform seek/scrub, play queue management, library tracks, and saved playlist export/import.
+  - **Convert & Transcode**: Noise profile capture, spectral subtraction, hum filter, sample rate/channel selectors, waveform caching, clean speech export, audio clip slicing (Cap/Supoclip), local speech transcription to Markdown notes, and native FFmpeg audio conversion.
+  - **Screen & Clip Studio**: Embedded Cap screen & audio recording studio and Supoclip 9:16 vertical shorts video clipper.
+- Accessible tablist navigation:
+  - Container with `role="tablist"` and `aria-label="Audio Studio Sections"`.
+  - Tabs with `role="tab"`, `aria-selected`, `aria-controls`, `tabindex="0"` on active and `"-1"` on inactive tabs.
+  - Keyboard navigation with Left/Right/Up/Down arrow keys (circular wrap) and Home/End support.
+  - Styled with neutral pills conforming to `anf-tonal.css` tokens and `.music-pill`.
+- Capabilities & storage info popover:
+  - Replaced the static capabilities accordion with an `(i)` button opening an accessible dialog popover.
+  - Keyboard accessible: Esc closes popover and returns focus to the `(i)` button.
+  - Click-outside dismisses popover.
+- Retained integration events:
+  - `anf-open-cap` and `anf-open-supoclip` switch active tab to "Screen & Clip Studio" and smoothly scroll to the target studio.
+  - `onSendToSupoclip` switches to "Screen & Clip Studio" and focuses the clipper.
+- Automated tests (`windows/tests/audio-studio-tabs.test.ts`):
+  - 5 tests covering tablist DOM structure, tab selection, keyboard arrow navigation, info popover toggle/Esc close, and custom event listeners.
+  - Verification: `npx tsc --noEmit` clean, 798/798 unit tests pass (`node scripts/test.mjs`), 138/138 E2E tests pass (`npm run test:e2e`), 12/12 release checks pass (`node scripts/check-release.mjs`).
+
 
 ## 2026-11-18 — UI pass 1: one top bar, rail sections, Tonal Glass / Paper & Forest (Claude)
 
