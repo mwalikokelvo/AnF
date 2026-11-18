@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 5.3: honest spoken feedback & failure diagnosis).
+Last updated: 2026-11-18 by Antigravity (Kevo 5.4: command desk verification status & badges).
+
+## 2026-11-18 — Kevo 5.4: command desk verification status & badges (Antigravity)
+
+Phase 5 Step 5.4 (`docs/kevo-briefs/phase-5.md`, "5.4 Command Desk Verification Status & Badges"):
+- Action Activity & Verification Card (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Added dedicated "Action Activity & Verification" card (`actionSection`, `.jarvis-action-card`) displaying real-time execution activity with latency, timestamp, action name, and raw command prompt.
+  - Added real-time verification badges:
+    - `✓ Verified` (green badge: `.jarvis-action-badge-success`) for verified successful actions.
+    - `✗ Failed: [reason]` (red badge: `.jarvis-action-badge-failure`) for failed actions displaying structured error reason (`NOT_FOUND`, `EXECUTION_FAILED`, `NO_MATCH`, etc.).
+    - `? Unverified` (amber badge: `.jarvis-action-badge-unverified`) for legacy/unverified outcomes.
+  - Added "Clear activity" button to clear action history.
+  - Added CSS styling for `.jarvis-action-*` and `.jarvis-btn-dim` in `injectDeskStyles()`.
+  - Hooked command handler `handleCommand` to measure elapsed milliseconds and record `actionHistory` with real status, verification state, and error reason on both successful completions and exceptions.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 12/12 `check-release.mjs` PASS.
+  - 735/735 tests passed across 104 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 5.3: honest spoken feedback & failure diagnosis (Antigravity)
 
