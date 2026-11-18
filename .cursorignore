@@ -1,0 +1,17 @@
+# Keep Cursor's index small: build output, models, generated graphs, old checkpoints and binary fixtures.
+target/
+node_modules/
+dist/
+graphify-out/
+.codebase-memory/
+continuations/
+archive/
+windows/local-ai/
+windows/media/
+*.onnx
+*.gguf
+*.safetensors
+*.epub
+*.db
+*.sqlite
+*.wav
