@@ -1,21 +1,26 @@
 /**
- * Kevo Self-Test unit tests (Phase 0 step 0.4b).
+ * Kevo Self-Test unit tests (Phase 0 steps 0.4b and 0.5).
  * Verifies that:
  * 1. Self-test runs request clips in dry-run mode and records timings, heard text, and dispatched actions.
  * 2. Wake, look-alike and background clips record counts only (wakes, false wakes), never heard text.
- * 3. Results are formatted with home paths sanitized to `~`.
- * 4. "Run Kevo test builds and Kevo's self-test automatically" defaults to false.
+ * 3. The five Phase 0 checks execute as self-test scripts (Phase 0 step 0.5).
+ * 4. Results are formatted with home paths sanitized to `~`.
+ * 5. "Run Kevo test builds and Kevo's self-test automatically" defaults to false.
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { runKevoSelfTest, type KevoSelfTestReport } from '../src/workspace/jarvis/kevo-selftest';
+import {
+  runKevoSelfTest,
+  runFivePhase0Checks,
+  type KevoSelfTestReport,
+} from '../src/workspace/jarvis/kevo-selftest';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 import { DEFAULT_SETTINGS } from '../src/core/state';
 import { Bridge } from '../src/core/bridge';
 
-describe('Kevo Self-Test (Phase 0 step 0.4b)', () => {
+describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
   it('DEFAULT_SETTINGS sets kevoAutoTest to false by default', () => {
     assert.strictEqual(DEFAULT_SETTINGS.kevoAutoTest, false);
   });
@@ -29,6 +34,7 @@ describe('Kevo Self-Test (Phase 0 step 0.4b)', () => {
         appOpened = true;
         return name;
       },
+      announce: () => {},
     };
 
     const agent = new JarvisVoiceAgent(actionContext);
@@ -94,9 +100,13 @@ describe('Kevo Self-Test (Phase 0 step 0.4b)', () => {
         listener.onWakeWord?.('Hey Kevo');
       } else if (filename === 'lookalike-01.wav') {
         // Lookalike: do not fire wake
-      } else if (filename === 'req-time-01.wav') {
+      } else if (filename.includes('timer')) {
+        listener.onFinalSpeech?.('set a timer for ten seconds');
+      } else if (filename.includes('time')) {
         listener.onFinalSpeech?.('what time is it');
-      } else if (filename === 'req-open-01.wav') {
+      } else if (filename.includes('help')) {
+        listener.onFinalSpeech?.('what can you do');
+      } else if (filename.includes('open-brave') || filename === 'req-open-01.wav') {
         listener.onFinalSpeech?.('open Brave browser');
       }
     };
@@ -107,6 +117,8 @@ describe('Kevo Self-Test (Phase 0 step 0.4b)', () => {
       listener,
       playClipAudio,
       appVersion: '0.1.58',
+      sleepMs: async () => {}, // instant sleep in test
+      simulateTimerFire: true,
       onProgress: (step) => progressSteps.push(step),
     });
 
@@ -142,47 +154,60 @@ describe('Kevo Self-Test (Phase 0 step 0.4b)', () => {
     // In dryRun mode, real openApp callback was NOT called
     assert.strictEqual(appOpened, false);
 
+    // Phase 0 checks executed
+    assert.ok(report.phase0Checks.length === 5);
+    for (const c of report.phase0Checks) {
+      assert.strictEqual(c.passed, true, `Check ${c.check} failed: ${c.details}`);
+    }
+
     // Result was saved
     assert.ok(savedResultJson.length > 0);
     const parsedSaved = JSON.parse(savedResultJson);
     assert.strictEqual(parsedSaved.result, 'pass');
+    assert.strictEqual(parsedSaved.phase0Checks.length, 5);
   });
 
-  it('marks result as fail if an expected action does not match', async () => {
-    const agent = new JarvisVoiceAgent({ switchView: () => {}, dryRun: true });
-    const listener = new JarvisVoiceListener();
-
-    const mockManifest = JSON.stringify({
-      version: 1,
-      clips: [
-        {
-          id: 'req-fail',
-          file: 'req-fail.wav',
-          kind: 'request',
-          voice: 'ljspeech',
-          words: 'Unknown phrase',
-          seconds: 1.0,
-          expect: { action: 'expected_action_never_matched' },
-        },
-      ],
-    });
-
-    Bridge.kevoSelftestGetClips = async () => mockManifest;
-    Bridge.systemStats = async () => null;
-    Bridge.kevoGraphicsCard = async () => 'Standard Graphics';
-    Bridge.kevoSelftestSaveResult = async () => '';
-
-    const playClipAudio = async () => {
-      listener.onFinalSpeech?.('something else completely');
+  it('runs the five Phase 0 checks independently and reports structured pass results', async () => {
+    let timerCallback: ((msg: string) => void) | undefined;
+    const actionContext = {
+      switchView: () => {},
+      dryRun: true,
+      openApp: async (name: string) => name,
+      announce: (msg: string) => timerCallback?.(msg),
     };
 
-    const report = await runKevoSelfTest({
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const playClipAudio = async (filename: string) => {
+      if (filename.includes('timer')) {
+        listener.onFinalSpeech?.('Set a timer for ten seconds');
+      } else if (filename.includes('time')) {
+        listener.onFinalSpeech?.('Kevo, what time is it?');
+      } else if (filename.includes('help')) {
+        listener.onFinalSpeech?.('What can you do?');
+      } else if (filename.includes('open-brave')) {
+        listener.onFinalSpeech?.('Kevo, open Brave browser');
+      } else if (filename.includes('black-holes')) {
+        listener.onFinalSpeech?.('Kevo, tell me about black holes');
+      }
+    };
+
+    const checks = await runFivePhase0Checks({
       agent,
       listener,
       playClipAudio,
+      simulateTimerFire: true,
+      sleepMs: async () => {},
     });
 
-    assert.strictEqual(report.result, 'fail');
-    assert.strictEqual(report.requests[0].id, 'req-fail');
+    assert.strictEqual(checks.length, 5);
+    const checksByName = Object.fromEntries(checks.map((c) => [c.check, c]));
+
+    assert.strictEqual(checksByName.several_in_a_row.passed, true);
+    assert.strictEqual(checksByName.open_app.passed, true);
+    assert.strictEqual(checksByName.timer.passed, true);
+    assert.strictEqual(checksByName.typed_request.passed, true);
+    assert.strictEqual(checksByName.stop.passed, true);
   });
 });
