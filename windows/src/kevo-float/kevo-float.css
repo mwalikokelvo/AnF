@@ -336,6 +336,100 @@ html, body {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Approval card (State 3 / H.4b) */
+.approval-card {
+  box-sizing: border-box;
+  margin-top: 8px;
+  background: #142327f2;
+  border: 1px solid #e09440;
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 420px;
+  max-width: 100%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: kevo-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kevo-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.approval-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.approval-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f5c842;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.approval-action {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.approval-summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.approval-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.approval-btn {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.approve-btn {
+  background: #10392e;
+  color: #a3e5cd;
+  border-color: #385052;
+}
+
+.approve-btn:hover {
+  background: #174d3f;
+  border-color: #a3e5cd;
+}
+
+.deny-btn {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.deny-btn:hover {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
 /* CSS animations stop when Kevo is idle or asleep */
 [data-state="idle"] *,
 [data-state="sleeping"] * {

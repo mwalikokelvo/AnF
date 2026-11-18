@@ -639,3 +639,91 @@ describe('Kevo float summary card (H.6)', () => {
     assert.equal(float.summaryTextEl.textContent, '');
   });
 });
+
+describe('Kevo float approval card (H.4b)', () => {
+  beforeEach(() => {
+    setupMockDom();
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { document?: unknown }).document;
+  });
+
+  it('displays approval card with action and summary on request', () => {
+    const root = document.createElement('div');
+    const float = createKevoFloat(root);
+
+    assert.equal(float.approvalCard.style.display, 'none');
+    assert.equal(float.approvalCard.getAttribute('data-state'), 'closed');
+
+    float.showApproval({
+      id: 42,
+      action: 'Delete file',
+      summary: 'Delete outdated draft report',
+    });
+
+    assert.equal(float.approvalCard.style.display, 'flex');
+    assert.equal(float.approvalCard.getAttribute('data-state'), 'open');
+    assert.equal(float.approvalActionEl.textContent, 'Delete file');
+    assert.equal(float.approvalSummaryEl.textContent, 'Delete outdated draft report');
+  });
+
+  it('triggers onAnswerApproval with true when Approve button is clicked and closes card', () => {
+    const root = document.createElement('div');
+    let answeredId: number | null = null;
+    let answeredApproved: boolean | null = null;
+
+    const float = createKevoFloat(root, {
+      onAnswerApproval: (id, approved) => {
+        answeredId = id;
+        answeredApproved = approved;
+      },
+    });
+
+    float.showApproval({
+      id: 77,
+      action: 'Send file',
+      summary: 'Send document to mobile device',
+    });
+
+    assert.equal(float.approvalCard.style.display, 'flex');
+
+    float.approveBtn.dispatchEvent('click');
+
+    assert.equal(answeredId, 77);
+    assert.equal(answeredApproved, true);
+    assert.equal(float.approvalCard.style.display, 'none');
+    assert.equal(float.approvalCard.getAttribute('data-state'), 'closed');
+    assert.equal(float.getPendingApproval(), null);
+  });
+
+  it('triggers onAnswerApproval with false when Deny button is clicked and closes card', () => {
+    const root = document.createElement('div');
+    let answeredId: number | null = null;
+    let answeredApproved: boolean | null = null;
+
+    const float = createKevoFloat(root, {
+      onAnswerApproval: (id, approved) => {
+        answeredId = id;
+        answeredApproved = approved;
+      },
+    });
+
+    float.showApproval({
+      id: 88,
+      action: 'Run script',
+      summary: 'Run automated build and clean script',
+    });
+
+    assert.equal(float.approvalCard.style.display, 'flex');
+
+    float.denyBtn.dispatchEvent('click');
+
+    assert.equal(answeredId, 88);
+    assert.equal(answeredApproved, false);
+    assert.equal(float.approvalCard.style.display, 'none');
+    assert.equal(float.approvalCard.getAttribute('data-state'), 'closed');
+    assert.equal(float.getPendingApproval(), null);
+  });
+});
+
