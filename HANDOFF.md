@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 9.2: Cross-Device Voice Artifact Packaging & Exchange).
+Last updated: 2026-11-18 by Antigravity (Kevo 9.3: Conflict Resolution & Offline Fault Tolerance).
+
+## 2026-11-18 — Kevo 9.3: Conflict Resolution & Offline Fault Tolerance (Antigravity)
+
+Phase 9 Step 9.3 (`docs/kevo-briefs/phase-9.md`, "9.3 Conflict Resolution & Offline Fault Tolerance"):
+- Deterministic Conflict Resolution (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Added `mergeVoicePackagesWithReport()` returning merged package alongside structured `VoiceConflictRecord` items.
+  - Implemented deterministic Last-Write-Wins (LWW) for voice items based on timestamp, preserving divergent items in conflict history.
+  - Implemented monotonic completion resolution for voice reminders (once completed on any device, remains completed).
+  - Maintained backward compatibility via `mergeVoicePackages()`.
+- Offline Fault Tolerance (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Implemented `OfflineVoiceSyncQueue` handling non-blocking offline voice memo caching, in-place update for edited timestamps, selective acknowledgment, and network failure attempt tracking.
+- Automated Tests & Verification:
+  - Added 3 new unit tests in `windows/tests/kevo-thingsbook-voice.test.ts` (12 tests total in file) covering divergent transcript conflict reporting, reminder monotonic completion, and offline queue lifecycle.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 846/846 tests passed across 130 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 9.2: Cross-Device Voice Artifact Packaging & Exchange (Antigravity)
 

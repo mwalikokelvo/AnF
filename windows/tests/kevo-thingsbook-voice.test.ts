@@ -13,6 +13,9 @@ import {
   exportVoicePackage,
   importVoicePackage,
   extractVoicePackageSummary,
+  mergeVoicePackages,
+  mergeVoicePackagesWithReport,
+  OfflineVoiceSyncQueue,
   type ThingsBookVoicePackage,
 } from '../src/workspace/jarvis/thingsbook-voice';
 import { toVoiceWire, fromVoiceWire } from '../../android/web/sync';
@@ -221,5 +224,92 @@ describe('Phase 9 Step 9.2: Cross-Device Voice Artifact Packaging & Exchange', (
       () => toVoiceWire({ version: 'bad-version' }),
       /Invalid ThingsBook voice package version/
     );
+  });
+});
+
+describe('Phase 9 Step 9.3: Conflict Resolution & Offline Fault Tolerance', () => {
+  it('mergeVoicePackagesWithReport resolves divergent transcripts via deterministic LWW', () => {
+    const baseItem = createVoiceItem({
+      id: 'conflict-note-1',
+      timestamp: 1000,
+      durationMs: 2000,
+      transcript: 'Draft note on PC',
+    });
+    const incomingItem = createVoiceItem({
+      id: 'conflict-note-1',
+      timestamp: 2000,
+      durationMs: 2500,
+      transcript: 'Draft note updated on Phone',
+    });
+
+    const basePkg = packageVoiceMemos({ deviceId: 'pc', items: [baseItem] });
+    const incomingPkg = packageVoiceMemos({ deviceId: 'phone', items: [incomingItem] });
+
+    const result = mergeVoicePackagesWithReport(basePkg, incomingPkg);
+    assert.strictEqual(result.package.items.length, 1);
+    assert.strictEqual(result.package.items[0].transcript, 'Draft note updated on Phone');
+    assert.strictEqual(result.conflicts.length, 1);
+    assert.strictEqual(result.conflicts[0].id, 'conflict-note-1');
+    assert.strictEqual(result.conflicts[0].strategy, 'last-write-wins');
+    assert.strictEqual(result.conflicts[0].divergentItem.transcript, 'Draft note on PC');
+  });
+
+  it('mergeVoicePackages applies monotonic completion to voice reminders', () => {
+    const baseReminder = {
+      id: 'rem-sync-1',
+      message: 'Buy coffee beans',
+      triggerAt: 5000,
+      completed: false,
+      createdAt: 1000,
+    };
+    const incomingReminder = {
+      id: 'rem-sync-1',
+      message: 'Buy coffee beans',
+      triggerAt: 5000,
+      completed: true,
+      createdAt: 1000,
+    };
+
+    const basePkg = packageVoiceMemos({ reminders: [baseReminder] });
+    const incomingPkg = packageVoiceMemos({ reminders: [incomingReminder] });
+
+    const merged = mergeVoicePackages(basePkg, incomingPkg);
+    assert.strictEqual(merged.reminders.length, 1);
+    assert.strictEqual(merged.reminders[0].completed, true);
+  });
+
+  it('OfflineVoiceSyncQueue manages queue and failure tracking safely', () => {
+    const queue = new OfflineVoiceSyncQueue();
+    assert.strictEqual(queue.size(), 0);
+
+    const item1 = createVoiceItem({
+      id: 'q-1',
+      timestamp: 100,
+      durationMs: 1000,
+      transcript: 'First offline memo',
+    });
+    queue.enqueue(item1);
+    assert.strictEqual(queue.size(), 1);
+
+    // Enqueue updated item with newer timestamp replaces in place
+    const item1v2 = createVoiceItem({
+      id: 'q-1',
+      timestamp: 200,
+      durationMs: 1200,
+      transcript: 'First offline memo (edited)',
+    });
+    queue.enqueue(item1v2);
+    assert.strictEqual(queue.size(), 1);
+    assert.strictEqual(queue.peek()[0].transcript, 'First offline memo (edited)');
+
+    // Failure tracking
+    queue.recordFailure();
+    queue.recordFailure();
+    assert.strictEqual(queue.getFailedAttempts(), 2);
+
+    // Acknowledge removes synced items and resets failure count
+    queue.acknowledge(['q-1']);
+    assert.strictEqual(queue.size(), 0);
+    assert.strictEqual(queue.getFailedAttempts(), 0);
   });
 });

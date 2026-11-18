@@ -192,20 +192,57 @@ export function deserializeThingsBookVoicePackage(jsonStr: string): ThingsBookVo
   return parsed;
 }
 
+export interface VoiceConflictRecord {
+  id: string;
+  chosenItem: ThingsBookVoiceItem;
+  divergentItem: ThingsBookVoiceItem;
+  resolvedAt: number;
+  strategy: 'last-write-wins' | 'merged';
+}
+
+export interface MergeVoiceResult {
+  package: ThingsBookVoicePackage;
+  conflicts: VoiceConflictRecord[];
+}
+
 /**
  * Merge two packages using deterministic LWW and monotonic completion rules (Step 9.3)
  */
-export function mergeVoicePackages(
+export function mergeVoicePackagesWithReport(
   base: ThingsBookVoicePackage,
   incoming: ThingsBookVoicePackage
-): ThingsBookVoicePackage {
+): MergeVoiceResult {
+  const conflicts: VoiceConflictRecord[] = [];
+
   // Items: merge by id, newest timestamp wins
   const itemMap = new Map<string, ThingsBookVoiceItem>();
   for (const it of base.items) itemMap.set(it.id, it);
   for (const it of incoming.items) {
     const existing = itemMap.get(it.id);
-    if (!existing || it.timestamp >= existing.timestamp) {
+    if (!existing) {
       itemMap.set(it.id, it);
+    } else {
+      const isDivergent = it.transcript.trim() !== existing.transcript.trim();
+      if (it.timestamp >= existing.timestamp) {
+        if (isDivergent) {
+          conflicts.push({
+            id: it.id,
+            chosenItem: it,
+            divergentItem: existing,
+            resolvedAt: Date.now(),
+            strategy: 'last-write-wins',
+          });
+        }
+        itemMap.set(it.id, it);
+      } else if (isDivergent) {
+        conflicts.push({
+          id: it.id,
+          chosenItem: existing,
+          divergentItem: it,
+          resolvedAt: Date.now(),
+          strategy: 'last-write-wins',
+        });
+      }
     }
   }
 
@@ -235,7 +272,7 @@ export function mergeVoicePackages(
     }
   }
 
-  return {
+  const mergedPackage: ThingsBookVoicePackage = {
     version: THINGSBOOK_VOICE_PROTOCOL_VERSION,
     exportedAt: Math.max(base.exportedAt, incoming.exportedAt),
     deviceId: base.deviceId,
@@ -243,6 +280,64 @@ export function mergeVoicePackages(
     briefings: Array.from(briefingMap.values()).sort((a, b) => b.generatedAt - a.generatedAt),
     reminders: Array.from(reminderMap.values()).sort((a, b) => a.triggerAt - b.triggerAt),
   };
+
+  return { package: mergedPackage, conflicts };
+}
+
+/**
+ * Merge two packages using deterministic LWW and monotonic completion rules
+ */
+export function mergeVoicePackages(
+  base: ThingsBookVoicePackage,
+  incoming: ThingsBookVoicePackage
+): ThingsBookVoicePackage {
+  return mergeVoicePackagesWithReport(base, incoming).package;
+}
+
+/**
+ * Offline-first fault tolerant queue for syncing voice items when ThingsBook nodes are unreachable
+ */
+export class OfflineVoiceSyncQueue {
+  private queue: ThingsBookVoiceItem[] = [];
+  private failedAttempts = 0;
+
+  enqueue(item: ThingsBookVoiceItem): void {
+    const existingIndex = this.queue.findIndex((q) => q.id === item.id);
+    if (existingIndex >= 0) {
+      if (item.timestamp >= this.queue[existingIndex].timestamp) {
+        this.queue[existingIndex] = item;
+      }
+    } else {
+      this.queue.push(item);
+    }
+  }
+
+  peek(): ThingsBookVoiceItem[] {
+    return [...this.queue];
+  }
+
+  acknowledge(ids: string[]): void {
+    const set = new Set(ids);
+    this.queue = this.queue.filter((q) => !set.has(q.id));
+    this.failedAttempts = 0;
+  }
+
+  recordFailure(): void {
+    this.failedAttempts++;
+  }
+
+  getFailedAttempts(): number {
+    return this.failedAttempts;
+  }
+
+  size(): number {
+    return this.queue.length;
+  }
+
+  clear(): void {
+    this.queue = [];
+    this.failedAttempts = 0;
+  }
 }
 
 /** Package voice memos, briefings, and reminders into a validated ThingsBookVoicePackage (Step 9.2) */
