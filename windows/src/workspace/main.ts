@@ -247,6 +247,8 @@ const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=mess
 let kevoTurn=0;
 const jarvisCommandDesk=createJarvisCommandDesk({
   onNotify:msg=>{status.textContent=msg;},
+  // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
+  log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
   voiceActionContext:{
     switchView:view=>showView(view),
     pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},

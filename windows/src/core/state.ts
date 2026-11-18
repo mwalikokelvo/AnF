@@ -98,6 +98,7 @@ export interface Settings {
   chatMode: "api" | "browser";
   browserProvider: "claude" | "openai" | "gemini" | "notebook";
   localFallback: boolean;
+  kevoAutoTest: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -118,6 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chatMode: "api",
   browserProvider: "claude",
   localFallback: true,
+  kevoAutoTest: false,
 };
 
 type Listener = () => void;

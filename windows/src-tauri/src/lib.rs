@@ -35,6 +35,7 @@ pub mod kevo_approval;
 mod kevo_float;
 mod kevo_hud;
 mod kevo_system;
+pub mod kevo_autotest;
 mod log;
 mod pipe;
 mod platform;
@@ -525,6 +526,7 @@ pub fn run() {
             kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
             kevo_hud::kevo_hud_set,
             kevo_approval::kevo_hud_answer,
+            log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,
             workspace_save_project,
@@ -553,14 +555,33 @@ pub fn run() {
             ocr_request,
             ocr_configure_external,
             set_paused,
+            kevo_autotest::is_kevo_selftest,
+            kevo_autotest::kevo_selftest_get_clips,
+            kevo_autotest::kevo_selftest_read_clip,
+            kevo_autotest::kevo_selftest_save_result,
+            kevo_autotest::kevo_graphics_card,
+            kevo_autotest::kevo_autotest_check_now,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
+            let is_selftest = kevo_autotest::is_kevo_selftest();
+            let installed_ai = if is_selftest {
+                let installed = settings::local_dir().join("local-ai");
+                if installed.join("model.gguf").is_file() {
+                    Some(installed)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let resource = app.path().resource_dir().ok().map(|p| p.join("local-ai"));
             let portable = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|p| p.join("local-ai")));
-            if let Some(resource) = resource.filter(|p| p.join("model.gguf").is_file()) {
+            if let Some(installed) = installed_ai {
+                app.state::<Chat>().local.configure(installed);
+            } else if let Some(resource) = resource.filter(|p| p.join("model.gguf").is_file()) {
                 app.state::<Chat>().local.configure(resource);
             } else if let Some(path) = portable {
                 app.state::<Chat>().local.configure(path);
@@ -644,6 +665,7 @@ pub fn run() {
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
+            kevo_autotest::spawn_autotest_loop(handle.clone());
             Ok(())
         })
         .build(tauri::generate_context!());

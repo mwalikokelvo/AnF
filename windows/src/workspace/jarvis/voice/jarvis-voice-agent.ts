@@ -35,6 +35,8 @@ export interface JarvisActionContext {
   runDevHealth?: () => Promise<string>;
   getBriefing?: () => Promise<string>;
   notify?: (msg: string) => void;
+  /** When true, actions are simulated without performing real side effects (Phase 0 step 0.4b). */
+  dryRun?: boolean;
   /** Currently pending approval request (H.4b). */
   pendingApproval?: () => PendingApproval | null;
   answerApproval?: (id: number | string, approved: boolean) => Promise<unknown> | void;
@@ -103,13 +105,54 @@ function opensOnlyABrowser(request: string): boolean {
 const WEB_REQUEST = /^(?:(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(?:youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?|(?:play|search|find|look up|watch|put on|show(?: me)?)\s+.+?\s+(?:on|in|from)\s+youtube|(?:search|look up)\s+youtube\s+for\s+.+|(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+.+)[.!?]*$/i;
 
 /** The start of something Kevo can do, as opposed to a question for the AI. */
+// What may come before a command in its clause: filler, "please", or a polite "can you".
+const REQUEST_LEAD = /^(?:(?:please|now|just|so|and|then|ok|okay|i want to|i'd like to|i (?:want|need) you to|go ahead and|let'?s)\s+)*(?:(?:can|could|would|will) you\s+(?:(?:please|just)\s+)*)?/;
+
+// Inside a sentence: a fresh start that cancels a hanging "don't", a hypothetical quotation lead, a question word.
+const CORRECTION = /^(?:on second thought|actually|now|instead|no wait|wait)\b/;
+// "what if I say, ..." and "did you say, ..." quote a command; "I said, ..." and "as I was saying, ..." restate one.
+const QUOTE_LEAD = /^(?:what|why|how|if|when|whenever|suppose|imagine|did|do|does|would|could|should|can|will)\b.*\b(?:say|says|said|saying|ask|asks|asked|asking)$/;
+const QUESTION_WORD = /^(?:why|what|how|when|where|who|which)\b(?!\s+about\b|\s+you(?:'re| are) ready\b)/;
+// All that may follow the command in its sentence: anything else ("skip this song if I later say go") is a condition.
+const POLITE_TAIL = /^(?:[\s,]*(?:please|now|for me|if you (?:can|could)|thanks|thank you|kevo|sir))*[\s,]*$/;
+
+/**
+ * True when the last clause that decides about `phrase` is a request to Kevo: after the lead it matches `verb`
+ * and nothing but politeness follows in its sentence ("skip this song if I later say go" is a condition).
+ * A clause decides when it requests or refuses the action; one that only mentions it ("is the next song good?"),
+ * a question ("do I need to skip this song?") or a quotation ("what if I say, tell me the time?") does not.
+ * Within its sentence, a negation left hanging before a comma ("please don't, under any circumstances, skip it")
+ * reaches it unless a correction comes between ("don't skip it, actually, skip it").
+ */
+function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
+  let asked = false;
+  for (const sentence of lower.match(/[^.;!?]+[.;!?]*/g) ?? []) {
+    const parts = sentence.replace(/[.;!?]+$/, '').split(',').map((p) => p.trim());
+    parts.forEach((part, at) => {
+      const found = phrase.exec(part);
+      if (!found) return;
+      const before = parts.slice(0, at);
+      if (before.some((p) => QUOTE_LEAD.test(p)) || (sentence.trim().endsWith('?') && before.some((p) => QUESTION_WORD.test(p)))) return;
+      const clause = part.replace(REQUEST_LEAD, '');
+      const command = verb.exec(clause);
+      if (!command) {
+        if (/\b(?:not|don'?t|never)\b/.test(part.slice(0, found.index))) asked = false;
+        return;
+      }
+      asked = POLITE_TAIL.test([clause.slice(command[0].length), ...parts.slice(at + 1)].join(','));
+      for (let i = at - 1; asked && i >= 0 && !CORRECTION.test(parts[i]); i--) if (/\b(?:not|don'?t|never)$/.test(parts[i])) asked = false;
+    });
+  }
+  return asked;
+}
+
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down)\b/i;
 
 /** "In the meantime, can you open Brave browser?" is the command "open Brave browser". A question stays as it is. */
 export function stripLeadIn(text: string): string {
   const whole = text.trim();
   const rest = whole
-    .replace(/^(?:(?:in the meantime|meanwhile|also|now|and|ok(?:ay)?|so|then)[\s,]+)*(?:(?:can|could|would|will) you(?: please)?|please|i (?:need|want) you to|go ahead and)[\s,]+/i, '')
+    .replace(/^(?:(?:in the meantime|meanwhile|also|now|and|ok(?:ay)?|so|then)[\s,]+)*(?:(?:can|could|would|will) you|please|i (?:need|want) you to|go ahead and)(?:\s+(?:please|just))*[\s,]+/i, '')
     .replace(/[\s,]+please(?=[.!?]*$)/i, '')
     .replace(/\?+$/, '');
   return rest !== whole && COMMAND_START.test(rest) ? rest : whole;
@@ -150,9 +193,10 @@ export class JarvisVoiceAgent {
 
     if (/^(stop|cancel|never mind|nevermind|be quiet|quiet|that's all|thats all|thank you|thanks)$/.test(lower)) return { handled: true, actionName: 'dismiss', speechReply: '' };
     // Just a greeting or its name, however the recogniser spelled it: Kevo answers that it is there.
-    if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2})?$/.test(lower)) return done('greeting', 'Yes?');
+    // "Calvo" is the name misheard too (see processVoiceInput).
+    if (/^(hey|hi|hello|ok|okay|yo)?[\s,]*(there|[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)?$/.test(lower)) return done('greeting', 'Yes?');
     // "Hey Kevo" heard as "not Kevo" or "now Kevo": still just the name, not a statement for the AI.
-    if (/^(now|not|so|um|uh|oh|and)[\s,]+[kc][aeiy]{1,2}[vb][aeo]\w{0,2}$/.test(lower)) return done('greeting', 'Yes?');
+    if (/^(now|not|so|um|uh|oh|and)[\s,]+(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)$/.test(lower)) return done('greeting', 'Yes?');
     if (/\b(what'?s|what is) your name\b|^who are you$/.test(lower)) return done('name', 'My name is Kevo.');
     if (/^(repeat( that)?|say that again|what did you say|come again)$/.test(lower)) return done('repeat', this.lastSpoken || getJarvisHistory().filter(t => t.role === 'assistant').pop()?.text || 'I have not said anything yet.');
     // Up to two stray words first ("maybe? what else can you do"), nothing after: "what can I do to fix this" is a question.
@@ -194,7 +238,11 @@ export class JarvisVoiceAgent {
       return done('timer_cancel', count ? `Cancelled ${count === 1 ? 'the timer' : `${count} timers`}.` : 'There is no timer running.');
     }
     // Only a request to start one: "how does a timer work?" is a question for the AI.
-    if (/\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
+    // "five minutes" right after "For how long?" is the timer's length.
+    // "Not five minutes" is not an answer, and "play five minutes" is another command: only a length, with filler words.
+    const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower)
+      && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|in|make it|like)\b[\s,]*)*(?:(?:is fine|is good|will do|works|from now)\b[\s,]*)?$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
+    if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
       if (!this.context.announce) return done('timer_unavailable', 'Timers are not available here.');
@@ -233,7 +281,8 @@ export class JarvisVoiceAgent {
   async processVoiceInput(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
     // A typed "Hey Kevo, why…" is the question after the name.
     // Only with a greeting, the exact name, or a comma after it: "Cave diving is fun" keeps its first word.
-    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|ok|okay)[\s,]+[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|kevo\b|[kc][aeiy]{1,2}[vb][aeo]\w{0,2}(?=[,:]))[\s,.:!]+(?=\S)/i, '');
+    // "Calvo," is Kevo misheard; only that spelling, so "Calves, cows are livestock" keeps its first word.
+    const unnamed = spokenText.trim().replace(/^(?:(?:hey|hi|hello|ok|okay|yo)[\s,]+(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo\b)|kevo\b|(?:[kc][aeiy]{1,2}[vb][aeo]\w{0,2}|[kc]alvo)(?=[,:]))[\s,.:!]+(?=\S)/i, '');
     let requests = splitRequests(stripLeadIn(unnamed));
     // "Open Brave and play YouTube": opening the site already opens the browser. Starting the browser as well
     // races it, and the late browser window lands a blank New Tab over YouTube (session 3).
@@ -269,7 +318,8 @@ export class JarvisVoiceAgent {
     if (!result.actionName.startsWith('open_app') && short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
     }
-    this.lastAction = result.actionName;
+    // "Say that again" repeats the last answer, so a pending "For how long?" still stands. Nothing else carries over.
+    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') this.lastAction = result.actionName;
     return result;
   }
 
@@ -327,6 +377,8 @@ export class JarvisVoiceAgent {
       lower.includes('what time') ||
       lower === 'time' ||
       lower.includes('current time') ||
+      // Only the clock: "tell me the time complexity of quicksort" and "why did you tell me the time?" are for the AI.
+      (/\btell me the (?:current )?time(?:,? (?:please|now))?[\s.!?]*$/.test(lower) && asksFor(lower, /\btell me the (?:current )?time\b/, /^tell me the (?:current )?time\b/)) ||
       lower.includes("what's the time") ||
       lower.includes('whats the time')
     ) {
@@ -357,10 +409,13 @@ export class JarvisVoiceAgent {
     // "play any song in YouTube", "search YouTube for lofi", "play Adele on YouTube": YouTube's search, in the browser.
     const tube = /^(?:play|search|find|look up|watch|put on|show(?: me)?)\s+(.+?)\s+(?:on|in|from)\s+youtube[.!?]*$/.exec(lower)
       ?? /^(?:search|look up)\s+youtube\s+for\s+(.+?)[.!?]*$/.exec(lower);
-    if (tube && this.context.openUrl) {
+    if (tube && (this.context.openUrl || this.context.dryRun)) {
       const what = /^(?:any|a|some)\s+(?:song|music|track|video)s?$|^(?:something|anything|music|songs?)$/.test(tube[1]) ? 'popular songs' : tube[1];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
+      }
       try {
-        await this.context.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
+        await this.context.openUrl!(`https://www.youtube.com/results?search_query=${encodeURIComponent(what)}`);
         return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${what}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -368,10 +423,13 @@ export class JarvisVoiceAgent {
     }
 
     const site = /^(?:open|play|go to|launch|start|show)\s+(?:the\s+)?(youtube|google|gmail)(?:\.com)?(?:\s+(?:website|site|page))?[.!?]*$/.exec(lower);
-    if (site && this.context.openUrl) {
+    if (site && (this.context.openUrl || this.context.dryRun)) {
       const { url, name } = SITES[site[1]];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
+      }
       try {
-        await this.context.openUrl(url);
+        await this.context.openUrl!(url);
         return { handled: true, actionName: 'open_site', speechReply: `Opening ${name}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_site_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -379,9 +437,12 @@ export class JarvisVoiceAgent {
     }
 
     const web = /^(?:search (?:the )?(?:web|internet|online) for|google|look up|search online for)\s+(.+?)[.!?]*$/.exec(lower);
-    if (web && this.context.searchWeb) {
+    if (web && (this.context.searchWeb || this.context.dryRun)) {
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
+      }
       try {
-        await this.context.searchWeb(web[1]);
+        await this.context.searchWeb!(web[1]);
         return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${web[1]}.` };
       } catch (err) {
         return { handled: true, actionName: 'web_search_failed', speechReply: `I could not open the browser: ${String(err).replace(/^Error:\s*/, '')}` };
@@ -467,7 +528,8 @@ export class JarvisVoiceAgent {
       }
     }
 
-    if (lower.includes('next song') || lower.includes('next track') || lower.includes('skip song') || lower.includes('skip track')) {
+    // "Can you skip this song?" is a request; "should I skip this song?" and "please don't skip it" are not.
+    if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play|put on|give me|advance)(?: on| ahead| forward)?(?: to)? )?(?:the )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
@@ -483,10 +545,13 @@ export class JarvisVoiceAgent {
 
     // 3b. Apps on this computer: "open Brave browser", "launch Spotify"
     const app = /^(?:open|launch|start)\s+(?:the\s+|my\s+|an?\s+)?(.+?)(?:\s+(?:app|application|program))?[.!?]*$/i.exec(text);
-    if (app && this.context.openApp) {
+    if (app && (this.context.openApp || this.context.dryRun)) {
       this.lastSubject = app[1];
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'open_app', speechReply: `Opening ${app[1]}.` };
+      }
       try {
-        const opened = await this.context.openApp(app[1]);
+        const opened = await this.context.openApp!(app[1]);
         return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}.` };
       } catch (err) {
         return { handled: true, actionName: 'open_app_failed', speechReply: String(err).replace(/^Error:\s*/, '') };
@@ -503,8 +568,10 @@ export class JarvisVoiceAgent {
       const noteContent = text
         .replace(/^(take a note(:|\s+that)?|note that|remember that|write this down(:|\s+that)?)\s*/i, '')
         .trim();
-      if (noteContent && this.context.saveQuickNote) {
-        await this.context.saveQuickNote(noteContent);
+      if (noteContent && (this.context.saveQuickNote || this.context.dryRun)) {
+        if (!this.context.dryRun) {
+          await this.context.saveQuickNote!(noteContent);
+        }
         return {
           handled: true,
           actionName: 'take_note',

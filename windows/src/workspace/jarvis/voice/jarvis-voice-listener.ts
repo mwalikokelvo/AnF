@@ -4,6 +4,11 @@
  * Uses webkitSpeechRecognition / SpeechRecognition API with automatic restart on pause.
  */
 
+import type { KevoIgnoredReason } from '../kevo-log';
+
+/** A phrase without the wake word this soon after the follow-up window closed was probably meant for Kevo. */
+const WINDOW_CLOSED_MS = 10_000;
+
 export interface VoiceListenerOptions {
   wakeWords?: string[];
   continuous?: boolean;
@@ -12,7 +17,10 @@ export interface VoiceListenerOptions {
   onFinalSpeech?: (transcript: string) => void;
   /** Fired when a wake word is detected (even if no follow-up command). */
   onWakeWord?: (wakeWord: string) => void;
-  onError?: (err: string) => void;
+  /** `code` is the recogniser's own error code ("network", "not-allowed", …) when it gave one. */
+  onError?: (err: string, code?: string) => void;
+  /** A finished phrase that was heard but not acted on, and why (Kevo's log). */
+  onIgnored?: (text: string, reason: KevoIgnoredReason) => void;
   /** Act only on speech that follows a wake word (or comes inside the follow-up window). Default true. */
   requireWakeWord?: boolean;
   /** How long after a wake word, a reply or a mic tap Kevo accepts a command without the wake word. */
@@ -32,9 +40,10 @@ export class JarvisVoiceListener {
   private onListeningStateChange?: (listening: boolean) => void;
   private stateListeners: ((listening: boolean) => void)[] = [];
   private onInterimSpeech?: (transcript: string) => void;
-  private onFinalSpeech?: (transcript: string) => void;
-  private onWakeWord?: (wakeWord: string) => void;
-  private onError?: (err: string) => void;
+  public onFinalSpeech?: (transcript: string) => void;
+  public onWakeWord?: (wakeWord: string) => void;
+  private onError?: (err: string, code?: string) => void;
+  private onIgnored?: (text: string, reason: KevoIgnoredReason) => void;
   private requireWakeWord: boolean;
   private followUpMs: number;
   private awakeUntil = 0;
@@ -67,6 +76,7 @@ export class JarvisVoiceListener {
     this.onFinalSpeech = options?.onFinalSpeech;
     this.onWakeWord = options?.onWakeWord;
     this.onError = options?.onError;
+    this.onIgnored = options?.onIgnored;
   }
 
   isSupported(): boolean {
@@ -95,8 +105,6 @@ export class JarvisVoiceListener {
       };
 
       this.recognition.onresult = (event: any) => {
-        // While Kevo speaks, the microphone hears Kevo: ignore it.
-        if (this.muted) return;
         let interim = '';
         let final = '';
 
@@ -108,6 +116,11 @@ export class JarvisVoiceListener {
           } else {
             interim += text;
           }
+        }
+        // While Kevo speaks, the microphone hears Kevo: ignore it.
+        if (this.muted) {
+          if (final.trim()) this.onIgnored?.(final.trim(), 'muted');
+          return;
         }
 
         if (final.trim()) {
@@ -144,7 +157,7 @@ export class JarvisVoiceListener {
             ? 'Speech recognition could not reach the internet, so Kevo cannot hear you. Check the connection, then turn the microphone on again.'
             : e.error === 'not-allowed' || e.error === 'service-not-allowed'
               ? 'Windows is not letting AnF use the microphone. Allow it in Windows privacy settings.'
-              : `Speech recognition error: ${e.error}`);
+              : `Speech recognition error: ${e.error}`, e.error);
           // Kevo cannot hear until this is fixed: show the microphone as off instead of "Say Kevo".
           if (['network', 'not-allowed', 'service-not-allowed', 'audio-capture'].includes(e.error)) this.stop();
         }
@@ -262,7 +275,10 @@ export class JarvisVoiceListener {
       this.keepAwake();
       this.onWakeWord?.(command.wake);
     } else if (this.requireWakeWord && Date.now() >= this.awakeUntil) {
-      return; // Room talk, a TV or another assistant ("Hey Google") — not for Kevo.
+      // Room talk, a TV or another assistant ("Hey Google") — not for Kevo.
+      const closedFor = Date.now() - this.awakeUntil;
+      this.onIgnored?.(rawText.trim(), this.awakeUntil && closedFor < WINDOW_CLOSED_MS ? 'window_closed' : 'no_wake_word');
+      return;
     }
     if (command.text) {
       this.setAwakeUntil(0); // The reply re-opens the window once it has been spoken.

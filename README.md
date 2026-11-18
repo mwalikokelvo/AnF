@@ -4,211 +4,133 @@
 
 # AnF
 
-**A private workspace for your ideas, documents, writing and audio on Android and Windows.**
+**A private workspace for writing, reading, music and audio, with Kevo, a voice assistant, on Windows. Android and Linux builds share the same workspace.**
 
-Read, write, work with local AI on Windows, and connect your devices over your own Wi-Fi. AnF preserves the existing Coucou installation and saved-data identities when you update. The macOS notch companion and historical documentation below come from the upstream project.
-
-The 0.1.48 source adds a dark Music Hub with local music, playlists and a persistent
-player, separate from Audio Studio. Native Spotube adapters are opt-in review
-builds pending installed verification; see [Music Hub build and test notes](docs/MUSIC-HUB.md).
-This product includes software developed by Kingkor Roy Tirtho.
-
-![macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
+![Android](https://img.shields.io/badge/Android-8%2B-3DDC84?logo=android&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-AppImage%20%7C%20deb%20%7C%20rpm-FCC624?logo=linux&logoColor=black)
-![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
-![SwiftUI](https://img.shields.io/badge/SwiftUI-native-0A84FF)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![GitHub stars](https://img.shields.io/github/stars/mwalikokelvo/AnF?style=social)
-
-<img src="docs/media/demo.gif" width="760" alt="AnF in action">
 
 </div>
 
 ---
 
-## Why
+AnF keeps your documents, notes, books and audio on your own devices. There is no account and no telemetry. It only talks to the services you set up, and your keys stay in the operating system's credential store.
 
-Some studios showed off gorgeous notch companions… and never let anyone use them.
-**AnF is the open version.** Every line of code, every animation, every sound — free to use, read, fork and remix.
+## What's in it
 
-Meet **Mochi**: a soft little squircle with big eyes that pops out of your notch, waves hello, follows your cursor with its eyes, gets annoyed when you poke it (and dizzy if you insist), and tells you the moment Claude Code needs you.
+### Kevo (Windows)
 
-## Features
+Kevo is AnF's voice assistant, formerly called JARVIS. Say "Kevo" or "Hey Kevo", or type a request in its box.
 
-- 🤖 **Claude Code, Cursor, Codex, Gemini CLI, Antigravity and other agents, live** — see every session in your notch: what it reads, edits and runs, step by step. Tag a hook payload with `coucou_agent` to give any agent its own pill (see [`docs/AGENTS.md`](docs/AGENTS.md)). Finished? Mochi does a happy little jump.
-- See what Claude is editing, live in the notch: each file modification shows the file name and +N −M counts in the ticker, tap to read the full diff
-- ✅ **Approve and answer from the notch** — Claude Code permission requests show up with **Allow / Deny / Always**; `AskUserQuestion` prompts show the choices right in the notch (single or multi-select, up to 4 questions). One click, or "Reply in terminal" to fall back to the CLI. Codex also gets Allow / Deny.
-- 🧑‍💻 **Jump to the right terminal** — open the exact terminal window of a session *(macOS)*.
-- 💬 **Chat with Claude, Gemini, OpenAI, or a local model (Ollama / LM Studio)** — click the model name above the chat box to switch provider and pick a model. Cloud providers use your own API key; local providers connect to a server running on your Mac. *(Gemini, OpenAI and local models: macOS)*
-- 📊 **Claude plan usage** *(macOS, GitHub build)* — a small pill in the notch header shows your 5-hour and weekly Claude plan limits. Enable it from Settings → Agents → Plan usage. Pro and Max plans only.
-- 📋 **Declare the tools you use** — open Settings → Active pills and pick your main workspace tool (VS Code, Cursor, Codex or Antigravity), then toggle up to 4 more: Gemini CLI, Anthropic, Google AI, OpenAI, Ollama, LM Studio and service integrations *(macOS)*.
-- 📎 **Drop a file on the notch** — Mochi turns into a box and swallows it, then ask a question about it or send it by email *(email: macOS, Mail.app)*.
-- 🪟 **Drag Mochi onto any window** — attach that window as context for Claude *(macOS)*.
-- 🔌 **Integrations** — Stripe payments, n8n workflows, GitHub (open PRs, reviews requested, CI status), Vercel deployments, Resend emails, Notion, Cal.com. Each one gets its own little colored Mochi.
-- 🎵 **Apple Music pill** *(macOS, GitHub build)* — add the Apple Music pill in Settings → Active pills to see what's playing and control playback from the notch; Mochi dances while it plays.
-- 🎭 **A real character** — idle breathing, blinks, eyes on a sphere that follow your mouse, emotes, 28 handcrafted sounds, a greeting on launch.
-- 🫥 **Invisible when idle** — hides away when nothing is running, peeks out when you hover the notch (the top edge of the screen on Windows and Linux).
-- 🖥️ **Any Mac, notch or not** — on an iMac, a Mac mini, or a MacBook with its lid closed on an external display, Mochi sits in a small bar at the top of the screen.
-- 🔒 **Private by design** — no telemetry, no account. Keys live in your macOS Keychain, Windows Credential Manager or Linux Secret Service (GNOME Keyring, KWallet). The app only talks to the services you plug in.
+- **Instant commands:** the time and date, sums, timers and reminders ("remind me in 10 minutes to call Mum"), play music, take a note, search your notes, open apps and places, search the web, "say that again", "stop".
+- **Questions:** anything else goes to the offline model on your PC. The answer is shown and spoken sentence by sentence as it is written, and a Stop button ends it.
+- **Voice pack:** 13 voices ship with every build, including Kevo's own gentle bass voice. Pick one from the voice list in Kevo's panel and press "Hear this voice" to play its recording. Kevo's replies are spoken by the Windows voice that best matches the chosen voice's accent and gender; the recordings are not a speech engine. The first second of the chosen recording is the chime Kevo plays when it hears its name.
+- For now Kevo listens through the speech recogniser built into the app's web view, which needs an internet connection. Everything else Kevo does works offline.
 
-<table>
-<tr>
-<td><img src="docs/media/claude-code.png" alt="Claude Code session"></td>
-<td><img src="docs/media/stripe.png" alt="Stripe payments"></td>
-</tr>
-<tr>
-<td><img src="docs/media/chat.png" alt="Chat with Claude"></td>
-<td><img src="docs/media/dizzy.png" alt="Too many hits"></td>
-</tr>
-</table>
+### Music Hub
+
+- Your local music, audiobooks and RSS podcasts in one library, with playlists, favourites, listening history and a player that stays open while you work elsewhere in AnF.
+- Streams from open sources: Audius, Internet Archive and LibriVox, and your own Subsonic or Navidrome server. One search covers all of them.
+- Crossfade (off to 12 s), an equaliser with presets, loudness levelling, playback speed and a sleep timer (minutes, end of track or end of chapter).
+- **Track cards** show what the file holds: artist, album, album artist, composer, track and disc, year, genre, format and source, duration and size, bitrate, sample rate, bit depth, channels, BPM, chapters, lyrics and cover art.
+- An embedded Spotube player is available as an opt-in review build only; standard builds don't include it.
+
+### Audio Studio
+
+Separate from the Music Hub, for working on recordings: import files or a folder, queue and play them, clean up speech (noise profile and hum filter, with a before/after comparison), convert formats, export a WAV or a short clip (15 to 120 s), and edit titles, artists and artwork. "Transcribe to Note" turns a recording into a note when a local speech-to-text server is running on the PC.
+
+### Writing, reading and the vault
+
+- A Markdown editor for drafts and notes (up to 2 MB per draft), with an outline, quick capture, daily notes, a task list and board, and exports.
+- A reader for your documents and books, with read-aloud, and offline OCR for scanned PDF pages on Windows.
+- **Vault:** projects are stored in an encrypted SQLCipher (AES-256) database. Vault search returns the 100 best matches and stays under 50 ms (p95) on a vault of 2,000 projects, checked by an automated test.
+
+### AI chat
+
+Chat about your documents with a bundled offline model (Qwen3 1.7B, no key or internet needed, the default), or with Anthropic, OpenAI or Gemini using your own API key. If a cloud provider fails, chat can fall back to the offline model, and every local reply is labelled. Answers from the small offline model are simpler than the cloud models'.
+
+### Your devices together
+
+An opt-in link between your Android phone and your Windows PC over your own Wi-Fi: authenticated and encrypted, with no cloud relay. From the phone you can send a question to your PC.
+
+### Coding-agent island
+
+The Windows and Linux app keeps the upstream Coucou island at the top of the screen: Mochi shows your Claude Code sessions live and lets you answer permission requests and questions with a click. If AnF isn't running, the hook exits at once, so Claude Code is never blocked. Installing the hooks backs up `~/.claude/settings.json` and shows you the change before writing it.
+
+## Platforms
+
+| Platform | What you get |
+|---|---|
+| **Windows 10/11** | The full app, including Kevo and the offline models. |
+| **Android 8+** | Documents, reader with read-aloud, writing, Music Hub, Audio Studio, encrypted backups and the link to your PC. AI questions open in your own browser accounts or go to your PC; there is no on-device AI. |
+| **Linux** | The same app as Windows (Kevo is made for Windows and isn't tested on Linux), as AppImage, .deb and .rpm (x86_64). The island sits on the top edge on layer-shell compositors (KDE Plasma, COSMIC, Hyprland, Sway); on GNOME it opens as a normal window. |
+| **macOS** | Only the upstream notch companion in `NotchBuddy/`, without the AnF workspace. |
+
+Updating keeps your existing data: storage and app identities from the Coucou days (`coucou.db`, the Android package `com.coucou.workspace`) stay the same on purpose.
 
 ## Install
 
-### Download for macOS
+Builds are posted as previews on the [Releases](https://github.com/mwalikokelvo/AnF/releases) page. The Windows installer isn't code-signed yet, so Windows may warn before running it. When upgrading on Windows, install to the same folder.
 
-1. Grab the latest `Coucou.zip` from [Releases](https://github.com/mwalikokelvo/AnF/releases).
-2. Unzip and move **Coucou.app** to `/Applications`.
-3. Launch it, and click **Open** when macOS asks you to confirm. Updating from 0.1.0? macOS may ask you, once for each key you saved, to let Coucou use it: enter your Mac password and click **Always Allow**.
+## Build from source
 
-### Windows
-
-The Windows installer is **temporarily unavailable**. Microsoft Defender wrongly
-flags the unsigned installer as malware; a false-positive report is under review
-at Microsoft and the installer will come back once it is cleared and signed.
-Until then you can [build it from source](#build-from-source).
-
-There is no notch on a PC, so the island slides out of the top edge of the screen
-instead of hiding inside one. See [`windows/README.md`](windows/README.md) for the
-rest of the differences.
-
-### Linux
-
-The first Linux build is out as a beta: download it from [Coucou for Linux 0.1.1 (beta)](https://github.com/mwalikokelvo/AnF/releases/tag/linux-v0.1.1), x86_64 only for now. Later versions will be in [Releases](https://github.com/mwalikokelvo/AnF/releases) under `linux-v*` tags.
-
-- **AppImage** (any distribution): `chmod +x Coucou-Linux-*.AppImage`, then run it.
-- **Debian / Ubuntu**: `sudo apt install ./Coucou-Linux-*.deb`
-- **Fedora / openSUSE**: `sudo dnf install ./Coucou-Linux-*.rpm`
-
-Check a download with `sha256sum -c SHA256SUMS --ignore-missing`. Gemini CLI, Antigravity, Google AI, OpenAI and local model (Ollama / LM Studio) chat are macOS only for now.
-
-The island sits on the top edge on compositors with layer-shell — COSMIC, KDE
-Plasma, Hyprland, Sway and other wlroots compositors. GNOME has no layer-shell,
-so there it opens as a regular window. See [`windows/README.md`](windows/README.md#linux).
-
-### Build from source
-
-**macOS** — requirements: macOS 15+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen).
-
-```bash
-brew install xcodegen
-git clone https://github.com/mwalikokelvo/AnF.git
-cd AnF/NotchBuddy
-xcodegen
-open NotchBuddy.xcodeproj   # then ⌘R
-```
-
-**Windows** — requirements: [Rust](https://rustup.rs), Node 20+, MSVC build tools.
+**Windows** needs Node 24, Rust 1.99.0 and the MSVC build tools:
 
 ```powershell
 git clone https://github.com/mwalikokelvo/AnF.git
 cd AnF/windows
-npm install
-npm run pack                # installer lands in windows/release/
+npm ci
+./scripts/prepare-offline.ps1   # pinned local AI runtime, models and OCR, checked by SHA-256
+./scripts/prepare-media.ps1     # pinned FFmpeg for audio conversion
+npm run pack                    # installer and portable folder land in windows/release/
 ```
 
-**Linux** — requirements: [Rust](https://rustup.rs), Node 20+, and the WebKitGTK,
-gtk-layer-shell and appindicator development packages (Debian/Ubuntu names below).
+**Linux** needs Node 24, Rust 1.99.0 and these packages (Debian/Ubuntu names):
 
 ```bash
 sudo apt install build-essential pkg-config \
   libwebkit2gtk-4.1-dev libgtk-layer-shell-dev libayatana-appindicator3-dev \
   librsvg2-dev libssl-dev libdbus-1-dev patchelf \
-  gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good ffmpeg
 git clone https://github.com/mwalikokelvo/AnF.git
 cd AnF/windows
-npm install
-npm run pack                # AppImage, .deb and .rpm land in windows/release/
+npm ci
+node scripts/prepare-linux.mjs
+npm run pack                    # AppImage, .deb and .rpm land in windows/release/
 ```
 
-## Setup
+**Android** needs Node 24, JDK 21, Gradle 9.4.1 and Android platform 37 with build-tools 36.0.0, with `ANDROID_HOME` set:
 
-Click the AnF icon in the menu bar (macOS) or in the system tray (Windows, Linux) → **Settings…**
+```bash
+npm ci --prefix windows
+npm ci --prefix android
+node scripts/build-android.mjs  # APKs land in releases/
+```
 
-| What | Why | Where the key goes |
-|---|---|---|
-| **Claude Code hooks** | live sessions and approvals | **Install hooks** — Coucou backs up `~/.claude/settings.json`, merges its hooks and shows you the diff before writing anything |
-| **Claude plan** *(macOS, GitHub build)* | Plan usage gauge in the notch header | **Install relay** in Settings → Agents → Plan usage, then enable "Show in the notch" |
-| **Gemini CLI hooks** *(macOS)* | Gemini CLI sessions in the island | **Install hooks** in Settings → Gemini CLI — backs up `~/.gemini/settings.json` |
-| **Antigravity (agy) hooks** *(macOS)* | agy sessions in the island | **Install hooks** in Settings → Antigravity — backs up `~/.gemini/config/hooks.json` |
-| **Anthropic API key** | chat and questions about files | Settings → Anthropic API · Keychain / Windows Credential Manager / Secret Service |
-| **Google AI API key** *(macOS)* | chat with Google AI (Gemini) | Settings → Chat — other providers · Keychain |
-| **OpenAI API key** *(macOS)* | chat with OpenAI | Settings → Chat — other providers · Keychain |
-| **Ollama server** *(macOS)* | chat with local models via Ollama | Settings → Chat → Local models → **Connect** |
-| **LM Studio server** *(macOS)* | chat with local models via LM Studio | Settings → Chat → Local models → **Connect** |
-| **Active pills** *(macOS)* | choose which tools and agents appear in the island | Settings → Active pills |
-| Stripe, n8n, GitHub, Vercel, Resend, Notion, Cal.com | the service pills | Keychain / Windows Credential Manager / Secret Service, all optional |
+More detail is in [`docs/RELEASE-BUILDS.md`](docs/RELEASE-BUILDS.md) and [`windows/README.md`](windows/README.md).
 
-If Coucou isn't running, the hook exits immediately: **Claude Code is never blocked.**
+## Where things are
 
-## Things to try
+- `windows/`: the Tauri 2 app for Windows and Linux (Rust in `src-tauri/`, TypeScript in `src/`, the voice pack in `voice-pack/`).
+- `android/`: the Android app.
+- `crates/anf-vault/`: the shared vault rules, in pure Rust.
+- `NotchBuddy/`: the upstream macOS notch companion.
 
-| Do this | Mochi does that |
-|---|---|
-| Hover the notch (top edge on Windows and Linux) | peeks out and says hi 👋 |
-| Click it | opens |
-| Hover Mochi | blinks, eyes grow |
-| Click Mochi | squish + annoyed |
-| Click 3 times fast | 😵‍💫 dizzy for a few seconds |
-| Drag a file onto the island | turns into a box and swallows it |
-| Drag Mochi onto a window *(macOS)* | attaches it as context |
-| Click the model name above the chat box *(macOS)* | switch AI provider or model |
+## Sister app
 
-## How it works
-
-**macOS**
-
-- **Island**: a borderless `NSPanel` hugging the notch, driven by a small state machine (`hidden → petit → home`).
-- **Character**: drawn in SwiftUI `Canvas` + `TimelineView` at 60 fps — squircle body, eyes projected on a sphere, spring animations. No Rive, no Lottie, no images.
-- **Claude Code**: a tiny `nb-hook` script receives hook events and forwards them over a Unix socket to the app. For approvals it waits for your click, then answers the hook.
-- **Integrations**: lightweight pollers, paused when nothing is watching.
-- **Declared pills**: `PillCatalog.swift` is the single source of truth — every pill (coding tools, agents, AI providers, services) is declared there with its ID, color and category.
-- **Sounds**: 28 short WAVs played through preloaded `AVAudioPlayer`s.
-
-The macOS app is native Swift 6 / SwiftUI / AppKit with **zero third-party dependencies**.
-
-**Windows**
-
-- A [Tauri 2](https://tauri.app) app (Rust + TypeScript): the island is a transparent, always-on-top window that never steals focus, Mochi is drawn in Canvas 2D with the same shapes, timings and sounds as on the Mac.
-- Claude Code hooks go through a tiny `coucou-hook.exe` and a named pipe; keys live in Windows Credential Manager.
-- Details and differences in [`windows/README.md`](windows/README.md).
-
-**Linux**
-
-- The same Tauri app as Windows. On Wayland the island is a gtk-layer-shell
-  overlay anchored to the top edge, and click-through is its input region.
-- Claude Code hooks go through the same `coucou-hook`, over a Unix socket in
-  `$XDG_RUNTIME_DIR`; keys live in the Secret Service.
+AnF Books (formerly ThingsBook), the reading and library app, lives in its own repository: [mwalikokelvo/ThingsBook](https://github.com/mwalikokelvo/ThingsBook).
 
 ## Contributing
 
-Issues and PRs are very welcome — new integrations, new emotes, new sounds, bug fixes. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Read [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md) first. Every change goes through a pull request.
 
 ## Credits
 
-Built by [Louis Raillé](https://louisraille.fr) with Claude Code.
-Inspired by the notch-companion concepts shared by design studios — this project is independent and not affiliated with any of them.
+AnF is built on Coucou by [Louis Raillé](https://louisraille.fr). This product includes software developed by Kingkor Roy Tirtho.
 
 ## License
 
-- **Code:** [MIT](LICENSE) — use it, fork it, learn from it, just keep the copyright notice.
-- **Name, Mochi character, icon, sounds and media:** © Louis Raillé, all rights reserved — see [LICENSE-ASSETS.md](LICENSE-ASSETS.md). Shipping your own fork? Give it your own name and character.
-
-<div align="center">
-
-**If Mochi made you smile, a ⭐ helps a lot.**
-
-[Website](https://louis-cfm.github.io/coucou/) · [Privacy](https://louis-cfm.github.io/coucou/privacy.html) · [Terms](https://louis-cfm.github.io/coucou/terms.html) · [Support](https://louis-cfm.github.io/coucou/support.html)
-
-</div>
+- **Code:** [MIT](LICENSE). Keep the copyright notice.
+- **Name, Mochi character, icon, sounds and media:** © Louis Raillé, all rights reserved; see [LICENSE-ASSETS.md](LICENSE-ASSETS.md).
