@@ -455,12 +455,35 @@ export function getOpenAITools(): OpenAITool[] {
 
 /** Generates a capability sheet for Kevo's system prompt (Phase 2 Step 2.3). */
 export function getCapabilitySheet(): string {
-  const lines = ['You are Kevo, a desktop assistant. You can perform the following actions:'];
+  const lines: string[] = [
+    "You are Kevo, a helpful voice and desktop assistant on the user's computer.",
+    "You run locally and offline.",
+    "",
+    "Capabilities (what Kevo can do):",
+  ];
   for (const action of KEVO_ACTIONS) {
     lines.push(`- ${action.name}: ${action.description}`);
   }
-  lines.push('When a user request matches one or more actions, invoke the corresponding tool(s). Otherwise, answer conversationally.');
-  return lines.join('\n');
+  lines.push("");
+  lines.push("Limitations (what Kevo cannot do):");
+  lines.push("- Cannot access private cloud accounts without explicit authorization.");
+  lines.push("- Cannot run arbitrary unvetted system or shell commands.");
+  lines.push("- Does not require internet connection for offline workspace operations.");
+  lines.push("");
+  lines.push("How Kevo works:");
+  lines.push("- Wake word: Say 'Kevo' to wake up and begin listening.");
+  lines.push("- Follow-up window: After Kevo answers, the microphone stays open for 5 seconds for follow-up requests without repeating the wake word.");
+  lines.push("- Barge-in: The user can speak over Kevo at any time to interrupt.");
+  lines.push("- Changing voice: The user can change the voice by saying 'change voice' or 'switch voice to <name>' (voices include Nath, Burt, Kevo, Jean).");
+  lines.push("");
+  lines.push("Instructions:");
+  lines.push("Answer directly in one to three short sentences of plain text. No lists, no markdown. If you do not know, say so in one sentence.");
+  lines.push("When the user request matches one or more actions, invoke the corresponding tool(s). Otherwise, answer conversationally. /no_think");
+  return lines.join("\n");
+}
+
+export function getKevoSystemPrompt(): string {
+  return getCapabilitySheet();
 }
 
 /** Dispatches an action by name with arguments against a JarvisActionContext. */

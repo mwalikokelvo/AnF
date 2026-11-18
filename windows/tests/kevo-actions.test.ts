@@ -11,6 +11,7 @@ import {
   getActionByName,
   getOpenAITools,
   getCapabilitySheet,
+  getKevoSystemPrompt,
   executeKevoAction,
   executeKevoToolCalls,
   type KevoToolCall,
@@ -86,12 +87,23 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     }
   });
 
-  it('generates a capability sheet mentioning all actions', () => {
+  it('generates a capability sheet mentioning all actions and self-knowledge (Step 2.3)', () => {
     const sheet = getCapabilitySheet();
     assert.ok(sheet.includes('open_app'));
     assert.ok(sheet.includes('tell_time'));
     assert.ok(sheet.includes('next_track'));
     assert.ok(sheet.includes('timer_set'));
+    // Step 2.3: what Kevo can and cannot do
+    assert.ok(sheet.includes('Capabilities (what Kevo can do)'));
+    assert.ok(sheet.includes('Limitations (what Kevo cannot do)'));
+    // Step 2.3: wake word and follow-up window
+    assert.ok(sheet.includes('Wake word'));
+    assert.ok(sheet.includes('Follow-up window'));
+    // Step 2.3: how to change voice
+    assert.ok(sheet.includes('Changing voice'));
+    assert.ok(sheet.includes('/no_think'));
+    // getKevoSystemPrompt() returns the prompt
+    assert.strictEqual(getKevoSystemPrompt(), sheet);
   });
 
   it('executes app opening and URL actions', async () => {
