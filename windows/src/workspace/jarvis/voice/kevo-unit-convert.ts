@@ -57,8 +57,10 @@ const MASS: Record<string, number> = {
   pounds: 453.59237,
 };
 
+// The tables list singular and plural forms, so nothing is stripped (stripping a final "s" broke "celsius" and "inches").
+// British spellings ("metres", "kilometres") map to the table's "meter" forms; "lbs" to "lb".
 function normalize(unit: string): string {
-  return unit.toLowerCase().replace(/s$/, '').trim();
+  return unit.toLowerCase().trim().replace(/metre(s?)$/, 'meter$1').replace(/^lbs$/, 'lb');
 }
 
 export function convertUnits(value: number, fromRaw: string, toRaw: string): ConversionResult {

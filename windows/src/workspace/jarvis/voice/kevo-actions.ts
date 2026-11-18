@@ -1,5 +1,5 @@
-/**
 import { convertUnits } from './kevo-unit-convert';
+/**
  * Kevo Actions: Single Source of Truth for Tool Calling and Instant Commands (Phase 2 Step 2.1).
  *
  * Defines every action once:
@@ -850,7 +850,7 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         verified: true,
       };
     },
-  },,
+  },
   {
     name: 'convert_units',
     description: 'Converts a value between common units of length, mass or temperature (offline).',
@@ -875,7 +875,6 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       };
     },
   },
-
   {
     name: 'audius_search',
     description: 'Searches free music tracks on Audius and returns speech-friendly results.',
