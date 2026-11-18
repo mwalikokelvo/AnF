@@ -3,12 +3,12 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-18T08:16Z (Claude interactive: fixing main's red Windows build from #195)
+lock: 
 phase: 0 (all steps merged; waiting for the PC test of kevo-test-v0.1.60). Phase 1 steps 1.1-1.3 also merged early (#180, #182, #195) during the 18 Nov sprint, before the Phase 0 PC pass
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
-open_pr: #199 (claude/kevo-fix-main-ears): fixes main red since #195 (kevo_ears.rs: cpal::Stream not Send, VAD detected(), resampler first sample) + version 0.1.60 so kevo-test-v0.1.60 publishes with 0.4b. #196 (grok/kevo-audius-search, Grok): not a board issue, ignore per AUTOPILOT 2b
+open_pr: #199 (claude/kevo-fix-main-ears, head c20e9e9): fixes main (Windows and Linux red since #195) + version 0.1.60. All checks green on c20e9e9; cross-review done by two fresh subagents (Codex and Bugbot at usage limits), no P1, findings fixed or recorded; READY FOR 2b.3: merge first, no further bump needed (0.1.60 already on the branch). #196 (Grok): not a board issue, ignore
 pc_test:
-waiting_for: #199: Windows run (must be green: main has been red since 07:20Z) and review; merge it first, before any other merge. Then check kevo-test-v0.1.60 published, set pc_test and notify the owner to install it once and turn on the self-test setting. Phase 1 merges stop until Phase 0 passes on the PC (owner rule, 17 Nov)
+waiting_for: merge #199 at the next run (interactive session is not allowed to merge). Then check kevo-test-v0.1.60 published, set pc_test pending 0.1.60, notify the owner to install it once and turn on the self-test setting. Phase 1 merges stop until Phase 0 passes on the PC. Follow-up issue to file: Linux ALSA error does not end the Kevo ears pipeline (end it from err_fn); one unplug emits kevo-ears-error twice
 blocked:
 last_passed_version: none yet
 owner_needed: after #199 merges: install kevo-test-v0.1.60 once (AnF-Windows-setup) and turn on "Run Kevo test builds and Kevo's self-test automatically" in AnF Settings
@@ -43,3 +43,4 @@ quiet_fingerprint:
 - 2026-11-18T02:52Z (autopilot, owner-requested): 2b.2 on #157: 6 findings on e3da96b (4 Codex, 2 Cursor) fixed in d9d5615 (last deciding clause wins across and within sentences; quotation lead anywhere before, yes/no question leads; put on/give me/advance leads; "is fine/will do/from now" timer answers); 13 phrase-list entries (12 red before), 185/185 after; threads answered and resolved, @codex review asked. tsc, npm test 619, build, check-release 12 pass.
 - 2026-11-18T03:03Z (Claude, interactive, owner-requested sprint): owner said build steps in parallel: merge #174; stop polishing #157 (Phase 2 replaces the pattern list), so new findings on #157 become phrase-list entries/issues for Phase 2 instead of fix rounds; build 0.1, 0.4b, 0.5 now; build HUD H.1-H.6 with subagents instead of waiting for Codex; prepare Phase 1 on a draft branch, merged only after Phase 0 passes on the PC.
 - 2026-11-18T08:33Z (Claude, interactive): state caught up with the 03:03-07:31Z sprint (all Phase 0 and HUD H.1-H.6/H.8 merged, Phase 1 1.1-1.3 merged early). main Windows red since #195 (2 compile errors in kevo_ears.rs); fix + 0.1.60 in PR #199.
+- 2026-11-18T09:15Z (Claude, interactive): #199 green on c20e9e9 (adds libasound2-dev to linux.yml; clears the ears handle when the mic stream ends), two fresh-subagent reviews clean of P1; merge was refused for this session, left for the autopilot. Lock cleared.
