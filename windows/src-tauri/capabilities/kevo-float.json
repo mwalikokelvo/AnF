@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "kevo-float",
+  "description": "Kevo's float may only be dragged and hear kevo://state; Rust shows, hides and places it.",
+  "windows": ["kevo-float"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-start-dragging"]
+}

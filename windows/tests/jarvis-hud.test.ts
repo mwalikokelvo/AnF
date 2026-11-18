@@ -3,7 +3,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { kevoHudReporter, kevoState } from '../src/workspace/jarvis/jarvis-hud';
+import { floatShown, kevoHudReporter, kevoState, setFloatShown } from '../src/workspace/jarvis/jarvis-hud';
 
 describe('Kevo orb state', () => {
   const s = (o: Partial<Parameters<typeof kevoState>[0]>) => kevoState({ micOn: true, awake: false, thinking: false, speaking: false, ...o });
@@ -41,5 +41,27 @@ describe('Kevo state sent to the float HUD', () => {
     report('listening');
     await new Promise((r) => setImmediate(r));
     assert.equal(n, 2);
+  });
+});
+
+describe('"Show Kevo float" setting', () => {
+  it('is on by default, is remembered, and tells Rust each choice', () => {
+    const store = new Map<string, string>();
+    (globalThis as any).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); } };
+    try {
+      assert.equal(floatShown(), true, 'on by default');
+      const calls: unknown[] = [];
+      const invoke = async (cmd: string, args: { show: boolean }) => { calls.push([cmd, args.show]); };
+      setFloatShown(false, invoke);
+      assert.equal(floatShown(), false);
+      setFloatShown(true, invoke);
+      assert.equal(floatShown(), true);
+      assert.deepEqual(calls, [['kevo_float_show', false], ['kevo_float_show', true]]);
+    } finally { delete (globalThis as any).localStorage; }
+  });
+  it('still works with no storage and no Tauri', async () => {
+    assert.equal(floatShown(), true);
+    setFloatShown(false, () => Promise.reject(new Error('no Tauri')));
+    await new Promise((r) => setImmediate(r));
   });
 });

@@ -70,6 +70,11 @@ impl HudBus {
         self.publish(next, now)
     }
 
+    /// What the HUD shows now, for a window that opens after the last event.
+    pub fn now(&self) -> KevoHudEvent {
+        self.shown.clone()
+    }
+
     fn publish(&mut self, next: KevoHudEvent, now: Instant) -> Option<KevoHudEvent> {
         if next == self.shown {
             return None;
@@ -118,6 +123,13 @@ pub fn kevo_hud_set(
             .unwrap_or_else(|e| e.into_inner())
             .set(state, line, level, Instant::now());
     send(&app, event);
+    crate::kevo_float::follow(&app, state);
+}
+
+/// What the HUD shows now: the float asks once when it opens, then follows `kevo://state`.
+#[tauri::command]
+pub fn kevo_hud_now(hud: State<KevoHud>) -> KevoHudEvent {
+    hud.0.lock().unwrap_or_else(|e| e.into_inner()).now()
 }
 
 /// Shows which engine answered and how long it took ("Local model · 1.2 s").
@@ -161,6 +173,11 @@ mod tests {
             (thinking.line.as_str(), thinking.badge.as_str()),
             ("Opening Brave", "Local model · 1.2 s"),
             "unchanged fields are kept"
+        );
+        assert_eq!(
+            bus.now(),
+            thinking,
+            "a window opened later sees what was last sent"
         );
     }
 

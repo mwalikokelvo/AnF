@@ -1,7 +1,8 @@
 // Shared browser fixture for the Windows/Linux workspace: serves windows/dist with the REAL Tauri CSP from
 // tauri.conf.json (so violations surface), stubs Tauri IPC with inert answers, and collects problems.
 // Browser fixture only: not the installed app. Run `npm run build` in windows/ first.
-// Tests add IPC answers with context.addInitScript(()=>{window.__ipc={command:args=>...}}).
+// Tests add IPC answers with context.addInitScript(()=>{window.__ipc={command:args=>...}}), or before the page loads with
+// open({init}). open({page,ready}) opens another built page and waits for its selector.
 // Env: CHROMIUM_BIN=<path> picks a browser (default: the msedge channel, like the other app-qa scripts); DIST_DIR=<dir> serves another build.
 import {chromium} from 'playwright-core';
 import {createServer} from 'node:http';
@@ -49,7 +50,7 @@ export async function start(){
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await chromium.launch({...(process.env.CHROMIUM_BIN?{executablePath:process.env.CHROMIUM_BIN}:{channel:'msedge'}),args:['--no-sandbox','--autoplay-policy=no-user-gesture-required'],headless:true});
   const problems=[];
-  async function open({width=1280,height=800}={}){
+  async function open({width=1280,height=800,page:file='workspace.html',ready='[data-view="home"]',init}={}){
     const context=await browser.newContext({viewport:{width,height},colorScheme:'dark'});
     await context.addInitScript(()=>{
       window.__csp=[];document.addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective+' '+e.blockedURI));
@@ -68,13 +69,14 @@ export async function start(){
         case 'workspace_read_file':return{name:'qa-note.txt',text,pages:[{number:1,text,ocr:false}],path:'/tmp/qa-note.txt',reading:null};
         default:if(window.__ipc&&window.__ipc[command])return window.__ipc[command](args);return null;}}};
     });
+    if(init)await context.addInitScript(init);
     const page=await context.newPage();
     page.on('console',m=>{if(m.type()==='error')problems.push('console.error: '+m.text())});
     page.on('pageerror',e=>problems.push('pageerror: '+e.message));
     page.on('response',r=>{if(r.status()>=400)problems.push(`http ${r.status()}: ${r.url()}`)});
     page.on('requestfailed',r=>problems.push('requestfailed: '+r.url()));
-    await page.goto(`http://127.0.0.1:${server.address().port}/workspace.html`);
-    await page.locator('[data-view="home"]').waitFor({state:'attached'});
+    await page.goto(`http://127.0.0.1:${server.address().port}/${file}`);
+    await page.locator(ready).waitFor({state:'attached'});
     return{context,page};
   }
   return{open,problems,close:async()=>{await browser.close();await new Promise(r=>server.close(r));}};

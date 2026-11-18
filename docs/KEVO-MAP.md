@@ -17,6 +17,7 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src/workspace/main.ts` | Gives Kevo its actions (`openApp`, `openUrl`, `searchWeb`, `askAI`, …) via Tauri `invoke` |
 | `src-tauri/src/kevo_system.rs` | Windows side: find and open Start Menu apps (`best_app_match`), system actions |
 | `src-tauri/src/kevo_hud.rs` | HUD state bus: `kevo://state` `{state, line, badge, level}`, sent only on change, loudness at most 20/s and only while speaking; `kevo_hud_set` from the desk's `refresh` |
+| `src-tauri/src/kevo_float.rs`, `src/kevo-float/`, `kevo-float.html` | Kevo float window (HUD H.2): 48 × 28 pill under the island, shown while Kevo is on and "Show Kevo float" is ticked (`kevo_float_show`), remembers where it is dragged (`kevo-float.json`); follows `kevo://state`, starts from `kevo_hud_now`. Fixture: `scripts/app-qa/kevo-float.mjs` |
 | `src-tauri/src/workspace_commands.rs` | `kevo_ask` / `kevo_cancel`: the local AI call and its system prompt (`KEVO_SYSTEM`) |
 | `tests/jarvis-*.test.ts`, `tests/kevo-*.test.ts` | Node tests; `kevo-phase0-session2.test.ts` holds the requests from the owner's recording |
 

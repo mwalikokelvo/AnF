@@ -16,7 +16,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
+import { createJarvisHud, floatShown, kevoHudReporter, kevoState, setFloatShown } from './jarvis-hud';
 import { JarvisExecutive } from './jarvis-executive';
 import { RevenueConnector } from './connectors/revenue-connector';
 import { AdsConnector } from './connectors/ads-connector';
@@ -408,6 +408,17 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
   onlineToggle.append(onlineBox, ' Natural online voices (replies are sent to Microsoft to be spoken)');
 
+  // Kevo's small always-on-top float (HUD track). On by default; unticked, the window never appears.
+  const floatToggle = document.createElement('label');
+  floatToggle.className = 'jarvis-online-voices';
+  floatToggle.title = 'A small pill under the island that shows what Kevo is doing while this window is hidden.';
+  const floatBox = document.createElement('input');
+  floatBox.type = 'checkbox';
+  floatBox.checked = floatShown();
+  floatBox.addEventListener('change', () => setFloatShown(floatBox.checked, invoke));
+  floatToggle.append(floatBox, ' Show Kevo float');
+  setFloatShown(floatBox.checked, invoke); // Rust starts with it on; this brings it in line with the saved choice
+
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
     stopNow(); // also abandons an answer being written, so it is never saved into the fresh conversation
@@ -419,7 +430,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     hud.pulseMessage('New conversation started');
   });
 
-  voiceBar.append(micBtn, stopBtn, voiceSelect, previewBtn, forgetBtn, onlineToggle, speechStatusEl);
+  voiceBar.append(micBtn, stopBtn, voiceSelect, previewBtn, forgetBtn, onlineToggle, floatToggle, speechStatusEl);
 
   toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
 

@@ -37,6 +37,17 @@ export function kevoHudReporter(invoke: (cmd: 'kevo_hud_set', args: { state: Kev
   };
 }
 
+const FLOAT_KEY = 'kevo-show-float';
+/** "Show Kevo float" (on by default): whether Kevo's float window may appear. */
+export function floatShown(): boolean {
+  try { return localStorage.getItem(FLOAT_KEY) !== '0'; } catch { return true; }
+}
+/** Remembers the setting and tells Rust, which shows or hides the window. */
+export function setFloatShown(show: boolean, invoke: (cmd: 'kevo_float_show', args: { show: boolean }) => Promise<unknown>): void {
+  try { localStorage.setItem(FLOAT_KEY, show ? '1' : '0'); } catch { /* not remembered */ }
+  invoke('kevo_float_show', { show }).catch(() => {}); // no Tauri (browser fixture): nothing to show
+}
+
 function injectHudStyles(): void {
   if (document.getElementById('jarvis-hud-styles')) return;
   const style = document.createElement('style');
