@@ -85,6 +85,25 @@ export const Bridge = {
   kevoMemoryClearHistory: () =>
     call<boolean>("kevo_memory_clear_history"),
 
+  kevoScheduleCreateReminder: (message: string, trigger_at: number, recurring?: string) =>
+    call<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>(
+      "kevo_schedule_create_reminder",
+      { message, trigger_at, recurring }
+    ),
+  kevoScheduleListReminders: (include_fired?: boolean) =>
+    call<Array<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>>(
+      "kevo_schedule_list_reminders",
+      { include_fired }
+    ),
+  kevoScheduleCancelReminder: (id: string) =>
+    call<boolean>("kevo_schedule_cancel_reminder", { id }),
+  kevoScheduleClearReminders: () =>
+    call<boolean>("kevo_schedule_clear_reminders"),
+  kevoScheduleCheckDue: () =>
+    call<Array<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>>(
+      "kevo_schedule_check_due"
+    ),
+
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),
 

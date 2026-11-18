@@ -4,7 +4,29 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Phase 4 Brief written).
+Last updated: 2026-11-18 by Antigravity (Kevo 4.1: persistent schedule and reminder store).
+
+## 2026-11-18 — Kevo 4.1: persistent schedule and reminder store (Antigravity)
+
+Phase 4 Step 4.1 (`docs/kevo-briefs/phase-4.md`, "4.1 Persistent schedule and reminder store"):
+- Native Persistent Schedule Store (`windows/src-tauri/src/kevo_schedule.rs`):
+  - Added structured reminders (`KevoReminder`: `id`, `message`, `trigger_at`, `created_at`, `fired`, `recurring`).
+  - Thread-safe mutex and atomic write in `settings::local_dir()/kevo/kevo-schedule.json`.
+  - Enforced storage bounds (max 200 reminders, pruning old fired items past 7 days).
+  - Implemented `check_and_fire_due_reminders` with single-fire guarantee and automatic re-scheduling for daily recurring items.
+  - Background ticker loop `spawn_schedule_ticker` polling every 5s and emitting `kevo://reminder-triggered`.
+- Tauri Commands & Lib Integration (`windows/src-tauri/src/lib.rs`):
+  - Registered `kevo_schedule_create_reminder`, `kevo_schedule_list_reminders`, `kevo_schedule_cancel_reminder`, `kevo_schedule_clear_reminders`, and `kevo_schedule_check_due`.
+  - Spawned background ticker in Tauri setup hook.
+- Bridge & TypeScript Store (`windows/src/core/bridge.ts`, `windows/src/workspace/jarvis/voice/jarvis-schedule.ts`):
+  - Exposed schedule commands on `Bridge`.
+  - Added `jarvis-schedule.ts` with typed helpers (`createReminder`, `listReminders`, `cancelReminder`, `clearReminders`, `checkDueReminders`) and fallback memory store for headless test environments.
+- Verification:
+  - 4/4 Rust unit tests in `kevo_schedule` PASS (`cargo test --lib kevo_schedule`).
+  - 5/5 TypeScript unit tests in `jarvis-schedule.test.ts` PASS.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS.
+  - 722/722 tests passed across 102 suites (`npm test` PASS).
 
 ## 2026-11-18 — Phase 4 brief written (Antigravity)
 

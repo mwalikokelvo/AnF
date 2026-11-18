@@ -39,6 +39,7 @@ mod kevo_system;
 mod kevo_ears;
 pub mod kevo_autotest;
 pub mod kevo_memory;
+pub mod kevo_schedule;
 mod log;
 mod pipe;
 mod platform;
@@ -537,6 +538,11 @@ pub fn run() {
             kevo_memory::kevo_memory_load_history,
             kevo_memory::kevo_memory_save_turn,
             kevo_memory::kevo_memory_clear_history,
+            kevo_schedule::kevo_schedule_create_reminder,
+            kevo_schedule::kevo_schedule_list_reminders,
+            kevo_schedule::kevo_schedule_cancel_reminder,
+            kevo_schedule::kevo_schedule_clear_reminders,
+            kevo_schedule::kevo_schedule_check_due,
             log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,
@@ -684,6 +690,7 @@ pub fn run() {
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             kevo_autotest::spawn_autotest_loop(handle.clone());
+            kevo_schedule::spawn_schedule_ticker(handle.clone());
             Ok(())
         })
         .build(tauri::generate_context!());
