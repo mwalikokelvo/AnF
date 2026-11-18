@@ -1580,7 +1580,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const play=button('Play '+t.title,()=>playTrack(t,list));
   play.className='music-card-play';
   const trackLabel=t.trackNo?(t.trackOf?t.trackNo+'/'+t.trackOf:'#'+t.trackNo):''; const discLabel=t.discNo?(t.discOf?t.discNo+'/'+t.discOf:'Disc '+t.discNo):'';
-  const badge=trackBadge(t); const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(badge.label?' · '+badge.label:'')+(t.duration?' · '+durationText(t.duration):'');
+  const badge=trackBadge(t); const sizeLabel=t.blob?.size?(' · '+formatSize(t.blob.size)):''; const bpmLabel=t.bpm?(' · '+Math.round(t.bpm)+' BPM'):''; const chaptersLabel=t.chapters?.length?(' · '+t.chapters.length+' ch'):''; const lyricsLabel=t.lyrics?' · Lyrics':''; const coverLabel=t.cover?' · Cover':''; const bitrateLabel=t.bitrate?(' · '+Math.round(t.bitrate/1000)+' kbps'):''; const sampleRateLabel=t.sampleRate?(' · '+Math.round(t.sampleRate/1000)+' kHz'):''; const channelsLabel=t.channels?(t.channels===1?' · Mono':t.channels===2?' · Stereo':' · '+t.channels+' ch'):''; const bitDepthLabel=t.bitDepth?(' · '+t.bitDepth+'-bit'):''; const composerLabel=t.composer&&t.composer!==t.artist?(' · '+t.composer):''; const albumArtistLabel=t.albumArtist&&t.albumArtist!==t.artist?(' · '+t.albumArtist):''; const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(badge.label?' · '+badge.label:'')+(t.duration?' · '+durationText(t.duration):'')+sizeLabel+bpmLabel+chaptersLabel+lyricsLabel+coverLabel+bitrateLabel+sampleRateLabel+channelsLabel+bitDepthLabel+composerLabel+albumArtistLabel;
   const coverEl=art(t);
   coverEl.append(h('span',{class:`music-card-badge music-badge-${badge.kind}`,text:badge.label}));
   const pos=listening.positions[t.id]||0;
@@ -3211,6 +3211,20 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   },
   refresh,
   ready,
+  /** Kevo's "turn it up", "mute", "volume 40": same effect as the slider, Mute button and +/- keys. Returns the level, 0 to 100. */
+  changeVolume:(change:{kind:'up'|'down'|'mute'|'unmute'}|{kind:'set';level:number}):number=>{
+   if(change.kind==='mute'||change.kind==='unmute'){
+    audio.muted=change.kind==='mute';
+    mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';
+    volumeLabel.textContent=audio.muted?'Muted':Math.round(prefs.volume*100)+'%';
+    return Math.round(prefs.volume*100);
+   }
+   const v=change.kind==='set'?change.level/100:prefs.volume+(change.kind==='up'?.1:-.1);
+   const level=Math.max(0,Math.min(1,Math.round(v*100)/100));
+   stopFade();audio.muted=false;audio.volume=prefs.volume=level;volume.value=String(level);
+   mute.setAttribute('aria-pressed','false');mute.textContent='Mute';volumeLabel.textContent=Math.round(level*100)+'%';save();
+   return Math.round(level*100);
+  },
   getState:()=>playbackState,
   getError:()=>playbackError,
   step,
@@ -3271,6 +3285,8 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   }
  };
 }
+
+
 
 
 

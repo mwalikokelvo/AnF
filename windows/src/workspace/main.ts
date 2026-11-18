@@ -37,6 +37,7 @@ import {createOpdsPanel} from './opds-panel';
 import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
+import {fetchWeather} from './jarvis/voice/jarvis-voice-agent';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
 type Turn={role:'user'|'assistant';content:{text:string}[]};
@@ -247,11 +248,27 @@ const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=mess
 let kevoTurn=0;
 const jarvisCommandDesk=createJarvisCommandDesk({
   onNotify:msg=>{status.textContent=msg;},
+  // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
+  log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
   voiceActionContext:{
     switchView:view=>showView(view),
     pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},
     playMusic:()=>{void musicHub.play();},
     nextTrack:()=>{void musicHub.step(1);},
+    setMusicVolume:change=>musicHub.changeVolume(change),
+    // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
+    weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},
+    setWeatherEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-weather-on','1');else localStorage.removeItem('anf-kevo-weather-on');}catch{/* Stays as it was. */}},
+    // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
+    getWeather:async (place,day)=>{
+     const key='anf-kevo-weather-place';
+     let saved:string|null=null;try{saved=localStorage.getItem(key);}catch{/* No saved place. */}
+     const where=place?.trim()||saved;
+     if(!where)return null;
+     const summary=await fetchWeather(where,{fahrenheit:/-US$/i.test(navigator.language),day});
+     try{localStorage.setItem(key,where);}catch{/* Next time Kevo asks again. */}
+     return summary;
+    },
     searchMusic:async (query:string)=>{
       showView('music');
       return await musicHub.searchAndPlay(query);
@@ -288,7 +305,8 @@ const jarvisCommandDesk=createJarvisCommandDesk({
       finally{off();}
     },
     cancelAI:()=>{void invoke('kevo_cancel');},
-    searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});}
+    searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
+    openUrl:async url=>{await invoke('open_url',{url});}
   }
 });
 section('jarvis','Kevo',jarvisCommandDesk.root);

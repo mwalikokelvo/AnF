@@ -52,7 +52,8 @@ struct KevoPart {
     id: u64,
     text: String,
 }
-const KEVO_SYSTEM: &str = "You are Kevo, a voice assistant inside the AnF app on the user's computer. Your reply is spoken aloud: answer in one to three short plain sentences, with no lists, markdown, or emoji. If you do not know, say so briefly. Do not claim web access. /no_think";
+// Kept plain for the smallest bundled model: mentioning that the reply is "spoken" made it answer about voices.
+const KEVO_SYSTEM: &str = "You are Kevo, a helpful assistant on the user's computer. Answer the user's question directly in one to three short sentences of plain text. No lists, no markdown. If you do not know, say so in one sentence. /no_think";
 
 /// The messages sent for a spoken question: the Kevo instructions, a few recent turns, then the question.
 fn kevo_messages(query: &str, history: &[Value]) -> Vec<Value> {
@@ -88,6 +89,7 @@ pub async fn kevo_ask(
     turn.0.send_replace(id);
     let mut changed = turn.0.subscribe();
     let messages = kevo_messages(query.trim(), &history);
+    let started = std::time::Instant::now();
     let mut unsent = String::new();
     let answer = async {
         let text = chat.local.reply_stream(&messages, &model, 160, |piece| {
@@ -107,6 +109,7 @@ pub async fn kevo_ask(
     if !rest.is_empty() {
         let _ = app.emit("kevo-reply-part", KevoPart { id, text: rest.to_string() });
     }
+    crate::kevo_hud::set_badge(&app, format!("Local model · {:.1} s", started.elapsed().as_secs_f32()));
     Ok(text)
 }
 /// Stops the answer Kevo is writing, if any.

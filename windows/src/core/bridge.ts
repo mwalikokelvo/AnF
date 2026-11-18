@@ -55,6 +55,16 @@ export const Bridge = {
   openInVSCode: (path: string | null) => call<boolean>("open_in_vscode", { path }),
 
   quit: () => call<void>("quit_app"),
+  quitApp: () => call<void>("quit_app"),
+
+  isKevoSelftest: () => call<boolean>("is_kevo_selftest"),
+  kevoSelftestGetClips: () => call<string>("kevo_selftest_get_clips"),
+  kevoSelftestReadClip: (file: string) => call<number[]>("kevo_selftest_read_clip", { file }),
+  kevoSelftestSaveResult: (resultJson: string) => call<string>("kevo_selftest_save_result", { resultJson }),
+  kevoGraphicsCard: () => call<string>("kevo_graphics_card"),
+  systemStats: () => call<Record<string, unknown>>("system_stats"),
+  kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),
+  kevoHudAnswer: (id: number | string, approved: boolean) => call<void>("kevo_hud_answer", { id, approved }),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),
@@ -79,6 +89,14 @@ export const Bridge = {
   approvalAck: (requestId: string) => call<void>("approval_ack", { requestId }),
   /** "Nobody can act on this" — Claude Code asks in the terminal right away. */
   approvalDecline: (requestId: string) => call<void>("approval_decline", { requestId }),
+
+  // ── Kevo Ears (Phase 1 listening pipeline) ──────────────────────────────
+  kevoEarsStart: () => call<void>("kevo_ears_start"),
+  kevoEarsStop: () => call<void>("kevo_ears_stop"),
+  kevoEarsMute: (muted: boolean) => call<void>("kevo_ears_mute", { muted }),
+  kevoEarsStatus: () => call<{ running: boolean; muted: boolean }>("kevo_ears_status"),
+  kevoEarsModelsInstalled: () => call<boolean>("kevo_ears_models_installed"),
+  kevoEarsInstallModels: () => call<void>("kevo_ears_install_models"),
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */

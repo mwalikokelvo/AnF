@@ -90,6 +90,7 @@ describe('Overnight Kevo pipeline', () => {
     const listener = new JarvisVoiceListener({
       onWakeWord: (w) => wakes.push(w),
       onFinalSpeech: (t) => finals.push(t),
+      settleMs: 0,
     });
     assert.equal(listener.isSupported(), true);
     assert.equal(listener.start(), true);
@@ -108,7 +109,7 @@ describe('Overnight Kevo pipeline', () => {
     const fake = new FakeSpeechRecognition();
     g.window = { SpeechRecognition: function SpeechRecognition() { return fake; } };
     const finals: string[] = [];
-    const listener = new JarvisVoiceListener({ followUpMs: 0, onFinalSpeech: (t) => finals.push(t) });
+    const listener = new JarvisVoiceListener({ followUpMs: 0, settleMs: 0, onFinalSpeech: (t) => finals.push(t) });
     listener.start();
     fake.emitFinal('Hey Google.');
     fake.emitFinal('Are you awake?');
@@ -254,6 +255,52 @@ describe('Overnight Kevo pipeline', () => {
     assert.equal((await agent.processVoiceInput('say that again')).speechReply, time);
     assert.match((await agent.processVoiceInput('search the web for parish news')).speechReply, /could not open the browser: no browser found/);
     agent.dispose();
+  });
+
+  it('a request the recogniser cut into pieces is heard as one request', async () => {
+    const g = globalThis as any;
+    const prevWindow = g.window;
+    const fake = new FakeSpeechRecognition();
+    g.window = { SpeechRecognition: function SpeechRecognition() { return fake; } };
+    const finals: string[] = [];
+    const listener = new JarvisVoiceListener({ settleMs: 30, onFinalSpeech: (t) => finals.push(t) });
+    listener.start();
+    fake.emitFinal('Hey, Kevo.');
+    fake.emitFinal('Set a timer');
+    fake.emitFinal('for one minute.');
+    assert.deepEqual(finals, [], 'nothing is acted on while the owner is still talking');
+    await new Promise((r) => setTimeout(r, 80));
+    assert.deepEqual(finals, ['Set a timer for one minute.']);
+    listener.stop();
+    g.window = prevWindow;
+  });
+
+  it('a greeting, a stray word and "what else can you do" never reach the AI, and a stuck answer is not repeated', async () => {
+    let answer = 'I am not available for voice changes right now.';
+    let asked = 0;
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      showToast: () => {},
+      triageSupport: () => 2,
+      askAI: async (_q, options) => { asked += 1; answer.split(/(?<=\.) /).forEach((p) => options?.onPart?.(p)); return answer; },
+    });
+    const parts: string[] = [];
+    const say = async (text: string) => (await agent.processVoiceInput(text, (p) => parts.push(p))).speechReply;
+    assert.equal(await say('Hey, Kevo.'), 'Yes?');
+    assert.equal(await say('Hello'), 'Yes?');
+    assert.equal(await say('Careful.'), '');
+    assert.notEqual((await agent.processVoiceInput('triage')).actionName, 'ignored', 'a one-word command still runs');
+    assert.match(await say('maybe? What else can you do?'), /^I can open apps/);
+    assert.equal(asked, 0);
+    assert.equal(await say('Tell me about the moon'), answer);
+    assert.deepEqual(parts, [answer]);
+    assert.match(await say('And what about the sun'), /Try asking it another way/);
+    assert.deepEqual(parts, [answer], 'the repeated answer is not spoken sentence by sentence either');
+    answer = 'The sun is a star. It is very hot.';
+    assert.equal(await say('What is the sun'), answer);
+    assert.deepEqual(parts.slice(1), ['The sun is a star.', 'It is very hot.']);
+    await say('What can I do to lower CPU use?');
+    assert.equal(asked, 6, 'stuck answers are asked once more afresh (twice here); a real question that starts like the help request goes to the AI');
   });
 
   it('a last sentence that arrived late is still spoken, once', () => {

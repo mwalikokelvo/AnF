@@ -1,120 +1,92 @@
-# AnF Multi-Agent Development Standards
+# AnF — the one rulebook for every assistant
 
-This document establishes mandatory operating standards for all developers and autonomous AI coding agents (Antigravity, Cursor, Claude Code, Codex, DeepSeek Harness, OpenCode, Gemini CLI, Aider) building on the AnF codebase.
+Every developer and AI assistant (Claude Code, Codex, Antigravity, Gemini CLI, Cursor, Jules, Copilot, Hermes, DeepSeek, Grok, OpenCode, Aider) follows this file. `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md` point here. Owner's engineering handoff of 17 Nov 2026 is folded in.
 
-This repository (`AnF`) is fully outfitted with shared team agent skills, agency roles, knowledge graphs, and MCP connectors in `.agents/` and `.cursor/`. **Anyone and any agent building our apps MUST actively utilize these skills, connectors, and agent roles.**
+## 1. Start here
 
----
+- Read `HANDOFF.md`, `docs/BUILDER-RUNBOOK.md` and `docs/BUILDUP-STATUS.md` before any task; append your result to `HANDOFF.md` when done.
+- Check what others already did: continuation checkpoints in `continuations/` and recent branch heads (`claude/*`, `codex/*`, `integration/*`) on `origin`. Verify their tests and build forward from that state. Never discard or overwrite another assistant's working code.
+- Kevo: read `docs/KEVO-PLAN.md`, `docs/KEVO-MAP.md` and `docs/kevo-autopilot/TEAM.md` first. Take only an issue assigned to you or an unclaimed `team:any` one. One brief step per pull request; nothing the brief does not name.
 
-## 1. Mandatory Skills, Connectors & Agency Personas
+## 2. Where things are
 
-**Do NOT wait for the developer to call out specific skills, slash commands, or roles.** Agents and developers must autonomously identify, adopt, and apply matching resources from `.agents/` and `.cursor/`:
+- `windows/` — Tauri v2 app for Windows and Linux: Rust in `src-tauri/`, TypeScript/Vite in `src/`, the `coucou-hook` relay in `hook/`. Shared design: `windows/src/workspace/anf-design.css`. `windows/README.md` lists what differs from the Mac.
+- `android/` — Android workspace. `crates/anf-vault/` — shared vault domain crate (pure Rust).
+- `NotchBuddy/` — upstream macOS Coucou companion (Swift 6, SwiftUI + AppKit; XcodeGen `project.yml`, never edit the `.xcodeproj` by hand). Mochi, the notch character, is drawn in code (`Canvas` + `TimelineView`), no Rive/Lottie/images.
+- `NotchBuddy/Sources/App/PillCatalog.swift` — single source of truth for every pill (ID, colour, category, subtitle).
+- `docs/SPEC.md`, `docs/INTEGRATIONS.md` (French) — behaviour and integrations. `design/prototype/notch-buddy.html`, `design/captures/` — references for new work only.
+- Visible branding is AnF; legacy identifiers and storage/cryptographic names (`coucou.db`, "Coucou SQLCipher vault", bundle id `fr.louisraille.NotchBuddy`) stay stable so updates keep working.
 
-### A. Core Skill Suites (In `.agents/skills/` and `.cursor/skills/`)
-1. **Official Anthropic Suite**:
-   - `mcp-builder`: Creating, authoring, and structuring custom Python/TypeScript MCP servers.
-   - `claude-api`: Official prompt patterns, model capabilities, token budgeting, and tool use.
-   - `pdf`, `docx`, `xlsx`, `pptx`: Complete extraction, generation, formula calculation, and document formatting.
-   - `web-artifacts-builder`, `theme-factory`: Multi-component interactive React/Tailwind/shadcn HTML artifacts.
-   - `algorithmic-art`, `canvas-design`: Generative visual workflows, SVG, and canvas rendering.
-   - `webapp-testing`: Browser interaction, accessibility, and end-to-end verification.
-   - `doc-coauthoring`, `internal-comms`: Technical specs, RFCs, change documentation, and status updates.
-2. **Engineering Lifecycle Suite (Addy Osmani)**:
-   - `spec-driven-development` & `api-and-interface-design`: Specifying interfaces, contracts, and types before writing implementation.
-   - `test-driven-development`: Red-Green-Refactor cycle for non-trivial logic.
-   - `browser-testing-with-devtools`: Automated real-browser assertions and console verification.
-   - `code-review-and-quality`: Pre-commit/pre-PR automated quality audits.
-   - `ci-cd-and-automation` & `shipping-and-launch`: Release workflows and pipelines.
-3. **UI, Motion & Interaction Suite (Emil Kowalski)**:
-   - `frontend-ui-engineering`, `design-taste-frontend`, `animate`, `gestures`, `animation-performance`: Smooth 60/120fps interactions, layout-shift-free UI, and native feel.
-4. **Superpowers & Resilient Execution**:
-   - `brainstorming`: Structured ideation before tackling complex feature work.
-   - `systematic-debugging`: Root-cause tracing with reproducible test cases before proposing fixes.
-   - `verification-before-completion`: Evidence-first verification before claiming any fix or feature is complete.
-   - `dispatching-parallel-agents`: Delegating independent tasks to parallel subagents.
+## 3. Branches and merging
 
-### B. Core MCP Connectors (In `.agents/mcp_config.json` and `.cursor/mcp.json`)
-All agents must leverage the registered MCP tools:
-- **`codebase-memory`**: Persistent AST dependency graph (`.codebase-memory/graph.db.zst`). Query symbols, relationships, and caller hierarchies across sessions.
-- **`fetch`**: Live lookup of official third-party APIs, crates, packages, and RFC documentation.
-- **`filesystem`**: Scoped workspace reads/writes with boundary safety.
-- **`git`**: Checking status, diffs, branch isolation, and staging clean atomic increments.
-- **`magic-ui`**: Component patterns and Tailwind styling catalog for rapid UI development.
+- **`main` is locked** (owner, 16 Nov 2026): never push to it, never force-push. Branch, open a pull request, merge only with green checks and a review by an assistant that did not write it. Never merge your own pull request, except the Kevo autopilot under `docs/kevo-autopilot/AUTOPILOT.md`.
+- Branch prefixes: `claude/`, `codex/`, `hermes/`, `agy/` (Antigravity/Gemini), `cursor/` or `grok/`, `copilot/`, `jules/`, `integration/`.
+- Commit working increments with passing tests and push before you run out of quota; write what is left in `HANDOFF.md`.
+- Do not run `cargo build` or `npm run pack` while another assistant's build runs on the same machine: target folders lock.
 
-### C. Agency Specialists & Department Personas (In `.cursor/skills/agency-agents/` and `.agents/agency-agents/`)
-The repository contains 232 specialized domain personas. Whenever an agent or developer tackles a specific domain, they must adopt the corresponding persona:
-- **Architecture**: `systems-architect.md`, `backend-architect.md`, `cloud-architect.md`
-- **Frontend & UI/UX**: `ui-designer.md`, `frontend-specialist.md`, `accessibility-auditor.md`
-- **Security & Infrastructure**: `security-auditor.md`, `devops-engineer.md`, `penetration-tester.md`
-- **Quality & Delivery**: `qa-engineer.md`, `test-automator.md`, `release-manager.md`
+## 4. Who works where
 
-### D. Codebase Navigation (Graphify)
-- Run `graphify query "<question>"` before reading raw files.
-- Run `graphify path "<Source>" "<Target>"` for component dependencies.
-- Run `graphify explain "<Node>"` for symbol analysis.
-- After code changes, run `graphify update .` to keep the graph current.
+| Assistant | Prefix | Good for | Hard limit |
+|---|---|---|---|
+| Hermes (free, local) | `hermes/` | Docs, test scaffolds, simplification scripts, crate-level `cargo check` | Never a full workspace build on the 8 GB PC |
+| Antigravity / Gemini | `agy/` | UI components (Kevo float HUD), fixtures, artifact checks | One Rust build on the PC at a time |
+| Claude Code | `claude/` | Plans, Rust lifetimes, SQLCipher migrations, UniFFI boundaries, reviews, Kevo autopilot | Hand pre-PR checks to `.claude/agents/verifier.md` |
+| Cursor / Grok (cloud) | `cursor/`, `grok/` | Large refactors, full Linux test and benchmark runs | 2 tries per failure |
+| Codex (cloud) | `codex/` | Rust, CI, packaging; reviews every pull request | Never merges its own |
+| Jules (cloud) | `jules/` | TypeScript, UI, tests, phrase list, scripts | Kevo board issues only |
+| Copilot (GitHub) | `copilot/` | Bounded fixes from `.github/ISSUE_TEMPLATE/copilot-task.md` | No open-ended features: named files and a test command |
 
----
+- **Two strikes**: if a build, test or speed check fails twice on the same thing, stop, leave the branch and write down what failed instead of retrying.
+- **Reviews**: Copilot may do a first pass automatically; `@claude` reviews only when mentioned. A review comment never triggers an automatic commit, and bots never answer bots (workflows filter `!endsWith(github.actor, '[bot]')`).
 
-## 2. REA Reverse Engineering Standard (STRICT MANDATE)
-- **NEVER SKIP REA**: For any application, library, feature, or protocol investigation (including when open source is available), agents MUST use REA (`rea` CLI 6.8.0 or REA MCP tools).
-- **Target Analysis**:
-  - For Electron/Desktop targets: unpack and inspect ASAR packages (`app.asar`), trace IPC handlers (`ipcMain.handle`, `ipcRenderer.invoke`), extract preload bridge interfaces, and extract clean CSS/design tokens.
-  - For Native Binaries (PE, ELF, Mach-O): inspect exported symbol tables, imported libraries, section headers, string constants, and decompiled routines.
-  - For Network & Audio Protocols: inspect request/response schemas, streaming endpoint signatures, and caching mechanisms.
-- **Evidence-First Grounding**: All architectural choices, reverse-engineered workflows, and feature improvements must cite concrete extracted evidence from REA.
+## 5. Engineering rules
 
----
+1. **Ponytail**: the smallest complete change. Reuse existing components, helpers and CSS classes first. No speculative abstractions, wrappers or "for later" features. Never skip security, edge cases, tests or stated requirements.
+2. **Dependencies**: no new C or native libraries that break Linux CI, `windows.yml` or Android builds. Rust networking uses `rustls` (`reqwest` with `rustls-tls`; never `native-tls`). The vault stays on SQLCipher (AES-256) via `rusqlite`'s `bundled-sqlcipher-vendored-openssl`, which compiles its crypto from source on every target; do not change the cipher or key format, which would strand existing vaults.
+3. **No telemetry**: no analytics or tracking SDKs, no silent callbacks. Network calls only to services the owner configured. Spotify Connect is banned; music uses open providers (Audius, Subsonic/Navidrome, Internet Archive) and the embedded Spotube integration as built.
+4. **Push, not polling**: no `setInterval`, `requestAnimationFrame` state loops or `tokio::time::sleep` loops to watch backend, audio or sync state. Use Tauri events (`app.emit` / `listen`), Tauri Channels for streaming audio and transcription, or file/SQLite write hooks. Animation frames are fine for drawing, not for checking state. 0 % CPU when the island or HUD is hidden.
+5. **Replace in place**: no `*_v2` copies, compatibility shims or `#[allow(dead_code)]` kept "for later". Fix broken code where it is, update every caller in the same commit, delete what is unused. `crates/anf-vault` must pass `cargo clippy --all-targets -- -D warnings` (CI checks it); new Rust in `windows/src-tauri` must add no clippy warnings.
+6. **Stable contracts**: never rename a pill ID (Keychain, UserDefaults, hook routing). Keep the bundle identifier.
+7. **Shipped views stay as they are**: never restyle pills, cards, Settings or chat unless the owner asks. New views follow the existing style.
+8. **Secrets** live in the OS credential store (Keychain / Windows Credential Manager), never on disk or in git. Never commit personal voice recordings beyond the pack the owner approved, signing keys or backups.
+9. **Never block an agent**: if the app does not answer, the hook exits at once. Never overwrite `~/.claude/settings.json` (dated backup, merge, show the diff, write after the owner confirms). Never send an email or approve a Claude Code or Codex permission without an explicit click.
+10. **Typed actions**: Kevo acts through deterministic Rust commands (vault search, notes, audio studio, P2P), not by clicking through the OS accessibility tree. A risky action (send to another device, delete, run a script) waits for Approve/Deny or a spoken "yes"/"cancel".
 
-## 3. Multi-Agent Handover & Token Quota Protection
-- **Check State First**: Read `HANDOFF.md` and `docs/BUILDUP-STATUS.md` before starting any task.
-- **Clear superseded builds**: once a newer AnF build is installed and runs, remove the older build's files from the owner's devices so storage does not fill up. Keep the newest build, the source checkout, user data backups and signing keys. Details: `docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds".
-- **Continuous Buildup**: Never discard or overwrite working code from other partner agents. Inspect recent commits on `origin/` and continuation checkpoints.
-- **Atomic Commits & Pushes**: Whenever approaching token quota limits, commit working increments with passing tests and push to `origin` immediately, appending details to `HANDOFF.md`.
-- **No Build Collisions**: Do not run `cargo build` or `npm run pack` while another agent process is running; native target directories lock.
+## 6. Speed budgets
 
----
+Checked by tests where the code exists; a pull request that touches the path keeps its test green.
 
-## 4. Core AnF Engineering Rules
+| Path | Budget | Test |
+|---|---|---|
+| Vault FTS5 search, 2,000 projects | < 50 ms p95 | `vault::tests::fts5_search_p95_under_50ms` |
+| Tauri IPC command round trip | < 100 ms | not yet measured |
+| Kevo wake word, barge-in stop, first audio of local speech | < 300 ms | Kevo Phase 1 self-test (`docs/KEVO-PLAN.md`) |
+| Kevo command reply starts / AI answer starts | < 1.5 s / < 5 s | Kevo self-test |
 
-1. **Ponytail — Lazy Senior Dev Mode**:
-   - Solve the problem with the smallest complete change.
-   - Reuse existing components, helpers, and CSS classes before writing new code.
-   - No speculative abstractions, boilerplate wrappers, or "for later" features.
-   - Never skip security, edge-case validation, tests, or explicit requirements.
-2. **Stable Contracts & Pill Catalog**:
-   - `NotchBuddy/Sources/App/PillCatalog.swift` is the **single source of truth** for all declared pills (workspace tools, agents, AI providers, services).
-   - Every pill ID, color, category, and subtitle lives here.
-   - Pill IDs are stable contract values (Keychain, UserDefaults, hook routing): **never rename an existing pill ID**.
-3. **App Store View Preservation**:
-   - Never restyle views that already ship in `main` (pills, cards, Settings, chat).
-   - Existing views stay as they are in the App Store build. Change the visual style of an existing view only when explicitly requested.
-   - `design/prototype/notch-buddy.html` and `design/captures/` are references for *new* work only.
-4. **Platform Structure**:
-   - **macOS Companion**: `NotchBuddy/` — Swift 6, SwiftUI + AppKit. Project generated via `project.yml` with XcodeGen (never edit `.xcodeproj` manually). Character drawn in code (`Canvas` + `TimelineView`), no Rive/Lottie.
-   - **Windows / Linux**: `windows/` — Tauri v2 application (Rust in `src-tauri/`, TypeScript/Vite in `src/`, `coucou-hook` in `hook/`).
-   - **Android**: `android/` workspace.
-   - **Shared Styling**: `windows/src/workspace/anf-design.css`.
-5. **Security & Performance**:
-   - Secrets live in Keychain, never on disk or in git.
-   - 0% CPU consumption when the notch / island is hidden.
-   - Never block Claude Code or agent relays: if the app does not answer, the hook must exit immediately.
-   - No telemetry. Network calls only to user-configured services.
-   - **No Banned Services**: Spotify Connect is strictly prohibited. All music streaming uses decentralized, open-access providers (Audius, Subsonic/Navidrome, Internet Archive).
+## 7. Skills, tools and specialists
 
----
+- Use the installed skills in `.agents/skills/` and `.cursor/skills/` without being asked: engineering lifecycle (spec, interface design, test-driven development, code review), UI and motion, systematic debugging, verification before completion, parallel agents. If none fits, `skills find <query>`. Keep them current with `skills update -g`.
+- MCP servers in `.agents/mcp_config.json` / `.cursor/mcp.json`: `codebase-memory` (symbol and caller graph), `fetch`, `filesystem`, `git`, `magic-ui`.
+- Adopt the matching specialist persona from `.agents/agency-agents/` or `.cursor/skills/agency-agents/` (architecture, UI, security, QA, release).
+- Navigation: `graphify query "<question>"`, `graphify path "<A>" "<B>"`, `graphify explain "<node>"` before reading raw files; `graphify update .` after code changes.
+- Subagents: one per independent problem. The controller reviews the result, runs the tests and makes the commit.
+- **REA (owner's mandate)**: for any app, library, feature or protocol investigation, even with source available, use REA (`rea` CLI 6.8.0 or REA MCP): ASAR archives and IPC handlers for Electron, symbol tables and strings for native binaries, request/response shapes for network and audio protocols. Ground decisions in the extracted evidence.
 
-## 5. Quality Gates & Verification
+## 8. Checks before a pull request
 
-Before reporting work complete or committing to main, verify all applicable gates:
 ```bash
-# Windows Tauri
-cd windows && npm run typecheck && npm test
-
-# Contract & Style checks
-node scripts/verify-contracts.mjs
-node scripts/check-styles.mjs
-
-# Knowledge graph refresh
-graphify update .
+node scripts/check-release.mjs                     # repo root
+node scripts/verify-contracts.mjs && node scripts/check-styles.mjs
+cd windows && npm ci && npx tsc --noEmit && npm test
+cd windows && npm run build && cd src-tauri && cargo test --locked --lib   # Linux needs the apt packages in BUILDER-RUNBOOK.md
+cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings
 ```
+
+Claude Code hands these to the `verifier` agent; the controller then runs `graphify update .` (it writes files, so the verifier never does). A change under `NotchBuddy/` also needs the `macos-review.yml` workflow dispatched for the branch, since Linux cannot build Swift. Say exactly what was tested: "compiled", "automated tests", "browser fixture", "audio test" and "installed on the PC" are different claims. `#[cfg(windows)]` code is compiled only by the GitHub `Windows` workflow.
+
+## 9. Delivery
+
+- Complete authorized build and verification work without asking again for confirmation; when outside access blocks it, name the exact missing dependency.
+- Release reports lead with working download links and correct platform/version labels. A review build is not a verified release.
+- Once a newer build is installed and runs, clear the older build's files from the owner's devices (`docs/BUILDER-RUNBOOK.md`, "Clearing superseded builds"). Keep the newest build, the source checkout, user data backups and signing keys.
+- After a release, report it back to the primary AnF conversation.
