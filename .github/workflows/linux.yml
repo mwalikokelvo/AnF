@@ -124,9 +124,10 @@ jobs:
         run: |
           cargo build --release --locked -p coucou-hook
           npm run build
-          cargo test --workspace --locked -- --test-threads=1
-          cargo test --locked -p coucou --lib local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
-          cargo test --locked -p coucou --lib local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
+          # kevo-ears: sherpa-onnx (Kevo Phase 1), as in release builds; its VAD test fetches a pinned model.
+          cargo test --workspace --locked --features coucou/kevo-ears -- --test-threads=1
+          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
+          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
           npm ci --prefix ../android
           node ../scripts/check-release.mjs
 
