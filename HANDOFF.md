@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 6.5: Performance Benchmarking & Reasoning Evaluation Suite).
+Last updated: 2026-11-18 by Antigravity (Kevo Phase 7 brief: Pack voices & real team).
+
+## 2026-11-18 — Kevo Phase 7 brief: Pack voices & real team (Antigravity)
+
+Phase 7 Brief (`docs/kevo-briefs/phase-7.md`, "Pack voices & real team"):
+- Authored formal Phase 7 brief per `AUTOPILOT.md` item 2b.6 and `docs/KEVO-PLAN.md` ("Phase 7. Pack voices, real team: team cards real or removed, owner decides first, no made-up numbers").
+- Outlines the 5 concrete execution steps:
+  - 7.1 Real Workspace Data & Elimination of Fabricated Metrics (pruning hardcoded demo figures from `JarvisExecutive`).
+  - 7.2 Truthful Team Cards & Workspace Telemetry Providers (connecting Vault, Reading Queue, and Reminders).
+  - 7.3 Voice Pack Pipeline & Local Audio Previews (robust offline audio previewing and fallbacks).
+  - 7.4 Settings & Owner Voice Selection Controls (voice testing UI and briefing preference toggles).
+  - 7.5 Automated Verification & Integrity Test Suite (evaluating zero mock metrics and voice pack consistency).
 
 ## 2026-11-18 — Kevo 6.5: Performance Benchmarking & Reasoning Evaluation Suite (Antigravity)
 
