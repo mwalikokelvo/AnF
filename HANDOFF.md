@@ -4,7 +4,29 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 6.1: hardware-aware model selection & profile tiers).
+Last updated: 2026-11-18 by Antigravity (Kevo 6.2: streaming tool calling & low-latency sentence chunking).
+
+## 2026-11-18 — Kevo 6.2: streaming tool calling & low-latency sentence chunking (Antigravity)
+
+Phase 6 Step 6.2 (`docs/kevo-briefs/phase-6.md`, "6.2 Streaming Tool Calling & Low-Latency Sentence Chunking"):
+- Local AI Streaming with Tools (`windows/src-tauri/src/local_ai.rs`):
+  - Enabled SSE streaming for tool calling (`body["stream"] = json!(true)`), eliminating previous synchronous blocking.
+  - Implemented `parse_stream_line` parsing both delta content and delta tool calls (`delta.tool_calls`) as SSE chunks arrive.
+  - Built `StreamToolFilter` buffering incoming chunks to withhold `<tool_call>...</tool_call>` blocks while immediately emitting conversational text to `on_text`.
+  - Added `find_tag_prefix_len` identifying partial opening tags (e.g. `<tool`) across chunk boundaries without leaking tags to TTS or HUD.
+  - Added `take_streamable_sentences` ensuring complete sentences preceding `<tool_call` are sliced and emitted early without slicing into tags.
+  - Added unit test suite in `local_ai.rs` testing `StreamToolFilter`, `find_tag_prefix_len`, `parse_stream_line`, and `take_streamable_sentences`.
+- Tauri Command & Frontend Integration (`windows/src-tauri/src/workspace_commands.rs`, `windows/src/workspace/main.ts`, `windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - In `workspace_commands.rs`, hooked `take_streamable_sentences` and added tag safety guard to prevent partial tag emission on rest flush.
+  - In `main.ts`, merged conversational intro text with executed tool reply and propagated `status`, `verified`, and `reason` metadata.
+  - In `jarvis-voice-agent.ts`, updated `JarvisAskAiResult` and propagated execution status/verification telemetry.
+- Test Suite (`windows/tests/kevo-streaming-tools.test.ts`):
+  - Created unit test suite verifying `executeKevoToolCalls` immediate `onPart` emission, multi-action streaming, conversational prefix streaming with tool execution, and failure telemetry propagation.
+- Verification:
+  - 11/11 Rust unit tests in `local_ai` PASS (`cargo test --lib local_ai`).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 12/12 `check-release.mjs` PASS.
+  - 771/771 tests passed across 119 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo 6.1: hardware-aware model selection & profile tiers (Antigravity)
 

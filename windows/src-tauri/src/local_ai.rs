@@ -251,50 +251,16 @@ impl Engine {
             "messages": messages,
             "max_tokens": max_tokens,
             "temperature": 0.3,
-            "chat_template_kwargs": {"enable_thinking": false}
+            "chat_template_kwargs": {"enable_thinking": false},
+            "stream": true
         });
 
         if has_tools {
             body["tools"] = json!(tools);
             body["tool_choice"] = json!("auto");
-            body["stream"] = json!(false);
-        } else {
-            body["stream"] = json!(true);
         }
 
-        if !has_tools {
-            let mut response = client
-                .post(format!("{url}/v1/chat/completions"))
-                .bearer_auth(&key)
-                .json(&body)
-                .send()
-                .await
-                .map_err(|_| "The local model did not respond. Try again or free some memory.".to_string())?;
-            if !response.status().is_success() {
-                return Err(format!("Offline model error {}.", response.status()));
-            }
-            let (mut pending, mut text) = (Vec::<u8>::new(), String::new());
-            while let Some(chunk) = response.chunk().await.map_err(|_| "The local model stopped answering.".to_string())? {
-                pending.extend_from_slice(&chunk);
-                while let Some(end) = pending.iter().position(|b| *b == b'\n') {
-                    let line: Vec<u8> = pending.drain(..=end).collect();
-                    if let Some(piece) = stream_delta(&String::from_utf8_lossy(&line)) {
-                        text.push_str(&piece);
-                        on_text(&piece);
-                    }
-                }
-            }
-            let text = text.trim().to_string();
-            if text.is_empty() {
-                return Err("The offline model returned no text. Try asking another way.".into());
-            }
-            return Ok(KevoAskReply {
-                text: Some(text),
-                tool_calls: Vec::new(),
-            });
-        }
-
-        let response = client
+        let mut response = client
             .post(format!("{url}/v1/chat/completions"))
             .bearer_auth(&key)
             .json(&body)
@@ -304,16 +270,67 @@ impl Engine {
         if !response.status().is_success() {
             return Err(format!("Offline model error {}.", response.status()));
         }
-        let value: Value = response
-            .json()
-            .await
-            .map_err(|_| "Invalid offline model response.".to_string())?;
 
-        let reply = parse_kevo_ask_response(&value);
+        let mut pending = Vec::<u8>::new();
+        let mut raw_content = String::new();
+        let mut tool_acc = Vec::<ToolCallAccumulator>::new();
+        let mut filter = StreamToolFilter::default();
 
-        if let Some(ref t) = reply.text {
-            on_text(t);
+        while let Some(chunk) = response.chunk().await.map_err(|_| "The local model stopped answering.".to_string())? {
+            pending.extend_from_slice(&chunk);
+            while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+                let line: Vec<u8> = pending.drain(..=end).collect();
+                if let Some(delta) = parse_stream_line(&String::from_utf8_lossy(&line)) {
+                    if let Some(content_chunk) = delta.content {
+                        raw_content.push_str(&content_chunk);
+                        filter.process_chunk(&content_chunk, &mut on_text);
+                    }
+                    for tc in delta.tool_calls {
+                        if tool_acc.len() <= tc.index {
+                            tool_acc.resize_with(tc.index + 1, ToolCallAccumulator::default);
+                        }
+                        let item = &mut tool_acc[tc.index];
+                        if let Some(id) = tc.id {
+                            item.id = id;
+                        }
+                        if let Some(name) = tc.name {
+                            item.name.push_str(&name);
+                        }
+                        if let Some(args) = tc.arguments_chunk {
+                            item.arguments_buf.push_str(&args);
+                        }
+                    }
+                }
+            }
         }
+        filter.finish(&mut on_text);
+
+        let mut tool_calls = Vec::new();
+        for item in tool_acc {
+            if !item.name.is_empty() {
+                let args = if !item.arguments_buf.trim().is_empty() {
+                    serde_json::from_str::<Value>(&item.arguments_buf).unwrap_or_else(|_| json!({}))
+                } else {
+                    json!({})
+                };
+                tool_calls.push(KevoToolCall {
+                    name: item.name,
+                    arguments: args,
+                });
+            }
+        }
+
+        let (cleaned_text, inline_tool_calls) = parse_tool_calls_and_clean_text(&raw_content);
+        for tc in inline_tool_calls {
+            if !tool_calls.iter().any(|existing| existing.name == tc.name && existing.arguments == tc.arguments) {
+                tool_calls.push(tc);
+            }
+        }
+
+        let reply = KevoAskReply {
+            text: cleaned_text,
+            tool_calls,
+        };
 
         if reply.tool_calls.is_empty() && reply.text.is_none() {
             return Err("The offline model returned no text or tool calls. Try asking another way.".into());
@@ -451,12 +468,142 @@ fn supported_profile(profile: &str) -> Result<(), String> {
     }
 }
 
-/// The text carried by one line of a streamed chat completion ("data: {json}"), if any.
-fn stream_delta(line: &str) -> Option<String> {
+#[derive(Debug, Default, Clone)]
+pub struct StreamChunkDelta {
+    pub content: Option<String>,
+    pub tool_calls: Vec<StreamToolCallDelta>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StreamToolCallDelta {
+    pub index: usize,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub arguments_chunk: Option<String>,
+}
+
+#[derive(Default, Debug)]
+pub struct ToolCallAccumulator {
+    pub id: String,
+    pub name: String,
+    pub arguments_buf: String,
+}
+
+/// Parses one line of SSE from /v1/chat/completions into content or tool call deltas.
+pub fn parse_stream_line(line: &str) -> Option<StreamChunkDelta> {
     let data = line.trim().strip_prefix("data:")?.trim();
-    let value: Value = serde_json::from_str(data).ok()?; // "[DONE]" and keep-alives are not JSON
-    let piece = value.pointer("/choices/0/delta/content")?.as_str()?;
-    (!piece.is_empty()).then(|| piece.to_string())
+    if data == "[DONE]" || data.is_empty() {
+        return None;
+    }
+    let value: Value = serde_json::from_str(data).ok()?;
+    let delta = value.pointer("/choices/0/delta")?;
+
+    let content = delta.get("content")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    let mut tool_calls = Vec::new();
+    if let Some(calls) = delta.get("tool_calls").and_then(Value::as_array) {
+        for c in calls {
+            let index = c.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
+            let id = c.get("id").and_then(Value::as_str).map(|s| s.to_string());
+            let name = c.pointer("/function/name").and_then(Value::as_str).map(|s| s.to_string());
+            let arguments_chunk = c.pointer("/function/arguments").and_then(Value::as_str).map(|s| s.to_string());
+            if name.is_some() || arguments_chunk.is_some() || id.is_some() {
+                tool_calls.push(StreamToolCallDelta {
+                    index,
+                    id,
+                    name,
+                    arguments_chunk,
+                });
+            }
+        }
+    }
+
+    if content.is_some() || !tool_calls.is_empty() {
+        Some(StreamChunkDelta { content, tool_calls })
+    } else {
+        None
+    }
+}
+
+/// Returns the length of the longest suffix of `s` that matches a non-empty prefix of `tag`.
+pub fn find_tag_prefix_len(s: &str, tag: &str) -> usize {
+    for len in (1..=tag.len().min(s.len())).rev() {
+        if s.ends_with(&tag[..len]) {
+            return len;
+        }
+    }
+    0
+}
+
+/// Buffers text chunks to withhold `<tool_call>...</tool_call>` blocks while immediately
+/// forwarding conversational text to `on_text`.
+#[derive(Default, Debug)]
+pub struct StreamToolFilter {
+    buffer: String,
+    in_tool_call: bool,
+}
+
+impl StreamToolFilter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn process_chunk<F: FnMut(&str)>(&mut self, chunk: &str, mut on_text: F) {
+        self.buffer.push_str(chunk);
+        loop {
+            if !self.in_tool_call {
+                if let Some(idx) = self.buffer.find("<tool_call>") {
+                    if idx > 0 {
+                        let text = self.buffer[..idx].to_string();
+                        on_text(&text);
+                    }
+                    self.buffer.drain(..idx);
+                    self.in_tool_call = true;
+                    continue;
+                }
+                let prefix_len = find_tag_prefix_len(&self.buffer, "<tool_call>");
+                if prefix_len > 0 {
+                    let safe_len = self.buffer.len() - prefix_len;
+                    if safe_len > 0 {
+                        let text = self.buffer[..safe_len].to_string();
+                        self.buffer.drain(..safe_len);
+                        on_text(&text);
+                    }
+                    break;
+                } else {
+                    if !self.buffer.is_empty() {
+                        let text = std::mem::take(&mut self.buffer);
+                        on_text(&text);
+                    }
+                    break;
+                }
+            } else {
+                if let Some(end_rel) = self.buffer.find("</tool_call>") {
+                    let end_idx = end_rel + "</tool_call>".len();
+                    self.buffer.drain(..end_idx);
+                    self.in_tool_call = false;
+                    continue;
+                }
+                break;
+            }
+        }
+    }
+
+    pub fn finish<F: FnMut(&str)>(mut self, mut on_text: F) {
+        if !self.in_tool_call && !self.buffer.is_empty() {
+            on_text(&self.buffer);
+            self.buffer.clear();
+        }
+    }
+}
+
+#[allow(dead_code)]
+/// The text carried by one line of a streamed chat completion ("data: {json}"), if any.
+pub fn stream_delta(line: &str) -> Option<String> {
+    parse_stream_line(line).and_then(|d| d.content)
 }
 
 /// Takes the complete sentences off the front of `buffer`, leaving the unfinished remainder in it.
@@ -470,6 +617,25 @@ pub fn take_sentences(buffer: &mut String) -> Option<String> {
     let done = buffer[..=cut].trim().to_string();
     *buffer = buffer[cut + 1..].trim_start().to_string();
     Some(done)
+}
+
+/// Takes complete sentences off the front of `buffer`, ensuring that incomplete
+/// `<tool_call` tags are withheld and never sliced into.
+pub fn take_streamable_sentences(buffer: &mut String) -> Option<String> {
+    let limit = buffer.find('<').unwrap_or(buffer.len());
+    if limit < 12 {
+        return None;
+    }
+    let slice = &buffer[..limit];
+    let bytes = slice.as_bytes();
+    let cut = (0..bytes.len()).rev().find(|&i| {
+        matches!(bytes[i], b'.' | b'!' | b'?')
+            && (i + 1 == limit || bytes.get(i + 1).is_some_and(|b| b.is_ascii_whitespace()))
+            && i >= 10
+    })?;
+    let done = buffer[..=cut].trim().to_string();
+    *buffer = buffer[cut + 1..].trim_start().to_string();
+    (!done.is_empty()).then_some(done)
 }
 
 pub(crate) fn random_key() -> Result<String, String> {
@@ -719,5 +885,82 @@ mod tests {
         assert_eq!(parsed.tool_calls.len(), 1);
         assert_eq!(parsed.tool_calls[0].name, "open_site");
         assert_eq!(parsed.tool_calls[0].arguments["url"], "https://github.com");
+    }
+    #[test]
+    fn tag_prefix_matching_identifies_partial_tool_tags() {
+        assert_eq!(find_tag_prefix_len("hello <", "<tool_call>"), 1);
+        assert_eq!(find_tag_prefix_len("hello <tool", "<tool_call>"), 5);
+        assert_eq!(find_tag_prefix_len("hello <tool_call", "<tool_call>"), 10);
+        assert_eq!(find_tag_prefix_len("hello <tool_call>", "<tool_call>"), 11);
+        assert_eq!(find_tag_prefix_len("hello world", "<tool_call>"), 0);
+        assert_eq!(find_tag_prefix_len("temperature < 10", "<tool_call>"), 0);
+    }
+    #[test]
+    fn stream_tool_filter_withholds_tool_calls_and_streams_text() {
+        let mut filter = StreamToolFilter::new();
+        let mut streamed = Vec::new();
+
+        // 1. Pure text streaming
+        filter.process_chunk("Hello, ", |t| streamed.push(t.to_string()));
+        filter.process_chunk("world!", |t| streamed.push(t.to_string()));
+        filter.finish(|t| streamed.push(t.to_string()));
+        assert_eq!(streamed.concat(), "Hello, world!");
+
+        // 2. Pure tool call streaming - should NOT emit any tool tags or content
+        let mut filter2 = StreamToolFilter::new();
+        let mut streamed2 = Vec::new();
+        filter2.process_chunk("<tool", |t| streamed2.push(t.to_string()));
+        assert!(streamed2.is_empty(), "withheld partial opening tag");
+        filter2.process_chunk("_call>\n{\"name\":\"timer_set\"}\n</tool_call>", |t| streamed2.push(t.to_string()));
+        filter2.finish(|t| streamed2.push(t.to_string()));
+        assert!(streamed2.is_empty(), "entire tool call was swallowed");
+
+        // 3. Conversational intro preceding tool call - intro emits immediately
+        let mut filter3 = StreamToolFilter::new();
+        let mut streamed3 = Vec::new();
+        filter3.process_chunk("Setting a timer for you now. <tool", |t| streamed3.push(t.to_string()));
+        assert_eq!(streamed3.concat(), "Setting a timer for you now. ");
+        filter3.process_chunk("_call>{\"name\":\"timer_set\"}</tool_call>", |t| streamed3.push(t.to_string()));
+        filter3.finish(|t| streamed3.push(t.to_string()));
+        assert_eq!(streamed3.concat(), "Setting a timer for you now. ");
+
+        // 4. Text following tool call
+        let mut filter4 = StreamToolFilter::new();
+        let mut streamed4 = Vec::new();
+        filter4.process_chunk("<tool_call>{\"name\":\"app\"}</tool_call>All done, sir.", |t| streamed4.push(t.to_string()));
+        filter4.finish(|t| streamed4.push(t.to_string()));
+        assert_eq!(streamed4.concat(), "All done, sir.");
+    }
+    #[test]
+    fn parse_stream_line_extracts_deltas_and_tool_calls() {
+        let content_line = r#"data: {"choices":[{"delta":{"content":"Good morning!"}}]}"#;
+        let delta = parse_stream_line(content_line).unwrap();
+        assert_eq!(delta.content.as_deref(), Some("Good morning!"));
+        assert!(delta.tool_calls.is_empty());
+
+        let tool_line = r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"open_app","arguments":"{\"name\":"}}]}}]}"#;
+        let delta2 = parse_stream_line(tool_line).unwrap();
+        assert_eq!(delta2.tool_calls.len(), 1);
+        assert_eq!(delta2.tool_calls[0].index, 0);
+        assert_eq!(delta2.tool_calls[0].name.as_deref(), Some("open_app"));
+        assert_eq!(delta2.tool_calls[0].arguments_chunk.as_deref(), Some("{\"name\":"));
+
+        let done_line = "data: [DONE]";
+        assert!(parse_stream_line(done_line).is_none());
+    }
+    #[test]
+    fn take_streamable_sentences_guards_against_partial_tags() {
+        let mut buf = "I will check that for you right away. <tool_call>{\"name\":\"weather\"}".to_string();
+        let s = take_streamable_sentences(&mut buf);
+        assert_eq!(s, Some("I will check that for you right away.".to_string()));
+        assert_eq!(buf, "<tool_call>{\"name\":\"weather\"}");
+
+        let s2 = take_streamable_sentences(&mut buf);
+        assert_eq!(s2, None);
+
+        let mut buf2 = "First sentence here. Second sentence starts".to_string();
+        let s3 = take_streamable_sentences(&mut buf2);
+        assert_eq!(s3, Some("First sentence here.".to_string()));
+        assert_eq!(buf2, "Second sentence starts");
     }
 }

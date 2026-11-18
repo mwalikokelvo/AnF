@@ -324,7 +324,15 @@ const jarvisActionContext: JarvisActionContext = {
         if (typeof res === 'string') return res;
         if (res.tool_calls && res.tool_calls.length > 0) {
           const executed = await executeKevoToolCalls(res.tool_calls, jarvisActionContext, options?.onPart);
-          return { text: executed.speechReply || res.text || '', actionName: executed.actionName };
+          const fullText = [res.text, executed.speechReply].filter(Boolean).join(' ').trim();
+          return {
+            text: fullText || executed.speechReply || res.text || '',
+            actionName: executed.actionName,
+            status: executed.status,
+            verified: executed.verified,
+            reason: executed.reason,
+            error: executed.error,
+          };
         }
         return { text: res.text || '', actionName: 'ai_conversation' };
       }
