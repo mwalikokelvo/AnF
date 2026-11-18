@@ -1,0 +1,1 @@
+Follow [AGENTS.md](../AGENTS.md), the one rulebook for every assistant on AnF. Work on a `copilot/` branch, change only the files the issue names, run the test command it gives, and never push to `main`.

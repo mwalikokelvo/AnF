@@ -4,6 +4,11 @@
  * Uses webkitSpeechRecognition / SpeechRecognition API with automatic restart on pause.
  */
 
+import type { KevoIgnoredReason } from '../kevo-log';
+
+/** A phrase without the wake word this soon after the follow-up window closed was probably meant for Kevo. */
+const WINDOW_CLOSED_MS = 10_000;
+
 export interface VoiceListenerOptions {
   wakeWords?: string[];
   continuous?: boolean;
@@ -12,11 +17,16 @@ export interface VoiceListenerOptions {
   onFinalSpeech?: (transcript: string) => void;
   /** Fired when a wake word is detected (even if no follow-up command). */
   onWakeWord?: (wakeWord: string) => void;
-  onError?: (err: string) => void;
+  /** `code` is the recogniser's own error code ("network", "not-allowed", …) when it gave one. */
+  onError?: (err: string, code?: string) => void;
+  /** A finished phrase that was heard but not acted on, and why (Kevo's log). */
+  onIgnored?: (text: string, reason: KevoIgnoredReason) => void;
   /** Act only on speech that follows a wake word (or comes inside the follow-up window). Default true. */
   requireWakeWord?: boolean;
   /** How long after a wake word, a reply or a mic tap Kevo accepts a command without the wake word. */
   followUpMs?: number;
+  /** How long a pause must last before what was heard is treated as one finished request. 0 = at once. */
+  settleMs?: number;
   /** Told when Kevo starts or stops accepting a command without its name (drives the orb). */
   onAwakeChange?: (awake: boolean) => void;
 }
@@ -30,23 +40,35 @@ export class JarvisVoiceListener {
   private onListeningStateChange?: (listening: boolean) => void;
   private stateListeners: ((listening: boolean) => void)[] = [];
   private onInterimSpeech?: (transcript: string) => void;
-  private onFinalSpeech?: (transcript: string) => void;
-  private onWakeWord?: (wakeWord: string) => void;
-  private onError?: (err: string) => void;
+  public onFinalSpeech?: (transcript: string) => void;
+  public onWakeWord?: (wakeWord: string) => void;
+  private onError?: (err: string, code?: string) => void;
+  private onIgnored?: (text: string, reason: KevoIgnoredReason) => void;
   private requireWakeWord: boolean;
   private followUpMs: number;
   private awakeUntil = 0;
   private muted = false;
   private tapPending = false;
+  private settleMs: number;
+  /** Pieces of one request: the recogniser ends a phrase at every short pause ("Kevo" ... "set a timer" ... "for one minute"). */
+  private heard: string[] = [];
+  private settleTimer: ReturnType<typeof setTimeout> | undefined;
   private reported = false;
   private onAwakeChange?: (awake: boolean) => void;
   private awakeTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Words heard but not yet confirmed. The recogniser sometimes never confirms them ("any other voice", session 3). */
+  private interim = '';
+  private interimTimer: ReturnType<typeof setTimeout> | undefined;
+  /** An unconfirmed phrase already acted on: its late confirmation must not run it twice. */
+  private promoted = '';
+  private networkRetryAt = 0;
 
   constructor(options?: VoiceListenerOptions) {
     // Recognisers often hear "Kevo" as one of these.
-    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo'];
+    this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo', 'calvo', 'kalvo'];
     this.requireWakeWord = options?.requireWakeWord ?? true;
     this.followUpMs = options?.followUpMs ?? 8000;
+    this.settleMs = options?.settleMs ?? 1100;
     this.onAwakeChange = options?.onAwakeChange;
     this.continuous = options?.continuous ?? true;
     this.onListeningStateChange = options?.onListeningStateChange;
@@ -54,6 +76,7 @@ export class JarvisVoiceListener {
     this.onFinalSpeech = options?.onFinalSpeech;
     this.onWakeWord = options?.onWakeWord;
     this.onError = options?.onError;
+    this.onIgnored = options?.onIgnored;
   }
 
   isSupported(): boolean {
@@ -82,8 +105,6 @@ export class JarvisVoiceListener {
       };
 
       this.recognition.onresult = (event: any) => {
-        // While Kevo speaks, the microphone hears Kevo: ignore it.
-        if (this.muted) return;
         let interim = '';
         let final = '';
 
@@ -96,25 +117,55 @@ export class JarvisVoiceListener {
             interim += text;
           }
         }
-
-        if (interim) {
-          this.onInterimSpeech?.(interim);
+        // While Kevo speaks, the microphone hears Kevo: ignore it.
+        if (this.muted) {
+          if (final.trim()) this.onIgnored?.(final.trim(), 'muted');
+          return;
         }
 
         if (final.trim()) {
-          this.handleFinalTranscript(final.trim());
+          const late = this.promoted && squashWords(final) === this.promoted;
+          this.promoted = '';
+          if (!interim) { this.interim = ''; clearTimeout(this.interimTimer); }
+          if (!late) { // a late confirmation of words already acted on is not run twice
+            this.heard.push(final.trim());
+            this.settle();
+          }
+        }
+
+        if (interim) {
+          this.onInterimSpeech?.(interim);
+          // Talking inside the follow-up window: the window must not close mid-sentence.
+          if (this.isAwake()) this.keepAwake();
+          if (this.heard.length) this.settle(); // still talking: keep waiting for the rest
+          // Words after a confirmed part ("Hey Kevo" + "change your voice") are kept until they are confirmed too.
+          this.interim = interim.trim();
+          clearTimeout(this.interimTimer);
+          this.interimTimer = setTimeout(() => this.promoteInterim(), this.settleMs + 1400);
         }
       };
 
       this.recognition.onerror = (e: any) => {
         // 'aborted' is Kevo resting the microphone on purpose while it talks.
+        // One dropped connection gets one quiet retry (the recogniser restarts on its own when it ends).
+        if (e.error === 'network' && Date.now() - this.networkRetryAt > 30_000) {
+          this.networkRetryAt = Date.now();
+          return;
+        }
         if (e.error !== 'no-speech' && e.error !== 'aborted') {
-          this.onError?.(`Speech recognition error: ${e.error}`);
+          this.onError?.(e.error === 'network'
+            ? 'Speech recognition could not reach the internet, so Kevo cannot hear you. Check the connection, then turn the microphone on again.'
+            : e.error === 'not-allowed' || e.error === 'service-not-allowed'
+              ? 'Windows is not letting AnF use the microphone. Allow it in Windows privacy settings.'
+              : `Speech recognition error: ${e.error}`, e.error);
+          // Kevo cannot hear until this is fixed: show the microphone as off instead of "Say Kevo".
+          if (['network', 'not-allowed', 'service-not-allowed', 'audio-capture'].includes(e.error)) this.stop();
         }
       };
 
       this.recognition.onend = () => {
         this.isListening = false;
+        this.promoteInterim(); // the session ended without confirming the last words
         // The recogniser ends by itself every few seconds; restart it quietly unless the owner turned the
         // microphone off or Kevo is talking (it is restarted when Kevo finishes).
         if (this.isRunning && !this.muted) setTimeout(() => this.resume(), 300);
@@ -135,6 +186,11 @@ export class JarvisVoiceListener {
   stop(): void {
     this.isRunning = false;
     this.isListening = false;
+    clearTimeout(this.settleTimer);
+    clearTimeout(this.interimTimer);
+    this.interim = '';
+    this.promoted = '';
+    this.heard = [];
     this.muted = false; // a later start() is a fresh session; whoever muted will mute again when Kevo talks
     this.setAwakeUntil(0);
     if (this.recognition) {
@@ -170,7 +226,7 @@ export class JarvisVoiceListener {
     this.muted = muted;
     // Ignoring results is not enough: the recogniser hands over what it heard a moment after Kevo stops.
     // So the session is dropped while Kevo talks and a fresh one starts afterwards, with nothing buffered.
-    if (muted) { try { this.recognition?.abort(); } catch { /* not started */ } }
+    if (muted) { clearTimeout(this.settleTimer); clearTimeout(this.interimTimer); this.interim = ''; this.promoted = ''; this.heard = []; try { this.recognition?.abort(); } catch { /* not started */ } }
     else this.resume();
   }
 
@@ -187,13 +243,42 @@ export class JarvisVoiceListener {
     this.notifyStateListeners(running);
   }
 
+  /** Treats words the recogniser showed but never confirmed as heard, once the speaker has stopped. */
+  private promoteInterim(): void {
+    clearTimeout(this.interimTimer);
+    const text = this.interim;
+    this.interim = '';
+    if (!text || this.muted || !this.isRunning) return;
+    this.promoted = squashWords(text);
+    // The pause has already been waited for: act now, without a second settling delay.
+    clearTimeout(this.settleTimer);
+    const all = [...this.heard, text].join(' ');
+    this.heard = [];
+    this.handleFinalTranscript(all);
+  }
+
+  /** Acts on what was heard once the speaker has paused for long enough. */
+  private settle(): void {
+    clearTimeout(this.settleTimer);
+    const flush = () => {
+      const text = this.heard.join(' ');
+      this.heard = [];
+      if (text && !this.muted) this.handleFinalTranscript(text);
+    };
+    if (this.settleMs <= 0) flush();
+    else this.settleTimer = setTimeout(flush, this.settleMs);
+  }
+
   private handleFinalTranscript(rawText: string): void {
     const command = parseWakeCommand(rawText, this.wakeWords);
     if (command.wake) {
       this.keepAwake();
       this.onWakeWord?.(command.wake);
     } else if (this.requireWakeWord && Date.now() >= this.awakeUntil) {
-      return; // Room talk, a TV or another assistant ("Hey Google") — not for Kevo.
+      // Room talk, a TV or another assistant ("Hey Google") — not for Kevo.
+      const closedFor = Date.now() - this.awakeUntil;
+      this.onIgnored?.(rawText.trim(), this.awakeUntil && closedFor < WINDOW_CLOSED_MS ? 'window_closed' : 'no_wake_word');
+      return;
     }
     if (command.text) {
       this.setAwakeUntil(0); // The reply re-opens the window once it has been spoken.
@@ -218,6 +303,10 @@ export class JarvisVoiceListener {
   getListeningState(): boolean {
     return this.isRunning;
   }
+}
+
+function squashWords(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
 /** Finds a wake word anywhere in a phrase ("okay Kevo, what time is it") and returns what follows it. */

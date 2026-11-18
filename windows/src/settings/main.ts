@@ -439,6 +439,17 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  const hearing = h("select", {}) as HTMLSelectElement;
+  hearing.append(
+    h("option", { value: "pc", text: "On this PC (recommended)" }),
+    h("option", { value: "browser", text: "Browser (old)" }),
+  );
+  hearing.value = settings.kevoHearing ?? "pc";
+  hearing.addEventListener("change", () => {
+    settings.kevoHearing = hearing.value as Settings["kevoHearing"];
+    void save();
+  });
+
   return h(
     "section",
     {},
@@ -458,8 +469,16 @@ function generalSection(): HTMLElement {
       screen,
     ),
     h("div", { class: "row" },
+      h("label", { text: "Hearing" }),
+      hearing,
+    ),
+    h("div", { class: "row" },
       h("label", { text: "Launch at startup" }),
       toggle(settings.autostart, (v) => { settings.autostart = v; void save(); }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Run Kevo test builds and Kevo's self-test automatically" }),
+      toggle(settings.kevoAutoTest, (v) => { settings.kevoAutoTest = v; void save(); }),
     ),
   );
 }

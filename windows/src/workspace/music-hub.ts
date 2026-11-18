@@ -166,7 +166,7 @@ export function createVisualizer(barCount = 12, className = 'music-visualizer'):
 }
 
 const icons={play:'m8 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',previous:'M5 5v14M19 5 8 12l11 7Z',next:'M19 5v14M5 5l11 7L5 19Z',heart:'M12 20 3 11C-2 3 8-1 12 6c4-7 14-3 9 5Z',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm5 12 6 6',music:'M9 18V5l12-2v13M9 7l12-2M9 18c0 4-7 4-7 0s7-4 7 0Zm12-2c0 4-7 4-7 0s7-4 7 0Z',queue:'M3 5h18M3 11h18M3 17h12',shuffle:'M3 5h3l12 14h3M18 16l3 3-3 3M3 19h3l4-5M14 9l4-4h3M18 2l3 3-3 3',repeat:'M20 8V5H7a4 4 0 0 0-4 4M4 16v3h13a4 4 0 0 0 4-4M17 5l3 3 3-3M7 19l-3-3-3 3',eq:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',chevronRight:'M9 18l6-6-6-6',chevronLeft:'M15 18l-6-6 6-6',mic:'M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zm-7 9a7 7 0 0 0 14 0h-2a5 5 0 0 1-10 0H5zm6 8v3H9v2h6v-2h-2v-3a7.002 7.002 0 0 0 6-6.9v-.1h-2v.1a5 5 0 0 1-5 5 5 5 0 0 1-5-5v-.1H7v.1c0 3.53 2.61 6.43 6 6.9z',sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',expand:'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',download:'M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2',radio:'M4 11a8 8 0 0 1 16 0M7 14a5 5 0 0 1 10 0m-6 3a1 1 0 1 1 2 0 1 1 0 0 1-2 0',stop:'M6 6h12v12H6z'};
-type Preferences={current?:string;position:number;volume:number;speed:number;fade:number;autoplay?:boolean;recent:string[];favorites:string[];queue:string[];originalQueue:string[];shuffle:boolean;repeat:RepeatMode;sort:'newest'|'oldest'|'title'|'title-desc'|'artist'|'artist-desc'|'longest'|'shortest'|'year'|'year-desc'|'random'|'mostplayed'|'leastplayed'|'album'|'album-desc'|'genre'|'genre-desc'|'recent'|'trackno'|'composer'|'composer-desc'|'discno'|'albumartist'|'albumartist-desc'|'bitrate'|'bitrate-desc'|'size'|'size-desc'|'samplerate'|'samplerate-desc'|'channels'|'channels-desc'|'bpm'|'bpm-desc'|'bitdepth'|'bitdepth-desc'|'format'|'format-desc'|'chapters'|'chapters-desc'|'lyrics'|'lyrics-desc'|'cover'|'cover-desc'|'hasbpm'|'hasbpm-desc'|'hasyear'|'hasyear-desc'|'hasgenre'|'hasgenre-desc'|'hasartist'|'hasartist-desc'|'hasalbum'|'hasalbum-desc'|'hascomposer'|'hascomposer-desc';showRemaining?:boolean};
+type Preferences={current?:string;position:number;volume:number;speed:number;fade:number;autoplay?:boolean;recent:string[];favorites:string[];queue:string[];originalQueue:string[];shuffle:boolean;repeat:RepeatMode;sort:'newest'|'oldest'|'title'|'title-desc'|'artist'|'artist-desc'|'longest'|'shortest'|'year'|'year-desc'|'random'|'mostplayed'|'leastplayed'|'album'|'album-desc'|'genre'|'genre-desc'|'recent'|'trackno'|'composer'|'composer-desc'|'discno'|'albumartist'|'albumartist-desc'|'bitrate'|'bitrate-desc'|'size'|'size-desc'|'samplerate'|'samplerate-desc'|'channels'|'channels-desc'|'bpm'|'bpm-desc'|'bitdepth'|'bitdepth-desc'|'format'|'format-desc'|'chapters'|'chapters-desc'|'lyrics'|'lyrics-desc'|'cover'|'cover-desc'|'hasbpm'|'hasbpm-desc'|'hasyear'|'hasyear-desc'|'hasgenre'|'hasgenre-desc'|'hasartist'|'hasartist-desc'|'hasalbum'|'hasalbum-desc'|'hascomposer'|'hascomposer-desc'|'hastrackno'|'hastrackno-desc'|'hasdiscno'|'hasdiscno-desc'|'hasalbumartist'|'hasalbumartist-desc'|'hasbitrate'|'hasbitrate-desc'|'hassamplerate'|'hassamplerate-desc'|'haschannels'|'haschannels-desc'|'hasbitdepth'|'hasbitdepth-desc'|'hasformat'|'hasformat-desc'|'hasduration'|'hasduration-desc'|'hassize'|'hassize-desc'|'haschapters'|'haschapters-desc';showRemaining?:boolean};
 
 export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Promise<void>;notify:(text:string)=>void;beforePlay:()=>void|Promise<void>}){
  const library=audioLibrary(),audio=new Audio();audio.preload='metadata';
@@ -198,7 +198,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  let audiusResults:AudiusTrack[]=[],audiusQuery='',audiusBusy=false,audiusAttempted=false,audiusError='';
  let radioResults:RadioStation[]=[],radioQuery='',radioBusy=false,radioAttempted=false,radioError='',radioTag='lofi';
  let prefs:Preferences={position:0,volume:.7,speed:1,fade:0,autoplay:true,recent:[],favorites:[],queue:[],originalQueue:[],shuffle:false,repeat:'off',sort:'newest'};
- try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,fade:[0,2,4,6,8,12].includes(value.fade)?value.fade:0,autoplay:typeof value.autoplay==='boolean'?value.autoplay:true,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','oldest','title','title-desc','artist','artist-desc','longest','shortest','year','year-desc','random','mostplayed','leastplayed','album','album-desc','genre','genre-desc','recent','trackno','composer','composer-desc','discno','albumartist','albumartist-desc','bitrate','bitrate-desc','size','size-desc','samplerate','samplerate-desc','channels','channels-desc','bpm','bpm-desc','bitdepth','bitdepth-desc','format','format-desc','chapters','chapters-desc','lyrics','lyrics-desc','cover','cover-desc','hasbpm','hasbpm-desc','hasyear','hasyear-desc','hasgenre','hasgenre-desc','hasartist','hasartist-desc','hasalbum','hasalbum-desc','hascomposer','hascomposer-desc'].includes(value.sort)?value.sort:'newest',showRemaining:value.showRemaining===true};}}catch{/* Start with a valid empty preference record. */}
+ try{const value=JSON.parse(localStorage.getItem('anf-music-player')||'null');if(value){prefs={current:typeof value.current==='string'?value.current:undefined,position:Number.isFinite(value.position)?Math.max(0,value.position):0,volume:Number.isFinite(value.volume)?Math.min(1,Math.max(0,value.volume)):.7,speed:[.75,1,1.25,1.5,1.75,2].includes(value.speed)?value.speed:1,fade:[0,2,4,6,8,12].includes(value.fade)?value.fade:0,autoplay:typeof value.autoplay==='boolean'?value.autoplay:true,recent:Array.isArray(value.recent)?value.recent.filter((s:unknown)=>typeof s==='string').slice(0,40):[],favorites:Array.isArray(value.favorites)?value.favorites.filter((s:unknown)=>typeof s==='string').slice(0,5000):[],queue:Array.isArray(value.queue)?value.queue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],originalQueue:Array.isArray(value.originalQueue)?value.originalQueue.filter((s:unknown)=>typeof s==='string').slice(0,10000):[],shuffle:value.shuffle===true,repeat:['off','track','all'].includes(value.repeat)?value.repeat:'off',sort:['newest','oldest','title','title-desc','artist','artist-desc','longest','shortest','year','year-desc','random','mostplayed','leastplayed','album','album-desc','genre','genre-desc','recent','trackno','composer','composer-desc','discno','albumartist','albumartist-desc','bitrate','bitrate-desc','size','size-desc','samplerate','samplerate-desc','channels','channels-desc','bpm','bpm-desc','bitdepth','bitdepth-desc','format','format-desc','chapters','chapters-desc','lyrics','lyrics-desc','cover','cover-desc','hasbpm','hasbpm-desc','hasyear','hasyear-desc','hasgenre','hasgenre-desc','hasartist','hasartist-desc','hasalbum','hasalbum-desc','hascomposer','hascomposer-desc','hastrackno','hastrackno-desc','hasdiscno','hasdiscno-desc','hasalbumartist','hasalbumartist-desc','hasbitrate','hasbitrate-desc','hassamplerate','hassamplerate-desc','haschannels','haschannels-desc','hasbitdepth','hasbitdepth-desc','hasformat','hasformat-desc','hasduration','hasduration-desc','hassize','hassize-desc','haschapters','haschapters-desc'].includes(value.sort)?value.sort:'newest',showRemaining:value.showRemaining===true};}}catch{/* Start with a valid empty preference record. */}
  let listening=listeningState(null),mix='all',lastWall=0,lastMedia=0;
  try{const raw=localStorage.getItem('anf-listening');if(raw){listening=listeningState(JSON.parse(raw));prefs.speed=listening.rate;}}catch{}
  
@@ -1580,7 +1580,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   const play=button('Play '+t.title,()=>playTrack(t,list));
   play.className='music-card-play';
   const trackLabel=t.trackNo?(t.trackOf?t.trackNo+'/'+t.trackOf:'#'+t.trackNo):''; const discLabel=t.discNo?(t.discOf?t.discNo+'/'+t.discOf:'Disc '+t.discNo):'';
-  const badge=trackBadge(t); const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(badge.label?' · '+badge.label:'')+(t.duration?' · '+durationText(t.duration):'');
+  const badge=trackBadge(t); const sizeLabel=t.blob?.size?(' · '+formatSize(t.blob.size)):''; const bpmLabel=t.bpm?(' · '+Math.round(t.bpm)+' BPM'):''; const chaptersLabel=t.chapters?.length?(' · '+t.chapters.length+' ch'):''; const lyricsLabel=t.lyrics?' · Lyrics':''; const coverLabel=t.cover?' · Cover':''; const bitrateLabel=t.bitrate?(' · '+Math.round(t.bitrate/1000)+' kbps'):''; const sampleRateLabel=t.sampleRate?(' · '+Math.round(t.sampleRate/1000)+' kHz'):''; const channelsLabel=t.channels?(t.channels===1?' · Mono':t.channels===2?' · Stereo':' · '+t.channels+' ch'):''; const bitDepthLabel=t.bitDepth?(' · '+t.bitDepth+'-bit'):''; const composerLabel=t.composer&&t.composer!==t.artist?(' · '+t.composer):''; const albumArtistLabel=t.albumArtist&&t.albumArtist!==t.artist?(' · '+t.albumArtist):''; const meta=(t.artist||'Unknown artist')+(t.album?' · '+t.album:'')+(trackLabel?' · '+trackLabel:'')+(discLabel?' · '+discLabel:'')+(t.year?' · '+t.year:'')+(t.genre?' · '+t.genre:'')+(formatBadge(t)?' · '+formatBadge(t):'')+(badge.label?' · '+badge.label:'')+(t.duration?' · '+durationText(t.duration):'')+sizeLabel+bpmLabel+chaptersLabel+lyricsLabel+coverLabel+bitrateLabel+sampleRateLabel+channelsLabel+bitDepthLabel+composerLabel+albumArtistLabel;
   const coverEl=art(t);
   coverEl.append(h('span',{class:`music-card-badge music-badge-${badge.kind}`,text:badge.label}));
   const pos=listening.positions[t.id]||0;
@@ -1786,6 +1786,28 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   if(prefs.sort==='hasalbum-desc')return copy.sort((a,b)=>(a.album?1:0)-(b.album?1:0)||a.title.localeCompare(b.title));
   if(prefs.sort==='hascomposer')return copy.sort((a,b)=>(b.composer?1:0)-(a.composer?1:0)||a.title.localeCompare(b.title));
   if(prefs.sort==='hascomposer-desc')return copy.sort((a,b)=>(a.composer?1:0)-(b.composer?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hastrackno')return copy.sort((a,b)=>(b.trackNo?1:0)-(a.trackNo?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hastrackno-desc')return copy.sort((a,b)=>(a.trackNo?1:0)-(b.trackNo?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasdiscno')return copy.sort((a,b)=>(b.discNo?1:0)-(a.discNo?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasdiscno-desc')return copy.sort((a,b)=>(a.discNo?1:0)-(b.discNo?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasalbumartist')return copy.sort((a,b)=>(b.albumArtist?1:0)-(a.albumArtist?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasalbumartist-desc')return copy.sort((a,b)=>(a.albumArtist?1:0)-(b.albumArtist?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasbitrate')return copy.sort((a,b)=>(b.bitrate?1:0)-(a.bitrate?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasbitrate-desc')return copy.sort((a,b)=>(a.bitrate?1:0)-(b.bitrate?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hassamplerate')return copy.sort((a,b)=>(b.sampleRate?1:0)-(a.sampleRate?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hassamplerate-desc')return copy.sort((a,b)=>(a.sampleRate?1:0)-(b.sampleRate?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='haschannels')return copy.sort((a,b)=>(b.channels?1:0)-(a.channels?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='haschannels-desc')return copy.sort((a,b)=>(a.channels?1:0)-(b.channels?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasbitdepth')return copy.sort((a,b)=>(b.bitDepth?1:0)-(a.bitDepth?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasbitdepth-desc')return copy.sort((a,b)=>(a.bitDepth?1:0)-(b.bitDepth?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasformat')return copy.sort((a,b)=>(b.format?1:0)-(a.format?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasformat-desc')return copy.sort((a,b)=>(a.format?1:0)-(b.format?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasduration')return copy.sort((a,b)=>(b.duration?1:0)-(a.duration?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hasduration-desc')return copy.sort((a,b)=>(a.duration?1:0)-(b.duration?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hassize')return copy.sort((a,b)=>(b.blob?.size?1:0)-(a.blob?.size?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='hassize-desc')return copy.sort((a,b)=>(a.blob?.size?1:0)-(b.blob?.size?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='haschapters')return copy.sort((a,b)=>(b.chapters?.length?1:0)-(a.chapters?.length?1:0)||a.title.localeCompare(b.title));
+  if(prefs.sort==='haschapters-desc')return copy.sort((a,b)=>(a.chapters?.length?1:0)-(b.chapters?.length?1:0)||a.title.localeCompare(b.title));
   if(prefs.sort==='random'){
     for(let i=copy.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[copy[i],copy[j]]=[copy[j],copy[i]];}
     return copy;
@@ -2825,7 +2847,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
     ),
     h('label',{class:'music-sort'},'Sort',
      h('select',{'aria-label':'Sort library',onchange:(e)=>{prefs.sort=(e.target as HTMLSelectElement).value as Preferences['sort'];save();render();}},
-      ...[['newest','Newest'],['oldest','Oldest'],['title','A–Z'],['title-desc','Z–A'],['artist','Artist'],['artist-desc','Artist Z–A'],['longest','Longest'],['shortest','Shortest'],['year','Year'],['year-desc','Year Z–A'],['random','Random'],['mostplayed','Most played'],['leastplayed','Least played'],['album','Album'],['album-desc','Album Z–A'],['genre','Genre'],['genre-desc','Genre Z–A'],['recent','Recently played'],['trackno','Track #'],['composer','Composer'],['composer-desc','Composer Z–A'],['discno','Disc #'],['albumartist','Album Artist'],['albumartist-desc','Album Artist Z–A'],['bitrate','Bitrate'],['bitrate-desc','Bitrate (low)'],['size','File size'],['size-desc','File size (small)'],['samplerate','Sample rate'],['samplerate-desc','Sample rate (low)'],['channels','Channels'],['channels-desc','Channels (mono)'],['bpm','BPM'],['bpm-desc','BPM (low)'],['bitdepth','Bit depth'],['bitdepth-desc','Bit depth (low)'],['format','Format'],['format-desc','Format Z–A'],['chapters','Chapters'],['chapters-desc','Chapters (few)'],['lyrics','Has lyrics'],['lyrics-desc','No lyrics'],['cover','Has cover'],['cover-desc','No cover'],['hasbpm','Has BPM'],['hasbpm-desc','No BPM'],['hasyear','Has year'],['hasyear-desc','No year'],['hasgenre','Has genre'],['hasgenre-desc','No genre'],['hasartist','Has artist'],['hasartist-desc','No artist'],['hasalbum','Has album'],['hasalbum-desc','No album'],['hascomposer','Has composer'],['hascomposer-desc','No composer']].map(([v,t])=>h('option',{value:v,text:t,selected:prefs.sort===v}))
+      ...[['newest','Newest'],['oldest','Oldest'],['title','A–Z'],['title-desc','Z–A'],['artist','Artist'],['artist-desc','Artist Z–A'],['longest','Longest'],['shortest','Shortest'],['year','Year'],['year-desc','Year Z–A'],['random','Random'],['mostplayed','Most played'],['leastplayed','Least played'],['album','Album'],['album-desc','Album Z–A'],['genre','Genre'],['genre-desc','Genre Z–A'],['recent','Recently played'],['trackno','Track #'],['composer','Composer'],['composer-desc','Composer Z–A'],['discno','Disc #'],['albumartist','Album Artist'],['albumartist-desc','Album Artist Z–A'],['bitrate','Bitrate'],['bitrate-desc','Bitrate (low)'],['size','File size'],['size-desc','File size (small)'],['samplerate','Sample rate'],['samplerate-desc','Sample rate (low)'],['channels','Channels'],['channels-desc','Channels (mono)'],['bpm','BPM'],['bpm-desc','BPM (low)'],['bitdepth','Bit depth'],['bitdepth-desc','Bit depth (low)'],['format','Format'],['format-desc','Format Z–A'],['chapters','Chapters'],['chapters-desc','Chapters (few)'],['lyrics','Has lyrics'],['lyrics-desc','No lyrics'],['cover','Has cover'],['cover-desc','No cover'],['hasbpm','Has BPM'],['hasbpm-desc','No BPM'],['hasyear','Has year'],['hasyear-desc','No year'],['hasgenre','Has genre'],['hasgenre-desc','No genre'],['hasartist','Has artist'],['hasartist-desc','No artist'],['hasalbum','Has album'],['hasalbum-desc','No album'],['hascomposer','Has composer'],['hascomposer-desc','No composer'],['hastrackno','Has track #'],['hastrackno-desc','No track #'],['hasdiscno','Has disc #'],['hasdiscno-desc','No disc #'],['hasalbumartist','Has album artist'],['hasalbumartist-desc','No album artist'],['hasbitrate','Has bitrate'],['hasbitrate-desc','No bitrate'],['hassamplerate','Has sample rate'],['hassamplerate-desc','No sample rate'],['haschannels','Has channels'],['haschannels-desc','No channels'],['hasbitdepth','Has bit depth'],['hasbitdepth-desc','No bit depth'],['hasformat','Has format'],['hasformat-desc','No format'],['hasduration','Has duration'],['hasduration-desc','No duration'],['hassize','Has size'],['hassize-desc','No size'],['haschapters','Has chapters'],['haschapters-desc','No chapters']].map(([v,t])=>h('option',{value:v,text:t,selected:prefs.sort===v}))
      )
     ),
     tab==='favorites'
@@ -3189,6 +3211,20 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   },
   refresh,
   ready,
+  /** Kevo's "turn it up", "mute", "volume 40": same effect as the slider, Mute button and +/- keys. Returns the level, 0 to 100. */
+  changeVolume:(change:{kind:'up'|'down'|'mute'|'unmute'}|{kind:'set';level:number}):number=>{
+   if(change.kind==='mute'||change.kind==='unmute'){
+    audio.muted=change.kind==='mute';
+    mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'Unmute':'Mute';
+    volumeLabel.textContent=audio.muted?'Muted':Math.round(prefs.volume*100)+'%';
+    return Math.round(prefs.volume*100);
+   }
+   const v=change.kind==='set'?change.level/100:prefs.volume+(change.kind==='up'?.1:-.1);
+   const level=Math.max(0,Math.min(1,Math.round(v*100)/100));
+   stopFade();audio.muted=false;audio.volume=prefs.volume=level;volume.value=String(level);
+   mute.setAttribute('aria-pressed','false');mute.textContent='Mute';volumeLabel.textContent=Math.round(level*100)+'%';save();
+   return Math.round(level*100);
+  },
   getState:()=>playbackState,
   getError:()=>playbackError,
   step,
@@ -3249,6 +3285,11 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   }
  };
 }
+
+
+
+
+
 
 
 

@@ -345,6 +345,10 @@ pub fn diagnostics() -> Result<Diagnostics, String> {
 #[cfg_attr(not(windows), allow(dead_code))]
 const APP_FILLER: [&str; 6] = ["browser", "app", "application", "program", "the", "my"];
 
+/// Start Menu names of common web browsers, in the order "open browser" tries them.
+#[cfg_attr(not(windows), allow(dead_code))]
+const BROWSERS: [&str; 6] = ["Brave", "Google Chrome", "Firefox", "Opera", "Vivaldi", "Microsoft Edge"];
+
 #[cfg_attr(not(windows), allow(dead_code))]
 fn app_words(text: &str) -> Vec<String> {
     text.to_lowercase()
@@ -361,6 +365,16 @@ fn app_words(text: &str) -> Vec<String> {
 fn best_app_match<'a>(spoken: &str, names: &'a [String]) -> Option<&'a String> {
     let all = app_words(spoken);
     let wanted: Vec<&String> = all.iter().filter(|w| !APP_FILLER.contains(&w.as_str())).collect();
+    if all.iter().any(|w| w == "browser") && wanted.iter().all(|w| w.as_str() == "web") {
+        // Just "browser": the first web browser installed, Edge last because every PC has it.
+        // Exact name first, then a variant such as "Brave Beta" or "Opera Browser".
+        return BROWSERS.iter().find_map(|b| {
+            let b = b.to_lowercase();
+            names.iter().find(|n| n.to_lowercase() == b).or_else(|| {
+                names.iter().find(|n| n.to_lowercase().starts_with(&format!("{b} ")))
+            })
+        });
+    }
     let wanted: Vec<&String> = if wanted.is_empty() { all.iter().collect() } else { wanted };
     if wanted.is_empty() {
         return None;
@@ -418,6 +432,14 @@ pub fn open_installed_app(name: String) -> Result<String, String> {
         let chosen = best_app_match(name, &names)
             .ok_or_else(|| format!("I could not find an app called {name} in the Start Menu."))?;
         let path = &shortcuts.iter().find(|(n, _)| n == chosen).expect("chosen from this list").1;
+        // Windows keeps a window started through Explorer behind AnF (it only flashes in the taskbar), and an app
+        // that is already running in the background never shows. AnF is in front, so it may let the app come forward.
+        // SAFETY: plain Win32 call with a constant argument; it changes no memory of ours.
+        let _ = unsafe {
+            ::windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow(
+                ::windows::Win32::UI::WindowsAndMessaging::ASFW_ANY,
+            )
+        };
         let mut cmd = StdCommand::new("explorer.exe");
         cmd.arg(path);
         crate::platform::no_console(&mut cmd);
@@ -458,5 +480,18 @@ mod open_app_tests {
         assert!(best_app_match("  ", &n).is_none());
         // "wor" is not "Word": whole words only, so a misheard fragment opens nothing.
         assert!(best_app_match("wor", &n).is_none());
+    }
+
+    #[test]
+    fn just_browser_opens_an_installed_browser() {
+        let n = names();
+        assert_eq!(best_app_match("browser", &n).unwrap(), "Brave");
+        assert_eq!(best_app_match("the browser", &n).unwrap(), "Brave");
+        let edge_only: Vec<String> = ["Microsoft Edge", "Word"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(best_app_match("web browser", &edge_only).unwrap(), "Microsoft Edge");
+        let variants: Vec<String> = ["Brave Beta", "Opera Browser", "Microsoft Edge"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(best_app_match("browser", &variants).unwrap(), "Brave Beta");
+        let none: Vec<String> = vec!["Word".to_string()];
+        assert!(best_app_match("browser", &none).is_none());
     }
 }

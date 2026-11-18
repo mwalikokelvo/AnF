@@ -1,0 +1,7 @@
+---
+description: Branch and Kevo rules for every assistant
+alwaysApply: true
+---
+
+- `main` is locked: never push to it. Work on your own branch and open a pull request; it merges only with green checks and review.
+- Kevo work follows `docs/KEVO-PLAN.md`: one phase at a time from a task brief, with the roles listed there. Cursor's role is small, clearly defined tasks.

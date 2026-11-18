@@ -177,9 +177,7 @@ impl Engine {
         self.reply_sized(messages,profile,false).await
     }
     pub async fn reply_sized(&self,messages:&[Value],profile:&str,long:bool)->Result<(String,bool),String>{
-        if !matches!(profile, "fast" | "balanced" | "deepseek-v4.1-flash" | "deepseek-v3.2-reasoning" | "deepseek-v3.2" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-k3-thinking" | "kimi-k3" | "kimi-linear-a3b" | "kimi-linear") {
-            return Err("Choose a supported model profile.".into());
-        }
+        supported_profile(profile)?;
         let _turn = self.reply_lock.lock().await;
         let input_bytes:usize=messages.iter().filter_map(|m|m["content"].as_str()).map(str::len).sum();
         let context=if long||input_bytes>6200 {16384}else{8192};
@@ -221,6 +219,71 @@ impl Engine {
                 == Some("length"),
         ))
     }
+    /// A short answer delivered as it is written, for the voice assistant: `on_text` receives each new piece.
+    /// Uses the same model process as chat (same profile and context size), so nothing is reloaded.
+    pub async fn reply_stream(&self,messages:&[Value],profile:&str,max_tokens:u32,mut on_text:impl FnMut(&str))->Result<String,String>{
+        supported_profile(profile)?;
+        let _turn = self.reply_lock.lock().await;
+        let (url, key) = self.start(profile,8192).await?;
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(180))
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| e.to_string())?;
+        let mut response = client.post(format!("{url}/v1/chat/completions")).bearer_auth(key)
+            .json(&json!({"model":"coucou-local","messages":messages,"stream":true,"max_tokens":max_tokens,
+                "temperature":0.6,"chat_template_kwargs":{"enable_thinking":false}}))
+            .send().await.map_err(|_|"The local model did not respond. Try again or free some memory.".to_string())?;
+        if !response.status().is_success() {
+            return Err(format!("Offline model error {}.", response.status()));
+        }
+        let (mut pending, mut text) = (Vec::<u8>::new(), String::new());
+        while let Some(chunk) = response.chunk().await.map_err(|_| "The local model stopped answering.".to_string())? {
+            pending.extend_from_slice(&chunk);
+            while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+                let line: Vec<u8> = pending.drain(..=end).collect();
+                if let Some(piece) = stream_delta(&String::from_utf8_lossy(&line)) {
+                    text.push_str(&piece);
+                    on_text(&piece);
+                }
+            }
+        }
+        let text = text.trim().to_string();
+        if text.is_empty() {
+            return Err("The offline model returned no text. Try asking another way.".into());
+        }
+        Ok(text)
+    }
+}
+
+fn supported_profile(profile: &str) -> Result<(), String> {
+    if matches!(profile, "fast" | "balanced" | "deepseek-v4.1-flash" | "deepseek-v3.2-reasoning" | "deepseek-v3.2" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-k3-thinking" | "kimi-k3" | "kimi-linear-a3b" | "kimi-linear") {
+        Ok(())
+    } else {
+        Err("Choose a supported model profile.".into())
+    }
+}
+
+/// The text carried by one line of a streamed chat completion ("data: {json}"), if any.
+fn stream_delta(line: &str) -> Option<String> {
+    let data = line.trim().strip_prefix("data:")?.trim();
+    let value: Value = serde_json::from_str(data).ok()?; // "[DONE]" and keep-alives are not JSON
+    let piece = value.pointer("/choices/0/delta/content")?.as_str()?;
+    (!piece.is_empty()).then(|| piece.to_string())
+}
+
+/// Takes the complete sentences off the front of `buffer`, leaving the unfinished remainder in it.
+pub fn take_sentences(buffer: &mut String) -> Option<String> {
+    let bytes = buffer.as_bytes();
+    let cut = (0..bytes.len()).rev().find(|&i| {
+        matches!(bytes[i], b'.' | b'!' | b'?') && bytes.get(i + 1).is_some_and(|b| b.is_ascii_whitespace())
+            // "3.5" or "e.g." mid-number/abbreviation is not an end; a sentence is at least a few words long
+            && i >= 12
+    })?;
+    let done = buffer[..=cut].trim().to_string();
+    *buffer = buffer[cut + 1..].trim_start().to_string();
+    Some(done)
 }
 
 pub(crate) fn random_key() -> Result<String, String> {
@@ -344,6 +407,25 @@ mod tests {
         }
         e.shutdown();
         assert!(e.process.lock().unwrap().is_none());
+    }
+    #[test]
+    #[ignore = "streams from the real bundled model"]
+    fn streams_a_short_answer_from_the_real_model() {
+        let e = Engine::default();
+        e.configure(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../local-ai"));
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let messages = vec![json!({"role":"user","content":"Count from one to five in words, then say what 2 plus 2 is. /no_think"})];
+        // Load the model first, so the timing below is about answering, not loading.
+        rt.block_on(e.reply_profile(&[json!({"role":"user","content":"Say OK. /no_think"})], "fast")).unwrap();
+        let (started, mut first, mut pieces) = (std::time::Instant::now(), None, 0);
+        let text = rt.block_on(e.reply_stream(&messages, "fast", 160, |_| {
+            first.get_or_insert_with(|| started.elapsed());
+            pieces += 1;
+        })).unwrap();
+        assert!(pieces > 1, "the answer arrived in one piece, so nothing was streamed: {text}");
+        assert!(text.contains('4') || text.to_lowercase().contains("four"), "{text}");
+        println!("Kevo stream live check: first words after {:?}, whole answer after {:?}, {pieces} pieces", first.unwrap(), started.elapsed());
+        e.shutdown();
     }
     #[test]
     #[ignore = "starts and cancels real local inference"]

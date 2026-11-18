@@ -6,7 +6,10 @@ $cache = Join-Path $PWD 'target/media-runtime'
 New-Item -ItemType Directory -Force $cache | Out-Null
 $archive = Join-Path $cache 'ffmpeg.zip'
 if (!(Test-Path $archive)) {
-    Invoke-WebRequest -Uri $url -OutFile "$archive.partial"
+    # gyan.dev is sometimes down (503); the publisher's GitHub release holds the same file, and the checksum below decides.
+    $mirror = 'https://github.com/GyanD/codexffmpeg/releases/download/8.1.2/ffmpeg-8.1.2-essentials_build.zip'
+    try { Invoke-WebRequest -Uri $url -OutFile "$archive.partial" }
+    catch { Invoke-WebRequest -Uri $mirror -OutFile "$archive.partial" }
     if ((Get-FileHash "$archive.partial" -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
         throw 'FFmpeg archive checksum mismatch'
     }

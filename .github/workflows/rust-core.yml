@@ -1,0 +1,37 @@
+name: Rust core
+
+# Lint gate for AnF's pure-Rust crates (AGENTS.md rule 5): format, clippy with
+# warnings as errors, tests. Small and Linux-only; the Tauri app has its own
+# Linux and Windows workflows.
+
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - '.github/workflows/rust-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  anf-vault:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/anf-vault
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked

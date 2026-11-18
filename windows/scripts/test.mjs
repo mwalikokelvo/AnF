@@ -28,7 +28,7 @@ try {
   const mjsFiles = testFiles.map(f => path.join(testsDir, `.${f.replace(/\.ts$/, '.mjs')}`));
   outFiles.push(...mjsFiles);
 
-  const res = spawnSync(process.execPath, ['--test', ...mjsFiles], { stdio: 'inherit' });
+  const res = spawnSync(process.execPath, ['--test', '--test-concurrency=2', ...mjsFiles], { stdio: 'inherit' });
   process.exitCode = res.status ?? (res.error ? 1 : 0);
 } finally {
   for (const f of outFiles) {

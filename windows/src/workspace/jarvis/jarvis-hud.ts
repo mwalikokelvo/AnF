@@ -27,6 +27,16 @@ export function kevoState(s: { micOn: boolean; awake: boolean; thinking: boolean
   return s.awake ? 'listening' : 'idle';
 }
 
+/** Tells Rust each change of Kevo's state, for the float HUD (`kevo://state`): once per change, never a repeat. */
+export function kevoHudReporter(invoke: (cmd: 'kevo_hud_set', args: { state: KevoState }) => Promise<unknown>): (state: KevoState) => void {
+  let sent: KevoState | undefined;
+  return (state) => {
+    if (state === sent) return;
+    sent = state;
+    invoke('kevo_hud_set', { state }).catch(() => {}); // no Tauri (browser fixture): the orb still works
+  };
+}
+
 function injectHudStyles(): void {
   if (document.getElementById('jarvis-hud-styles')) return;
   const style = document.createElement('style');
@@ -182,7 +192,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
   const stateEl = el('p', 'kevo-state', STATE_LABEL.off);
   stateEl.setAttribute('role', 'status');
   const heardEl = el('p', 'kevo-heard');
-  const replyEl = el('p', 'kevo-reply', 'Turn the microphone on, then say “Kevo” and what you need.');
+  const replyEl = el('p', 'kevo-reply', 'Turn the microphone on and say “Kevo”, or type what you need.');
   replyEl.setAttribute('aria-live', 'polite');
   stage.append(orb, stateEl, heardEl, replyEl);
 
@@ -228,6 +238,7 @@ export function createJarvisHud(options?: JarvisHudOptions): {
     text.textContent = msg;
     item.append(time, text);
     logEl.prepend(item);
+    logEl.scrollTop = 0; // newest first: show it, even after the owner scrolled down to older lines
     while (logEl.children.length > maxLogLines) logEl.lastElementChild!.remove();
   }
 
