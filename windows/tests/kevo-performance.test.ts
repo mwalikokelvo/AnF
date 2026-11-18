@@ -7,13 +7,14 @@
  * 3. Handles multi-step reasoning, memory retention, and tool calling properly.
  * 4. Operates completely offline with zero cloud AI telemetry.
  */
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { JarvisVoiceAgent, type ActionResult } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { clearJarvisHistory } from '../src/workspace/jarvis/voice/jarvis-memory';
 import {
   getOpenAITools,
   getKevoSystemPrompt,
+  getKevoMemoryPrompt,
   executeKevoToolCalls,
   parseKevoAskResponse,
 } from '../src/workspace/jarvis/voice/kevo-actions';
@@ -22,7 +23,8 @@ interface BenchmarkCase {
   category: 'factual' | 'reasoning' | 'tools_memory';
   query: string;
   expectedAction?: string;
-  expectedKeywords?: string[];
+  /** Every entry must appear in the reply; a list is met by any one of its equivalent forms. */
+  expectedKeywords?: (string | string[])[];
   maxTtfsMs?: number;
 }
 
@@ -63,19 +65,19 @@ const BENCHMARK_SUITE: BenchmarkCase[] = [
   {
     category: 'reasoning',
     query: 'A farmer has 17 sheep, and all but 9 run away. How many sheep does the farmer have left?',
-    expectedKeywords: ['9', 'nine'],
+    expectedKeywords: [['9', 'nine']],
     maxTtfsMs: 5000,
   },
   {
     category: 'reasoning',
     query: 'Why does ice float on water? Explain the molecular structure difference.',
-    expectedKeywords: ['density', 'water'],
+    expectedKeywords: [['density', 'dense'], 'water'],
     maxTtfsMs: 5000,
   },
   {
     category: 'reasoning',
     query: 'Calculate a 15 percent tip on a 60 dollar restaurant bill step by step.',
-    expectedKeywords: ['9', 'dollar'],
+    expectedKeywords: ['9', ['dollar', '$']],
     maxTtfsMs: 5000,
   },
 
@@ -106,6 +108,31 @@ const BENCHMARK_SUITE: BenchmarkCase[] = [
   },
 ];
 
+/** The messages kevo_ask builds (workspace_commands.rs kevo_messages): fixed instructions, facts, turns, question. */
+function kevoMessages(query: string, history: { role: string; text: string }[], facts: string[]) {
+  const memory = getKevoMemoryPrompt(facts.map((fact, i) => ({ id: String(i), fact, category: 'general' })));
+  return [
+    { role: 'system', content: getKevoSystemPrompt(undefined, { compact: true }) },
+    ...(memory ? [{ role: 'system', content: memory }] : []),
+    ...history.map((t) => ({ role: t.role, content: t.text })),
+    { role: 'user', content: query },
+  ];
+}
+
+/** The request body local_ai.rs reply_tools sends for kevo_ask. */
+function kevoRequest(messages: unknown[], maxTokens: number) {
+  return JSON.stringify({
+    model: 'coucou-local',
+    messages,
+    max_tokens: maxTokens,
+    temperature: 0.3,
+    chat_template_kwargs: { enable_thinking: false },
+    stream: true,
+    tools: getOpenAITools(),
+    tool_choice: 'auto',
+  });
+}
+
 function createBenchmarkAgent(memoryStore: Map<string, string>): {
   agent: JarvisVoiceAgent;
   viewHistory: string[];
@@ -135,40 +162,58 @@ function createBenchmarkAgent(memoryStore: Map<string, string>): {
     askAI: async (query: string, options?: any) => {
       const serverUrl = process.env.KEVO_LLAMA_SERVER_URL;
       if (serverUrl) {
-        const tools = getOpenAITools();
-        const facts = Array.from(memoryStore.values());
-        const system = getKevoSystemPrompt(facts, { compact: true });
-        const messages = [
-          { role: 'system', content: system },
-          ...(options?.history ?? []).map((t: any) => ({ role: t.role, content: t.text })),
-          { role: 'user', content: query },
-        ];
+        const messages = kevoMessages(query, options?.history ?? [], Array.from(memoryStore.values()));
         const resp = await fetch(`${serverUrl}/v1/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'coucou-local',
-            messages,
-            tools,
-            temperature: 0.1,
-            max_tokens: 180,
-          }),
+          body: kevoRequest(messages, 160),
         });
         if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-        const data: any = await resp.json();
-        const choice = data.choices?.[0]?.message;
-        const toolCalls = choice?.tool_calls;
-        if (toolCalls && toolCalls.length > 0) {
-          return {
-            text: choice.content || '',
-            actionName: toolCalls[0].function?.name || 'tool_call',
-          };
+        let fullText = '';
+        let firstSentenceEmitted = false;
+        let toolCallName = '';
+        const reader = resp.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const payload = trimmed.slice(5).trim();
+              if (payload === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(payload);
+                const delta = parsed.choices?.[0]?.delta;
+                if (delta?.content) {
+                  fullText += delta.content;
+                  if (!firstSentenceEmitted && options?.onPart) {
+                    const match = fullText.match(/^([^.!?]+[.!?]+(?:\s+|$))/);
+                    if (match) {
+                      firstSentenceEmitted = true;
+                      options.onPart(match[1].trim());
+                    }
+                  }
+                }
+                if (delta?.tool_calls?.[0]?.function?.name) {
+                  toolCallName = delta.tool_calls[0].function.name;
+                }
+              } catch {}
+            }
+          }
         }
-        const text = choice?.content || '';
-        if (options?.onPart && text) {
-          options.onPart(text);
+        if (!firstSentenceEmitted && options?.onPart && fullText.trim()) {
+          options.onPart(fullText.trim());
         }
-        return { text, actionName: 'ai_conversation' };
+        if (toolCallName) {
+          return { text: fullText, actionName: toolCallName };
+        }
+        return { text: fullText, actionName: 'ai_conversation' };
       }
 
       // Offline deterministic simulation when llama-server is not spawned
@@ -204,6 +249,20 @@ function createBenchmarkAgent(memoryStore: Map<string, string>): {
 
 describe('Kevo Performance Benchmarking & Reasoning Evaluation Suite (Phase 6 Step 6.5)', () => {
   let memoryStore: Map<string, string>;
+
+  // The app preloads the model with Kevo's prompt when listening starts (kevo_preload_model), so the
+  // instructions and tool list are already in llama-server's prompt cache when the first question comes.
+  before(async () => {
+    const serverUrl = process.env.KEVO_LLAMA_SERVER_URL;
+    if (!serverUrl) return;
+    const resp = await fetch(`${serverUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: kevoRequest(kevoMessages('', [], []), 1),
+    });
+    assert.ok(resp.ok, `Preload returned ${resp.status}`);
+    await resp.text();
+  });
 
   beforeEach(() => {
     clearJarvisHistory();
@@ -247,9 +306,10 @@ describe('Kevo Performance Benchmarking & Reasoning Evaluation Suite (Phase 6 St
         if (bCase.expectedKeywords && bCase.expectedKeywords.length > 0) {
           const fullReply = [result.speechReply, ...parts].join(' ').toLowerCase();
           for (const kw of bCase.expectedKeywords) {
+            const forms = Array.isArray(kw) ? kw : [kw];
             assert.ok(
-              fullReply.includes(kw.toLowerCase()),
-              `Query "${bCase.query}" reply did not contain required keyword "${kw}". Reply: "${fullReply}"`
+              forms.some((form) => fullReply.includes(form.toLowerCase())),
+              `Query "${bCase.query}" reply did not contain required keyword "${forms.join('" or "')}". Reply: "${fullReply}"`
             );
           }
         }

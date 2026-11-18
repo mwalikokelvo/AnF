@@ -38,7 +38,7 @@ import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
-import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
+import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,getKevoMemoryPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
 import {
   createReminder,
@@ -310,16 +310,12 @@ const jarvisActionContext: JarvisActionContext = {
       const id=++kevoTurn;
       const off=await listen<{id:number;text:string}>('kevo-reply-part',e=>{if(e.payload.id===id)options?.onPart?.(e.payload.text);});
       try{
-        const tools = getOpenAITools();
-        const facts = await listFacts().catch(() => []);
-        const system = getKevoSystemPrompt(facts, { compact: true });
         const res = await invoke<KevoAskReply | string>('kevo_ask',{
           id,
           query,
           history:options?.history??[],
           model:model.value,
-          tools,
-          system,
+          ...await kevoPrompt(),
         });
         if (typeof res === 'string') return res;
         if (res.tool_calls && res.tool_calls.length > 0) {
@@ -410,8 +406,16 @@ function updateGlobalPill(listening:boolean){
  pillStatus.textContent=listening?'Listening…':'Kevo';
 }
 
+// Kevo's fixed instructions and tool list (about 2,000 tokens) come first and never change, so llama-server
+// keeps them in its prompt cache; remembered facts follow in their own message.
+async function kevoPrompt(){
+ const facts=await listFacts().catch(()=>[]);
+ return {tools:getOpenAITools(),system:getKevoSystemPrompt(undefined,{compact:true}),memory:getKevoMemoryPrompt(facts)||undefined};
+}
+
+// Loads the model and reads the prompt once, so the first question only reads itself (48 s less in CI).
 function preloadKevoModel(){
- void invoke('kevo_preload_model',{model:model.value}).catch(()=>{});
+ void kevoPrompt().then(p=>invoke('kevo_preload_model',{model:model.value,...p})).catch(()=>{});
 }
 
 jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{

@@ -28,10 +28,24 @@ mod ears_impl {
 
     pub const RATE: i32 = 16_000;
 
-    /// Every downloaded file. Sizes and hashes were read from the Hub's LFS
-    /// pointers on 2026-11-18 and checked against the files themselves; the KWS
-    /// files are byte-identical to k2-fsa's official release
-    /// `kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2`.
+    /// The owner's Hugging Face mirror of k2-fsa's phone-based keyword spotter
+    /// `kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2`
+    /// (32,885,699 bytes, SHA-256 68447f4fbc67e70eee3a93961f36e81e98f47aef73ce7e7ca00885c6cd3616a6),
+    /// which k2-fsa publishes only as a GitHub release. The commit is written once, here.
+    macro_rules! kws_mirror {
+        ($file:literal) => {
+            concat!(
+                "https://huggingface.co/mwalikokelvo/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/resolve/",
+                "c2bcb01bdac46ff111a9302205e5a2f8f337c9f5",
+                "/kevo-wake-model/",
+                $file
+            )
+        };
+    }
+
+    /// Every downloaded file. Sizes and hashes were checked against the files
+    /// themselves; the KWS files are byte-identical to the chunk-16 files of
+    /// k2-fsa's release archive above.
     pub static MODELS: [ModelSpec; 7] = [
         // Silero VAD v4.0 (MIT), byte-identical to github.com/snakers4/silero-vad v4.0 files/silero_vad.onnx.
         ModelSpec {
@@ -41,27 +55,28 @@ mod ears_impl {
             sha256: "a35ebf52fd3ce5f1469b2a36158dba761bc47b973ea3382b3186ca15b1f5af28",
             size: 1_807_522,
         },
-        // Keyword spotter: sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 (Apache-2.0).
+        // Keyword spotter: sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20 (Apache-2.0). English is
+        // modelled as CMU-dictionary phones, so "Kevo" is written by how it is said.
         ModelSpec {
             id: "kevo-kws-encoder",
-            file: "kws-encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-            url: "https://huggingface.co/mobilebytesensei/sherpa-onnx-kws-zipformer-gigaspeech-3.3M/resolve/e8ca74a794ce66e38a100e7c60c0214189ff4100/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-            sha256: "1e721676515bcd42a186979733981213c66c80db680e1cc582dfedf3be76e678",
-            size: 4_807_159,
+            file: "kws-encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx",
+            url: kws_mirror!("encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx"),
+            sha256: "408bbd740838c42d5bf6d1c5b80b3c88b616c7860b92d980328b5b068c76ae48",
+            size: 4_599_656,
         },
         ModelSpec {
             id: "kevo-kws-decoder",
-            file: "kws-decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
-            url: "https://huggingface.co/mobilebytesensei/sherpa-onnx-kws-zipformer-gigaspeech-3.3M/resolve/e8ca74a794ce66e38a100e7c60c0214189ff4100/decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
-            sha256: "f61ebd3eed3773a44d088d53dfae92dbb6aec4839f4dcaee2d402414741663a3",
-            size: 1_063_189,
+            file: "kws-decoder-epoch-13-avg-2-chunk-16-left-64.onnx",
+            url: kws_mirror!("decoder-epoch-13-avg-2-chunk-16-left-64.onnx"),
+            sha256: "63a22dd60f40fff082ac3e09afa507f6787da36df76ded2fbe145fa233e22c21",
+            size: 759_829,
         },
         ModelSpec {
             id: "kevo-kws-joiner",
-            file: "kws-joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-            url: "https://huggingface.co/mobilebytesensei/sherpa-onnx-kws-zipformer-gigaspeech-3.3M/resolve/e8ca74a794ce66e38a100e7c60c0214189ff4100/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-            sha256: "eae9da0c7e1e6c6a3f4cc42d167899c388f6c6701b94cb96320e4f55df79624c",
-            size: 163_380,
+            file: "kws-joiner-epoch-13-avg-2-chunk-16-left-64.int8.onnx",
+            url: kws_mirror!("joiner-epoch-13-avg-2-chunk-16-left-64.int8.onnx"),
+            sha256: "190d4067b4cc20b72a42a1916e69d92052000fb7051a427ebb1bc72a69207dc1",
+            size: 86_629,
         },
         // Transcription: sherpa-onnx-streaming-zipformer-en-2023-06-26 (Apache-2.0, trained on LibriSpeech).
         ModelSpec {
@@ -90,7 +105,13 @@ mod ears_impl {
     const KWS_TOKENS: &[u8] = include_bytes!("../resources/kevo-ears/kws-tokens.txt");
     const ASR_TOKENS: &[u8] = include_bytes!("../resources/kevo-ears/asr-tokens.txt");
 
-    pub const KEYWORDS: &str = "▁K E VO @KEVO\n▁HE Y ▁K E VO @HEY_KEVO\n";
+    /// The owner's two ways of saying the name, KEE-vo and KEH-vo, alone and after "Hey".
+    pub const KEYWORDS: &str = "\
+K IY1 V OW0 @KEVO
+K EH1 V OW0 @KEVO
+HH EY1 K IY1 V OW0 @HEY_KEVO
+HH EY1 K EH1 V OW0 @HEY_KEVO
+";
 
     pub fn models_dir() -> PathBuf {
         crate::platform::local_dir().join("kevo-ears").join("models")
@@ -124,7 +145,7 @@ mod ears_impl {
                 model: Some(path(dir, "kevo-vad")),
                 threshold: 0.5,
                 min_silence_duration: 0.25,
-                min_speech_duration: 0.25,
+                min_speech_duration: 0.15,
                 window_size: 512,
                 max_speech_duration: 20.0,
             },
@@ -154,6 +175,11 @@ mod ears_impl {
         KeywordSpotter::create(&KeywordSpotterConfig {
             model_config: transducer(dir, "kws", KWS_TOKENS),
             keywords_buf: Some(KEYWORDS.into()),
+            // Step 1.4 tuning on the self-test clips and 14 remakes of them (HANDOFF.md, 2026-11-18):
+            // 16 search paths keep a name said a little unclearly alive; the low threshold costs no
+            // false wakes on 150 look-alike clips. keywords_score stays at the default 1.0.
+            max_active_paths: 16,
+            keywords_threshold: 0.05,
             ..Default::default()
         })
     }
@@ -231,9 +257,11 @@ mod ears_impl {
     impl EchoCanceller {
         pub fn new(filter_len: usize, step_size: f32) -> Self {
             let len = filter_len.max(16);
+            let mut weights = vec![0.0; len];
+            weights[0] = 1.0;
             Self {
                 filter_len: len,
-                weights: vec![0.0; len],
+                weights,
                 history: vec![0.0; len],
                 history_idx: 0,
                 mu: step_size,
