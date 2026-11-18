@@ -6,6 +6,10 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-01 by Claude (session https://claude.ai/code/session_01DHgVzsPDP7PNt8MKD8CHFa), after `main` reached `20e8557` (PR #57 merged). Status below was re-checked against the GitHub API and `git log origin/main` at that point.
 
+## 2026-11-17 — Kevo H.3 telemetry pill (Antigravity)
+
+Added State 2 (420x110 px) telemetry pill with avatar orb, two-line text (newest at bottom, ellipsis), badge, grow on wake/action/hover, fold after 4 s of quiet (1 timer during transition, 0 once folded), Rust `kevo_float_resize` command, and browser tests; left: H.4 (approval card).
+
 ## 2026-11-17 — Kevo H.2 micro-pill window (Antigravity)
 
 Added kevo-float window (48x28 non-activating, no taskbar, always on top), dragging capability, view driven purely by kevo://state events with 0 timers/polling, and browser tests; left: H.3 (telemetry pill) and H.4 (approval card).
