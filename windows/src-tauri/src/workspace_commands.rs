@@ -96,7 +96,7 @@ pub async fn kevo_ask(
     let answer = async {
         let reply = chat.local.reply_tools(&messages, tools.as_deref(), &model, 160, |piece| {
             unsent.push_str(piece);
-            if let Some(text) = local_ai::take_sentences(&mut unsent) {
+            if let Some(text) = local_ai::take_streamable_sentences(&mut unsent) {
                 let _ = app.emit("kevo-reply-part", KevoPart { id, text });
             }
         }).await?;
@@ -108,7 +108,7 @@ pub async fn kevo_ask(
         _ = async { while changed.changed().await.is_ok() { if *changed.borrow() != id { break; } } } => return Err("Cancelled.".into()),
     };
     let rest = unsent.trim();
-    if !rest.is_empty() {
+    if !rest.is_empty() && !rest.starts_with('<') {
         let _ = app.emit("kevo-reply-part", KevoPart { id, text: rest.to_string() });
     }
     crate::kevo_hud::set_badge(&app, format!("Local model · {:.1} s", started.elapsed().as_secs_f32()));

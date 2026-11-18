@@ -16,7 +16,16 @@ import {
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
 
-export type JarvisAskAiResult = string | { text: string; actionName?: string };
+export type JarvisAskAiResult =
+  | string
+  | {
+      text: string;
+      actionName?: string;
+      status?: 'success' | 'failure' | 'unverified';
+      verified?: boolean;
+      reason?: string;
+      error?: string;
+    };
 
 export interface JarvisActionContext {
   switchView: (view: string) => void;
@@ -946,10 +955,15 @@ export class JarvisVoiceAgent {
         // Saved only once answered, so a question that was stopped never steers later answers.
         appendJarvisTurn('user', text);
         appendJarvisTurn('assistant', aiAnswer);
+        const objResult = typeof aiResult === 'object' && aiResult ? aiResult : null;
         return {
-          handled: true,
+          handled: objResult?.status ? objResult.status !== 'failure' : true,
           actionName: aiAction,
           speechReply: aiAnswer,
+          status: objResult?.status,
+          verified: objResult?.verified,
+          reason: objResult?.reason,
+          error: objResult?.error,
         };
       } catch (err) {
         return {

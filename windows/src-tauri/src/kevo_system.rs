@@ -9,7 +9,7 @@
 // Depends on the `sysinfo` crate for cross-platform system information.
 
 use serde::{Deserialize, Serialize};
-use sysinfo::{Disk, Disks, System};
+use sysinfo::{Disks, System};
 use std::process::Command as StdCommand;
 
 // ── Response types ────────────────────────────────────────────────────────────
