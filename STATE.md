@@ -6,16 +6,16 @@ paused: no
 lock: 
 phase: 6 merged by owner account through 6.5 (#231-#235) and the Phase 7 brief (#237, 14:15Z) ahead of any PC pass; Phase 7 gate: owner voice decision needed. version still 0.1.60
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
-open_pr: none. Board empty: every kevo issue closed by the owner account at 10:26Z
+open_pr: #238 (agy/fix-issue-236, owner account; fixes #236 and folds in #233, bumps 0.1.61), CI running on 391c3a9 16:12Z; an interactive Claude session is driving it (merge check-in 16:43Z). #233 open, red (same main failures), superseded by #238
 pc_test:
-waiting_for: owner voice decision for Phase 7 (notified 14:29Z; runbook: stop building before Phase 7). Antigravity fixing main per #236 (owner decision 18 Nov: no merges until main is green); main still red on 7910695-era runs (kevo_ears audio_tests_in_ci_verifies_pipeline_offline_from_wav, kevos_own_speech_alone_gives_no_wake_and_no_stop). Then #233 (self-test clips; Codex clean on 0e820fa) can go green and merge. kevo-test publish also needs the 403 setting fixed. Autopilot: do not merge anything onto red main
+waiting_for: #238 CI and merge by the interactive session (owner: fix main fast); autopilot does not touch #238/#233 meanwhile. Owner voice decision for Phase 7 (notified 14:29Z; runbook: stop building before Phase 7). Autopilot: do not merge anything onto red main
 blocked: kevo-test publish, 2026-11-18: `gh release create kevo-test-v0.1.60` gets HTTP 403 "Resource not accessible by integration" (attempt 2 by owner 10:26Z, attempt 3 by autopilot 10:30Z; job has contents: write). v0.1.59 published fine at 06:01Z with the same workflow, so a repo setting changed (repo renamed anf -> AnF meanwhile). Two strikes: no more reruns until the owner changes the setting
 last_passed_version: none yet
 owner_needed: none right now (owner turned on: auto self-test switch, Actions read+write, branch protection status checks on main; release immutability unticked to test)
 last_main: 7910695 (Windows red since #200)
 chain: 0
-next_due: 2026-11-18T20:15Z
-quiet_fingerprint: 47f633c39f850966a0eadda54145931c7c06909c0de9e35b1f777bdc2b28c598
+next_due: 2026-11-18T19:12Z
+quiet_fingerprint: 434b56d75917d385e81bdcda9980e60c74425c5de21ac0eb87f932bb7a19fb32
 
 ## Run log (newest last, keep 60)
 
@@ -51,3 +51,4 @@ quiet_fingerprint: 47f633c39f850966a0eadda54145931c7c06909c0de9e35b1f777bdc2b28c
 - 2026-11-18T14:15Z (Claude, interactive): owner chose Antigravity fixes its failing tests; filed #236 (9 tests, stop merging until green). #233 waits on it. Owner auto self-test switch is ON.
 - 2026-11-18T14:29Z (autopilot): main moved 6e304f1 -> 7910695 (owner account merged agy/ Phase 6.2-6.5 #231-#235 and the Phase 7 brief #237 onto red main). Phase 7 gate reached: notified owner that the voice decision is needed; no Phase 7 work. main Windows still red (same 2 kevo_ears tests, #236 for Antigravity); #233 waits on it. 2b.7 waiting.
 - 2026-11-18T15:09Z (Claude, interactive): kevo-test-v0.1.60 publish 403 is not a setting: GITHUB_TOKEN cannot create a tag on an older commit whose .github/workflows differ from main tip (24506fd vs main differ in linux.yml; 0.1.59 was tagged at the tip). Do not re-run old kevo-test jobs; the next version bump publishes from the tip. main now requires status checks (owner set 18 Nov).
+- 2026-11-18T16:30Z (autopilot): 2b.7 waiting. New #238 (agy/fix-issue-236 + 0.1.61 bump + #233) CI running on 391c3a9; an interactive Claude session owns its merge (check-in 16:43Z), so no autopilot action on #238/#233. main unchanged at 7910695; Phase 7 gate still waits on the owner. No notification.
