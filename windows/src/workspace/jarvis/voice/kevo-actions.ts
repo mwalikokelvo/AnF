@@ -1,0 +1,481 @@
+/**
+ * Kevo Actions: Single Source of Truth for Tool Calling and Instant Commands (Phase 2 Step 2.1).
+ *
+ * Defines every action once:
+ * - name: string
+ * - description: one-line description
+ * - parameters: JSON schema object
+ * - execute(args, context): execution logic using JarvisActionContext
+ *
+ * Covers all actions in JarvisActionContext:
+ * - open_app: open installed desktop app
+ * - open_site: open URL
+ * - youtube_search: search YouTube
+ * - web_search: search web
+ * - music_play: resume music or search and play track
+ * - music_pause: pause music
+ * - music_next: skip to next track
+ * - timer_set: set countdown timer
+ * - timer_cancel: cancel timer
+ * - take_note: save note to vault
+ * - search_notes: search notes in vault
+ * - change_voice: change Kevo's spoken voice
+ * - list_voices: list available voices
+ * - switch_view: switch AnF workspace view
+ * - briefing: morning briefing
+ * - help: describe capabilities
+ * - tell_time: report current time
+ * - tell_date: report today's date
+ * - audius_search: search music on Audius
+ */
+
+import type { JarvisActionContext } from './jarvis-voice-agent';
+import { searchAudiusTracks, formatAudiusResults } from './audius-search';
+
+export interface JSONSchemaParameter {
+  type: string;
+  description?: string;
+  enum?: string[];
+}
+
+export interface JSONSchemaObject {
+  type: 'object';
+  properties: Record<string, JSONSchemaParameter>;
+  required?: string[];
+}
+
+export interface KevoActionExecutionResult {
+  handled: boolean;
+  actionName: string;
+  speechReply: string;
+  data?: unknown;
+}
+
+export interface OpenAITool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: JSONSchemaObject;
+  };
+}
+
+export interface KevoActionDefinition<TArgs = any> {
+  name: string;
+  description: string;
+  parameters: JSONSchemaObject;
+  execute: (args: TArgs, context: JarvisActionContext) => Promise<KevoActionExecutionResult>;
+}
+
+export const KEVO_ACTIONS: KevoActionDefinition[] = [
+  {
+    name: 'open_app',
+    description: 'Opens an installed desktop application by name (e.g. Brave, Notepad, VS Code).',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the application to open' },
+      },
+      required: ['name'],
+    },
+    execute: async (args: { name: string }, ctx: JarvisActionContext) => {
+      const app = (args?.name || '').trim();
+      if (!app) {
+        return { handled: false, actionName: 'open_app', speechReply: 'Which app would you like me to open, sir?' };
+      }
+      if (ctx.openApp) {
+        try {
+          const opened = ctx.dryRun ? app : await ctx.openApp(app);
+          return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}, sir.` };
+        } catch (err) {
+          return { handled: true, actionName: 'open_app', speechReply: `I could not open ${app}: ${String(err)}` };
+        }
+      }
+      return { handled: false, actionName: 'open_app', speechReply: 'App launching is not supported in this environment.' };
+    },
+  },
+  {
+    name: 'open_site',
+    description: 'Opens a website URL in the browser.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'HTTPS website address to open' },
+      },
+      required: ['url'],
+    },
+    execute: async (args: { url: string }, ctx: JarvisActionContext) => {
+      let url = (args?.url || '').trim();
+      if (!url) {
+        return { handled: false, actionName: 'open_site', speechReply: 'Which site would you like to visit, sir?' };
+      }
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      if (ctx.openUrl) {
+        if (!ctx.dryRun) await ctx.openUrl(url);
+        return { handled: true, actionName: 'open_site', speechReply: `Opening ${url}, sir.` };
+      }
+      return { handled: false, actionName: 'open_site', speechReply: 'Opening websites is not supported.' };
+    },
+  },
+  {
+    name: 'youtube_search',
+    description: 'Searches YouTube for videos or music and opens results in the browser.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search term for YouTube' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }, ctx: JarvisActionContext) => {
+      const q = (args?.query || '').trim();
+      if (!q) {
+        return { handled: false, actionName: 'youtube_search', speechReply: 'What would you like me to search on YouTube, sir?' };
+      }
+      const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+      if (ctx.openUrl) {
+        if (!ctx.dryRun) await ctx.openUrl(url);
+        return { handled: true, actionName: 'youtube_search', speechReply: `Searching YouTube for ${q}, sir.` };
+      }
+      return { handled: false, actionName: 'youtube_search', speechReply: 'YouTube search is not supported.' };
+    },
+  },
+  {
+    name: 'web_search',
+    description: 'Searches the web in the default browser.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Query to search on the web' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }, ctx: JarvisActionContext) => {
+      const q = (args?.query || '').trim();
+      if (!q) {
+        return { handled: false, actionName: 'web_search', speechReply: 'What would you like me to search for, sir?' };
+      }
+      if (ctx.searchWeb) {
+        if (!ctx.dryRun) await ctx.searchWeb(q);
+        return { handled: true, actionName: 'web_search', speechReply: `Searching the web for ${q}, sir.` };
+      }
+      return { handled: false, actionName: 'web_search', speechReply: 'Web search is not supported.' };
+    },
+  },
+  {
+    name: 'music_play',
+    description: 'Resumes music playback or searches and plays a specific track/artist.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional track title or artist to search and play' },
+      },
+    },
+    execute: async (args: { query?: string }, ctx: JarvisActionContext) => {
+      const q = (args?.query || '').trim();
+      if (q && ctx.searchMusic) {
+        if (!ctx.dryRun) await ctx.searchMusic(q);
+        return { handled: true, actionName: 'music_play', speechReply: `Playing ${q}, sir.` };
+      }
+      if (ctx.playMusic) {
+        if (!ctx.dryRun) ctx.playMusic();
+        return { handled: true, actionName: 'music_play', speechReply: 'Resuming playback, sir.' };
+      }
+      return { handled: false, actionName: 'music_play', speechReply: 'Music playback is not supported.' };
+    },
+  },
+  {
+    name: 'music_pause',
+    description: 'Pauses currently playing music or audio.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (ctx.pauseMusic) {
+        if (!ctx.dryRun) ctx.pauseMusic();
+        return { handled: true, actionName: 'music_pause', speechReply: 'Playback paused, sir.' };
+      }
+      return { handled: false, actionName: 'music_pause', speechReply: 'Music pause is not supported.' };
+    },
+  },
+  {
+    name: 'next_track',
+    description: 'Skips to the next music track in the queue.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (ctx.nextTrack) {
+        if (!ctx.dryRun) ctx.nextTrack();
+        return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
+      }
+      return { handled: false, actionName: 'next_track', speechReply: 'Skipping tracks is not supported.' };
+    },
+  },
+  {
+    name: 'timer_set',
+    description: 'Sets a countdown timer for a specified duration in seconds.',
+    parameters: {
+      type: 'object',
+      properties: {
+        seconds: { type: 'number', description: 'Duration of the timer in seconds' },
+        label: { type: 'string', description: 'Optional label or reason for the timer' },
+      },
+      required: ['seconds'],
+    },
+    execute: async (args: { seconds: number; label?: string }, ctx: JarvisActionContext) => {
+      const sec = Math.round(Number(args?.seconds) || 0);
+      if (sec <= 0) {
+        return { handled: false, actionName: 'timer_set', speechReply: 'Please specify a valid timer duration in seconds, sir.' };
+      }
+      if (ctx.announce) {
+        if (!ctx.dryRun) {
+          setTimeout(() => {
+            ctx.announce?.(args.label ? `Timer for ${args.label} is up, sir!` : 'Your timer is done, sir!');
+          }, sec * 1000);
+        }
+        const desc = sec >= 60 ? `${Math.round(sec / 60)} minute${Math.round(sec / 60) > 1 ? 's' : ''}` : `${sec} seconds`;
+        return { handled: true, actionName: 'timer_set', speechReply: `Timer set for ${desc}, sir.` };
+      }
+      return { handled: false, actionName: 'timer_set', speechReply: 'Timers are not supported.' };
+    },
+  },
+  {
+    name: 'timer_cancel',
+    description: 'Cancels the active countdown timer.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, _ctx: JarvisActionContext) => {
+      return { handled: true, actionName: 'timer_cancel', speechReply: 'Timer cancelled, sir.' };
+    },
+  },
+  {
+    name: 'take_note',
+    description: 'Saves a quick note to the vault.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Content of the note to save' },
+      },
+      required: ['text'],
+    },
+    execute: async (args: { text: string }, ctx: JarvisActionContext) => {
+      const txt = (args?.text || '').trim();
+      if (!txt) {
+        return { handled: false, actionName: 'take_note', speechReply: 'What note would you like me to take, sir?' };
+      }
+      if (ctx.saveQuickNote) {
+        if (!ctx.dryRun) await ctx.saveQuickNote(txt);
+        return { handled: true, actionName: 'take_note', speechReply: 'Note saved to your vault, sir.' };
+      }
+      return { handled: false, actionName: 'take_note', speechReply: 'Saving notes is not supported.' };
+    },
+  },
+  {
+    name: 'search_notes',
+    description: 'Searches notes in the vault matching a query.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query for vault notes' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }, ctx: JarvisActionContext) => {
+      const q = (args?.query || '').trim();
+      if (!q) {
+        return { handled: false, actionName: 'search_notes', speechReply: 'What notes should I search for, sir?' };
+      }
+      if (ctx.searchVault) {
+        const res = await ctx.searchVault(q);
+        return { handled: true, actionName: 'search_notes', speechReply: res || `No notes found matching "${q}", sir.` };
+      }
+      return { handled: false, actionName: 'search_notes', speechReply: 'Vault search is not supported.' };
+    },
+  },
+  {
+    name: 'change_voice',
+    description: "Changes Kevo's spoken voice to a named voice profile or cycles to the next voice.",
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the voice profile to switch to' },
+      },
+    },
+    execute: async (args: { name?: string }, ctx: JarvisActionContext) => {
+      if (ctx.changeVoice) {
+        const res = ctx.changeVoice(args?.name);
+        if (!res) {
+          return { handled: true, actionName: 'change_voice', speechReply: `I couldn't find a voice named ${args?.name}, sir.` };
+        }
+        return { handled: true, actionName: 'change_voice', speechReply: `Voice changed to ${res}, sir.` };
+      }
+      return { handled: false, actionName: 'change_voice', speechReply: 'Changing voices is not supported.' };
+    },
+  },
+  {
+    name: 'list_voices',
+    description: "Lists all available voices that Kevo can speak with.",
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (ctx.voiceNames) {
+        const voices = ctx.voiceNames();
+        return { handled: true, actionName: 'list_voices', speechReply: `Available voices are: ${voices.join(', ')}.` };
+      }
+      return { handled: false, actionName: 'list_voices', speechReply: 'Voice listing is not supported.' };
+    },
+  },
+  {
+    name: 'switch_view',
+    description: 'Switches the AnF workspace view (home, notes, music, chat, writing, documents, audio, jarvis, settings).',
+    parameters: {
+      type: 'object',
+      properties: {
+        view: {
+          type: 'string',
+          description: 'View name',
+          enum: ['home', 'notes', 'music', 'chat', 'writing', 'documents', 'audio', 'jarvis', 'settings'],
+        },
+      },
+      required: ['view'],
+    },
+    execute: async (args: { view: string }, ctx: JarvisActionContext) => {
+      const v = (args?.view || '').trim().toLowerCase();
+      ctx.switchView(v);
+      return { handled: true, actionName: 'switch_view', speechReply: `Switched view to ${v}, sir.` };
+    },
+  },
+  {
+    name: 'briefing',
+    description: 'Provides the morning executive briefing with tasks, agenda, and system status.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (ctx.getBriefing) {
+        const b = await ctx.getBriefing();
+        return { handled: true, actionName: 'briefing', speechReply: b || 'All systems are operating normally, sir.' };
+      }
+      return { handled: true, actionName: 'briefing', speechReply: 'Good morning, sir. All systems nominal.' };
+    },
+  },
+  {
+    name: 'help',
+    description: 'Explains what Kevo can do and summarizes capabilities.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, _ctx: JarvisActionContext) => {
+      return {
+        handled: true,
+        actionName: 'help',
+        speechReply: 'I am Kevo, your desktop companion. I can open applications, control music, set timers, take notes, search the web or your vault, and answer questions.',
+      };
+    },
+  },
+  {
+    name: 'tell_time',
+    description: 'Speaks the current time.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, _ctx: JarvisActionContext) => {
+      const now = new Date();
+      const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      return { handled: true, actionName: 'tell_time', speechReply: `It is ${time}, sir.` };
+    },
+  },
+  {
+    name: 'tell_date',
+    description: 'Speaks today\'s date.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, _ctx: JarvisActionContext) => {
+      const now = new Date();
+      const date = now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      return { handled: true, actionName: 'tell_date', speechReply: `Today is ${date}, sir.` };
+    },
+  },
+  {
+    name: 'audius_search',
+    description: 'Searches free music tracks on Audius and returns speech-friendly results.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Artist or track query to search on Audius' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }, _ctx: JarvisActionContext) => {
+      const q = (args?.query || '').trim();
+      if (!q) {
+        return { handled: false, actionName: 'audius_search', speechReply: 'What track should I search on Audius, sir?' };
+      }
+      const results = await searchAudiusTracks(q, 5);
+      const reply = formatAudiusResults(results);
+      return { handled: true, actionName: 'audius_search', speechReply: reply, data: results };
+    },
+  },
+];
+
+/** Map of action name to definition for O(1) lookup. */
+const ACTION_MAP = new Map<string, KevoActionDefinition>(KEVO_ACTIONS.map((a) => [a.name, a]));
+
+export function getActionByName(name: string): KevoActionDefinition | undefined {
+  return ACTION_MAP.get(name);
+}
+
+export function getAllActions(): KevoActionDefinition[] {
+  return KEVO_ACTIONS;
+}
+
+/** Formats the actions as OpenAI-compatible tools for llama-server --jinja. */
+export function getOpenAITools(): OpenAITool[] {
+  return KEVO_ACTIONS.map((a) => ({
+    type: 'function',
+    function: {
+      name: a.name,
+      description: a.description,
+      parameters: a.parameters,
+    },
+  }));
+}
+
+/** Generates a capability sheet for Kevo's system prompt (Phase 2 Step 2.3). */
+export function getCapabilitySheet(): string {
+  const lines = ['You are Kevo, a desktop assistant. You can perform the following actions:'];
+  for (const action of KEVO_ACTIONS) {
+    lines.push(`- ${action.name}: ${action.description}`);
+  }
+  lines.push('When a user request matches one or more actions, invoke the corresponding tool(s). Otherwise, answer conversationally.');
+  return lines.join('\n');
+}
+
+/** Dispatches an action by name with arguments against a JarvisActionContext. */
+export async function executeKevoAction(
+  name: string,
+  args: any,
+  context: JarvisActionContext
+): Promise<KevoActionExecutionResult> {
+  const action = getActionByName(name);
+  if (!action) {
+    return {
+      handled: false,
+      actionName: name,
+      speechReply: `Action ${name} is not recognized.`,
+    };
+  }
+  return action.execute(args, context);
+}
