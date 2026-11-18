@@ -53,11 +53,18 @@ export interface JSONSchemaObject {
   required?: string[];
 }
 
+export type KevoActionStatus = 'success' | 'failure' | 'unverified';
+
 export interface KevoActionExecutionResult {
   handled: boolean;
   actionName: string;
   speechReply: string;
   data?: unknown;
+  status: KevoActionStatus;
+  verified: boolean;
+  error?: string;
+  reason?: string;
+  verificationDetails?: string;
 }
 
 export interface OpenAITool {
@@ -73,7 +80,7 @@ export interface KevoActionDefinition<TArgs = any> {
   name: string;
   description: string;
   parameters: JSONSchemaObject;
-  execute: (args: TArgs, context: JarvisActionContext) => Promise<KevoActionExecutionResult>;
+  execute: (args: TArgs, context: JarvisActionContext) => Promise<Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string }>;
 }
 
 export const KEVO_ACTIONS: KevoActionDefinition[] = [
@@ -90,17 +97,46 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     execute: async (args: { name: string }, ctx: JarvisActionContext) => {
       const app = (args?.name || '').trim();
       if (!app) {
-        return { handled: false, actionName: 'open_app', speechReply: 'Which app would you like me to open, sir?' };
+        return {
+          handled: false,
+          actionName: 'open_app',
+          speechReply: 'Which app would you like me to open, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
       }
       if (ctx.openApp) {
         try {
           const opened = ctx.dryRun ? app : await ctx.openApp(app);
-          return { handled: true, actionName: 'open_app', speechReply: `Opening ${opened}, sir.` };
+          return {
+            handled: true,
+            actionName: 'open_app',
+            speechReply: `Opening ${opened}, sir.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Launched ${opened}`,
+          };
         } catch (err) {
-          return { handled: true, actionName: 'open_app', speechReply: `I could not open ${app}: ${String(err)}` };
+          return {
+            handled: false,
+            actionName: 'open_app',
+            speechReply: `I could not open ${app}: ${String(err)}`,
+            status: 'failure',
+            verified: false,
+            error: String(err),
+            reason: 'EXECUTION_FAILED',
+          };
         }
       }
-      return { handled: false, actionName: 'open_app', speechReply: 'App launching is not supported in this environment.' };
+      return {
+        handled: false,
+        actionName: 'open_app',
+        speechReply: 'App launching is not supported in this environment.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
     },
   },
   {
@@ -819,9 +855,59 @@ export async function executeKevoAction(
       handled: false,
       actionName: name,
       speechReply: `Action ${name} is not recognized.`,
+      status: 'failure',
+      verified: false,
+      error: `Action ${name} is not recognized.`,
+      reason: 'NOT_FOUND',
     };
   }
-  return action.execute(args, context);
+
+  // Pre-execution validation of required arguments
+  if (action.parameters?.required && Array.isArray(action.parameters.required)) {
+    for (const req of action.parameters.required) {
+      const val = args?.[req];
+      if (val === undefined || val === null || (typeof val === 'string' && !val.trim())) {
+        return {
+          handled: false,
+          actionName: name,
+          speechReply: `Missing required parameter ${req} for ${name}.`,
+          status: 'failure',
+          verified: false,
+          error: `Missing required parameter: ${req}`,
+          reason: 'INVALID_ARGUMENT',
+        };
+      }
+    }
+  }
+
+  try {
+    const rawRes = await action.execute(args, context);
+    const handled = rawRes.handled ?? true;
+    const status: KevoActionStatus = rawRes.status ?? (handled ? 'success' : 'failure');
+    const verified: boolean = rawRes.verified ?? (status === 'success');
+    return {
+      handled,
+      actionName: rawRes.actionName || name,
+      speechReply: rawRes.speechReply,
+      data: rawRes.data,
+      status,
+      verified,
+      error: rawRes.error,
+      reason: rawRes.reason,
+      verificationDetails: rawRes.verificationDetails,
+    };
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    return {
+      handled: false,
+      actionName: name,
+      speechReply: `I encountered an error executing ${name}: ${errMsg}`,
+      status: 'failure',
+      verified: false,
+      error: errMsg,
+      reason: 'EXECUTION_FAILED',
+    };
+  }
 }
 
 export interface KevoToolCall {
@@ -842,10 +928,12 @@ export async function executeKevoToolCalls(
 ): Promise<KevoActionExecutionResult> {
   const replies: string[] = [];
   const actionNames: string[] = [];
+  const results: KevoActionExecutionResult[] = [];
   let allHandled = true;
 
   for (const call of toolCalls) {
     const res = await executeKevoAction(call.name, call.arguments, context);
+    results.push(res);
     if (!res.handled) allHandled = false;
     actionNames.push(res.actionName || call.name);
     if (res.speechReply) {
@@ -854,10 +942,16 @@ export async function executeKevoToolCalls(
     }
   }
 
+  const allVerified = results.length > 0 && results.every((r) => r.verified === true);
+  const anyFailed = results.some((r) => r.status === 'failure' || !r.handled);
+
   return {
     handled: allHandled && toolCalls.length > 0,
     actionName: actionNames.join('+'),
     speechReply: replies.join(' '),
+    status: anyFailed ? 'failure' : (allVerified ? 'success' : 'unverified'),
+    verified: allVerified,
+    data: results,
   };
 }
 

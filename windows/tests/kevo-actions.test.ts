@@ -416,4 +416,62 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.strictEqual(parsedText.text, 'Hello, I am Kevo.');
     assert.strictEqual(parsedText.tool_calls?.length, 0);
   });
+
+  it('enforces verification protocol and execution result schema (Step 5.1)', async () => {
+    const ctx = mockContext({
+      dryRun: false,
+      openApp: async (name) => {
+        if (name === 'FailApp') throw new Error('App executable not found');
+        return name;
+      },
+    });
+
+    // Success action has status 'success' and verified true
+    const okRes = await executeKevoAction('open_app', { name: 'VS Code' }, ctx);
+    assert.strictEqual(okRes.handled, true);
+    assert.strictEqual(okRes.status, 'success');
+    assert.strictEqual(okRes.verified, true);
+    assert.ok(okRes.verificationDetails?.includes('VS Code'));
+
+    // Missing required argument fails pre-execution with INVALID_ARGUMENT
+    const missingArgRes = await executeKevoAction('open_app', { name: '' }, ctx);
+    assert.strictEqual(missingArgRes.handled, false);
+    assert.strictEqual(missingArgRes.status, 'failure');
+    assert.strictEqual(missingArgRes.verified, false);
+    assert.strictEqual(missingArgRes.reason, 'INVALID_ARGUMENT');
+
+    // Execution throw fails with EXECUTION_FAILED
+    const throwRes = await executeKevoAction('open_app', { name: 'FailApp' }, ctx);
+    assert.strictEqual(throwRes.handled, false);
+    assert.strictEqual(throwRes.status, 'failure');
+    assert.strictEqual(throwRes.verified, false);
+    assert.strictEqual(throwRes.reason, 'EXECUTION_FAILED');
+    assert.ok(throwRes.error?.includes('App executable not found'));
+
+    // Unrecognized action fails with NOT_FOUND
+    const unknownRes = await executeKevoAction('non_existent', {}, ctx);
+    assert.strictEqual(unknownRes.handled, false);
+    assert.strictEqual(unknownRes.status, 'failure');
+    assert.strictEqual(unknownRes.verified, false);
+    assert.strictEqual(unknownRes.reason, 'NOT_FOUND');
+
+    // Tool calling aggregates verification
+    const callsOk = [
+      { name: 'tell_time', arguments: {} },
+      { name: 'tell_date', arguments: {} },
+    ];
+    const chainedOk = await executeKevoToolCalls(callsOk, ctx);
+    assert.strictEqual(chainedOk.handled, true);
+    assert.strictEqual(chainedOk.status, 'success');
+    assert.strictEqual(chainedOk.verified, true);
+
+    const callsFail = [
+      { name: 'tell_time', arguments: {} },
+      { name: 'open_app', arguments: { name: 'FailApp' } },
+    ];
+    const chainedFail = await executeKevoToolCalls(callsFail, ctx);
+    assert.strictEqual(chainedFail.handled, false);
+    assert.strictEqual(chainedFail.status, 'failure');
+    assert.strictEqual(chainedFail.verified, false);
+  });
 });

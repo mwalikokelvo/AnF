@@ -4,7 +4,25 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Phase 5 Brief: verified actions).
+Last updated: 2026-11-18 by Antigravity (Kevo 5.1: verification protocol & execution result schema).
+
+## 2026-11-18 — Kevo 5.1: verification protocol & execution result schema (Antigravity)
+
+Phase 5 Step 5.1 (`docs/kevo-briefs/phase-5.md`, "5.1 Verification Protocol & Execution Result Schema"):
+- Execution Result Schema Extension (`windows/src/workspace/jarvis/voice/kevo-actions.ts`, `windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`):
+  - Added `KevoActionStatus`: `'success' | 'failure' | 'unverified'`.
+  - Extended `KevoActionExecutionResult` and `ActionResult` with `status: KevoActionStatus`, `verified: boolean`, `error?: string`, `reason?: string`, and `verificationDetails?: string`.
+  - Defined explicit failure taxonomy reasons: `INVALID_ARGUMENT`, `NOT_FOUND`, `NOT_SUPPORTED`, `EXECUTION_FAILED`, `NO_MATCH`.
+- Dispatcher Pre- & Post-Execution Verification:
+  - Enforced pre-execution validation of required action parameters against `action.parameters.required` in `executeKevoAction`.
+  - Disallowed optimistic execution when arguments are missing or blank.
+  - Safe execution handling capturing exceptions as `EXECUTION_FAILED` with `handled: false, verified: false, status: 'failure'`.
+  - Enforced aggregate verification across chained tool calls in `executeKevoToolCalls`: overall `status: 'failure'` if any action fails, and `verified: true` only when all actions verify successfully.
+- Tests & Verification:
+  - Added verification protocol test suite in `windows/tests/kevo-actions.test.ts`.
+  - 12/12 `check-release.mjs` PASS.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - 733/733 tests passed across 104 suites (`npm test` PASS).
 
 ## 2026-11-18 — Kevo Phase 5 brief: verified actions (Antigravity)
 
