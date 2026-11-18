@@ -88,4 +88,24 @@ describe('Kevo Phase 7.3: Voice Pack Pipeline & Local Audio Previews', () => {
     assert.strictEqual(res.fallbackUsed, true);
     assert.strictEqual(res.success, true);
   });
+
+  describe('Phase 7.5: Voice Pack Integrity & Error Recovery', () => {
+    it('handles unknown voice id gracefully without crashing', async () => {
+      const speaker = new JarvisSpeaker();
+      const res = await speaker.playVoicePreview('non-existent-voice-id');
+      assert.strictEqual(res.success, false);
+      assert.strictEqual(res.profile, undefined);
+    });
+
+    it('all 13 voice profiles execute fallback previews safely in headless test environment', async () => {
+      const speaker = new JarvisSpeaker();
+      for (const profile of JARVIS_VOICE_PACK) {
+        const res = await speaker.playVoicePreview(profile.id);
+        assert.ok(res);
+        assert.strictEqual(res.profile.id, profile.id);
+        assert.strictEqual(res.success, true);
+        assert.strictEqual(res.fallbackUsed, true);
+      }
+    });
+  });
 });

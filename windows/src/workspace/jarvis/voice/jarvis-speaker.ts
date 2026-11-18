@@ -210,9 +210,12 @@ export class JarvisSpeaker {
    * Plays the voice-pack MP3 if available. If missing or playback fails,
    * falls back gracefully to native TTS introduction or Web Audio chirp.
    */
-  async playVoicePreview(voiceId: string): Promise<{ success: boolean; fallbackUsed: boolean; profile: VoiceProfile }> {
+  async playVoicePreview(voiceId: string): Promise<{ success: boolean; fallbackUsed: boolean; profile?: VoiceProfile }> {
     const { JARVIS_VOICE_PACK } = await import('./jarvis-voice-pack');
-    const prof = JARVIS_VOICE_PACK.find((v) => v.id === voiceId) ?? getSelectedVoiceProfile();
+    const prof = JARVIS_VOICE_PACK.find((v) => v.id === voiceId);
+    if (!prof) {
+      return { success: false, fallbackUsed: false, profile: undefined };
+    }
     const token = ++this.utteranceToken;
     this.duckAudio?.(true);
     this.isSpeaking = true;

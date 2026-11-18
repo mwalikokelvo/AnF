@@ -4,7 +4,23 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.4: Settings & Owner Voice Selection Controls).
+Last updated: 2026-11-18 by Antigravity (Kevo 7.5: Automated Verification & Integrity Test Suite).
+
+## 2026-11-18 — Kevo 7.5: Automated Verification & Integrity Test Suite (Antigravity)
+
+Phase 7 Step 7.5 (`docs/kevo-briefs/phase-7.md`, "7.5 Automated Verification & Integrity Test Suite"):
+- Automated Verification Suites (`windows/tests/kevo-executive.test.ts`, `windows/tests/kevo-voice-pack.test.ts`):
+  - Added integrity tests asserting zero hardcoded mock figures (`$30,000`, `2459`, `18,740`, `$475`, `513 tests`, `24,500`) across all option permutations.
+  - Added tests verifying missing/empty/undefined data sources omit cards cleanly without runtime errors or `undefined`/`NaN` leaks.
+  - Added tests for summary line aggregation of active local workspace capability chunks.
+  - Added tests for graceful recovery on unknown voice profile IDs.
+  - Added headless fallback preview verification across all 13 voice profiles in `JARVIS_VOICE_PACK`.
+- Speaker Voice Profile Guard (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Hardened `playVoicePreview(voiceId)` to return `{ success: false, fallbackUsed: false, profile: undefined }` when an unknown voice ID is provided.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 813/813 tests passed across 126 suites (`node windows/scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.4: Settings & Owner Voice Selection Controls (Antigravity)
 

@@ -178,4 +178,56 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
       assert.ok(JARVIS_VOICE_PACK.some(v => v.id === DEFAULT_SETTINGS.kevoVoiceId));
     });
   });
+
+  describe('Phase 7.5: Automated Verification & Integrity Test Suite', () => {
+    it('omits missing data sources cleanly without throwing errors', async () => {
+      const exec = new JarvisExecutive();
+      // Pass empty agent data
+      const b1 = await exec.generateBriefing({}, {});
+      assert.ok(b1);
+      assert.strictEqual(typeof b1.fullText, 'string');
+      assert.ok(!b1.fullText.includes('undefined'));
+      assert.ok(!b1.fullText.includes('NaN'));
+
+      // Pass completely undefined
+      const b2 = await exec.generateBriefing();
+      assert.ok(b2);
+      assert.ok(!b2.fullText.includes('undefined'));
+      assert.ok(!b2.fullText.includes('NaN'));
+    });
+
+    it('enforces zero mock numbers across all option combinations', async () => {
+      const exec = new JarvisExecutive();
+      const optionPermutations = [
+        { includeVault: false },
+        { includeReading: false },
+        { includeSchedule: false },
+        { includeSystem: false },
+        { includeVault: true, includeReading: true, includeSchedule: true, includeSystem: true },
+        { realDataOnly: true },
+        { realDataOnly: false },
+      ];
+
+      for (const opts of optionPermutations) {
+        const b = await exec.generateBriefing(opts);
+        assert.strictEqual(b.fullText.includes('$30,000'), false, 'no fake MRR');
+        assert.strictEqual(b.fullText.includes('2459'), false, 'no fake subscriber delta');
+        assert.strictEqual(b.fullText.includes('18,740'), false, 'no fake total subscribers');
+        assert.strictEqual(b.fullText.includes('$475'), false, 'no fake ad spend');
+        assert.strictEqual(b.fullText.includes('513 tests'), false, 'no fake tests passing');
+        assert.strictEqual(b.fullText.includes('24,500'), false, 'no fake reach');
+      }
+    });
+
+    it('summary line concisely aggregates active chunks only', async () => {
+      const exec = new JarvisExecutive();
+      const b = await exec.generateBriefing({ includeSchedule: false, includeSystem: false }, {
+        vault: { totalNotes: 15 },
+        reading: { pendingItems: 3 },
+      });
+      assert.ok(b.summary.includes('Vault: 15'));
+      assert.ok(b.summary.includes('Reading: 3'));
+      assert.ok(!b.summary.includes('Reminders:'));
+    });
+  });
 });
