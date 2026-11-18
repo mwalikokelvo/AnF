@@ -32,6 +32,9 @@ pub struct Settings {
     pub browser_provider: String,
     #[serde(default = "default_fallback")]
     pub local_fallback: bool,
+    /// "Run Kevo test builds and Kevo's self-test automatically" setting (Phase 0 step 0.4b).
+    #[serde(default)]
+    pub kevo_auto_test: bool,
 }
 
 fn default_provider() -> String { "claude".into() }
@@ -62,6 +65,7 @@ impl Default for Settings {
             chat_mode: default_mode(),
             browser_provider: default_provider(),
             local_fallback: true,
+            kevo_auto_test: false,
         }
     }
 }

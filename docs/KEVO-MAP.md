@@ -7,6 +7,7 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | File | What it does |
 |---|---|
 | `src/workspace/jarvis/jarvis-command-desk.ts` | Wires everything: listener, agent, speaker, orb, Stop button, typed box, timer announcements |
+| `src/workspace/jarvis/kevo-log.ts` | Kevo's log: one JSON line per event (mic, phrases heard or ignored and why, requests with timing, timers, Stop); Save log / Open log folder |
 | `src/workspace/jarvis/jarvis-hud.ts` | The orb (state text), the last exchange under it, and the Activity list |
 | `src/workspace/jarvis/jarvis-executive.ts` | Morning briefing from all agents, spoken with music ducked |
 | `src/workspace/jarvis/voice/jarvis-voice-listener.ts` | Speech recognition, wake word ("Kevo" and misheard forms), joining cut-up phrases, mic errors |
@@ -18,6 +19,9 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src-tauri/src/kevo_system.rs` | Windows side: find and open Start Menu apps (`best_app_match`), system actions |
 | `src-tauri/src/kevo_hud.rs` | HUD state bus: `kevo://state` `{state, line, badge, level}`, sent only on change, loudness at most 20/s and only while speaking; `kevo_hud_set` from the desk's `refresh` |
 | `src-tauri/src/kevo_approval.rs` | Approval gate: `ask` emits `kevo://approve` `{id, action, summary}` and waits for `kevo_hud_answer(id, approved)`; 60 s without an answer is deny, one request at a time, unknown ids refused. Risky actions (send to another device, delete, run a script) must go through it |
+| `src-tauri/src/kevo_autotest.rs` | Autotest prerelease checker, SHA-256 and `github-actions[bot]` check, detached helper runner, self-test clip reader and result saver |
+| `src/workspace/jarvis/kevo-selftest.ts` | Self-test runner in dry-run mode evaluating clips, recording wake/lookalike counts, request timings, and generating `selftest-<version>.json` |
+| `src-tauri/src/log.rs` | `kevo_log_append` / `kevo_log_save` / `kevo_log_open_folder`: `kevo/kevo-log.jsonl` in AnF's data folder, cut to the newest 2,000 lines past 3,000; never sent anywhere |
 | `src-tauri/src/workspace_commands.rs` | `kevo_ask` / `kevo_cancel`: the local AI call and its system prompt (`KEVO_SYSTEM`) |
 | `tests/jarvis-*.test.ts`, `tests/kevo-*.test.ts` | Node tests; `kevo-phase0-session2.test.ts` holds the requests from the owner's recording |
 

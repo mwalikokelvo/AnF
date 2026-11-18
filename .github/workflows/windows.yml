@@ -2,9 +2,11 @@ name: Windows
 
 # Builds Windows release artifacts. Publication remains a separate action.
 # Triggered by tags like `windows-v0.1.0`; the macOS workflows are untouched.
+# Pushes to main also build, and publish a Kevo test build (kevo-test job) for the owner's PC.
 
 on:
   push:
+    branches: [main]
     tags:
       - 'windows-v*'
   workflow_dispatch:
@@ -38,7 +40,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Each push to main gets its own group (GitHub keeps only one pending run per group), so back-to-back merges each build;
+  # the event name keeps a manual run on main from cancelling the push run of the same commit.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 # Publishing is paused: Defender flags the unsigned installer as
@@ -52,6 +56,8 @@ jobs:
   build:
     if: inputs.candidate_run == '' && inputs.downloads_run == ''
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.pack.outputs.version }}
     env:
       CARGO_BUILD_JOBS: 2
       CARGO_PROFILE_DEV_DEBUG: 0
@@ -173,7 +179,7 @@ jobs:
 
       - name: Prepare code signing (only when a certificate is configured)
         id: signing
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: startsWith(github.ref, 'refs/tags/windows-v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -280,7 +286,7 @@ jobs:
           retention-days: 7
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name != 'push' || env.PUBLISH == 'true'
+        if: github.event_name != 'push' || github.ref == 'refs/heads/main' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-setup
           path: |
@@ -291,12 +297,69 @@ jobs:
 
       # Keep models and native runtimes with the portable executables.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name != 'push' || env.PUBLISH == 'true'
+        if: github.event_name != 'push' || github.ref == 'refs/heads/main' || env.PUBLISH == 'true'
         with:
           name: AnF-Windows-portable
           path: windows/release/AnF-Windows-${{ steps.pack.outputs.version }}-portable/
           if-no-files-found: error
           retention-days: 7
+
+  # Kevo test build for the owner's PC (docs/kevo-briefs/phase-0.md, step 0.3), cleared by the owner on 16 Nov 2026.
+  # Only the merge that changed the version publishes it, so a later merge's build is never labelled with that version.
+  kevo-test:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Publish only from the merge that changed the version
+        id: check
+        run: |
+          test -n "$VERSION"
+          before=$(git show HEAD^:windows/src-tauri/tauri.conf.json | jq -r .version)
+          if [ "$before" = "$VERSION" ]; then
+            echo "::notice title=Kevo test build::This merge kept version $VERSION, nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif gh release view "kevo-test-v$VERSION" > /dev/null 2>&1; then
+            echo "::notice title=Kevo test build::kevo-test-v$VERSION already exists, nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.check.outputs.publish == 'true'
+        with:
+          name: AnF-Windows-portable
+          path: portable
+      - name: Publish the Kevo test build as a prerelease
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          # The models (about 2.4 GB) exceed GitHub's 2 GiB asset limit; the test build uses the installed AnF's copies.
+          rm -f portable/local-ai/model.gguf portable/local-ai/model-fast.gguf
+          zip_name="AnF-Windows-$VERSION-kevo-test.zip"
+          (cd portable && zip -qr -9 "../$zip_name" .)
+          sha256sum "$zip_name" > "$zip_name.sha256"
+          ls -l "$zip_name"
+          cat > kevo-test-notes.md <<'EOF'
+          Kevo test build, not for general use. AnF on the owner's PC fetches it only when "Run Kevo test builds and Kevo's self-test automatically" is on, runs Kevo's self-test from its own folder, and installs nothing.
+
+          This build is unsigned. Windows Defender may wrongly flag it (Trojan:Win32/Wacatac.H!ml, a reported false positive; see the PUBLISH note in the Windows workflow). General publishing stays paused.
+
+          The local AI models are not included: the test build uses the installed AnF's models.
+          EOF
+          gh release create "kevo-test-v$VERSION" --prerelease --target "$GITHUB_SHA" \
+            --title "Kevo test build $VERSION, not for general use" --notes-file kevo-test-notes.md \
+            "$zip_name" "$zip_name.sha256"
 
   installation:
     if: github.event_name == 'workflow_dispatch' && inputs.candidate_run != '' && inputs.downloads_run == ''
