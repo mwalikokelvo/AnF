@@ -15,7 +15,7 @@ owner_needed: none right now (owner turned on: auto self-test switch, Actions re
 last_main: ebfbcfc (#245, 0.1.61; Windows green, kevo-test-v0.1.61 published)
 chain: 0
 next_due: 2026-11-19T20:50Z
-quiet_fingerprint: c40a5435de2a7c29e115ed03639326f42fd835e8b384c7a0d9d9f1bdc1bd63df
+quiet_fingerprint: 51ba4b0aecfd7f8043efcdf9a79b1529c2a5be2328a2ddc58c5a28b61f686980
 
 ## Run log (newest last, keep 60)
 
@@ -55,3 +55,4 @@ quiet_fingerprint: c40a5435de2a7c29e115ed03639326f42fd835e8b384c7a0d9d9f1bdc1bd6
 - 2026-11-18T18:30Z (autopilot): 2b.7 waiting. New #239 (owner account, agy/kevo-7.1, Phase 7.1) red on Linux phrase-list gate; Phase 7 gate still waits on the owner, so no action on it. #238 red; interactive Claude owns the main fix on claude/fix-main-236. main unchanged at 7910695. No notification.
 - 2026-11-18T20:30Z (autopilot): 2b.7 waiting. main moved 7910695 -> ebfbcfc (#245 fix for #236 + 0.1.61, merged 20:08Z); its Windows run still in progress, kevo-test-v0.1.61 not yet published. Open agy/ Phase 7.1-9.4 PRs (#239-#254) stay unmerged by the autopilot (Phase 7 owner gate). New #246 (1.6 fix) waits for the Phase 1 PC pass. No notification.
 - 2026-11-18T23:45Z (autopilot): 2b.7 waiting. main ebfbcfc Windows green and kevo-test-v0.1.61 published 20:50Z (release blocker cleared), so pc_test pending 0.1.61. Owner moved #246 to Antigravity (team:any), after the PC pass. agy/ Phase 7-9 PRs stay unmerged (owner gate). No notification.
+- 2026-11-18T23:43Z (autopilot, owner-requested): 2b.7 waiting. #239 (agy/kevo-7.1) now has main merged in (b77540b), CI green, interactive Claude review OK; it is Phase 7 work, so the autopilot leaves its merge and the #240-#254 stack to the owner and the interactive session (owner voice gate). main unchanged at ebfbcfc; no PC result for 0.1.61 yet. No notification.
