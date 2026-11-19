@@ -143,7 +143,9 @@ describe('Cal.com (Cal.diy) Scheduling Desk Native Integration', () => {
 
   test('CalDeskManager provides available 30-minute time slots', () => {
     const cal = new CalDeskManager();
-    const testDate = '2026-11-20';
+    // A week ahead: never "tomorrow", where CalDeskManager seeds its starter appointment at 10:00
+    // (the fixed '2026-11-20' failed on 19 Nov 2026).
+    const testDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     const slots = cal.getSlotsForDate(testDate);
     assert.ok(slots.length > 5);
     assert.ok(slots.some(s => s.time === '09:00'));
@@ -152,7 +154,9 @@ describe('Cal.com (Cal.diy) Scheduling Desk Native Integration', () => {
 
   test('CalDeskManager books appointment and marks slot unavailable', () => {
     const cal = new CalDeskManager();
-    const testDate = '2026-11-20';
+    // A week ahead: never "tomorrow", where CalDeskManager seeds its starter appointment at 10:00
+    // (the fixed '2026-11-20' failed on 19 Nov 2026).
+    const testDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     const res = cal.bookAppointment({
       title: 'Quarterly Security Audit',
       attendeeName: 'Alex Mercer',

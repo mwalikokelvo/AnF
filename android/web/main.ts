@@ -33,6 +33,7 @@ import {readDocument} from './documents';
 import {paginatedResponse} from '../../windows/src/workspace/response-pages';
 import {followups,needsClarification,documentQuestion} from '../../windows/src/workspace/followups';
 import {restoreInPlace,mergeReply,type Project} from './project-data';
+import {createDeskCompanionView} from './desk-companion';
 declare global {interface Window {AnFAndroid?:{spotubeAvailable?():boolean;spotubeRequest?(id:string,operation:string):void;openSpotify?():void;mediaRequest?(id:string,operation:string,json:string):void;addonRequest?(id:string,operation:string,json:string):void;vaultRequest?(id:string,operation:string,json:string):void;exportAudio?(name:string,base64:string):void;quickCaptureReady?():void;haptic?():void;linkRequest(id:string,code:string,path:string,json:string):void;openProvider(id:string):void;searchWeb(query:string,enabled:boolean):void;copy(text:string):void;export(name:string,text:string,mime:string):void;speak(text:string):void;stopSpeaking():void};linkResult:(id:string,value:string,error:string)=>void;nativeNotice:(s:string)=>void;nativeBack:()=>boolean;nativeKeyboard:(visible:boolean)=>void;}}
 const native=window.AnFAndroid;
 const root=document.getElementById('app')!;
@@ -71,7 +72,7 @@ function renderSources(){reader.close();documentReview.replaceChildren();renderF
 let shownNotes=40;
 function renderNotes(){renderFollowups();notes.replaceChildren(...project.notes.slice(-shownNotes).map(n=>h('article',{class:'note'},h('h3',{text:n.role}),n.role==='You'?h('pre',{text:n.text}):paginatedResponse(n.text))));if(project.notes.length>shownNotes){const earlier=button('Show earlier messages',()=>{shownNotes+=40;renderNotes();});notes.prepend(earlier);}}
 function load(persisted=true){documentReview.replaceChildren();shownNotes=40;reply.value=project.pendingReply||'';responseLength.value=project.responseLength||'standard';replyPlacement.value=project.replyPlacement||'append';title.value=project.name;prompt.value=project.prompt;draft.value=project.draft;editor.refresh(project.id);renderSources();renderNotes();lastSaved=persisted?signature(collect()):undefined;notify('Opened saved conversation.');}
-const modeOf:Record<string,'read'|'ask'|'listen'|'keep'>={home:'read',documents:'read',writing:'read',chat:'ask',music:'listen',audio:'listen',settings:'keep'};
+const modeOf:Record<string,'read'|'ask'|'listen'|'keep'>={home:'read',documents:'read',writing:'read',chat:'ask',music:'listen',audio:'listen',settings:'keep',companion:'ask'};
 const modeLabels={read:'Reader',ask:'Assistant',listen:'Music'} as const;
 let workspaceMode:'read'|'ask'|'listen'='read';
 const modeRail=h('div',{class:'mode-rail',role:'tablist','aria-label':'Workspace modes'});
@@ -103,7 +104,21 @@ const dashboard=createDashboard({current:()=>({...project,draft:draft.value,name
  open:async(id,line)=>{await run(async()=>{await save();const p=await getProject(id);if(!p)throw Error('Draft no longer exists.');project=p;load();show('writing');if(line!==undefined)editor.reveal(draft.value.split('\n').slice(0,line).join('\n').length+(line?1:0));});},
  capture:captureDaily
 });
-section('home','Home',dashboard.root,button('Connect my devices',()=>show('settings')));
+const deskCompanion = createDeskCompanionView({
+  onExit: () => show('home'),
+  onHoldToTalkStart: () => {
+    notify('Listening… Speak to Kevo');
+  },
+  onHoldToTalkEnd: () => {
+    notify('Voice command dispatched');
+  },
+  onApprove: (id, approved) => {
+    notify(`Action ${approved ? 'approved' : 'denied'}.`);
+  },
+  notify,
+});
+section('home','Home',dashboard.root,button('Connect my devices',()=>show('settings')),button('Kevo desk companion',()=>show('companion')));
+section('companion','Desk',deskCompanion.root);
 section('documents','Documents',h('h1',{text:'Documents'}),h('p',{class:'muted',text:'PDF · EPUB · Word · Text. Up to four documents, 50 MB each; 600 PDF pages and 2 MB of extracted text. Protected books and scanned PDFs are not supported in this edition.'}),file,libraryControls(sourceList),sourceList,webResearch);
 let nativeMedia:ReturnType<typeof nativeMediaPanel>|undefined;
 let nativeMusic:ReturnType<typeof createNativeMusicPlayer>|undefined;
@@ -179,7 +194,7 @@ section('settings','Settings',connection,vault,versions,backups,h('h1',{text:'Se
 drawer.append(h('div',{class:'row'},h('h2',{text:'Your conversations'}),button('Close',()=>drawer.hidden=true)),search,button('＋ New conversation',()=>void run(async()=>{await save();project=fresh();load(false);await save();drawer.hidden=true;show('home');}),'primary'),historyList);
 const studio=createStudio({list:()=>projectSummaries(),load:async id=>{const p=await getProject(id);if(!p)throw Error('Note not found.');return p;},current:()=>collect(),allowed:()=>!busy,view:show,
  open:async id=>{await run(async()=>{await save();const p=await getProject(id);if(!p)throw Error('Note not found.');project=p;load();show('writing');});},append:text=>{draft.value=appendDraft(draft.value,text);editor.refresh(project.id);autosave();},health:()=>connectionStatus.textContent+'\n'+lastSync.textContent+'\nCheck encrypted conversation storage in Settings for the current protection status. Audio and original files remain outside this protection.'});
-const studioTools=h('div',{class:'studio-header-tools'},button('Quick note',()=>quickNote.open()),button('Devices',()=>show('settings'),'studio-status'),button('Search',()=>void studio.open()));
+const studioTools=h('div',{class:'studio-header-tools'},button('Quick note',()=>quickNote.open()),button('Desk',()=>show('companion')),button('Devices',()=>show('settings'),'studio-status'),button('Search',()=>void studio.open()));
 const historyToggle=button('',()=>{drawer.hidden=false;void refreshHistory();});historyToggle.className='history-toggle';historyToggle.setAttribute('aria-label','Open conversation history');historyToggle.append(sectionIcon('menu'));
 root.append(h('header',{class:'mobile-header'},wordmark(),h('span',{class:'mobile-local',text:'Stored on this phone'}),historyToggle),h('div',{class:'mobile-project'},title,studioTools),host,status,saveAlert.root,modeRail,nav,drawer,reader.root,studio.root);
 for(const input of[title,prompt,draft,reply])input.addEventListener('input',autosave);
