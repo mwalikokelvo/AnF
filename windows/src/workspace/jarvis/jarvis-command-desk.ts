@@ -18,22 +18,22 @@
 import { invoke } from '@tauri-apps/api/core';
 import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
 import { JarvisExecutive } from './jarvis-executive';
-import { RevenueConnector } from './connectors/revenue-connector';
-import { AdsConnector } from './connectors/ads-connector';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
+import { fetchSystemTelemetry } from './connectors/system-connector';
 import { JarvisVoiceListener, type VoiceListenerOptions } from './voice/jarvis-voice-listener';
 import { KevoEarsListener } from './voice/kevo-ears-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } from './voice/jarvis-memory';
-import { listReminders, cancelReminder, clearReminders, type KevoReminder } from './voice/jarvis-schedule';
+import { listReminders, cancelReminder, clearReminders, getDailyBriefingSchedule, type KevoReminder } from './voice/jarvis-schedule';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
 import { Bridge } from '../../core/bridge';
 import { runKevoSelfTest } from './kevo-selftest';
+import { loadReadingQueue } from '../article-publishing';
 
 export interface JarvisCommandDeskOptions {
   onNotify?: (msg: string) => void;
@@ -73,8 +73,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Instantiate all subsystems
   const hud = createJarvisHud();
   const executive = new JarvisExecutive();
-  const revenue = new RevenueConnector();
-  const ads = new AdsConnector();
   const tom = new TomDeveloperAgent();
   const scout = new ScoutGrowthAgent();
   const support = new SupportOperationsAgent();
@@ -109,19 +107,38 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     btnBriefing.disabled = true;
     btnBriefing.textContent = 'Writing the briefing…';
     try {
-      const [revenueStats, adsStats, supportBriefing, devBriefing, contentBriefing] = await Promise.all([
-        revenue.getStats(),
-        ads.getStats(),
-        support.generateBriefing(),
-        tom.generateBriefing(),
-        scout.generateBriefing(),
+      const [allReminders, dailySched, telemetry] = await Promise.all([
+        listReminders().catch(() => []),
+        getDailyBriefingSchedule().catch(() => null),
+        fetchSystemTelemetry().catch(() => null),
       ]);
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      const remindersToday = (allReminders as KevoReminder[]).filter(
+        (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
+      ).length;
+
+      let pendingReading = 0;
+      try {
+        pendingReading = loadReadingQueue().length;
+      } catch {}
+
+      const vaultNotes = options?.voiceActionContext?.notes?.length ?? 0;
+
       const briefing = await executive.generateBriefing({}, {
-        revenue: revenueStats,
-        ads: adsStats,
-        support: { greeting: supportBriefing.greeting, summary: supportBriefing.summary, recommendation: supportBriefing.recommendation },
-        developer: { greeting: devBriefing.greeting, health: devBriefing.health, recommendation: devBriefing.recommendation },
-        content: { greeting: contentBriefing.greeting, metrics: contentBriefing.metrics, recommendation: contentBriefing.recommendation },
+        vault: { totalNotes: vaultNotes, status: 'operational' },
+        reading: { pendingItems: pendingReading },
+        schedule: {
+          remindersToday,
+          dailyBriefingScheduled: !!dailySched,
+          dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
+        },
+        system: {
+          audioEngineStatus: telemetry?.audioEngineStatus ?? 'idle',
+          memoryUsedMb: telemetry?.memoryUsedMb,
+        },
       });
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
@@ -260,7 +277,33 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     triageSupport: () => support.autoTriage(),
     getBriefing: async () => {
-      const b = await executive.generateBriefing();
+      const [allReminders, dailySched, telemetry] = await Promise.all([
+        listReminders().catch(() => []),
+        getDailyBriefingSchedule().catch(() => null),
+        fetchSystemTelemetry().catch(() => null),
+      ]);
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      const remindersToday = (allReminders as KevoReminder[]).filter(
+        (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
+      ).length;
+      let pendingReading = 0;
+      try { pendingReading = loadReadingQueue().length; } catch {}
+      const b = await executive.generateBriefing({}, {
+        vault: { totalNotes: options?.voiceActionContext?.notes?.length ?? 0, status: 'operational' },
+        reading: { pendingItems: pendingReading },
+        schedule: {
+          remindersToday,
+          dailyBriefingScheduled: !!dailySched,
+          dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
+        },
+        system: {
+          audioEngineStatus: telemetry?.audioEngineStatus ?? 'idle',
+          memoryUsedMb: telemetry?.memoryUsedMb,
+        },
+      });
       return b.summary;
     },
     notify: (msg) => notify(msg),
