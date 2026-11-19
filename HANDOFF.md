@@ -4,7 +4,166 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics).
+Last updated: 2026-11-18 by Antigravity (Kevo 8.4: Standalone Voice on Android).
+
+## 2026-11-18 — Kevo 8.4: Standalone Voice on Android (Antigravity)
+
+Phase 8 Step 8.4 (`docs/kevo-briefs/phase-8.md`, "8.4 Standalone Voice on Android"):
+- Android Standalone Voice Engine (`android/web/desk-companion.ts`):
+  - Built `processLocalPhoneVoiceCommand(query, actions)` offline voice parser:
+    - Time and date instant queries (`tell_time`, `tell_date`).
+    - Stop / quiet / cancel command (`stop`).
+    - View routing (`open_writing`, `open_documents`, `open_music`, `open_home`).
+    - Honest offline notice for general queries when disconnected from PC.
+  - Implemented `speakLocal(text)` and `stopSpeakingLocal()` using Android's native speech bridge (`window.AnFAndroid?.speak`) with graceful fallback to `window.speechSynthesis`.
+  - Added `handleStandaloneCommand(query)` to `DeskCompanionView`.
+- Android Web Desk Companion Wiring (`android/web/main.ts`):
+  - Updated `onHoldToTalkEnd` to route commands to local phone voice parser when Wi-Fi pairing is unconfigured/offline, and to PC via `/v1/kevo/command` when connected.
+- Automated Tests & Verification:
+  - Added 2 new unit tests in `windows/tests/kevo-desk-companion.test.ts` (10 tests total in file) verifying standalone command parsing, speech synthesis dispatching, view switching, and fallback offline notices.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 830/830 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.3: Remote Approval Cards on Android (Antigravity)
+
+Phase 8 Step 8.3 (`docs/kevo-briefs/phase-8.md`, "8.3 Remote Approval Cards on Android"):
+- Android Desk Companion Approval Card Enhancements (`android/web/desk-companion.ts`):
+  - Added `approvalTimeoutTimer` and `timeoutMs` support in `showApprovalRequest(request, timeoutMs)`.
+  - Added `getActiveApproval()` inspection getter.
+  - Added auto-dismiss timeout handling reverting card and companion state back to `idle` upon expiration.
+  - Added safe manual dismissal in `dismissApproval()` without triggering approval callbacks.
+- Kevo Voice Agent & Link Bus Bi-directional Approval Bridge (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`, `windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Updated `JarvisVoiceAgent.setPendingApproval()` to automatically mirror pending approval requests to `kevoLinkBus`.
+  - Wired `kevoLinkBus.setApprovalHandler()` in `JarvisCommandDesk` to resolve pending approvals on `voiceAgent` and settle the PC approval gate when answered remotely from Android.
+- Automated Tests & Verification:
+  - Added 2 new unit tests in `windows/tests/kevo-desk-companion.test.ts` (verifying auto-dismiss on timeout expiration, and manual dismissal without triggering approval callbacks).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 828/828 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.2: Wi-Fi State Bus & Pairing RPC (Antigravity)
+
+Phase 8 Step 8.2 (`docs/kevo-briefs/phase-8.md`, "8.2 Wi-Fi State Bus & Pairing RPC"):
+- Rust Local Link Companion Endpoints (`windows/src-tauri/src/local_link.rs`):
+  - Added HTTP POST route handlers in `local_link.rs` for encrypted local Wi-Fi pairing:
+    - `/v1/kevo/state`: Returns live Kevo companion state (`state`, `line`, `badge`, `level`).
+    - `/v1/kevo/command`: Accepts remote voice/typed commands from phone and dispatches to PC Kevo.
+    - `/v1/kevo/approve`: Resolves pending action approval cards from phone.
+  - Added Rust unit test `kevo_companion_rpc_routes` verifying all three endpoints with strict assertion.
+- Kevo Link Bus (`windows/src/workspace/jarvis/kevo-link-bus.ts`):
+  - Created `KevoLinkBus` singleton with state streaming, speech loudness level broadcasting with jitter suppression (< 0.02 delta filtering), remote command dispatching, and approval card lifecycle handling.
+- Command Desk Link Integration (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Connected `refresh()` to mirror live state changes to `kevoLinkBus`.
+  - Registered `kevoLinkBus.setCommandHandler` to route incoming remote commands to `handleCommand(request, true)`.
+- Android Web Sync Integration (`android/web/main.ts`):
+  - Added `syncCompanionState()` querying `/v1/kevo/state` on companion view navigation and pairing.
+  - Wired `onHoldToTalkEnd` to trigger `/v1/kevo/command`.
+  - Wired `onApprove` to dispatch `/v1/kevo/approve`.
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-link-bus.test.ts` (5 tests covering state subscription, level clamping/jitter, pending approval transition/resolution, and command dispatching).
+  - Cargo test: `test local_link::tests::kevo_companion_rpc_routes ... ok` (PASS).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 826/826 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.1: Android Desk Companion View & UI Components (Antigravity)
+
+Phase 8 Step 8.1 (`docs/kevo-briefs/phase-8.md`, "8.1 Android Desk Companion View & UI Components" and HUD Step H.7):
+- Created Phase 8 and Phase 9 specifications (`docs/kevo-briefs/phase-8.md`, `docs/kevo-briefs/phase-9.md`).
+- Android Desk Companion View (`android/web/desk-companion.ts`, `android/web/style.css`):
+  - Built `DeskCompanionView` and `createDeskCompanionView(options)` full-screen/docked view for Android.
+  - Implemented glowing animated Kevo orb with CSS-driven state styling (`idle`, `listening`, `thinking`, `speaking`, `alert`, `off`).
+  - Added multi-bar speech level waveform visualizer driven by loudness level (0 to 1).
+  - Added tactile "Hold to talk" button with native Android haptic feedback (`AnFAndroid.haptic()`).
+  - Added remote approval card modal (HUD Step H.4) with "Approve" and "Deny" actions.
+  - Added connection badge ("● PC Connected" vs "○ Offline").
+- Android Web Navigation Integration (`android/web/main.ts`, `windows/src/workspace/anf-brand.ts`):
+  - Added `companion: 'ask'` mode to `modeOf` dictionary.
+  - Mounted `deskCompanion` section and exposed "Desk" button in studio tools and home panel.
+  - Added companion SVG icon to `sectionIcon()`.
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-desk-companion.test.ts` (8 comprehensive tests verifying state transitions, level clamping, approval handling, denial, connection toggles, and exit callbacks).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 821/821 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.5: Automated Verification & Integrity Test Suite (Antigravity)
+
+Phase 7 Step 7.5 (`docs/kevo-briefs/phase-7.md`, "7.5 Automated Verification & Integrity Test Suite"):
+- Automated Verification Suites (`windows/tests/kevo-executive.test.ts`, `windows/tests/kevo-voice-pack.test.ts`):
+  - Added integrity tests asserting zero hardcoded mock figures (`$30,000`, `2459`, `18,740`, `$475`, `513 tests`, `24,500`) across all option permutations.
+  - Added tests verifying missing/empty/undefined data sources omit cards cleanly without runtime errors or `undefined`/`NaN` leaks.
+  - Added tests for summary line aggregation of active local workspace capability chunks.
+  - Added tests for graceful recovery on unknown voice profile IDs.
+  - Added headless fallback preview verification across all 13 voice profiles in `JARVIS_VOICE_PACK`.
+- Speaker Voice Profile Guard (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Hardened `playVoicePreview(voiceId)` to return `{ success: false, fallbackUsed: false, profile: undefined }` when an unknown voice ID is provided.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 813/813 tests passed across 126 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.4: Settings & Owner Voice Selection Controls (Antigravity)
+
+Phase 7 Step 7.4 (`docs/kevo-briefs/phase-7.md`, "7.4 Settings & Owner Voice Selection Controls"):
+- Kevo Settings Controls (`windows/src/core/state.ts`, `windows/src/settings/main.ts`):
+  - Added `kevoVoiceId`, `kevoRealWorkspaceDataOnly`, and `kevoOnlineVoices` to `Settings` interface and `DEFAULT_SETTINGS`.
+  - Added dedicated voice pack selector dropdown in Settings window rendering all 13 voice profiles.
+  - Added voice engine indicator with dynamic feedback: "Active: Neural online voice" vs "Active: Native local system voice (offline)".
+  - Added toggle for "Executive briefing: real workspace data only" with feedback label.
+- Command Desk Controls & Indicators (`windows/src/workspace/jarvis/jarvis-command-desk.ts`, `windows/src/workspace/jarvis/jarvis-executive.ts`):
+  - Added `isRealWorkspaceDataOnly` and `setRealWorkspaceDataOnly` state management with localStorage and in-memory persistence.
+  - Added `realDataOnly` flag to `BriefingOptions` ensuring briefings strictly contain verified local workspace chunks (`vault`, `reading`, `schedule`, `system`) and omit unverified external telemetry.
+  - Added clear voice engine indicator badge in `voiceBar` showing active synthesis mode (Neural online vs Native local offline).
+  - Added "Real data only" toggle in toolbar and voiceBar.
+- Automated Tests (`windows/tests/kevo-executive.test.ts`):
+  - Added tests for `isRealWorkspaceDataOnly` toggling, `realDataOnly: true` suppression of external non-demo telemetry, and `DEFAULT_SETTINGS` validation.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 808/808 tests passed across 124 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.3: Voice Pack Pipeline & Local Audio Previews (Antigravity)
+
+Phase 7 Step 7.3 (`docs/kevo-briefs/phase-7.md`, "7.3 Pack Voices & Preview Capability"):
+- Voice Pack Profile Integrity (`windows/src/workspace/jarvis/voice/jarvis-voice-pack.ts`):
+  - Verified all 13 voice profiles against `windows/voice-pack/` directory and `SOURCES.txt`.
+  - Added `verifyVoicePackRegistry()` and `getVoicePackStats()` for automated verification of on-disk assets vs registry.
+  - Added `playVoicePreview(id, options)` with graceful fallback to browser/native speech synthesis or Web Audio preview chirp when local audio assets are absent or running in non-desktop environments.
+- Speaker Voice Pack Integration (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Added `previewVoicePack(id)` method to `JarvisSpeaker`.
+  - Integrated voice pack registry checks and previews with speaker fallback handling.
+- Command Desk Preview Button (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Wired `previewBtn` click listener to invoke `speaker.previewVoicePack(selectedId)` with dynamic playing state and visual feedback.
+- Verification & Unit Tests:
+  - Added `windows/tests/kevo-voice-pack.test.ts` (7 tests verifying registry integrity, default Kelvin profile, audio previews, and stats).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 805/805 tests passed across 123 suites (`node scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers (Antigravity)
+
+Phase 7 Step 7.2 (`docs/kevo-briefs/phase-7.md`, "7.2 Truthful Team Cards & Workspace Telemetry Providers"):
+- Truthful Workspace Team Cards (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Replaced hardcoded demo agent cards (Tom 513 tests, Scout 24,500 reach, Support 13 tickets) with truthful local capability team cards representing real AnF modules:
+    1. Knowledge (Vault & Notes): Live project/note count, BM25 indexing status.
+    2. Reading (Queue & Reader): Live pending queue count, offline storage format.
+    3. Schedule (Reminders & Alarms): Active reminder count, persistent storage status.
+    4. System (Audio & Model): Live audio engine status (idle/playing), local CPU inference.
+  - Rendered `✓ Verified Local Data` badges on every team card.
+  - Added `refreshTeamCards()` dynamically updating team card telemetry on load, after briefing generation, or via "Refresh telemetry" toolbar action.
+- Workspace Telemetry Provider Wiring (`windows/src/workspace/main.ts`):
+  - Wired `jarvisActionContext.getVaultNoteCount` to query live note count from `workspace_list_projects`.
+  - Wired `jarvisActionContext.getBriefing` to pass truthful telemetry (Vault, Reading Queue, Reminders, Schedule, System) to `JarvisExecutive`.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 798/798 tests passed across 122 suites (`node scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics (Antigravity)
 
