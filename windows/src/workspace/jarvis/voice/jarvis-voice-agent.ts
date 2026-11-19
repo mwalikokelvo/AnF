@@ -697,7 +697,31 @@ export class JarvisVoiceAgent {
       }
     }
 
-    // Daily Briefing Scheduler (Phase 4 Step 4.3)
+    
+    // Trivia from free Open Trivia DB (no key)
+    if (/\b(trivia|quiz|ask me a question|tell me a trivia)\b/i.test(lower)) {
+      try {
+        const res = await fetch('https://opentdb.com/api.php?amount=1&type=multiple&encode=url3986');
+        if (!res.ok) throw new Error('service unavailable');
+        const data = await res.json();
+        if (data.response_code !== 0 || !data.results?.[0]) throw new Error('no question');
+        const q = data.results[0];
+        const question = decodeURIComponent(q.question);
+        const answer = decodeURIComponent(q.correct_answer);
+        const category = decodeURIComponent(q.category);
+        return {
+          handled: true,
+          actionName: 'trivia',
+          speechReply: \`Here is a ${category} trivia question: ${question} ... The answer is ${answer}.\`,
+          status: 'success',
+          verified: true
+        };
+      } catch (err) {
+        return { handled: true, actionName: 'trivia_failed', speechReply: 'I could not get a trivia question right now.', status: 'failure' };
+      }
+    }
+
+// Daily Briefing Scheduler (Phase 4 Step 4.3)
     // 1. "schedule daily briefing at 8 AM", "set morning briefing for 8:30"
     const scheduleBriefingMatch = /^(?:please\s+)?(?:schedule|set(?: up)?|turn on|enable)\s+(?:a\s+|the\s+)?(?:daily\s+|morning\s+)?briefing(?:\s+(?:at|for)\s+(.+))?$/i.exec(text.trim());
     if (scheduleBriefingMatch) {
