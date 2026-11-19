@@ -14,6 +14,7 @@ import {
   runKevoSelfTest,
   runFivePhase0Checks,
   runHudSelfTestChecks,
+  pcm16WavToFloat32,
   type KevoSelfTestReport,
 } from '../src/workspace/jarvis/kevo-selftest';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
@@ -486,5 +487,106 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(passReport.modelCommandLatencies.firstPassed, true);
     assert.strictEqual(passReport.modelCommandLatencies.subsequentPassed, true);
     assert.strictEqual(passReport.result, 'pass');
+  });
+
+  it('pcm16WavToFloat32 decodes 16-bit PCM bytes to normalized float32 samples', () => {
+    // Header 44 bytes + 4 samples (8 bytes)
+    const bytes = new Array(44 + 8).fill(0);
+    const view = new DataView(new Uint8Array(bytes).buffer);
+    // Write sample 0: 0
+    view.setInt16(44, 0, true);
+    // Write sample 1: 16384 (0.5)
+    view.setInt16(46, 16384, true);
+    // Write sample 2: -16384 (-0.5)
+    view.setInt16(48, -16384, true);
+    // Write sample 3: 32767 (~1.0)
+    view.setInt16(50, 32767, true);
+
+    const floats = pcm16WavToFloat32(Array.from(new Uint8Array(view.buffer)));
+    assert.strictEqual(floats.length, 4);
+    assert.strictEqual(floats[0], 0);
+    assert.ok(Math.abs(floats[1] - 0.5) < 1e-4);
+    assert.ok(Math.abs(floats[2] - -0.5) < 1e-4);
+    assert.ok(Math.abs(floats[3] - 1.0) < 1e-4);
+  });
+
+  it('records ownVoiceNeverInterrupts and bargeInStopDelayMs in self-test report (Step 1.6)', async () => {
+    const actionContext = {
+      switchView: () => {},
+      dryRun: true,
+      openApp: async (name: string) => name,
+      announce: () => {},
+    };
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const manifest: SelftestClipsManifest = {
+      version: 1,
+      clips: [],
+    };
+    (Bridge as any).kevoSelftestGetClips = async () => JSON.stringify(manifest);
+
+    const playClipAudio = async (filename: string) => {
+      if (filename.includes('open-brave')) {
+        listener.onFinalSpeech?.('Kevo, open Brave browser');
+      } else if (filename.includes('timer')) {
+        listener.onFinalSpeech?.('Set a timer for ten seconds');
+      } else if (filename.includes('time')) {
+        listener.onFinalSpeech?.('Kevo, what time is it?');
+      } else if (filename.includes('help')) {
+        listener.onFinalSpeech?.('What can you do?');
+      } else if (filename.includes('black-holes')) {
+        listener.onFinalSpeech?.('tell me about black holes');
+      }
+    };
+
+    // Scenario A: Own voice never interrupts, barge-in stop delay <= 300 ms -> passes
+    const passReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.62',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
+    });
+
+    assert.strictEqual(passReport.ownVoiceNeverInterrupts, true);
+    assert.strictEqual(passReport.bargeInStopDelayMs, 140);
+    assert.strictEqual(passReport.result, 'pass');
+
+    // Scenario B: Own voice interrupts -> fails
+    const failOwnVoiceReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.62',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+      onOwnVoiceMeasure: async () => false,
+      onBargeInMeasure: async () => 140,
+    });
+
+    assert.strictEqual(failOwnVoiceReport.ownVoiceNeverInterrupts, false);
+    assert.strictEqual(failOwnVoiceReport.result, 'fail');
+
+    // Scenario C: Barge-in stop delay > 300 ms -> fails
+    const failBargeReport = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.62',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 350,
+    });
+
+    assert.strictEqual(failBargeReport.bargeInStopDelayMs, 350);
+    assert.strictEqual(failBargeReport.result, 'fail');
   });
 });

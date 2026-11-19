@@ -89,6 +89,7 @@ export interface KevoSelfTestReport {
   };
   idleCpuPercent60s?: number;
   bargeInStopDelayMs?: number;
+  ownVoiceNeverInterrupts?: boolean;
   modelCommandLatencies?: {
     firstModelCommandMs: number;
     subsequentModelCommandsMs: number[];
@@ -112,6 +113,7 @@ export interface SelfTestDeps {
   onStateChangeMeasure?: () => Promise<number>;
   onIdleCpuMeasure?: () => Promise<number>;
   onBargeInMeasure?: () => Promise<number>;
+  onOwnVoiceMeasure?: () => Promise<boolean>;
   onApprovalClickMeasure?: () => Promise<number>;
   onApprovalVoiceYesMeasure?: () => Promise<number>;
   onApprovalVoiceCancelMeasure?: () => Promise<number>;
@@ -145,6 +147,19 @@ export async function defaultPlayClip(filename: string): Promise<void> {
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
+
+/** Decodes standard 16-bit little-endian mono PCM WAV bytes to normalized Float32 samples (-1.0 to 1.0). */
+export function pcm16WavToFloat32(bytes: number[]): number[] {
+  if (!bytes || bytes.length <= 44) return [];
+  const u8 = new Uint8Array(bytes.slice(44));
+  const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const numSamples = Math.floor(u8.byteLength / 2);
+  const samples = new Array<number>(numSamples);
+  for (let i = 0; i < numSamples; i++) {
+    samples[i] = view.getInt16(i * 2, true) / 32768.0;
+  }
+  return samples;
+}
 
 /**
  * Executes the five Phase 0 checks as self-test scripts (Phase 0 step 0.5):
@@ -530,6 +545,7 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   };
 
   const play = deps.playClipAudio ?? defaultPlayClip;
+  const sleep = deps.sleepMs ?? defaultSleep;
   try {
     await Bridge.kevoPreloadModel?.();
   } catch {}
@@ -710,6 +726,59 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     }
   } catch (err) {
     report.errors.push(`HUD checks error: ${String(err)}`);
+    report.result = 'fail';
+  }
+
+  // Step 1.6: Play Kevo reply through speakers while listening; verify own voice never interrupts
+  onProgress?.('Testing echo cancellation through speakers (own voice never interrupts)...');
+  try {
+    if (deps.onOwnVoiceMeasure) {
+      report.ownVoiceNeverInterrupts = await deps.onOwnVoiceMeasure();
+    } else {
+      let ownVoiceInterrupted = false;
+      let ownVoiceWoke = false;
+      const prevWake = listener.onWakeWord;
+      const earsListener = listener as KevoEarsListener;
+      const prevBargeIn = earsListener.onBargeIn;
+
+      listener.onWakeWord = (w) => {
+        ownVoiceWoke = true;
+        prevWake?.(w);
+      };
+      earsListener.onBargeIn = () => {
+        ownVoiceInterrupted = true;
+        prevBargeIn?.();
+      };
+
+      try {
+        const replyClip = 'req-black-holes-libritts-3922.wav';
+        try {
+          const rawBytes = await Bridge.kevoSelftestReadClip(replyClip);
+          if (rawBytes && rawBytes.length > 44) {
+            const floatSamples = pcm16WavToFloat32(rawBytes);
+            await Bridge.kevoEarsPushReference(floatSamples);
+          }
+        } catch {}
+
+        listener.setMuted(true);
+        await play(replyClip);
+        await sleep(200);
+
+        report.ownVoiceNeverInterrupts = !ownVoiceInterrupted && !ownVoiceWoke;
+      } finally {
+        listener.onWakeWord = prevWake;
+        earsListener.onBargeIn = prevBargeIn;
+        listener.setMuted(false);
+      }
+    }
+
+    if (report.ownVoiceNeverInterrupts === false) {
+      report.result = 'fail';
+      report.errors.push("Kevo's own voice interrupted playback through speakers.");
+    }
+  } catch (err) {
+    report.errors.push(`Own voice test error: ${String(err)}`);
+    report.ownVoiceNeverInterrupts = false;
     report.result = 'fail';
   }
 

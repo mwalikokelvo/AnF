@@ -150,6 +150,8 @@ export const Bridge = {
   kevoEarsStatus: () => call<{ running: boolean; muted: boolean }>("kevo_ears_status"),
   kevoEarsModelsInstalled: () => call<boolean>("kevo_ears_models_installed"),
   kevoEarsInstallModels: () => call<void>("kevo_ears_install_models"),
+  /** Push TTS playback samples (f32 mono 16 kHz) to the echo canceller reference ring. */
+  kevoEarsPushReference: (samples: number[]) => call<void>("kevo_ears_push_reference", { samples }),
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */

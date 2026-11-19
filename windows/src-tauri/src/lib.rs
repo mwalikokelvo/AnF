@@ -567,6 +567,7 @@ pub fn run() {
             kevo_ears::kevo_ears_start,
             kevo_ears::kevo_ears_stop,
             kevo_ears::kevo_ears_mute,
+            kevo_ears::kevo_ears_push_reference,
             kevo_ears::kevo_ears_status,
             kevo_ears::kevo_ears_models_installed,
             kevo_ears::kevo_ears_install_models,
