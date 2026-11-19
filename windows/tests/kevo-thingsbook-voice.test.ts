@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -390,7 +391,7 @@ describe('Phase 9 Step 9.4: Automated Verification & Compliance Suite', () => {
   it('asserts architectural isolation: zero dependency on ThingsBook _core internal crate', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
-    const thingsBookSourcePath = path.resolve('windows/src/workspace/jarvis/thingsbook-voice.ts');
+    const thingsBookSourcePath = fileURLToPath(new URL('../src/workspace/jarvis/thingsbook-voice.ts', import.meta.url));
     const content = await fs.readFile(thingsBookSourcePath, 'utf8');
 
     assert.strictEqual(content.includes('_core'), false, 'Source must not reference _core');
