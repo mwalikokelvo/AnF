@@ -1557,7 +1557,57 @@ export async function executeKevoToolCalls(
 
 /** Parses raw OpenAI-compatible response into KevoAskReply, handling standard tool_calls and inline <tool_call> tags. */
 export function parseKevoAskResponse(response: any): KevoAskReply {
-  const toolCalls: KevoToolCall[] = [];
+  const toolCalls: KevoToolCall[] = [
+  {
+    name: 'wikipedia_summary',
+    description: 'Fetches a short summary of a topic from Wikipedia using the free MediaWiki API.',
+    parameters: {
+      type: 'object',
+      properties: {
+        topic: { type: 'string', description: 'Topic or subject to summarize from Wikipedia' },
+      },
+      required: ['topic'],
+    },
+    execute: async (args: { topic: string }, ctx: JarvisActionContext) => {
+      const topic = (args?.topic || '').trim();
+      if (!topic) {
+        return {
+          handled: false,
+          actionName: 'wikipedia_summary',
+          speechReply: 'Which topic would you like a summary of, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
+      }
+      try {
+        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('No summary found');
+        const data = await res.json();
+        const summary = data.extract || data.description || 'No summary available.';
+        return {
+          handled: true,
+          actionName: 'wikipedia_summary',
+          speechReply: summary.length > 500 ? summary.slice(0, 480) + '…' : summary,
+          status: 'success',
+          verified: true,
+          data: { title: data.title, summary },
+        };
+      } catch (err: any) {
+        return {
+          handled: false,
+          actionName: 'wikipedia_summary',
+          speechReply: `I could not find a Wikipedia summary for ${topic}.`,
+          status: 'failure',
+          verified: false,
+          error: String(err),
+          reason: 'EXECUTION_FAILED',
+        };
+      }
+    },
+  },
+];
   const choice = response?.choices?.[0]?.message;
   if (!choice) return { text: undefined, tool_calls: [] };
 
