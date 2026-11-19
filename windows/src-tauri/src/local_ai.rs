@@ -621,6 +621,8 @@ pub fn take_sentences(buffer: &mut String) -> Option<String> {
 
 /// Takes complete sentences off the front of `buffer`, ensuring that incomplete
 /// `<tool_call` tags are withheld and never sliced into.
+/// When a sentence runs long without a period, yields at the first clause boundary
+/// (comma, colon or semicolon after about 40 characters) so speech starts sooner.
 pub fn take_streamable_sentences(buffer: &mut String) -> Option<String> {
     let limit = buffer.find('<').unwrap_or(buffer.len());
     if limit < 12 {
@@ -628,11 +630,26 @@ pub fn take_streamable_sentences(buffer: &mut String) -> Option<String> {
     }
     let slice = &buffer[..limit];
     let bytes = slice.as_bytes();
-    let cut = (0..bytes.len()).rev().find(|&i| {
+
+    let sentence_cut = (0..bytes.len()).rev().find(|&i| {
         matches!(bytes[i], b'.' | b'!' | b'?')
             && (i + 1 == limit || bytes.get(i + 1).is_some_and(|b| b.is_ascii_whitespace()))
             && i >= 10
-    })?;
+    });
+
+    let clause_cut = (40..bytes.len()).find(|&i| {
+        matches!(bytes[i], b',' | b':' | b';')
+            && (bytes.get(i + 1).is_some_and(|b| b.is_ascii_whitespace())
+                || (i + 1 == limit && limit < buffer.len()))
+    });
+
+    let cut = match (sentence_cut, clause_cut) {
+        (Some(s), Some(c)) if c < s && s > 80 => Some(c),
+        (Some(s), _) => Some(s),
+        (None, Some(c)) => Some(c),
+        (None, None) => None,
+    }?;
+
     let done = buffer[..=cut].trim().to_string();
     *buffer = buffer[cut + 1..].trim_start().to_string();
     (!done.is_empty()).then_some(done)
@@ -962,5 +979,23 @@ mod tests {
         let s3 = take_streamable_sentences(&mut buf2);
         assert_eq!(s3, Some("First sentence here.".to_string()));
         assert_eq!(buf2, "Second sentence starts");
+    }
+
+    #[test]
+    fn take_streamable_sentences_splits_long_sentence_at_first_clause_boundary() {
+        // When a sentence runs long without a period, yields at the first clause boundary after ~40 chars
+        let mut buf = "To calculate a 15 percent tip on a 60 dollar restaurant bill step by step, first calculate ten percent which is six dollars".to_string();
+        let s = take_streamable_sentences(&mut buf);
+        assert_eq!(
+            s,
+            Some("To calculate a 15 percent tip on a 60 dollar restaurant bill step by step,".to_string())
+        );
+        assert_eq!(buf, "first calculate ten percent which is six dollars");
+
+        // When a clause boundary is too early (< 40 characters), it waits for a sentence end
+        let mut buf2 = "Yes, sir, I am working on it right now.".to_string();
+        let s2 = take_streamable_sentences(&mut buf2);
+        assert_eq!(s2, Some("Yes, sir, I am working on it right now.".to_string()));
+        assert_eq!(buf2, "");
     }
 }
