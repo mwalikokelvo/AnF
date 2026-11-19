@@ -13,6 +13,7 @@ import {
   getCapabilitySheet,
   getKevoSystemPrompt,
   getCompactKevoSystemPrompt,
+  getKevoMemoryPrompt,
   executeKevoAction,
   executeKevoToolCalls,
   parseKevoAskResponse,
@@ -116,12 +117,13 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.ok(!compact.includes('Capabilities (what Kevo can do)'));
     assert.ok(compact.length < 300, `compact prompt is ${compact.length} chars, expected < 300`);
 
-    // With facts appended at the end
-    const withFacts = getCompactKevoSystemPrompt([
-      { id: '1', fact: 'User likes dark mode', category: 'preference', timestamp: 123 },
-    ]);
-    assert.ok(withFacts.includes('# Remembered Facts:'));
-    assert.ok(withFacts.includes('[preference] User likes dark mode'));
+    // Facts go in their own message, so the prompt in front of the tool list never changes (prompt cache)
+    const facts = [{ id: '1', fact: 'User likes dark mode', category: 'preference', timestamp: 123 }];
+    assert.strictEqual(getKevoSystemPrompt(facts, { compact: true }), compact);
+    const memory = getKevoMemoryPrompt(facts);
+    assert.ok(memory.includes('# Remembered Facts:'));
+    assert.ok(memory.includes('[preference] User likes dark mode'));
+    assert.strictEqual(getKevoMemoryPrompt([]), '');
 
     // getKevoSystemPrompt with compact option
     assert.strictEqual(getKevoSystemPrompt(undefined, { compact: true }), compact);
