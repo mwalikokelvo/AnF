@@ -55,9 +55,7 @@ pub fn load_store(path: &Path) -> KevoScheduleStore {
 
 pub fn save_store(path: &Path, store: &KevoScheduleStore) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
-        if parent != std::env::temp_dir() {
-            platform::ensure_private_dir(parent)?;
-        }
+        platform::ensure_private_dir(parent)?;
     }
     let data = serde_json::to_string_pretty(store)?;
     let tmp = path.with_extension("json.tmp");
