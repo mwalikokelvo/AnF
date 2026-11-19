@@ -7,6 +7,7 @@ const paths:Record<string,string>={
   music:'M9 18V5l12-2v13M9 7l12-2M9 18c0 4-7 4-7 0s7-4 7 0Zm12-2c0 4-7 4-7 0s7-4 7 0Z',
   audio:'M3 10v4M7 6v12M12 3v18M17 7v10M21 10v4',
   jarvis:'M12 2l8 4.5v9L12 20l-8-4.5v-9L12 2zm0 4.5L6.5 9.5 12 12.5l5.5-3L12 6.5zm-5.5 5.5v3.5L11 18v-3.5L6.5 12zm11 0L13 14.5V18l4.5-2.5V12z',
+  companion:'M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4zM6 10a6 6 0 0 0 12 0M12 16v6M8 22h8',
   settings:'M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M10 15v6',
   menu:'M4 6h16M4 12h16M4 18h16',
 };
