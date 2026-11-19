@@ -1,6 +1,6 @@
-// Kevo Phase 2 Step 2.6: Model choice and the CI gate
-// Starts llama-server with the shipped Q8_0 GGUF model pinned in model_download/policy.rs
-// (not the Q4_K_M requantized for Linux) and runs the whole phrase list through the real kevo_ask path.
+// Kevo Phase 2 Step 2.8: Single local model CI gate
+// Starts llama-server with the Q4_K_M GGUF model pinned in model_download/policy.rs
+// (DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf) and runs the whole phrase list through the real kevo_ask path.
 // Fails below 95%.
 
 import { spawn } from 'node:child_process';
@@ -14,10 +14,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const localAiDir = path.join(root, 'local-ai');
 const testsDir = path.join(root, 'tests');
 
-// Step 2.6: Model size choice
-// Default is Qwen3 1.7B (Q8_0 GGUF pinned in model_download/policy.rs, model-source.gguf).
-// Use the next size up only if the PC has 16 GB RAM or more and self-test shows <= 5s.
-const defaultModelName = 'model-source.gguf';
+// Step 2.8: One local model (DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf)
+const defaultModelName = 'DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf';
 
 async function fileExists(p) {
   try {
@@ -43,8 +41,15 @@ async function findModelPath() {
   if (process.env.KEVO_MODEL_PATH && (await fileExists(process.env.KEVO_MODEL_PATH))) {
     return process.env.KEVO_MODEL_PATH;
   }
-  const candidate = path.join(localAiDir, defaultModelName);
-  if (await fileExists(candidate)) return candidate;
+  const candidates = [
+    path.join(localAiDir, defaultModelName),
+    path.join(localAiDir, 'models', defaultModelName),
+    path.join(root, 'models', defaultModelName),
+    path.join(root, 'target', defaultModelName),
+  ];
+  for (const c of candidates) {
+    if (await fileExists(c)) return c;
+  }
   return null;
 }
 
@@ -71,12 +76,12 @@ async function waitForServer(port, timeoutMs = 60000) {
 }
 
 async function main() {
-  console.log('--- Kevo CI Gate: Phase 2 Step 2.6 ---');
+  console.log('--- Kevo CI Gate: Phase 2 Step 2.8 ---');
   const llamaServer = await findLlamaServer();
   const modelPath = await findModelPath();
 
   console.log(`llama-server executable: ${llamaServer ?? 'not found'}`);
-  console.log(`shipped Q8_0 model: ${modelPath ?? 'not found'}`);
+  console.log(`target Q4_K_M model: ${modelPath ?? 'not found'}`);
 
   let serverProc = null;
   const port = process.env.KEVO_LLAMA_PORT || '18089';
@@ -84,7 +89,7 @@ async function main() {
 
   if (!llamaServer || !modelPath) {
     if (process.env.CI) {
-      console.error('::error::llama-server or shipped model-source.gguf not found in CI environment!');
+      console.error(`::error::llama-server or target ${defaultModelName} not found in CI environment!`);
       process.exit(1);
     } else {
       console.log('Notice: running in mock mode because local-ai assets are not present locally.');

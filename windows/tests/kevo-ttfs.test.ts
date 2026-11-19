@@ -77,13 +77,14 @@ function setupDom() {
 
 describe('Kevo TTFS Telemetry & Model Formatting', () => {
   it('formats model display names accurately across model tiers', () => {
+    assert.strictEqual(formatModelDisplayName('deepseek-v4-pro-qwen3.5-9b'), 'DeepSeek V4 Pro 9B');
     assert.strictEqual(formatModelDisplayName('fast'), 'Qwen 0.6B Q8');
     assert.strictEqual(formatModelDisplayName('balanced'), 'Qwen 1.7B Q8');
     assert.strictEqual(formatModelDisplayName('qwen3-0.6b-fast'), 'Qwen 0.6B Q8');
     assert.strictEqual(formatModelDisplayName('qwen3-1.7b-balanced'), 'Qwen 1.7B Q8');
     assert.strictEqual(formatModelDisplayName('deepseek-r1-distill-qwen-1.5b'), 'DeepSeek R1');
     assert.strictEqual(formatModelDisplayName('kimi-linear-a3b'), 'Kimi Linear');
-    assert.strictEqual(formatModelDisplayName(undefined), 'Qwen 1.7B Q8');
+    assert.strictEqual(formatModelDisplayName(undefined), 'DeepSeek V4 Pro 9B');
   });
 
   it('formats TTFS HUD badge string truthfully with seconds and model name', () => {

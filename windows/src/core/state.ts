@@ -100,6 +100,8 @@ export interface Settings {
   localFallback: boolean;
   kevoHearing: "pc" | "browser";
   kevoAutoTest: boolean;
+  /** Custom model directory (e.g. on external drive). */
+  modelFolder?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -122,6 +124,7 @@ export const DEFAULT_SETTINGS: Settings = {
   localFallback: true,
   kevoHearing: "pc",
   kevoAutoTest: false,
+  modelFolder: "",
 };
 
 type Listener = () => void;

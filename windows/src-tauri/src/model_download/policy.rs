@@ -18,33 +18,49 @@ pub struct ModelSpec {
     pub size: u64,
 }
 
-// Values were read on 2026-11-01 from the Hub's raw LFS pointers
-// (huggingface.co/Qwen/<repo>/raw/main/<file>) and cross-checked against the
-// blob pages' "SHA256:" field and the tree listing's size.
-pub const MODELS: [ModelSpec; 2] = [
+// Pinned model: DeepSeek V4 Pro Qwen3.5 9B Uncensored (heretic), Q4_K_M quant.
+// Exact size and SHA-256 read from Hugging Face LFS raw pointer:
+// https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF
+pub const MODELS: [ModelSpec; 1] = [
     ModelSpec {
-        id: "qwen3-0.6b-fast",
-        file: "Qwen3-0.6B-Q8_0.gguf",
-        url: "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf",
-        sha256: "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        size: 639_446_688,
-    },
-    ModelSpec {
-        id: "qwen3-1.7b-balanced",
-        file: "Qwen3-1.7B-Q8_0.gguf",
-        url: "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf",
-        sha256: "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
-        size: 1_834_426_016,
+        id: "deepseek-v4-pro-qwen3.5-9b",
+        file: "DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf",
+        url: "https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF/resolve/main/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf",
+        sha256: "b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65",
+        size: 5_780_092_768,
     },
 ];
 
 pub fn spec(id: &str) -> Option<&'static ModelSpec> {
-    MODELS.iter().find(|m| m.id == id)
+    if id == MODELS[0].id
+        || matches!(
+            id,
+            "fast"
+                | "balanced"
+                | "local"
+                | "default"
+                | "deepseek-v4.1-flash"
+                | "deepseek-v3.2-reasoning"
+                | "deepseek-v3.2"
+                | "deepseek-r1-distill-qwen-1.5b"
+                | "deepseek-r1-distill"
+                | "kimi-k3-thinking"
+                | "kimi-k3"
+                | "kimi-linear-a3b"
+                | "kimi-linear"
+                | "qwen3-0.6b-fast"
+                | "qwen3-1.7b-balanced"
+        )
+    {
+        Some(&MODELS[0])
+    } else {
+        None
+    }
 }
 
-/// Runtime slot a model serves (`fast` or `balanced`), matching `local_ai.rs`.
-pub fn slot_of(spec: &ModelSpec) -> &'static str {
-    if spec.id == "qwen3-0.6b-fast" { "fast" } else { "balanced" }
+/// Runtime slot a model serves, unified to single model.
+pub fn slot_of(_spec: &ModelSpec) -> &'static str {
+    "default"
 }
 
 pub const MAX_REDIRECTS: usize = 5;
@@ -210,13 +226,13 @@ mod tests {
             assert!(is_sha256_hex(m.sha256), "{}", m.id);
             assert!(m.size > 0 && m.file.ends_with(".gguf") && !m.file.contains('/') && !m.file.contains('\\'));
             assert!(check_url_parts("https", "", false, Some("huggingface.co"), None, true).is_ok());
-            assert!(m.url.starts_with("https://huggingface.co/Qwen/"));
+            assert!(m.url.starts_with("https://huggingface.co/mradermacher/"));
         }
-        assert_ne!(MODELS[0].id, MODELS[1].id);
-        assert!(spec("qwen3-0.6b-fast").is_some());
-        assert!(spec("deepseek-v4.1-flash").is_none());
-        assert_eq!(slot_of(&MODELS[0]), "fast");
-        assert_eq!(slot_of(&MODELS[1]), "balanced");
+        assert_eq!(MODELS.len(), 1);
+        assert!(spec("deepseek-v4-pro-qwen3.5-9b").is_some());
+        assert!(spec("qwen3-0.6b-fast").is_some(), "legacy profile maps to single model");
+        assert!(spec("unknown-model-xyz").is_none());
+        assert_eq!(slot_of(&MODELS[0]), "default");
     }
 
     #[test]
@@ -327,7 +343,7 @@ mod tests {
         assert!(is_installed(m, Some(m.size), Some(&format!("{}\n", m.sha256))));
         assert!(!is_installed(m, Some(m.size - 1), Some(m.sha256)), "truncated");
         assert!(!is_installed(m, Some(m.size), None), "no verification record");
-        assert!(!is_installed(m, Some(m.size), Some(MODELS[1].sha256)));
+        assert!(!is_installed(m, Some(m.size), Some("0000000000000000000000000000000000000000000000000000000000000000")));
         assert!(!is_installed(m, None, Some(m.sha256)));
     }
 

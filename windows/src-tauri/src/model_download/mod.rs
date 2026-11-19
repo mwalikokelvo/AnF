@@ -47,18 +47,40 @@ impl Drop for Slot<'_> {
 }
 
 fn dir() -> PathBuf {
-    store::models_dir(&crate::settings::local_dir())
+    let s = crate::settings::load();
+    let trimmed = s.model_folder.trim();
+    if !trimmed.is_empty() {
+        PathBuf::from(trimmed)
+    } else {
+        store::models_dir(&crate::settings::local_dir())
+    }
 }
 
-/// Path of a verified model for a runtime slot (`fast` / `balanced`), if installed.
-pub fn verified_model(slot: &str) -> Option<PathBuf> {
+/// Path of the single verified model, if installed. Accepts any legacy slot name for compatibility.
+pub fn verified_model(_slot: &str) -> Option<PathBuf> {
     let d = dir();
-    MODELS.iter().find(|m| policy::slot_of(m) == slot && store::installed(&d, m)).map(|m| store::final_path(&d, m))
+    if let Some(m) = MODELS.iter().find(|m| store::installed(&d, m)).map(|m| store::final_path(&d, m)) {
+        return Some(m);
+    }
+    let default_dir = store::models_dir(&crate::settings::local_dir());
+    if default_dir != d {
+        if let Some(m) = MODELS.iter().find(|m| store::installed(&default_dir, m)).map(|m| store::final_path(&default_dir, m)) {
+            return Some(m);
+        }
+    }
+    None
 }
 
 pub fn any_verified() -> bool {
     let d = dir();
-    MODELS.iter().any(|m| store::installed(&d, m))
+    if MODELS.iter().any(|m| store::installed(&d, m)) {
+        return true;
+    }
+    let default_dir = store::models_dir(&crate::settings::local_dir());
+    if default_dir != d && MODELS.iter().any(|m| store::installed(&default_dir, m)) {
+        return true;
+    }
+    false
 }
 
 fn validate(url: &Url, first_hop: bool) -> Result<(), String> {
@@ -159,7 +181,26 @@ async fn verify(dir: &Path, spec: &'static ModelSpec, source: store::Source, can
     };
     let flag = cancel.clone();
     let digest = tokio::task::spawn_blocking(move || sha256_file(&path, &flag)).await.map_err(|_| "Verification stopped unexpectedly.".to_string())??;
-    store::finalize(dir, spec, &digest, source)
+    store::finalize(dir, spec, &digest, source)?;
+
+    // Once the new file is verified, delete old Qwen GGUFs and leftover .part files,
+    // and log how much space was freed.
+    let default_models = store::models_dir(&crate::settings::local_dir());
+    let default_local_ai = crate::settings::local_dir().join("local-ai");
+    let mut cleanup_dirs = vec![dir.to_path_buf()];
+    if !cleanup_dirs.contains(&default_models) {
+        cleanup_dirs.push(default_models);
+    }
+    if !cleanup_dirs.contains(&default_local_ai) {
+        cleanup_dirs.push(default_local_ai);
+    }
+    let freed_bytes = store::cleanup_old_models(&cleanup_dirs);
+    let freed_mb = freed_bytes as f64 / (1024.0 * 1024.0);
+    crate::log::line(&format!(
+        "Verified {}: cleaned up old models, freed {} bytes ({:.2} MB).",
+        spec.file, freed_bytes, freed_mb
+    ));
+    Ok(())
 }
 
 /// Download, verify and install one model. `emit(phase, done)` reports progress.

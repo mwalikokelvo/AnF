@@ -37,6 +37,9 @@ pub struct Settings {
     /// "Run Kevo test builds and Kevo's self-test automatically" setting (Phase 0 step 0.4b).
     #[serde(default)]
     pub kevo_auto_test: bool,
+    /// Custom folder for local AI model weights (e.g. external drive).
+    #[serde(default)]
+    pub model_folder: String,
 }
 
 fn default_kevo_hearing() -> String { "pc".into() }
@@ -71,6 +74,7 @@ impl Default for Settings {
             local_fallback: true,
             kevo_hearing: default_kevo_hearing(),
             kevo_auto_test: false,
+            model_folder: String::new(),
         }
     }
 }
