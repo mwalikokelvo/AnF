@@ -4,7 +4,64 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics).
+Last updated: 2026-11-18 by Antigravity (Kevo 7.4: Settings & Owner Voice Selection Controls).
+
+## 2026-11-18 — Kevo 7.4: Settings & Owner Voice Selection Controls (Antigravity)
+
+Phase 7 Step 7.4 (`docs/kevo-briefs/phase-7.md`, "7.4 Settings & Owner Voice Selection Controls"):
+- Kevo Settings Controls (`windows/src/core/state.ts`, `windows/src/settings/main.ts`):
+  - Added `kevoVoiceId`, `kevoRealWorkspaceDataOnly`, and `kevoOnlineVoices` to `Settings` interface and `DEFAULT_SETTINGS`.
+  - Added dedicated voice pack selector dropdown in Settings window rendering all 13 voice profiles.
+  - Added voice engine indicator with dynamic feedback: "Active: Neural online voice" vs "Active: Native local system voice (offline)".
+  - Added toggle for "Executive briefing: real workspace data only" with feedback label.
+- Command Desk Controls & Indicators (`windows/src/workspace/jarvis/jarvis-command-desk.ts`, `windows/src/workspace/jarvis/jarvis-executive.ts`):
+  - Added `isRealWorkspaceDataOnly` and `setRealWorkspaceDataOnly` state management with localStorage and in-memory persistence.
+  - Added `realDataOnly` flag to `BriefingOptions` ensuring briefings strictly contain verified local workspace chunks (`vault`, `reading`, `schedule`, `system`) and omit unverified external telemetry.
+  - Added clear voice engine indicator badge in `voiceBar` showing active synthesis mode (Neural online vs Native local offline).
+  - Added "Real data only" toggle in toolbar and voiceBar.
+- Automated Tests (`windows/tests/kevo-executive.test.ts`):
+  - Added tests for `isRealWorkspaceDataOnly` toggling, `realDataOnly: true` suppression of external non-demo telemetry, and `DEFAULT_SETTINGS` validation.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 808/808 tests passed across 124 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.3: Voice Pack Pipeline & Local Audio Previews (Antigravity)
+
+Phase 7 Step 7.3 (`docs/kevo-briefs/phase-7.md`, "7.3 Pack Voices & Preview Capability"):
+- Voice Pack Profile Integrity (`windows/src/workspace/jarvis/voice/jarvis-voice-pack.ts`):
+  - Verified all 13 voice profiles against `windows/voice-pack/` directory and `SOURCES.txt`.
+  - Added `verifyVoicePackRegistry()` and `getVoicePackStats()` for automated verification of on-disk assets vs registry.
+  - Added `playVoicePreview(id, options)` with graceful fallback to browser/native speech synthesis or Web Audio preview chirp when local audio assets are absent or running in non-desktop environments.
+- Speaker Voice Pack Integration (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Added `previewVoicePack(id)` method to `JarvisSpeaker`.
+  - Integrated voice pack registry checks and previews with speaker fallback handling.
+- Command Desk Preview Button (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Wired `previewBtn` click listener to invoke `speaker.previewVoicePack(selectedId)` with dynamic playing state and visual feedback.
+- Verification & Unit Tests:
+  - Added `windows/tests/kevo-voice-pack.test.ts` (7 tests verifying registry integrity, default Kelvin profile, audio previews, and stats).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 805/805 tests passed across 123 suites (`node scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers (Antigravity)
+
+Phase 7 Step 7.2 (`docs/kevo-briefs/phase-7.md`, "7.2 Truthful Team Cards & Workspace Telemetry Providers"):
+- Truthful Workspace Team Cards (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Replaced hardcoded demo agent cards (Tom 513 tests, Scout 24,500 reach, Support 13 tickets) with truthful local capability team cards representing real AnF modules:
+    1. Knowledge (Vault & Notes): Live project/note count, BM25 indexing status.
+    2. Reading (Queue & Reader): Live pending queue count, offline storage format.
+    3. Schedule (Reminders & Alarms): Active reminder count, persistent storage status.
+    4. System (Audio & Model): Live audio engine status (idle/playing), local CPU inference.
+  - Rendered `✓ Verified Local Data` badges on every team card.
+  - Added `refreshTeamCards()` dynamically updating team card telemetry on load, after briefing generation, or via "Refresh telemetry" toolbar action.
+- Workspace Telemetry Provider Wiring (`windows/src/workspace/main.ts`):
+  - Wired `jarvisActionContext.getVaultNoteCount` to query live note count from `workspace_list_projects`.
+  - Wired `jarvisActionContext.getBriefing` to pass truthful telemetry (Vault, Reading Queue, Reminders, Schedule, System) to `JarvisExecutive`.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 798/798 tests passed across 122 suites (`node scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics (Antigravity)
 
