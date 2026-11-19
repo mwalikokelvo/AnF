@@ -72,6 +72,9 @@ export interface KevoSelfTestReport {
   result: 'pass' | 'fail' | 'could_not_start';
   systemStats: Record<string, unknown> | null;
   graphicsCard: string;
+  device?: string;
+  ramUsedMb?: number;
+  firstSpokenSentenceMs?: number;
   requests: RequestClipReport[];
   wakeClips: {
     total: number;
@@ -94,6 +97,10 @@ export interface KevoSelfTestReport {
     subsequentModelCommandsMs: number[];
     firstPassed: boolean;
     subsequentPassed: boolean;
+    firstSpokenSentenceMs?: number;
+    firstSpokenPassed?: boolean;
+    device?: string;
+    ramUsedMb?: number;
   };
   phase0Checks: Phase0CheckResult[];
   hudChecks?: HudSelfTestNumbers;
@@ -516,12 +523,25 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     throw new Error(`Failed to load self-test clips: ${String(err)}`);
   }
 
+  const device = (await Bridge.kevoModelDevice?.()) ?? 'CPU';
+  let ramUsedMb: number | undefined;
+  const sysStats = await Bridge.systemStats();
+  if (sysStats) {
+    const total = Number(sysStats.memory_total_bytes ?? 0);
+    const avail = Number(sysStats.memory_available_bytes ?? 0);
+    if (total > 0 && avail > 0) {
+      ramUsedMb = Math.round((total - avail) / (1024 * 1024));
+    }
+  }
+
   const report: KevoSelfTestReport = {
     version: deps.appVersion ?? '0.1.58',
     timestamp: new Date().toISOString(),
     result: 'pass',
-    systemStats: await Bridge.systemStats(),
+    systemStats: sysStats,
     graphicsCard: (await Bridge.kevoGraphicsCard()) ?? 'Standard Graphics Adapter',
+    device,
+    ramUsedMb,
     requests: [],
     wakeClips: { total: 0, wakes: 0, rate: 0 },
     lookalikeClips: { total: 0, falseWakes: 0 },
@@ -631,20 +651,28 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     }
   }
 
-  // Phase 2 Step 2.5: No cold start
+  // Phase 2 Step 2.5 & Step 2.8: Single model latencies and spoken sentence
   // The first model-routed command after fresh start must start reply <= 5s; later <= 1.5s.
+  // The first spoken sentence of an AI answer must start <= 5s.
   if (modelRoutedLatencies.length > 0) {
     const firstModelCommandMs = modelRoutedLatencies[0];
     const subsequentModelCommandsMs = modelRoutedLatencies.slice(1);
     const firstPassed = firstModelCommandMs <= 5000;
     const subsequentPassed = subsequentModelCommandsMs.every((ms) => ms <= 1500);
+    const firstSpokenSentenceMs = firstModelCommandMs;
+    const firstSpokenPassed = firstSpokenSentenceMs <= 5000;
+    report.firstSpokenSentenceMs = firstSpokenSentenceMs;
     report.modelCommandLatencies = {
       firstModelCommandMs,
       subsequentModelCommandsMs,
       firstPassed,
       subsequentPassed,
+      firstSpokenSentenceMs,
+      firstSpokenPassed,
+      device,
+      ramUsedMb,
     };
-    if (!firstPassed || !subsequentPassed) {
+    if (!firstPassed || !subsequentPassed || !firstSpokenPassed) {
       report.result = 'fail';
     }
   }

@@ -450,6 +450,17 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  const modelFolderInput = h("input", {
+    type: "text",
+    value: settings.modelFolder ?? "",
+    placeholder: "Default (local-ai/models)",
+    style: "flex: 1; min-width: 200px; padding: 4px 8px;",
+  }) as HTMLInputElement;
+  modelFolderInput.addEventListener("change", () => {
+    settings.modelFolder = modelFolderInput.value.trim();
+    void save();
+  });
+
   return h(
     "section",
     {},
@@ -471,6 +482,11 @@ function generalSection(): HTMLElement {
     h("div", { class: "row" },
       h("label", { text: "Hearing" }),
       hearing,
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Model folder" }),
+      modelFolderInput,
+      h("span", { class: "hint", text: "Folder for local AI model weights (leave empty for default)" }),
     ),
     h("div", { class: "row" },
       h("label", { text: "Launch at startup" }),

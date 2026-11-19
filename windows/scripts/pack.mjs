@@ -86,7 +86,7 @@ if (process.platform === 'win32') {
     copyFileSync(join(root,'target/release',binary),join(portable,binary));
   }
   mkdirSync(join(portable,'local-ai'), {recursive:true});
-  const required = ['llama-server.exe','model.gguf','model-fast.gguf','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt'];
+  const required = ['llama-server.exe','chat-template.jinja','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt'];
   const dlls = readdirSync(join(root,'local-ai')).filter(name=>name.endsWith('.dll'));
   if (!dlls.length) throw Error('Portable release has no native runtime DLLs.');
   for(const name of new Set([...required,...dlls,...readdirSync(join(root,'local-ai')).filter(name=>name.includes('LICENSE'))])) {

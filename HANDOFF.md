@@ -4,7 +4,41 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics).
+Last updated: 2026-11-18 by Antigravity (Phase 2 Step 2.8: one local model for all of AnF).
+
+## 2026-11-18 — Kevo 2.8: one local model for all of AnF (Antigravity)
+
+Phase 2 Step 2.8 (Owner's decision, 18 Nov 2026: replace every local model in AnF with `mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF`):
+- One Model, One Slot:
+  - `model_download/policy.rs`: Pinned single entry `DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf` (5,780,092,768 bytes, SHA-256 `b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65`).
+  - Removed fast/balanced slot split and removed the five old alias profiles (`deepseek-v4.1-flash`, `deepseek-v3.2-reasoning`, `deepseek-r1-distill`, `kimi-k3-thinking`, `kimi-linear-a3b`).
+  - Graceful legacy mapping: any saved project or setting referencing old profiles or aliases maps cleanly to `deepseek-v4-pro-qwen3.5-9b` without error.
+  - UI shows exactly one model: `DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)`.
+- Download, Not Bundle:
+  - Installer and release packages no longer bundle model weights, keeping release assets well under GitHub's 2 GB limit.
+  - Downloaded on first use through the existing verified downloader (`local_ai_download`) with resume, exact size, and SHA-256 verification.
+  - Added "Model folder" setting in General settings allowing the owner to store weights on an external drive.
+  - Fully offline after initial verified download.
+- Old Model Cleanup:
+  - Automatically purges old Qwen GGUFs (`Qwen3-*.gguf`), leftover `.part` / `.partial` files, and old bundle files once the new model is verified, reporting the freed bytes/MB.
+- Hardware Acceleration (Vulkan & CPU):
+  - Bundled llama.cpp b11380 Vulkan Windows runtime alongside CPU runtime (pinned SHA-256).
+  - Dynamic Vulkan physical device check: applies `--n-gpu-layers 99` when Vulkan GPU is detected, CPU otherwise.
+  - Active device (`GPU (Vulkan)` vs `CPU`), RAM usage, and TTFS recorded in self-test.
+- Prompt & Template:
+  - Shipped `windows/local-ai/chat-template.jinja` supporting Qwen3.5 tool calls and thinking toggles.
+  - Thinking disabled for commands and short replies (`enable_thinking: false`); allowed only for long chat responses.
+  - Context size set to 8192 with prefix caching.
+- Safety:
+  - All confirmation steps for risky actions (deleting files, sending messages, payments, system settings) preserved.
+  - Added `windows/tests/kevo-safety.test.ts` verifying approval gates ask first before execution and default to safe denial.
+- CI Gate:
+  - Updated `windows/scripts/kevo-ci-gate.mjs` and `.github/workflows/linux.yml` to target the Q4_K_M model, with caching between CI runs and step timeout raised to 60 minutes.
+- Verification:
+  - Section 8 checks: check-release (12/12 pass), verify-contracts, check-styles pass.
+  - TypeScript: `npx tsc --noEmit` PASS (0 errors).
+  - Test suites: pass.
+  - Rust: cargo tests pass.
 
 ## 2026-11-18 — Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics (Antigravity)
 

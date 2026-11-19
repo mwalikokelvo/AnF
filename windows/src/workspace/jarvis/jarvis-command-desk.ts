@@ -44,8 +44,9 @@ export interface JarvisCommandDeskOptions {
 }
 
 export function formatModelDisplayName(modelId?: string): string {
-  if (!modelId) return 'Qwen 1.7B Q8';
+  if (!modelId) return 'DeepSeek V4 Pro 9B';
   const lower = modelId.toLowerCase();
+  if (lower.includes('deepseek-v4-pro') || lower.includes('qwen3.5-9b')) return 'DeepSeek V4 Pro 9B';
   if (lower.includes('deepseek')) return 'DeepSeek R1';
   if (lower.includes('kimi')) return 'Kimi Linear';
   if (lower.includes('0.6b') || lower === 'fast') return 'Qwen 0.6B Q8';
