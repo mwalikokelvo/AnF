@@ -67,6 +67,29 @@ Phase 1 Step 1.6 (Closes #246):
   - `cargo clippy --locked --features kevo-ears`: 0 warnings in `kevo_ears.rs`.
 - Version bump to 0.1.62 across `package.json`, `Cargo.toml`, `tauri.conf.json`, and `Cargo.lock`.
 
+## 2026-11-18 — Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics (Antigravity)
+
+Phase 7 Step 7.1 (`docs/kevo-briefs/phase-7.md`, "7.1 Real Workspace Data & Elimination of Fabricated Metrics"):
+- Elimination of Fabricated Metrics (`windows/src/workspace/jarvis/jarvis-executive.ts`):
+  - Completely purged hardcoded demo figures ($30,000 MRR, 2,459 new subscribers, 18,740 total subscribers, $475 ad spend, 13 auto-resolved support tickets, 513 passing tests, 24,500 organic reach).
+  - External business telemetry is omitted cleanly when not configured or marked demo (`isDemo: true`).
+- Real Local Capabilities Chunks:
+  - Knowledge & Vault: Note count, 7-day modification count, index operational status, flagged with `verified: true`.
+  - Reading Queue: Pending reading items, in-progress count, estimated remaining minutes.
+  - Schedule & Reminders: Genuine reminders due today, next alarm time, daily briefing schedule.
+  - System & Audio: Audio engine state, active track, volume level, memory footprint.
+  - Dynamic summary line computed strictly from real active chunks (e.g. `Vault: 15 · Reading: 4 · Reminders: 2`).
+- Command Desk Integration (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Wired `btnBriefing` and `getBriefing` to fetch live local workspace stores (`listReminders`, `getDailyBriefingSchedule`, `loadReadingQueue`, `fetchSystemTelemetry`).
+  - Rendered `✓ Verified Local Data` badges on local capability cards.
+- Automated Test Suites:
+  - Added `windows/tests/kevo-executive.test.ts` verifying zero mock numbers, demo omission, truthful telemetry integration, and UI badge rendering.
+  - Updated `windows/tests/jarvis-executive.test.ts`.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 797/797 tests passed across 122 suites (`node scripts/test.mjs` PASS).
+
 ## 2026-11-18 — Package Kevo's self-test clips (Claude)
 
 On the owner's PC, "Run self-test" failed with "No manifest returned by kevo_selftest_get_clips": `resources/kevo-selftest/` was never packaged, so `find_selftest_resource_dir` found nothing (the bridge turns the Rust error into `null`).

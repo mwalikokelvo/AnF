@@ -36,6 +36,9 @@ export interface JarvisActionContext {
   setMusicVolume?: (change: VolumeRequest) => number;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
+  /** Optional access to workspace notes for vault telemetry. */
+  notes?: any[];
+  getVaultNoteCount?: () => Promise<number> | number;
   /** Opens an installed app by name; resolves to the name of the app it opened. */
   openApp?: (name: string) => Promise<string>;
   openQuickCapture?: () => void;
