@@ -4,6 +4,9 @@
  * Example: convert 100 USD to EUR.
  */
 
+import type { LookupFetch } from './kevo-online';
+import { onlineGet } from './kevo-online';
+
 export interface CurrencyConversion {
   amount: number;
   from: string;
@@ -15,50 +18,38 @@ export interface CurrencyConversion {
 const CURRENCY_ALIASES: Record<string, string> = {
   dollars: 'USD',
   dollar: 'USD',
-  usd: 'USD',
   euros: 'EUR',
   euro: 'EUR',
-  eur: 'EUR',
   pounds: 'GBP',
   pound: 'GBP',
-  gbp: 'GBP',
   yen: 'JPY',
-  jpy: 'JPY',
   francs: 'CHF',
   franc: 'CHF',
-  chf: 'CHF',
+  shillings: 'KES',
+  shilling: 'KES',
 };
 
-export function parseCurrencyRequest(text: string): { amount: number; from: string; to: string } | null {
-  const lower = text.toLowerCase().replace(/[.!?]+$/, '').trim();
-  // "convert 100 usd to eur", "how much is 50 pounds in dollars", "100 dollars to euros"
-  const m = /(?:convert|how much is|what's|whats)\s+(\d+(?:\.\d+)?)\s+([a-z]+)\s+(?:to|in|into)\s+([a-z]+)/.exec(lower)
-    || /^(\d+(?:\.\d+)?)\s+([a-z]+)\s+(?:to|in)\s+([a-z]+)$/.exec(lower);
-  if (!m) return null;
-  const amount = parseFloat(m[1]);
-  const from = CURRENCY_ALIASES[m[2]] || m[2].toUpperCase();
-  const to = CURRENCY_ALIASES[m[3]] || m[3].toUpperCase();
-  if (from === to || amount <= 0) return null;
-  return { amount, from, to };
+/** "dollars", "usd" or "Kenyan shillings" to an ISO code, or null when it is not a currency word or code. */
+export function currencyCode(word: string): string | null {
+  const lower = word.toLowerCase().trim().replace(/^(?:us|american|kenyan|british|swiss|japanese)\s+/, '');
+  if (Object.hasOwn(CURRENCY_ALIASES, lower)) return CURRENCY_ALIASES[lower];
+  return /^[a-z]{3}$/.test(lower) ? lower.toUpperCase() : null;
 }
 
-export async function convertCurrency(amount: number, from: string, to: string): Promise<CurrencyConversion | null> {
-  try {
-    const url = `https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`;
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    if (typeof data.rate !== 'number') return null;
-    return {
-      amount,
-      from: data.base || from,
-      to: data.quote || to,
-      result: Math.round(amount * data.rate * 100) / 100,
-      date: data.date,
-    };
-  } catch {
-    return null;
-  }
+/** Today's rate from Frankfurter times the amount, or null when Frankfurter has no rate for the pair. */
+export async function convertCurrency(amount: number, from: string, to: string, fetchFn?: LookupFetch): Promise<CurrencyConversion | null> {
+  const res = await onlineGet(`https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`, 'the currency service', fetchFn);
+  if (res.status === 404 || res.status === 422) return null;
+  if (!res.ok) throw new Error(`the currency service answered ${res.status}.`);
+  const data = (await res.json()) as { rate?: number; base?: string; quote?: string; date?: string };
+  if (typeof data.rate !== 'number') return null;
+  return {
+    amount,
+    from: data.base || from,
+    to: data.quote || to,
+    result: Math.round(amount * data.rate * 100) / 100,
+    date: data.date,
+  };
 }
 
 export function formatConversion(conv: CurrencyConversion): string {

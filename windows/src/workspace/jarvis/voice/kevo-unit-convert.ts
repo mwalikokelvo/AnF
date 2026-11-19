@@ -15,16 +15,16 @@ export interface ConversionResult {
 const LENGTH: Record<string, number> = {
   mm: 0.001,
   millimeter: 0.001,
-  millimeters: 0.001,
+  millimetre: 0.001,
   cm: 0.01,
   centimeter: 0.01,
-  centimeters: 0.01,
+  centimetre: 0.01,
   m: 1,
   meter: 1,
-  meters: 1,
+  metre: 1,
   km: 1000,
   kilometer: 1000,
-  kilometers: 1000,
+  kilometre: 1000,
   in: 0.0254,
   inch: 0.0254,
   inches: 0.0254,
@@ -57,8 +57,21 @@ const MASS: Record<string, number> = {
   pounds: 453.59237,
 };
 
+const TEMPERATURE: Record<string, 'c' | 'f' | 'k'> = { c: 'c', celsius: 'c', centigrade: 'c', f: 'f', fahrenheit: 'f', k: 'k', kelvin: 'k' };
+
+const own = <T>(table: Record<string, T>, key: string): T | undefined => (Object.hasOwn(table, key) ? table[key] : undefined);
+
+/** "Kilometres", "degrees Celsius", "lbs" and "inches" to the keys above. */
 function normalize(unit: string): string {
-  return unit.toLowerCase().replace(/s$/, '').trim();
+  const word = unit.toLowerCase().trim().replace(/^degrees?\s+/, '').replace(/\.$/, '');
+  if (own(LENGTH, word) || own(MASS, word) || own(TEMPERATURE, word)) return word;
+  if (word.endsWith('es') && own(LENGTH, word.slice(0, -2))) return word.slice(0, -2);
+  if (word.endsWith('s')) return word.slice(0, -1);
+  return word;
+}
+
+function say(n: number): string {
+  return String(n).replace(/\.0+$/, '');
 }
 
 export function convertUnits(value: number, fromRaw: string, toRaw: string): ConversionResult {
@@ -69,8 +82,8 @@ export function convertUnits(value: number, fromRaw: string, toRaw: string): Con
   }
 
   // Temperature special case
-  const tempFrom = from === 'c' || from === 'celsius' ? 'c' : from === 'f' || from === 'fahrenheit' ? 'f' : from === 'k' || from === 'kelvin' ? 'k' : null;
-  const tempTo = to === 'c' || to === 'celsius' ? 'c' : to === 'f' || to === 'fahrenheit' ? 'f' : to === 'k' || to === 'kelvin' ? 'k' : null;
+  const tempFrom = own(TEMPERATURE, from);
+  const tempTo = own(TEMPERATURE, to);
   if (tempFrom && tempTo) {
     let celsius: number;
     if (tempFrom === 'c') celsius = value;
@@ -86,13 +99,13 @@ export function convertUnits(value: number, fromRaw: string, toRaw: string): Con
       value: rounded,
       from: fromRaw,
       to: toRaw,
-      speech: `${value} ${fromRaw} is ${rounded} ${toRaw}.`,
+      speech: `${say(value)} ${fromRaw} is ${say(rounded)} ${toRaw}.`,
     };
   }
 
   // Length or mass
-  const fromLen = LENGTH[from];
-  const toLen = LENGTH[to];
+  const fromLen = own(LENGTH, from);
+  const toLen = own(LENGTH, to);
   if (fromLen && toLen) {
     const result = (value * fromLen) / toLen;
     const rounded = Math.round(result * 1000) / 1000;
@@ -101,11 +114,11 @@ export function convertUnits(value: number, fromRaw: string, toRaw: string): Con
       value: rounded,
       from: fromRaw,
       to: toRaw,
-      speech: `${value} ${fromRaw} is ${rounded} ${toRaw}.`,
+      speech: `${say(value)} ${fromRaw} is ${say(rounded)} ${toRaw}.`,
     };
   }
-  const fromMass = MASS[from];
-  const toMass = MASS[to];
+  const fromMass = own(MASS, from);
+  const toMass = own(MASS, to);
   if (fromMass && toMass) {
     const result = (value * fromMass) / toMass;
     const rounded = Math.round(result * 1000) / 1000;
@@ -114,7 +127,7 @@ export function convertUnits(value: number, fromRaw: string, toRaw: string): Con
       value: rounded,
       from: fromRaw,
       to: toRaw,
-      speech: `${value} ${fromRaw} is ${rounded} ${toRaw}.`,
+      speech: `${say(value)} ${fromRaw} is ${say(rounded)} ${toRaw}.`,
     };
   }
 

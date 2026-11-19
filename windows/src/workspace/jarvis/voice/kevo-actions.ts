@@ -1,5 +1,4 @@
 /**
-import { convertUnits } from './kevo-unit-convert';
  * Kevo Actions: Single Source of Truth for Tool Calling and Instant Commands (Phase 2 Step 2.1).
  *
  * Defines every action once:
@@ -28,10 +27,17 @@ import { convertUnits } from './kevo-unit-convert';
  * - tell_time: report current time
  * - tell_date: report today's date
  * - audius_search: search music on Audius
+ * - convert_units: length, mass and temperature, offline
+ * - wikipedia_summary, define_word, convert_currency: online lookups, off until the owner turns them on
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
+import { convertUnits } from './kevo-unit-convert';
+import { ONLINE_LOOKUPS_OFF } from './kevo-online';
+import { wikipediaSummary } from './kevo-wikipedia';
+import { lookupWord, formatDefinition } from './kevo-dictionary';
+import { currencyCode, convertCurrency, formatConversion } from './kevo-currency';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
   createReminder,
@@ -82,6 +88,15 @@ export interface KevoActionDefinition<TArgs = any> {
   description: string;
   parameters: JSONSchemaObject;
   execute: (args: TArgs, context: JarvisActionContext) => Promise<Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string }>;
+}
+
+/** What an online lookup says while the owner has not turned online lookups on. Nothing is sent. */
+function onlineOff(actionName: string): Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string } {
+  return { handled: true, actionName, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
+}
+
+function lookupFailed(actionName: string, speechReply: string): Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string } {
+  return { handled: false, actionName, speechReply, status: 'failure', verified: false, error: speechReply, reason: 'EXECUTION_FAILED' };
 }
 
 export const KEVO_ACTIONS: KevoActionDefinition[] = [
@@ -850,7 +865,7 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         verified: true,
       };
     },
-  },,
+  },
   {
     name: 'convert_units',
     description: 'Converts a value between common units of length, mass or temperature (offline).',
@@ -876,6 +891,80 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
   },
 
+  {
+    name: 'wikipedia_summary',
+    description: 'Gives a short Wikipedia summary of a person, place or topic (online, when online lookups are on).',
+    parameters: {
+      type: 'object',
+      properties: {
+        topic: { type: 'string', description: 'Topic or subject to summarize from Wikipedia' },
+      },
+      required: ['topic'],
+    },
+    execute: async (args: { topic: string }, ctx: JarvisActionContext) => {
+      const topic = (args?.topic || '').trim();
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('wikipedia_summary');
+      try {
+        const found = await wikipediaSummary(topic);
+        if (!found) return { handled: false, actionName: 'wikipedia_summary', speechReply: `Wikipedia has no page for ${topic}.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        return { handled: true, actionName: 'wikipedia_summary', speechReply: found.summary, status: 'success', verified: true, data: found };
+      } catch (err: any) {
+        return lookupFailed('wikipedia_summary', `I could not get the Wikipedia summary: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'define_word',
+    description: 'Says what an English word means, from a free dictionary (online, when online lookups are on).',
+    parameters: {
+      type: 'object',
+      properties: {
+        word: { type: 'string', description: 'The English word to define' },
+      },
+      required: ['word'],
+    },
+    execute: async (args: { word: string }, ctx: JarvisActionContext) => {
+      const word = (args?.word || '').trim();
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('define_word');
+      try {
+        const entry = await lookupWord(word);
+        if (!entry) return { handled: false, actionName: 'define_word', speechReply: `The dictionary has no entry for ${word}.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        return { handled: true, actionName: 'define_word', speechReply: formatDefinition(entry), status: 'success', verified: true, data: entry };
+      } catch (err: any) {
+        return lookupFailed('define_word', `I could not look that word up: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'convert_currency',
+    description: "Converts an amount of money between currencies at today's central bank rate (online, when online lookups are on).",
+    parameters: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', description: 'Amount of money to convert' },
+        from: { type: 'string', description: 'Currency to convert from, a code or name (e.g. USD, euros)' },
+        to: { type: 'string', description: 'Currency to convert to, a code or name (e.g. KES, pounds)' },
+      },
+      required: ['amount', 'from', 'to'],
+    },
+    execute: async (args: { amount: number; from: string; to: string }, ctx: JarvisActionContext) => {
+      const amount = Number(args?.amount);
+      const from = currencyCode(String(args?.from || ''));
+      const to = currencyCode(String(args?.to || ''));
+      if (!Number.isFinite(amount) || amount <= 0 || !from || !to) {
+        return { handled: false, actionName: 'convert_currency', speechReply: 'Say an amount and two currencies, for example convert 100 dollars to euros.', status: 'failure', verified: false, reason: 'INVALID_ARGUMENT' };
+      }
+      if (from === to) return { handled: true, actionName: 'convert_currency', speechReply: `${amount} ${from} is ${amount} ${to}.`, status: 'success', verified: true };
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('convert_currency');
+      try {
+        const conv = await convertCurrency(amount, from, to);
+        if (!conv) return { handled: false, actionName: 'convert_currency', speechReply: `I have no rate from ${from} to ${to}.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        return { handled: true, actionName: 'convert_currency', speechReply: formatConversion(conv), status: 'success', verified: true, data: conv };
+      } catch (err: any) {
+        return lookupFailed('convert_currency', `I could not get the exchange rate: ${err?.message || String(err)}`);
+      }
+    },
+  },
   {
     name: 'audius_search',
     description: 'Searches free music tracks on Audius and returns speech-friendly results.',
@@ -1557,57 +1646,7 @@ export async function executeKevoToolCalls(
 
 /** Parses raw OpenAI-compatible response into KevoAskReply, handling standard tool_calls and inline <tool_call> tags. */
 export function parseKevoAskResponse(response: any): KevoAskReply {
-  const toolCalls: KevoToolCall[] = [
-  {
-    name: 'wikipedia_summary',
-    description: 'Fetches a short summary of a topic from Wikipedia using the free MediaWiki API.',
-    parameters: {
-      type: 'object',
-      properties: {
-        topic: { type: 'string', description: 'Topic or subject to summarize from Wikipedia' },
-      },
-      required: ['topic'],
-    },
-    execute: async (args: { topic: string }, ctx: JarvisActionContext) => {
-      const topic = (args?.topic || '').trim();
-      if (!topic) {
-        return {
-          handled: false,
-          actionName: 'wikipedia_summary',
-          speechReply: 'Which topic would you like a summary of, sir?',
-          status: 'failure',
-          verified: false,
-          reason: 'INVALID_ARGUMENT',
-        };
-      }
-      try {
-        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('No summary found');
-        const data = await res.json();
-        const summary = data.extract || data.description || 'No summary available.';
-        return {
-          handled: true,
-          actionName: 'wikipedia_summary',
-          speechReply: summary.length > 500 ? summary.slice(0, 480) + '…' : summary,
-          status: 'success',
-          verified: true,
-          data: { title: data.title, summary },
-        };
-      } catch (err: any) {
-        return {
-          handled: false,
-          actionName: 'wikipedia_summary',
-          speechReply: `I could not find a Wikipedia summary for ${topic}.`,
-          status: 'failure',
-          verified: false,
-          error: String(err),
-          reason: 'EXECUTION_FAILED',
-        };
-      }
-    },
-  },
-];
+  const toolCalls: KevoToolCall[] = [];
   const choice = response?.choices?.[0]?.message;
   if (!choice) return { text: undefined, tool_calls: [] };
 
