@@ -76,10 +76,11 @@ export const Bridge = {
   systemStats: () => call<Record<string, unknown>>("system_stats"),
   kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),
   kevoHudAnswer: (id: number | string, approved: boolean) => call<void>("kevo_hud_answer", { id, approved }),
-  kevoAsk: (id: number, query: string, history: unknown[], model: string, tools?: unknown[], system?: string) =>
-    call<unknown>("kevo_ask", { id, query, history, model, tools, system }),
+  kevoAsk: (id: number, query: string, history: unknown[], model: string, tools?: unknown[], system?: string, memory?: string) =>
+    call<unknown>("kevo_ask", { id, query, history, model, tools, system, memory }),
   kevoCancel: () => call<void>("kevo_cancel"),
-  kevoPreloadModel: (model?: string) => call<void>("kevo_preload_model", { model }),
+  kevoPreloadModel: (model?: string, tools?: unknown[], system?: string, memory?: string) =>
+    call<void>("kevo_preload_model", { model, tools, system, memory }),
   kevoMemoryRememberFact: (fact: string, category?: string) =>
     call<{ id: string; fact: string; category: string; created_at: number; updated_at: number }>("kevo_memory_remember_fact", { fact, category }),
   kevoMemoryListFacts: (query?: string) =>
