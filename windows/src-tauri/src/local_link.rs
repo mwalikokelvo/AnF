@@ -70,7 +70,7 @@ fn request(stream:&mut TcpStream)->Result<(String,Vec<u8>),String>{
     let mut header=Vec::new();let mut byte=[0];
     while !header.ends_with(b"\r\n\r\n"){if header.len()>=8192{return Err("Header too large".into());}read_until(stream,&mut byte,deadline)?;header.push(byte[0]);}
     let text=std::str::from_utf8(&header).map_err(|_|"Invalid header")?;let mut lines=text.split("\r\n");let first=lines.next().ok_or("Missing request")?.split(' ').collect::<Vec<_>>();
-    if first.len()!=3||first[0]!="POST"||first[2]!="HTTP/1.1"||!matches!(first[1],"/v1/list"|"/v1/pull"|"/v1/sync"|"/v1/ask"){return Err("Invalid request".into());}
+    if first.len()!=3||first[0]!="POST"||first[2]!="HTTP/1.1"||!matches!(first[1],"/v1/list"|"/v1/pull"|"/v1/sync"|"/v1/ask"|"/v1/kevo/state"|"/v1/kevo/command"|"/v1/kevo/approve"){return Err("Invalid request".into());}
     let mut size=None;
     for line in lines.filter(|s|!s.is_empty()){let(k,v)=line.split_once(':').ok_or("Invalid header")?;if k.eq_ignore_ascii_case("transfer-encoding"){return Err("Unsupported encoding".into());}if k.eq_ignore_ascii_case("content-length"){if size.is_some(){return Err("Duplicate length".into());}size=Some(v.trim().parse::<usize>().map_err(|_|"Invalid length")?);}}
     let size=size.ok_or("Missing length")?;if !(28..=LIMIT+28).contains(&size){return Err("Message too large".into());}let mut body=vec![0;size];read_until(stream,&mut body,deadline)?;Ok((first[1].into(),body))
@@ -82,6 +82,9 @@ fn dispatch(path:&str,v:Value,store:&projects::Store)->Result<Value,String>{
         "/v1/list"=>{let list=store.list("")?;if list.len()>200{return Err("Sync supports 200 conversations per session. Export older work first.".into());}Ok(json!({"entries":list,"features":["reading-v1"]}))},
         "/v1/pull"=>Ok(serde_json::to_value(sync_data::snapshot(store.load(v["id"].as_str().ok_or("Missing ID")?)?,documents)).map_err(|e|e.to_string())?),
         "/v1/sync"=>{let p:projects::Project=serde_json::from_value(v["project"].clone()).map_err(|_|"Invalid project")?;if documents&&v["readerVersion"].as_u64()!=Some(1)&&(p.sources.iter().any(|s|s.reading.is_some())||store.load(&p.id).ok().is_some_and(|old|old.sources.iter().any(|s|s.reading.is_some()))){return Err("Update both devices before syncing documents with reading notes.".into());}Ok(serde_json::to_value(store.merge_sync(p,v["base"].as_str(),documents)?).map_err(|e|e.to_string())?)},
+        "/v1/kevo/state"=>Ok(json!({"state":"idle","line":"Kevo Online","badge":"Local Wi-Fi","level":0.0})),
+        "/v1/kevo/command"=>{let query=v["query"].as_str().unwrap_or("");Ok(json!({"ok":true,"received":query}))},
+        "/v1/kevo/approve"=>{let id=v["id"].as_str().unwrap_or("");let approved=v["approved"].as_bool().unwrap_or(false);Ok(json!({"ok":true,"id":id,"approved":approved}))},
         _=>Err("Unknown operation".into())
     }
 }
@@ -166,6 +169,22 @@ fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&taur
         let until=std::time::Instant::now()+Duration::from_secs(30);let mut count=0;
         while count<4&&std::time::Instant::now()<until{match listener.accept(){Ok((stream,_))=>{let _=serve(stream,&session,&db,None);count+=1;},Err(_)=>std::thread::sleep(Duration::from_millis(20))}}
         if count!=4{let _=child.kill();panic!("Java did not complete requests");}assert!(child.wait().unwrap().success());
+    }
+    #[test]
+    fn kevo_companion_rpc_routes() {
+        let store = projects::Store::default();
+        let state = dispatch("/v1/kevo/state", json!({}), &store).unwrap();
+        assert_eq!(state["state"], "idle");
+        assert_eq!(state["line"], "Kevo Online");
+
+        let cmd = dispatch("/v1/kevo/command", json!({"query": "show me notes"}), &store).unwrap();
+        assert_eq!(cmd["ok"], true);
+        assert_eq!(cmd["received"], "show me notes");
+
+        let approve = dispatch("/v1/kevo/approve", json!({"id": "action-123", "approved": true}), &store).unwrap();
+        assert_eq!(approve["ok"], true);
+        assert_eq!(approve["id"], "action-123");
+        assert_eq!(approve["approved"], true);
     }
 }
 
