@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { JarvisExecutive } from '../src/workspace/jarvis/jarvis-executive';
+import { JarvisExecutive, isRealWorkspaceDataOnly, setRealWorkspaceDataOnly } from '../src/workspace/jarvis/jarvis-executive';
+import { createWorkspaceTeamCard } from '../src/workspace/jarvis/jarvis-command-desk';
+import { DEFAULT_SETTINGS } from '../src/core/state';
+import { JARVIS_VOICE_PACK } from '../src/workspace/jarvis/voice/jarvis-voice-pack';
 
 describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metrics', () => {
   it('default briefing contains zero hardcoded mock metrics', async () => {
@@ -115,5 +118,116 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
     assert.ok(revChunk, 'real revenue chunk included');
     assert.ok(revChunk.greeting.includes('$12,000'));
     assert.ok(revChunk.details.some(d => d.includes('15 new customers')));
+  });
+
+  it('Phase 7.2: createWorkspaceTeamCard renders truthful cards with verified local data badges', () => {
+    if (typeof document === 'undefined') {
+      const g = globalThis as any;
+      g.document = {
+        createElement: (tag: string) => ({
+          className: '',
+          innerHTML: '',
+          style: {},
+          setAttribute: () => {},
+        }),
+      };
+    }
+    const card = createWorkspaceTeamCard({
+      title: 'Knowledge',
+      role: 'Vault & Notes',
+      badge: '✓ Verified Local Data',
+      metrics: [
+        { label: 'Notes', value: '42' },
+        { label: 'Index', value: 'BM25' },
+      ],
+    });
+    assert.ok(card);
+    assert.ok(card.innerHTML.includes('Knowledge'));
+    assert.ok(card.innerHTML.includes('42'));
+    assert.ok(card.innerHTML.includes('Verified Local Data'));
+  });
+
+  describe('Phase 7.4: Settings & Owner Voice Selection Controls', () => {
+    it('isRealWorkspaceDataOnly toggles cleanly and persists via setter', () => {
+      const initial = isRealWorkspaceDataOnly();
+      setRealWorkspaceDataOnly(true);
+      assert.strictEqual(isRealWorkspaceDataOnly(), true);
+      setRealWorkspaceDataOnly(false);
+      assert.strictEqual(isRealWorkspaceDataOnly(), false);
+      setRealWorkspaceDataOnly(initial); // restore
+    });
+
+    it('briefing with realDataOnly: true excludes external business telemetry even if non-demo', async () => {
+      const exec = new JarvisExecutive();
+      const briefing = await exec.generateBriefing({ realDataOnly: true }, {
+        vault: { totalNotes: 10 },
+        revenue: { mrr: 5_000_000, newCustomers7d: 500, activeSubscribers: 10000, isDemo: false },
+        ads: { totalSpend: 50000, roas: 2.0, activeCampaigns: 2, isDemo: false },
+      });
+
+      const names = briefing.chunks.map(c => c.agentName);
+      assert.ok(names.includes('Knowledge (Vault)'));
+      assert.ok(!names.includes('Revenue'), 'revenue chunk suppressed in real-data-only mode');
+      assert.ok(!names.includes('Ads'), 'ads chunk suppressed in real-data-only mode');
+    });
+
+    it('DEFAULT_SETTINGS contains owner voice preferences and real-data-only defaults', () => {
+      assert.strictEqual(DEFAULT_SETTINGS.kevoVoiceId, 'kelvin-mwamburi');
+      assert.strictEqual(DEFAULT_SETTINGS.kevoRealWorkspaceDataOnly, true);
+      assert.strictEqual(DEFAULT_SETTINGS.kevoOnlineVoices, true);
+      assert.ok(JARVIS_VOICE_PACK.some(v => v.id === DEFAULT_SETTINGS.kevoVoiceId));
+    });
+  });
+
+  describe('Phase 7.5: Automated Verification & Integrity Test Suite', () => {
+    it('omits missing data sources cleanly without throwing errors', async () => {
+      const exec = new JarvisExecutive();
+      // Pass empty agent data
+      const b1 = await exec.generateBriefing({}, {});
+      assert.ok(b1);
+      assert.strictEqual(typeof b1.fullText, 'string');
+      assert.ok(!b1.fullText.includes('undefined'));
+      assert.ok(!b1.fullText.includes('NaN'));
+
+      // Pass completely undefined
+      const b2 = await exec.generateBriefing();
+      assert.ok(b2);
+      assert.ok(!b2.fullText.includes('undefined'));
+      assert.ok(!b2.fullText.includes('NaN'));
+    });
+
+    it('enforces zero mock numbers across all option combinations', async () => {
+      const exec = new JarvisExecutive();
+      const optionPermutations = [
+        { includeVault: false },
+        { includeReading: false },
+        { includeSchedule: false },
+        { includeSystem: false },
+        { includeVault: true, includeReading: true, includeSchedule: true, includeSystem: true },
+        { realDataOnly: true },
+        { realDataOnly: false },
+      ];
+
+      for (const opts of optionPermutations) {
+        const b = await exec.generateBriefing(opts);
+        assert.strictEqual(b.fullText.includes('$30,000'), false, 'no fake MRR');
+        assert.strictEqual(b.fullText.includes('2459'), false, 'no fake subscriber delta');
+        assert.strictEqual(b.fullText.includes('18,740'), false, 'no fake total subscribers');
+        assert.strictEqual(b.fullText.includes('$475'), false, 'no fake ad spend');
+        assert.strictEqual(b.fullText.includes('513 tests'), false, 'no fake tests passing');
+        assert.strictEqual(b.fullText.includes('24,500'), false, 'no fake reach');
+      }
+    });
+
+    it('summary line concisely aggregates active chunks only', async () => {
+      const exec = new JarvisExecutive();
+      const b = await exec.generateBriefing({ includeSchedule: false, includeSystem: false }, {
+        vault: { totalNotes: 15 },
+        reading: { pendingItems: 3 },
+      });
+      assert.ok(b.summary.includes('Vault: 15'));
+      assert.ok(b.summary.includes('Reading: 3'));
+      assert.ok(!b.summary.includes('Reminders:'));
+    });
   });
 });
