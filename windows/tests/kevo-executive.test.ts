@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JarvisExecutive } from '../src/workspace/jarvis/jarvis-executive';
+import { createWorkspaceTeamCard } from '../src/workspace/jarvis/jarvis-command-desk';
 
 describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metrics', () => {
   it('default briefing contains zero hardcoded mock metrics', async () => {
@@ -115,5 +116,32 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
     assert.ok(revChunk, 'real revenue chunk included');
     assert.ok(revChunk.greeting.includes('$12,000'));
     assert.ok(revChunk.details.some(d => d.includes('15 new customers')));
+  });
+
+  it('Phase 7.2: createWorkspaceTeamCard renders truthful cards with verified local data badges', () => {
+    if (typeof document === 'undefined') {
+      const g = globalThis as any;
+      g.document = {
+        createElement: (tag: string) => ({
+          className: '',
+          innerHTML: '',
+          style: {},
+          setAttribute: () => {},
+        }),
+      };
+    }
+    const card = createWorkspaceTeamCard({
+      title: 'Knowledge',
+      role: 'Vault & Notes',
+      badge: '✓ Verified Local Data',
+      metrics: [
+        { label: 'Notes', value: '42' },
+        { label: 'Index', value: 'BM25' },
+      ],
+    });
+    assert.ok(card);
+    assert.ok(card.innerHTML.includes('Knowledge'));
+    assert.ok(card.innerHTML.includes('42'));
+    assert.ok(card.innerHTML.includes('Verified Local Data'));
   });
 });
