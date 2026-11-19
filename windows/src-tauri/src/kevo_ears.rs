@@ -335,39 +335,41 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
     /// The echo canceller drains this to subtract Kevo's own speech from the
     /// microphone signal (Step 1.6: push, not polling).
     pub struct RefRing {
-        buf: Vec<f32>,
-        write: usize,
-        read: usize,
+        queue: std::collections::VecDeque<f32>,
     }
 
     impl RefRing {
         pub fn new(capacity: usize) -> Self {
-            Self { buf: vec![0.0; capacity], write: 0, read: 0 }
+            Self {
+                queue: std::collections::VecDeque::with_capacity(capacity),
+            }
         }
-        /// Push TTS playback samples into the ring. Oldest unread samples
-        /// are silently dropped when the ring is full (the echo canceller
-        /// consumed them too slowly, which only costs a brief echo blip).
+
+        /// Push TTS playback samples into the ring buffer, sizing to the clip.
+        /// Unread samples are never overwritten and pop() never reads stale data.
         pub fn push(&mut self, samples: &[f32]) {
-            let len = self.buf.len();
-            if len == 0 {
-                return;
-            }
-            for &s in samples {
-                let idx = self.write % len;
-                self.buf[idx] = s;
-                self.write += 1;
-            }
+            self.queue.reserve(samples.len());
+            self.queue.extend(samples.iter().copied());
         }
+
         /// Pop the next reference sample, or 0.0 when no TTS audio is queued.
         pub fn pop(&mut self) -> f32 {
-            if self.read >= self.write {
-                return 0.0;
-            }
-            let len = self.buf.len();
-            let idx = self.read % len;
-            let s = self.buf[idx];
-            self.read += 1;
-            s
+            self.queue.pop_front().unwrap_or(0.0)
+        }
+
+        /// Clear unread samples when playback stops or microphone un-mutes.
+        pub fn clear(&mut self) {
+            self.queue.clear();
+        }
+
+        #[allow(dead_code)]
+        pub fn len(&self) -> usize {
+            self.queue.len()
+        }
+
+        #[allow(dead_code)]
+        pub fn is_empty(&self) -> bool {
+            self.queue.is_empty()
         }
     }
 
@@ -426,6 +428,23 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
         if let Some(handle) = state.as_ref() {
             handle.muted.store(muted, Ordering::Relaxed);
+            if !muted {
+                if let Ok(mut ring) = handle.ref_ring.lock() {
+                    ring.clear();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Clear all queued reference samples.
+    #[tauri::command]
+    pub fn kevo_ears_clear_reference() -> Result<(), String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            if let Ok(mut ring) = handle.ref_ring.lock() {
+                ring.clear();
+            }
         }
         Ok(())
     }
@@ -747,6 +766,11 @@ mod stubs {
 
     #[tauri::command]
     pub fn kevo_ears_push_reference(_samples: Vec<f32>) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_clear_reference() -> Result<(), String> {
         Ok(())
     }
 
@@ -1126,5 +1150,44 @@ mod tests {
 
         assert!(!wake_detected, "Kevo's own voice woke Kevo!");
         assert!(!speech_detected, "Kevo's own voice triggered VAD stop!");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn ref_ring_handles_pushes_longer_than_2s_without_overwriting_unread_samples() {
+        // A push longer than 2s (e.g. 48,000 samples = 3s @ 16 kHz) sizes to the
+        // clip so unread samples are never overwritten and pop() reads all samples
+        // in order without stale data (Item 4).
+        let mut ring = RefRing::new(32_000);
+        let samples: Vec<f32> = (0..48_000).map(|i| i as f32).collect();
+        ring.push(&samples);
+        assert_eq!(ring.len(), 48_000);
+
+        for i in 0..48_000 {
+            let s = ring.pop();
+            assert_eq!(s, i as f32, "sample at {i} must match pushed value");
+        }
+        assert_eq!(ring.pop(), 0.0);
+        assert!(ring.is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn ref_ring_chunked_streaming_and_clear() {
+        let mut ring = RefRing::new(1024);
+        let chunk1: Vec<f32> = vec![1.0; 512];
+        let chunk2: Vec<f32> = vec![2.0; 512];
+        ring.push(&chunk1);
+        ring.push(&chunk2);
+        assert_eq!(ring.len(), 1024);
+
+        for _ in 0..512 {
+            assert_eq!(ring.pop(), 1.0);
+        }
+        assert_eq!(ring.len(), 512);
+
+        ring.clear();
+        assert_eq!(ring.len(), 0);
+        assert_eq!(ring.pop(), 0.0);
     }
 }

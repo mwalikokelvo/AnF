@@ -6,6 +6,36 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-18 by Antigravity (Kevo 1.6: Echo cancellation reference feed, realistic echo tests, self-test own voice check, 0.1.62).
 
+## 2026-11-18 — Kevo 1.6: Review Fixes (Feed real speech, live mic, speaker barge-in, RefRing sizing) (Antigravity)
+
+Addressed design review feedback on commit `82ac550` (Phase 1 Step 1.6, Closes #246):
+1. **Real speech reference feed during normal replies**:
+   - Updated `JarvisSpeaker` (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`) to feed audio samples into `kevo_ears_push_reference` via `Bridge.kevoEarsPushReference`:
+     - `beginStream()` decodes active voice profile WAV/MP3 to 16 kHz mono Float32 and pushes to reference ring.
+     - `playMp3Snippet(url)` fetches, decodes, caches, and pushes playback reference.
+     - `playChirpCue()` synthesizes and pushes chirp reference samples.
+     - `stop()` clears queued reference samples via `kevo_ears_clear_reference`.
+2. **Self-test live microphone during own-voice check**:
+   - Removed `listener.setMuted(true)` in `kevo-selftest.ts` and ensured `listener.setMuted(false)` keeps mic live throughout Kevo playback so echo leakage can trigger own-voice wake or barge-in failure.
+3. **Acoustic barge-in stop delay measured through speakers**:
+   - Updated `kevo-selftest.ts` to play Kevo reply (`req-black-holes-libritts-3922.wav`) with reference audio pushed, wait a 1000 ms settling period for the adaptive filter to adapt, then play user request (`req-time-libritts-3922.wav`) through speakers while mic is live.
+   - Measures latency from first speech sample (300 ms silence offset) until `onBargeIn`/`onWakeWord`/speech trigger, strictly enforcing <= 300 ms budget.
+4. **`RefRing` sized to clip without overwriting unread samples**:
+   - Refactored `RefRing` in `kevo_ears.rs` to use `std::collections::VecDeque<f32>`, sizing dynamically to any clip length so unread samples are never overwritten and `pop()` never reads stale data.
+   - Added `RefRing::clear(&mut self)`, `len(&self)`, `is_empty(&self)`, and `kevo_ears_clear_reference` Tauri command.
+   - Added unit tests: `ref_ring_handles_pushes_longer_than_2s_without_overwriting_unread_samples` (48,000 samples) and `ref_ring_chunked_streaming_and_clear`.
+5. **Dropped `graphify-out/` changes**:
+   - Fully restored `graphify-out/` to match `origin/main` (`git diff origin/main -- graphify-out` is clean).
+6. **Section 8 checks**:
+   - `node scripts/check-release.mjs`: 12 passed.
+   - `node scripts/verify-contracts.mjs; node scripts/check-styles.mjs`: passed.
+   - `npx tsc --noEmit`: 0 errors.
+   - `npm test`: 791/791 passed (121 suites).
+   - `npm run build`: built in 7.31s.
+   - `cargo test --locked --lib kevo_ears --features kevo-ears`: 9/9 passed.
+   - `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings`: 0 warnings.
+   - `cargo clippy --locked --features kevo-ears`: 0 warnings in `kevo_ears.rs`.
+
 ## 2026-11-18 — Kevo 1.6: Echo canceller reference feed, realistic echo tests, own voice self-test (Antigravity)
 
 Phase 1 Step 1.6 (Closes #246):

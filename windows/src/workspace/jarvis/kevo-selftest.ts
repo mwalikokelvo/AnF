@@ -760,7 +760,8 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
           }
         } catch {}
 
-        listener.setMuted(true);
+        // Microphone must be live and unmuted during playback (Review 1.6 Item 2)
+        listener.setMuted(false);
         await play(replyClip);
         await sleep(200);
 
@@ -768,7 +769,7 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
       } finally {
         listener.onWakeWord = prevWake;
         earsListener.onBargeIn = prevBargeIn;
-        listener.setMuted(false);
+        await Bridge.kevoEarsClearReference?.();
       }
     }
 
@@ -782,23 +783,112 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.result = 'fail';
   }
 
-  // Barge-in check (Phase 1 step 1.6): speaking over Kevo stops playback within 300 ms
-  onProgress?.('Measuring barge-in stop delay...');
+  // Barge-in check (Phase 1 step 1.6): speaking over Kevo stops playback within 300 ms through speakers
+  onProgress?.('Measuring barge-in stop delay through speakers...');
   try {
     if (deps.onBargeInMeasure) {
       report.bargeInStopDelayMs = await deps.onBargeInMeasure();
     } else {
-      const t0 = performance.now();
-      if (deps.speaker && deps.speaker.getIsSpeaking()) {
-        deps.speaker.stop();
+      // Play Kevo speech through speakers with reference pushed to echo canceller.
+      // After settling, play a user request clip over Kevo's speech.
+      // Measure delay from first speech sample in the user clip (after 300 ms initial silence)
+      // until onBargeIn / stop is triggered (Review 1.6 Item 3).
+      const kevoClip = 'req-black-holes-libritts-3922.wav';
+      const userClip = 'req-time-libritts-3922.wav';
+
+      try {
+        const kevoBytes = await Bridge.kevoSelftestReadClip(kevoClip);
+        if (kevoBytes && kevoBytes.length > 44) {
+          const floatSamples = pcm16WavToFloat32(kevoBytes);
+          await Bridge.kevoEarsPushReference(floatSamples);
+        }
+      } catch {}
+
+      let bargeInTriggeredAt: number | null = null;
+      const earsListener = listener as any;
+      const prevBargeIn = earsListener.onBargeIn;
+      const prevWake = listener.onWakeWord;
+      const prevFinal = listener.onFinalSpeech;
+      const prevInterim = (listener as any).onInterimSpeech;
+
+      const triggerBargeIn = () => {
+        if (bargeInTriggeredAt === null) bargeInTriggeredAt = performance.now();
+        deps.speaker?.stop();
+      };
+
+      earsListener.onBargeIn = () => {
+        triggerBargeIn();
+        prevBargeIn?.();
+      };
+      listener.onWakeWord = (w: string) => {
+        triggerBargeIn();
+        prevWake?.(w);
+      };
+      listener.onFinalSpeech = (t: string) => {
+        triggerBargeIn();
+        prevFinal?.(t);
+      };
+      if (prevInterim !== undefined) {
+        (listener as any).onInterimSpeech = (t: string) => {
+          triggerBargeIn();
+          prevInterim?.(t);
+        };
       }
-      report.bargeInStopDelayMs = Math.max(1, Math.round(performance.now() - t0));
+
+      try {
+        // Microphone must be live and unmuted while measuring barge-in
+        listener.setMuted(false);
+
+        // Start Kevo playback through speakers
+        const kevoPlay = play(kevoClip);
+        // Allow settling period (1000 ms) for echo canceller to adapt
+        await sleep(1000);
+
+        // Now speak over Kevo: play user request clip through speakers
+        const startPlayTime = performance.now();
+        // Test clips start with 0.3 s (300 ms) silence before first speech (brief 1.6)
+        const speechStartTime = startPlayTime + 300;
+        const userPlay = play(userClip);
+
+        // Wait for barge-in trigger (or up to 2500 ms)
+        const deadline = performance.now() + 2500;
+        while (bargeInTriggeredAt === null && performance.now() < deadline) {
+          await sleep(20);
+        }
+
+        if (bargeInTriggeredAt !== null) {
+          report.bargeInStopDelayMs =
+            bargeInTriggeredAt >= speechStartTime
+              ? Math.max(1, Math.round(bargeInTriggeredAt - speechStartTime))
+              : Math.max(1, Math.round(bargeInTriggeredAt - startPlayTime));
+        } else {
+          // If barge-in did not fire: measure fallback stop latency
+          const t0 = performance.now();
+          deps.speaker?.stop();
+          report.bargeInStopDelayMs = Math.max(301, Math.round(performance.now() - t0 + 300));
+          report.errors.push('Barge-in did not trigger when speaking over Kevo through speakers.');
+        }
+
+        deps.speaker?.stop();
+        await Bridge.kevoEarsClearReference?.();
+        await Promise.race([kevoPlay, sleep(100)]);
+        await Promise.race([userPlay, sleep(100)]);
+      } finally {
+        earsListener.onBargeIn = prevBargeIn;
+        listener.onWakeWord = prevWake;
+        listener.onFinalSpeech = prevFinal;
+        if (prevInterim !== undefined) {
+          (listener as any).onInterimSpeech = prevInterim;
+        }
+      }
     }
     if (report.bargeInStopDelayMs > 300) {
       report.result = 'fail';
+      report.errors.push(`Barge-in stop delay (${report.bargeInStopDelayMs} ms) exceeded 300 ms budget.`);
     }
   } catch (err) {
     report.errors.push(`Barge-in measure error: ${String(err)}`);
+    report.result = 'fail';
   }
 
   onProgress?.('Saving self-test results...');

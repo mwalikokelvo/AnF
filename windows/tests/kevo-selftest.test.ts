@@ -356,6 +356,8 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.5,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
     });
 
     assert.strictEqual(passReport.wakeClips.total, 20);
@@ -388,6 +390,8 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.2,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
     });
 
     assert.strictEqual(lowWakeReport.wakeClips.wakes, 18);
@@ -411,6 +415,8 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.1,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
     });
 
     assert.strictEqual(highFalseWakeReport.lookalikeClips.falseWakes, 2);
