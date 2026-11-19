@@ -267,6 +267,9 @@ const jarvisActionContext: JarvisActionContext = {
     // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
     weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},
     setWeatherEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-weather-on','1');else localStorage.removeItem('anf-kevo-weather-on');}catch{/* Stays as it was. */}},
+    // Wikipedia, dictionary and currency rates: off until the owner says "turn on online lookups".
+    onlineLookupsEnabled:()=>{try{return localStorage.getItem('anf-kevo-online-on')==='1';}catch{return false;}},
+    setOnlineLookupsEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-online-on','1');else localStorage.removeItem('anf-kevo-online-on');}catch{/* Stays as it was. */}},
     // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
     getWeather:async (place,day)=>{
      const key='anf-kevo-weather-place';

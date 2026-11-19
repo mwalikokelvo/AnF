@@ -6,6 +6,7 @@
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
 import type { KevoActionStatus } from './kevo-actions';
+import { onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
 import {
   createReminder,
   listReminders,
@@ -91,6 +92,10 @@ export interface JarvisActionContext {
   weatherEnabled?: () => boolean;
   /** Turns weather on or off, remembered on this computer. */
   setWeatherEnabled?: (on: boolean) => void;
+  /** Whether the owner turned on online lookups (Wikipedia, dictionary, currency rates) by saying "turn on online lookups". */
+  onlineLookupsEnabled?: () => boolean;
+  /** Turns online lookups on or off, remembered on this computer. */
+  setOnlineLookupsEnabled?: (on: boolean) => void;
   notify?: (msg: string) => void;
   /** Currently pending approval request (H.4b). */
   pendingApproval?: () => PendingApproval | null;
@@ -674,6 +679,13 @@ export class JarvisVoiceAgent {
 
     // Weather (free Open-Meteo, no key): "what's the weather", "weather in Nairobi", "how's the weather in Haubstadt today".
     // Right after "Which city?", a short place name on its own is the answer.
+    const onlineSwitch = parseOnlineLookupsSwitch(lower);
+    if (onlineSwitch !== null && this.context.setOnlineLookupsEnabled) {
+      this.context.setOnlineLookupsEnabled(onlineSwitch);
+      return onlineSwitch
+        ? { handled: true, actionName: 'online_lookups_on', speechReply: 'Online lookups are on. Ask, for example, what does serendipity mean, or convert 100 dollars to shillings.' }
+        : { handled: true, actionName: 'online_lookups_off', speechReply: 'Online lookups are off.' };
+    }
     const weatherSwitch = parseWeatherSwitch(lower);
     if (weatherSwitch !== null && this.context.setWeatherEnabled) {
       this.context.setWeatherEnabled(weatherSwitch);
@@ -1062,22 +1074,13 @@ export function placeReply(text: string): string | undefined {
   return said;
 }
 
-type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 /**
  * Today's weather for a place, as one spoken line, from Open-Meteo (https://open-meteo.com: free, no key).
  * Fahrenheit and mph when `fahrenheit` is set (US English), else Celsius and km/h.
  */
-export async function fetchWeather(place: string, options: { fahrenheit?: boolean; day?: 0 | 1; fetchFn?: FetchLike } = {}): Promise<string> {
-  const plain: FetchLike = (url) => fetch(url, { signal: AbortSignal.timeout(8000) });
-  const send = options.fetchFn ?? plain;
-  const get: FetchLike = async (url) => {
-    try {
-      return await send(url);
-    } catch {
-      throw new Error('the weather service did not answer. Check the internet connection.');
-    }
-  };
+export async function fetchWeather(place: string, options: { fahrenheit?: boolean; day?: 0 | 1; fetchFn?: LookupFetch } = {}): Promise<string> {
+  const get = (url: string) => onlineGet(url, 'the weather service', options.fetchFn);
   const asked = place.trim();
   if (!asked) throw new Error('say which city.');
   const geo = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(asked)}&count=1&language=en&format=json`);
