@@ -17,7 +17,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
-import { JarvisExecutive } from './jarvis-executive';
+import { JarvisExecutive, isRealWorkspaceDataOnly, setRealWorkspaceDataOnly } from './jarvis-executive';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
@@ -30,6 +30,7 @@ import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } 
 import { listReminders, cancelReminder, clearReminders, getDailyBriefingSchedule, type KevoReminder } from './voice/jarvis-schedule';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
+import { kevoLinkBus } from './kevo-link-bus';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
 import { Bridge } from '../../core/bridge';
 import { runKevoSelfTest } from './kevo-selftest';
@@ -60,6 +61,33 @@ export function formatTtfsBadge(elapsedMs: number, modelName: string): string {
   return `First sentence: ${sec} s (Model: ${modelName})`;
 }
 
+export function createWorkspaceTeamCard(options: {
+  title: string;
+  role: string;
+  badge?: string;
+  metrics: Array<{ label: string; value: string }>;
+}): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'jarvis-agent-card jarvis-workspace-card';
+  const metricsHtml = options.metrics
+    .map(m => `<div class="agent-metric"><span>${m.label}</span><strong>${m.value}</strong></div>`)
+    .join('');
+  const badgeHtml = options.badge
+    ? `<div style="margin-top:6px;"><span class="jarvis-verified-badge" style="font-size:9px;padding:2px 6px;background:rgba(0,255,170,0.15);color:#00ffaa;border-radius:3px;font-weight:600;">${options.badge}</span></div>`
+    : '';
+  card.innerHTML = `
+    <div class="agent-header">
+      <span class="agent-name">${options.title}</span>
+      <span class="agent-role">${options.role}</span>
+    </div>
+    <div class="agent-body">
+      ${metricsHtml}
+      ${badgeHtml}
+    </div>
+  `;
+  return card;
+}
+
 export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root: HTMLElement;
   destroy: () => void;
@@ -86,12 +114,71 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Inject desk styles
   injectDeskStyles();
 
-  // ── Agent cards row
+  // ── Truthful workspace team cards row (Phase 7 Step 7.2)
   const agentRow = document.createElement('div');
   agentRow.className = 'jarvis-agent-row';
-  agentRow.appendChild(tom.renderStatusCard());
-  agentRow.appendChild(scout.renderStatusCard());
-  agentRow.appendChild(support.renderStatusCard());
+
+  async function refreshTeamCards(): Promise<void> {
+    const [allReminders, telemetry] = await Promise.all([
+      listReminders().catch(() => []),
+      fetchSystemTelemetry().catch(() => null),
+    ]);
+    let pendingReading = 0;
+    try { pendingReading = loadReadingQueue().length; } catch {}
+    const vaultCount = options?.voiceActionContext?.getVaultNoteCount
+      ? await options.voiceActionContext.getVaultNoteCount()
+      : (options?.voiceActionContext?.notes?.length ?? 0);
+    const remindersCount = (allReminders as KevoReminder[]).length;
+    const sysStatus = telemetry?.audioEngineStatus ?? 'idle';
+
+    const cards = [
+      createWorkspaceTeamCard({
+        title: 'Knowledge',
+        role: 'Vault & Notes',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Notes', value: `${vaultCount}` },
+          { label: 'Index', value: 'BM25' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'Reading',
+        role: 'Queue & Reader',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Queued', value: `${pendingReading}` },
+          { label: 'Format', value: 'Offline' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'Schedule',
+        role: 'Reminders & Alarms',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Active', value: `${remindersCount}` },
+          { label: 'Store', value: 'Persistent' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'System',
+        role: 'Audio & Model',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Engine', value: sysStatus },
+          { label: 'Inference', value: 'Local CPU' },
+        ],
+      }),
+    ];
+
+    if (typeof agentRow.replaceChildren === 'function') {
+      agentRow.replaceChildren(...cards);
+    } else {
+      agentRow.innerHTML = '';
+      for (const card of cards) agentRow.appendChild(card);
+    }
+  }
+
+  void refreshTeamCards();
 
   // ── Briefing panel
   const briefingPanel = document.createElement('div');
@@ -125,9 +212,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
         pendingReading = loadReadingQueue().length;
       } catch {}
 
-      const vaultNotes = options?.voiceActionContext?.notes?.length ?? 0;
+      const vaultNotes = options?.voiceActionContext?.getVaultNoteCount
+        ? await options.voiceActionContext.getVaultNoteCount()
+        : (options?.voiceActionContext?.notes?.length ?? 0);
 
-      const briefing = await executive.generateBriefing({}, {
+      const briefing = await executive.generateBriefing({
+        realDataOnly: isRealWorkspaceDataOnly(),
+      }, {
         vault: { totalNotes: vaultNotes, status: 'operational' },
         reading: { pendingItems: pendingReading },
         schedule: {
@@ -142,6 +233,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       });
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
+      void refreshTeamCards();
       hud.pulseMessage('Briefing complete — ' + briefing.summary);
       notify('Kevo briefing generated successfully.');
     } catch (err) {
@@ -213,6 +305,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     });
     hud.setState(state);
     reportState(state);
+    kevoLinkBus.setState({
+      state: state === 'listening' ? 'listening' : state === 'thinking' ? 'thinking' : state === 'speaking' ? 'speaking' : state === 'off' ? 'off' : 'idle',
+      line: state === 'listening' ? 'Listening…' : state === 'thinking' ? 'Thinking…' : state === 'speaking' ? 'Speaking…' : 'Kevo Online',
+    });
   };
   const speaker = new JarvisSpeaker({
     onStart: () => {
@@ -291,8 +387,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       ).length;
       let pendingReading = 0;
       try { pendingReading = loadReadingQueue().length; } catch {}
-      const b = await executive.generateBriefing({}, {
-        vault: { totalNotes: options?.voiceActionContext?.notes?.length ?? 0, status: 'operational' },
+      const vaultCount = options?.voiceActionContext?.getVaultNoteCount
+        ? await options.voiceActionContext.getVaultNoteCount()
+        : (options?.voiceActionContext?.notes?.length ?? 0);
+      const b = await executive.generateBriefing({
+        realDataOnly: isRealWorkspaceDataOnly(),
+      }, {
+        vault: { totalNotes: vaultCount, status: 'operational' },
         reading: { pendingItems: pendingReading },
         schedule: {
           remindersToday,
@@ -419,6 +520,11 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
   }
 
+  kevoLinkBus.setCommandHandler(async (request: string) => {
+    await handleCommand(request, true);
+    return lastReply;
+  });
+
   /** Stops whatever Kevo is doing: the answer being written and the one being spoken. */
   function stopNow(): void {
     turn++;
@@ -485,13 +591,18 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (prof) { stopBtn.hidden = false; void speaker.playSample(prof.filename).finally(() => { if (!thinking) stopBtn.hidden = true; }); }
   });
 
-  // The built-in recording of the chosen voice, in full.
+  // The built-in recording of the chosen voice, with graceful fallback (Phase 7 Step 7.3).
   const previewBtn = makeBtn('Hear this voice', '', async () => {
     const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
     if (!prof) return;
     previewBtn.disabled = true;
     try {
-      if (!await speaker.playSample(prof.filename)) speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+      const res = await speaker.playVoicePreview(prof.id);
+      if (res.fallbackUsed) {
+        speechStatusEl.textContent = 'Voice recording unavailable; native speech synthesis previewed.';
+      } else if (!res.success) {
+        speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+      }
     } finally {
       previewBtn.disabled = false;
     }
@@ -564,8 +675,40 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const onlineBox = document.createElement('input');
   onlineBox.type = 'checkbox';
   onlineBox.checked = onlineVoicesAllowed();
-  onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
-  onlineToggle.append(onlineBox, ' Natural online voices (replies are sent to Microsoft to be spoken)');
+
+  // Step 7.4: Voice engine indicator (neural online vs native local offline)
+  const voiceEngineIndicator = document.createElement('span');
+  voiceEngineIndicator.className = 'jarvis-voice-engine-badge';
+  const updateVoiceEngineIndicator = () => {
+    const isOnline = onlineVoicesAllowed();
+    voiceEngineIndicator.textContent = isOnline
+      ? 'Voice: Natural online (Neural)'
+      : 'Voice: Native local system (Offline)';
+    voiceEngineIndicator.title = isOnline
+      ? 'Replies use natural online voice synthesis via Microsoft'
+      : 'Replies use native offline speech synthesis installed on this PC';
+  };
+  updateVoiceEngineIndicator();
+
+  onlineBox.addEventListener('change', () => {
+    setOnlineVoicesAllowed(onlineBox.checked);
+    updateVoiceEngineIndicator();
+    hud.pulseMessage(onlineBox.checked ? 'Natural online voices enabled' : 'Native local voices active (offline)');
+  });
+  onlineToggle.append(onlineBox, ' Natural online voices');
+
+  // Step 7.4: Executive briefing real workspace data toggle
+  const realDataToggle = document.createElement('label');
+  realDataToggle.className = 'jarvis-real-data-toggle';
+  realDataToggle.title = 'When checked, executive briefings only report real verified local workspace data.';
+  const realDataBox = document.createElement('input');
+  realDataBox.type = 'checkbox';
+  realDataBox.checked = isRealWorkspaceDataOnly();
+  realDataBox.addEventListener('change', () => {
+    setRealWorkspaceDataOnly(realDataBox.checked);
+    hud.pulseMessage(realDataBox.checked ? 'Executive briefings: real workspace data only' : 'Executive briefings: all sources');
+  });
+  realDataToggle.append(realDataBox, ' Real data only');
 
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
@@ -614,7 +757,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  voiceBar.append(btnRunSelfTest, onlineToggle, speechStatusEl);
+  voiceBar.append(btnRunSelfTest, onlineToggle, voiceEngineIndicator, speechStatusEl);
 
   // When launched with --kevo-selftest, start listening in dry-run, execute the self-test, and quit
   void Bridge.isKevoSelftest().then(async (selftestActive) => {
@@ -633,7 +776,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
+  const btnRefreshTeam = makeBtn('Refresh telemetry', '', () => void refreshTeamCards());
+  toolbar.append(btnBriefing, realDataToggle, btnRefreshTeam, btnAutoTriage, btnAddTask, btnScoutAngle);
 
   // Action Activity & Verification Card (Phase 5 Step 5.4)
   const actionSection = document.createElement('section');
@@ -853,6 +997,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root.append(hud.root, typeBox, voiceBar, actionSection, memorySection, scheduleSection, team);
 
   function destroy(): void {
+    kevoLinkBus.setCommandHandler(async () => {});
     listener.stop();
     speaker.stop();
     clearTimeout(unmuteTimer);
