@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId, getSelectedVoiceProfile } from '../src/workspace/jarvis/voice/jarvis-voice-pack';
-import { JarvisVoiceAgent, parseVolumeRequest, isWeatherRequest, weatherPlace, placeReply, fetchWeather, parseWeatherSwitch, splitRequests, type VolumeRequest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { JarvisVoiceAgent, parseVolumeRequest, isWeatherRequest, weatherPlace, placeReply, fetchWeather, parseWeatherSwitch, splitRequests, parseUnitConversion, convertUnits, type VolumeRequest } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 
 describe('Kevo Voice Pack & Profiles', () => {
@@ -545,5 +545,33 @@ describe('Kevo approval voice answers (H.4b)', () => {
     assert.equal(answeredId, 102);
     assert.equal(answeredApproved, false);
     assert.equal(agent.getPendingApproval(), null);
+  });
+});
+
+describe('Kevo unit conversion', () => {
+  it('converts kilometers to miles', async () => {
+    const agent = new JarvisVoiceAgent({ switchView: () => {} });
+    const res = await agent.processVoiceInput('convert 100 km to miles');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'unit_conversion');
+    assert.ok(res.speechReply.includes('62.14'));
+  });
+
+  it('converts Fahrenheit to Celsius', async () => {
+    const agent = new JarvisVoiceAgent({ switchView: () => {} });
+    const res = await agent.processVoiceInput('what is 32 f to c');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'unit_conversion');
+    assert.ok(res.speechReply.includes('0'));
+  });
+
+  it('parses and converts weight', () => {
+    const parsed = parseUnitConversion('5 kg in pounds');
+    assert.ok(parsed);
+    assert.strictEqual(parsed!.value, 5);
+    assert.strictEqual(parsed!.from, 'kg');
+    assert.strictEqual(parsed!.to, 'lbs');
+    const result = convertUnits(5, 'kg', 'lbs');
+    assert.ok(result && Math.abs(result - 11.02) < 0.1);
   });
 });

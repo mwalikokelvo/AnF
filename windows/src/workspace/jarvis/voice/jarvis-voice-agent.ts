@@ -697,6 +697,16 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Unit conversion (offline, no API): "convert 100 km to miles", "32 f to c", "what's 5 kg in pounds".
+    const conversion = parseUnitConversion(lower);
+    if (conversion) {
+      const result = convertUnits(conversion.value, conversion.from, conversion.to);
+      if (result !== null) {
+        return { handled: true, actionName: 'unit_conversion', speechReply: `${conversion.value} ${conversion.from} is ${result} ${conversion.to}.` };
+      }
+      return { handled: true, actionName: 'unit_conversion_failed', speechReply: 'I could not convert those units. Try length, weight or temperature, for example 100 km to miles.' };
+    }
+
     // Daily Briefing Scheduler (Phase 4 Step 4.3)
     // 1. "schedule daily briefing at 8 AM", "set morning briefing for 8:30"
     const scheduleBriefingMatch = /^(?:please\s+)?(?:schedule|set(?: up)?|turn on|enable)\s+(?:a\s+|the\s+)?(?:daily\s+|morning\s+)?briefing(?:\s+(?:at|for)\s+(.+))?$/i.exec(text.trim());
@@ -1031,6 +1041,51 @@ const WEATHER_REQUEST = new RegExp(`^(?:(?:what'?s|what is|how'?s|how is|check|t
 const MONTHS = /\b(?:january|february|march|april|may|june|july|august|september|october|november|december|next week|this week|weekend)\b/;
 
 /** "what's the weather", "how's the weather in Nairobi", "weather for Haubstadt today". Not "open Weather" (the app), a song, or "what is the difference between weather and climate". */
+
+export function parseUnitConversion(lower: string): { value: number; from: string; to: string } | null {
+  const m = /(?:convert|what(?:'s| is)|how many|how much)?\s*([0-9.]+)\s*(km|kilometers?|miles?|m|meters?|ft|feet|foot|in|inches?|cm|centimeters?|kg|kilograms?|lbs?|pounds?|g|grams?|oz|ounces?|c|celsius|f|fahrenheit)\s*(?:to|in|into)\s*(km|kilometers?|miles?|m|meters?|ft|feet|foot|in|inches?|cm|centimeters?|kg|kilograms?|lbs?|pounds?|g|grams?|oz|ounces?|c|celsius|f|fahrenheit)/i.exec(lower);
+  if (!m) return null;
+  return { value: parseFloat(m[1]), from: normalizeUnit(m[2]), to: normalizeUnit(m[3]) };
+}
+
+function normalizeUnit(u: string): string {
+  const map: Record<string, string> = {
+    km: 'km', kilometer: 'km', kilometers: 'km',
+    mile: 'miles', miles: 'miles',
+    m: 'm', meter: 'm', meters: 'm',
+    ft: 'ft', feet: 'ft', foot: 'ft',
+    in: 'in', inch: 'in', inches: 'in',
+    cm: 'cm', centimeter: 'cm', centimeters: 'cm',
+    kg: 'kg', kilogram: 'kg', kilograms: 'kg',
+    lb: 'lbs', lbs: 'lbs', pound: 'lbs', pounds: 'lbs',
+    g: 'g', gram: 'g', grams: 'g',
+    oz: 'oz', ounce: 'oz', ounces: 'oz',
+    c: 'c', celsius: 'c',
+    f: 'f', fahrenheit: 'f',
+  };
+  return map[u.toLowerCase()] || u.toLowerCase();
+}
+
+export function convertUnits(value: number, from: string, to: string): number | null {
+  if (from === to) return value;
+  // Temperature
+  if (from === 'c' && to === 'f') return Math.round((value * 9/5 + 32) * 10) / 10;
+  if (from === 'f' && to === 'c') return Math.round(((value - 32) * 5/9) * 10) / 10;
+  // Length to meters
+  const toMeters: Record<string, number> = { km: 1000, m: 1, cm: 0.01, ft: 0.3048, in: 0.0254, miles: 1609.34 };
+  const fromMeters: Record<string, number> = { km: 0.001, m: 1, cm: 100, ft: 3.28084, in: 39.3701, miles: 0.000621371 };
+  if (toMeters[from] && fromMeters[to]) {
+    return Math.round(value * toMeters[from] * fromMeters[to] * 100) / 100;
+  }
+  // Weight to grams
+  const toGrams: Record<string, number> = { kg: 1000, g: 1, lbs: 453.592, oz: 28.3495 };
+  const fromGrams: Record<string, number> = { kg: 0.001, g: 1, lbs: 0.00220462, oz: 0.035274 };
+  if (toGrams[from] && fromGrams[to]) {
+    return Math.round(value * toGrams[from] * fromGrams[to] * 100) / 100;
+  }
+  return null;
+}
+
 export function isWeatherRequest(lower: string): boolean {
   const said = withoutPoliteWords(lower.replace(/[\u2018\u2019]/g, "'").replace(/[.!?]+$/, '').trim());
   return WEATHER_REQUEST.test(said) && !MONTHS.test(said);
