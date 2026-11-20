@@ -263,6 +263,7 @@ const jarvisActionContext: JarvisActionContext = {
     pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},
     playMusic:()=>{void musicHub.play();},
     nextTrack:()=>{void musicHub.step(1);},
+    previousTrack:()=>{void musicHub.step(-1);},
     setMusicVolume:change=>musicHub.changeVolume(change),
     // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
     weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},

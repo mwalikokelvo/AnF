@@ -32,6 +32,8 @@ export interface JarvisActionContext {
   playMusic?: () => void;
   pauseMusic?: () => void;
   nextTrack?: () => void;
+  /** Skips to the previous music track. */
+  previousTrack?: () => void;
   /** Changes the Music Hub volume and returns the new level, 0 to 100. */
   setMusicVolume?: (change: VolumeRequest) => number;
   searchMusic?: (query: string) => Promise<boolean>;
@@ -843,6 +845,12 @@ export class JarvisVoiceAgent {
     if (asksFor(lower, /\b(?:next|skip(?: (?:this|the|that))?) (?:song|track)/, /^(?:(?:skip|go|jump|move|switch|play|put on|give me|advance)(?: on| ahead| forward)?(?: to)? )?(?:the )?(?:next|skip(?: (?:this|the|that))?) (?:song|track)\b/)) {
       this.context.nextTrack?.();
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
+    }
+
+    // Previous track: "previous song", "go back a track", "play the last one"
+    if (asksFor(lower, /\b(?:previous|prev|last|back) (?:song|track)/, /^(?:(?:go|jump|move|switch|play|put on|give me)(?: back)?(?: to)? )?(?:the )?(?:previous|prev|last) (?:song|track)\b/)) {
+      this.context.previousTrack?.();
+      return { handled: true, actionName: 'previous_track', speechReply: 'Going back to the previous track, sir.' };
     }
 
     // 3. Places inside AnF. Exact names only, so "open Visual Studio Code" or "open ChatGPT" reach the apps below.
