@@ -194,7 +194,7 @@ function createBenchmarkAgent(memoryStore: Map<string, string>): {
                   fullText += delta.content;
                   if (!firstSentenceEmitted && options?.onPart) {
                     const match = fullText.match(/^([^.!?]+[.!?]+(?:\s+|$))/)
-                      || (fullText.length >= 40 ? fullText.match(/^([^.!?]{40,}[,;:])(?:\s+|$)/) : null);
+                      || fullText.match(/^([^.!?]{40,}?[,;:])\s/);
                     if (match) {
                       firstSentenceEmitted = true;
                       options.onPart(match[1].trim());
