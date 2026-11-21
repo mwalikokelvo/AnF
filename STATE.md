@@ -3,19 +3,19 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-21T22:26:09Z
-phase: 6 merged by owner account through 6.5 (#231-#235) and the Phase 7 brief (#237, 14:15Z) ahead of any PC pass; Phase 7 gate: owner voice decision needed. version still 0.1.60
+lock: 
+phase: owner account merged 7.1 (#239, 02:31Z 19 Nov) and 1.6 (#267, 04:02Z 19 Nov) on main d18c989, version 0.1.62; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
-open_pr: #267 (owner account, agy/kevo-1.6-fix-1, closes #246, Phase 1.6, already bumps 0.1.62) is a Kevo PR the autopilot can merge once gates pass; CI on 0f9c38f still running at 02:27Z; Codex at its usage limit, no review of the head. Owner-account agy/ PRs #239-#244, #247-#254 (Phase 7.1-9.4) open; Phase 7 gate, so autopilot does not merge them. #255/#256/#262-#265 not Kevo
-pc_test: pending 0.1.61 since 2026-11-18T20:50Z (kevo-test-v0.1.61 prerelease published from ebfbcfc, main Windows run 44387868200 green)
-waiting_for: CI on #267 (0f9c38f, pushed 02:04Z); Codex review of #267 head (Codex at usage limit; fallback fresh-subagent review due 2026-11-19T05:04Z, plus the Phase 1 design review). PC self-test result pc-results/selftest-0.1.61.json (24 h notice due 2026-11-19T20:50Z). Owner voice decision for Phase 7 (notified 14:29Z). #266 (owner-account triage list for Antigravity). Autopilot: no merges of Phase 7+ work
+open_pr: #270 (owner account, agy/kevo-clause-boundary-speech, Refs #266, first-clause speech for the 5 s budget): 2b.3 in progress; fresh-subagent review (Codex at limit) found the clause cut fired on every part, fixed + 0.1.63 bump in 8dd3e8b (22:40Z 21 Nov), local gates pass; merge when CI is green on 8dd3e8b. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268/#269 not Kevo
+pc_test: pending 0.1.62 since 2026-11-19T04:02Z (kevo-test-v0.1.62 from d18c989, main Windows run 44455492674 green); no result for 0.1.61 or 0.1.62; 24 h notice sent 2026-11-21T22:4xZ
+waiting_for: CI on #270 8dd3e8b (pushed 22:40Z), then merge it (2b.3). PC self-test result pc-results/selftest-0.1.62.json (the "Kevo PC results" scheduled task is turned off). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
 blocked: 
 last_passed_version: none yet
-owner_needed: none right now (owner turned on: auto self-test switch, Actions read+write, branch protection status checks on main; release immutability unticked to test)
-last_main: ebfbcfc (#245, 0.1.61; Windows green, kevo-test-v0.1.61 published)
-chain: 0
-next_due: 2026-11-19T05:04Z
-quiet_fingerprint: 786a2c9abdc172455eba8181c563faba3a919f437544026491afd89d4b608615
+owner_needed: PC test waiting since 19 Nov: owner asked (21 Nov) to turn the PC on, check the AnF self-test switch, and turn "Kevo PC results" back on
+last_main: d18c989 (#267, 0.1.62; Windows green, kevo-test-v0.1.62 published)
+chain: 1
+next_due: 
+quiet_fingerprint: 
 
 ## Run log (newest last, keep 60)
 
@@ -58,3 +58,4 @@ quiet_fingerprint: 786a2c9abdc172455eba8181c563faba3a919f437544026491afd89d4b608
 - 2026-11-18T23:43Z (autopilot, owner-requested): 2b.7 waiting. #239 (agy/kevo-7.1) now has main merged in (b77540b), CI green, interactive Claude review OK; it is Phase 7 work, so the autopilot leaves its merge and the #240-#254 stack to the owner and the interactive session (owner voice gate). main unchanged at ebfbcfc; no PC result for 0.1.61 yet. No notification.
 - 2026-11-19T00:26Z (autopilot): 2b.7 waiting. New since last run: owner told Antigravity to start #246 (1.6 fix) now, and #266 (triage list for Antigravity, team:any) opened; neither is team:claude, both already handed out. No PC result for 0.1.61 yet; agy/ Phase 7-9 PRs stay unmerged (owner gate). main unchanged at ebfbcfc. No notification.
 - 2026-11-19T02:30Z (autopilot): 2b.7 waiting. New #267 (owner account, agy/kevo-1.6-fix-1, closes #246): CI on 0f9c38f still running, Codex hit its usage limit and has not reviewed the head; fallback subagent review (and Phase 1 design review) due 05:04Z if Codex still has not reviewed. main unchanged at ebfbcfc; no PC result for 0.1.61 yet. No notification.
+- 2026-11-21T22:42Z (autopilot): no runs since 19 Nov 02:30Z. main moved ebfbcfc -> d18c989 (owner account merged #239 7.1 and #267 1.6, 0.1.62; Windows green, kevo-test-v0.1.62 published). 2b.3 on #270 (Refs #266): Codex at limit, fresh-subagent review found the clause cut fired on every part (choppy speech); fixed in 8dd3e8b with a streamed test (red before) + perf-test regex aligned + 0.1.63 bump; check-release 12, contracts, styles, tsc, npm test 799, build, cargo test --lib 191 pass. Merge waits for CI. Sent the 24 h PC-result notice (no result for 0.1.61/0.1.62; "Kevo PC results" task is off).
