@@ -27,6 +27,7 @@
  * - tell_time: report current time
  * - tell_date: report today's date
  * - audius_search: search music on Audius
+ * - weather: get current weather for a location via Open-Meteo
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
@@ -848,6 +849,73 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         status: 'success',
         verified: true,
       };
+    },
+  },
+  {
+    name: 'weather',
+    description: 'Gets the current weather for a location using free Open-Meteo API (no key required).',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'City or place name, e.g. London or New York' },
+      },
+      required: ['location'],
+    },
+    execute: async (args: { location: string }, _ctx: JarvisActionContext) => {
+      const loc = (args?.location || '').trim();
+      if (!loc) {
+        return {
+          handled: false,
+          actionName: 'weather',
+          speechReply: 'Which location would you like the weather for, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
+      }
+      try {
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(loc)}&count=1`);
+        if (!geoRes.ok) throw new Error('Geocoding failed');
+        const geo = await geoRes.json();
+        if (!geo.results || !geo.results.length) {
+          return {
+            handled: false,
+            actionName: 'weather',
+            speechReply: `I could not find a location called ${loc}, sir.`,
+            status: 'failure',
+            verified: false,
+            reason: 'NOT_FOUND',
+          };
+        }
+        const place = geo.results[0];
+        const wxRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`);
+        if (!wxRes.ok) throw new Error('Forecast failed');
+        const wx = await wxRes.json();
+        const temp = wx.current?.temperature_2m;
+        const hum = wx.current?.relative_humidity_2m;
+        const wind = wx.current?.wind_speed_10m;
+        const code = wx.current?.weather_code;
+        const desc = code === 0 ? 'clear' : code < 50 ? 'partly cloudy' : code < 70 ? 'rainy' : code < 80 ? 'snowy' : 'stormy';
+        const reply = `The weather in ${place.name} is ${temp} degrees Celsius, ${desc}, humidity ${hum} percent, wind ${wind} kilometers per hour, sir. Data from Open-Meteo.`;
+        return {
+          handled: true,
+          actionName: 'weather',
+          speechReply: reply,
+          status: 'success',
+          verified: true,
+          verificationDetails: `Fetched weather for ${place.name}`,
+        };
+      } catch (err: any) {
+        return {
+          handled: false,
+          actionName: 'weather',
+          speechReply: `Could not fetch the weather for ${loc}: ${err.message || err}`,
+          status: 'failure',
+          verified: false,
+          error: String(err),
+          reason: 'EXECUTION_FAILED',
+        };
+      }
     },
   },
   {
