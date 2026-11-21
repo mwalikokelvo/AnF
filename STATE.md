@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-21T22:42Z
 phase: owner account merged 7.1 (#239, 02:31Z 19 Nov) and 1.6 (#267, 04:02Z 19 Nov) on main d18c989, version 0.1.62; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: #270 (owner account, agy/kevo-clause-boundary-speech, Refs #266, first-clause speech for the 5 s budget): 2b.3 in progress; fresh-subagent review (Codex at limit) found the clause cut fired on every part, fixed + 0.1.63 bump in 8dd3e8b (22:40Z 21 Nov), local gates pass; merge when CI is green on 8dd3e8b. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268/#269 not Kevo
