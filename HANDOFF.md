@@ -1664,3 +1664,10 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Cause of the 50 s "first sentence" failures: prefill, not generation or thinking. The ~2,000-token compact prompt + tool list was read from scratch at ~42 tokens/s on the 4-core runner: once on the suite's first question (nothing had warmed that prefix), and again after every `remember`, because facts sat in the system prompt, which the Qwen3 template renders in front of the tool list (checked with `/apply-template`). The second is a real app bug.
 - Fix: facts go in their own system message after the tools (`getKevoMemoryPrompt`, `kevo_messages(.., memory)`, `kevo_ask` `memory`); `kevo_preload_model` now also writes one token over Kevo's prompt (tools, system, memory from `main.ts`), so it sits in the prompt cache before the first question; the perf test sends the app's request body and does the same preload before timing. Content checks accept equivalent correct forms ("9"/"nine", "dense"/"density", "dollar"/"$"). No budget changed, nothing skipped.
 - CI Linux run 44358144145: Test step (incl. new `remembered_facts_follow_the_unchanged_system_prompt`) and Kevo CI gate green, perf suite 13/13. Prefill after the fix: France 22 tokens 0.69 s (was 2,039 tokens 48.7 s), multi-turn turn 2 41 tokens 1.2 s (was 1,997 tokens 47.6 s); the preload itself takes 30.8 s on the runner. Automated tests only; not tried on the PC. Open: a question asked within the preload time right after launch still waits for it.
+
+## 2026-11-20 — Kevo: tell a joke (Grok, branch grok/kevo-joke)
+- Added a quick voice command "tell me a joke" / "joke" that fetches a short joke from the free public icanhazdadjoke.com API (no key) and speaks it.
+- Help text updated to mention the new capability.
+- Test added in windows/tests/jarvis-voice.test.ts (calls the real API; fails gracefully on network issues).
+- One feature, with test. Never pushed to main.
+

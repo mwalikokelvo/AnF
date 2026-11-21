@@ -299,7 +299,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -532,6 +532,19 @@ export class JarvisVoiceAgent {
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
+
+    // Tell a joke (free public API, no key)
+    if (/^(tell me a joke|joke|a joke|make me laugh|say something funny)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
+      try {
+        const res = await fetch('https://icanhazdadjoke.com/', { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error('joke service unavailable');
+        const data = await res.json();
+        const joke = data.joke || 'I could not find a joke right now.';
+        return { handled: true, actionName: 'tell_joke', speechReply: joke, status: 'success', verified: true };
+      } catch {
+        return { handled: true, actionName: 'tell_joke', speechReply: 'Sorry, I could not fetch a joke right now.', status: 'failure', verified: false, reason: 'network or service error' };
+      }
+    }
 
     // Fast path for memory recall (Phase 3 Step 3.3)
     if (/^(what do you (remember|know)( about (me|myself))?|list (your |my )?memories)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {

@@ -547,3 +547,16 @@ describe('Kevo approval voice answers (H.4b)', () => {
     assert.equal(agent.getPendingApproval(), null);
   });
 });
+
+describe('Kevo Joke Feature', () => {
+  it('handles tell me a joke request', async () => {
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+    });
+    // Note: this calls the real public API; in CI it should succeed or fail gracefully
+    const res = await agent.processVoiceInput('tell me a joke');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'tell_joke');
+    assert.ok(res.speechReply && res.speechReply.length > 5);
+  });
+});
