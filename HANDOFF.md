@@ -4,7 +4,16 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 1.6: Echo cancellation reference feed, realistic echo tests, self-test own voice check, 0.1.62).
+Last updated: 2026-11-19 by Claude (Grok's Kevo lookups merged: units, Wikipedia, dictionary, currency).
+
+## 2026-11-19 — Grok's Kevo lookups: units, Wikipedia, dictionary, currency (Claude)
+
+Reviewed and fixed four Grok branches (`grok/kevo-unit-conversion`, `grok/kevo-wikipedia-summary`, `grok/kevo-currency-conversion`, `grok/kevo-dictionary`) on `claude/grok-kevo-lookups`. Their HANDOFF.md deletions were left out.
+- `convert_units` (offline): length, mass, temperature; plurals, British spellings and "degrees" are understood.
+- `wikipedia_summary`, `define_word`, `convert_currency` (Wikipedia REST, dictionaryapi.dev, Frankfurter): one switch, off by default. "turn on online lookups" / "turn off online lookups", stored in localStorage `anf-kevo-online-on`. Hosts added to the CSP `connect-src`.
+- Shared fetch helper `kevo-online.ts` (8 s limit); `fetchWeather` uses it too.
+- Tests moved from jest style to node:test. Desktop only: Android does not load Kevo.
+- Not done: Grok's news headlines and duplicate weather branches (incomplete or redundant).
 
 ## 2026-11-18 — Kevo 1.6: Review Fixes (Feed real speech, live mic, speaker barge-in, RefRing sizing) (Antigravity)
 
