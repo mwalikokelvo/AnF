@@ -1,3 +1,4 @@
+import { convertUnits } from './kevo-unit-convert';
 /**
  * Kevo Actions: Single Source of Truth for Tool Calling and Instant Commands (Phase 2 Step 2.1).
  *
@@ -847,6 +848,30 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         speechReply: `Today is ${date}, sir.`,
         status: 'success',
         verified: true,
+      };
+    },
+  },
+  {
+    name: 'convert_units',
+    description: 'Converts a value between common units of length, mass or temperature (offline).',
+    parameters: {
+      type: 'object',
+      properties: {
+        value: { type: 'number', description: 'Numeric value to convert' },
+        from: { type: 'string', description: 'Source unit (e.g. meters, kg, celsius)' },
+        to: { type: 'string', description: 'Target unit (e.g. feet, pounds, fahrenheit)' },
+      },
+      required: ['value', 'from', 'to'],
+    },
+    execute: async (args: { value: number; from: string; to: string }, _ctx: JarvisActionContext) => {
+      const result = convertUnits(Number(args?.value), args?.from || '', args?.to || '');
+      return {
+        handled: result.ok,
+        actionName: 'convert_units',
+        speechReply: result.speech,
+        status: result.ok ? 'success' : 'failure',
+        verified: result.ok,
+        data: result.ok ? { value: result.value, from: result.from, to: result.to } : undefined,
       };
     },
   },
