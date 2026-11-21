@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-21T23:51Z
 phase: owner account merged 7.1 (#239, 02:31Z 19 Nov) and 1.6 (#267, 04:02Z 19 Nov) on main d18c989, version 0.1.62; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: #270 (owner account, agy/kevo-clause-boundary-speech, Refs #266, first-clause speech for the 5 s budget): 2b.3; fallback reviews done (fresh subagent 22:4xZ, fix 8dd3e8b; second fresh subagent on head 8dd3e8b 22:5xZ: Ship, 2 nice-to-haves only). All CI green on 8dd3e8b (Linux + Windows builds, CodeQL) except "Cursor Security Agent: Security Reviewer" still in_progress (started 22:41Z, >70 min); merge once it finishes clean. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268/#269 not Kevo
