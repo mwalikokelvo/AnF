@@ -299,7 +299,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, convert units, tell the time and date, check the weather, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -383,6 +383,8 @@ export class JarvisVoiceAgent {
 
     const sum = solveArithmetic(lower);
     if (sum) return done('arithmetic', sum);
+    const converted = convertUnits(lower);
+    if (converted) return done('unit_conversion', converted);
 
     return null;
   }
@@ -1147,6 +1149,41 @@ export function solveArithmetic(text: string): string | null {
     value = /plus|\+/.test(op) ? a + b : /minus|-/.test(op) ? a - b : /times|x|\*|multiplied/.test(op) ? a * b : a / b;
   } else return null;
   return `That is ${Number(value.toFixed(4)).toLocaleString('en-US', { maximumFractionDigits: 4 })}.`;
+}
+
+/** Offline unit conversion: "convert 12 inches to centimetres", "5 kg to pounds". Null when not a conversion. */
+export function convertUnits(text: string): string | null {
+  const t = text.toLowerCase().replace(/[?,]/g, '').replace(/^(convert|what is|what's|whats|how much is)\s+/, '').trim();
+  const m = /^(-?\d+(?:\.\d+)?)\s*([a-z]+)\s+(?:to|in|into)\s+([a-z]+)$/.exec(t);
+  if (!m) return null;
+  const value = Number(m[1]);
+  const from = m[2].replace(/s$/, ''); // simple plural strip
+  const to = m[3].replace(/s$/, '');
+  const factors: Record<string, Record<string, number>> = {
+    inch: { centimetre: 2.54, centimeter: 2.54, cm: 2.54, foot: 1/12, metre: 0.0254, meter: 0.0254, m: 0.0254 },
+    centimetre: { inch: 1/2.54, cm: 1, metre: 0.01, meter: 0.01 },
+    centimeter: { inch: 1/2.54, cm: 1, metre: 0.01 },
+    foot: { inch: 12, metre: 0.3048, meter: 0.3048, cm: 30.48 },
+    metre: { foot: 3.28084, inch: 39.3701, cm: 100, kilometre: 0.001 },
+    meter: { foot: 3.28084, inch: 39.3701, cm: 100 },
+    kilometre: { mile: 0.621371, metre: 1000 },
+    kilometer: { mile: 0.621371 },
+    mile: { kilometre: 1.60934, km: 1.60934 },
+    kg: { pound: 2.20462, lb: 2.20462, gram: 1000 },
+    kilogram: { pound: 2.20462, lb: 2.20462 },
+    pound: { kg: 0.453592, kilogram: 0.453592, ounce: 16 },
+    lb: { kg: 0.453592 },
+    gram: { ounce: 0.035274 },
+    ounce: { gram: 28.3495 },
+    celsius: { fahrenheit: (v: number) => v * 9/5 + 32, kelvin: (v: number) => v + 273.15 },
+    fahrenheit: { celsius: (v: number) => (v - 32) * 5/9 },
+  };
+  const map = factors[from];
+  if (!map || !(to in map)) return null;
+  const factor = map[to];
+  const result = typeof factor === 'function' ? factor(value) : value * factor;
+  const rounded = Number(result.toFixed(4));
+  return `${value} ${from}${value === 1 ? '' : 's'} is ${rounded.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${to}${rounded === 1 ? '' : 's'}.`;
 }
 
 /** True when what the microphone heard is (part of) what Kevo itself just said. */
