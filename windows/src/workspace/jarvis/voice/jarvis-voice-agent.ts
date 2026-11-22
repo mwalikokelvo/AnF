@@ -6,8 +6,12 @@
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
 import type { KevoActionStatus } from './kevo-actions';
-import { onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
+import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
 import { fetchJoke, isJokeRequest } from './kevo-joke';
+import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
+import { fetchQuote, isQuoteRequest } from './kevo-quote';
+import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
+import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
   createReminder,
   listReminders,
@@ -262,6 +266,8 @@ export class JarvisVoiceAgent {
   /** The app or thing last talked about, which "open it" refers to. */
   private lastSubject = '';
   private lastSubjectTime = 0;
+  /** The trivia question Kevo just asked, which the next reply may answer. */
+  private trivia: TriviaQuestion | null = null;
 
   private now(): number {
     return this.context.now ? this.context.now() : Date.now();
@@ -307,7 +313,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke or a fact, roll dice, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -537,6 +543,12 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'tell_date', speechReply: speakDate() };
     }
 
+    // Right after a trivia question, a letter, a choice or "I don't know" answers it; anything else is a new request.
+    const pendingTrivia = this.lastAction === 'trivia' ? this.trivia : null;
+    this.trivia = null;
+    const triviaReply = pendingTrivia && answerTrivia(pendingTrivia, text);
+    if (triviaReply) return { handled: true, actionName: 'trivia_answer', speechReply: triviaReply };
+
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
@@ -698,6 +710,31 @@ export class JarvisVoiceAgent {
       return onlineSwitch
         ? { handled: true, actionName: 'online_lookups_on', speechReply: 'Online lookups are on. Ask, for example, what does serendipity mean, or convert 100 dollars to shillings.' }
         : { handled: true, actionName: 'online_lookups_off', speechReply: 'Online lookups are off.' };
+    }
+
+    // Offline fun: dice and facts. Nothing is sent.
+    const dice = parseDiceRequest(lower);
+    if (dice) {
+      const { rolls, reply } = rollDice(dice.count, dice.sides);
+      return { handled: true, actionName: 'roll_dice', speechReply: reply, status: 'success', verified: true, verificationDetails: `Rolled ${rolls.join(', ')} on d${dice.sides}` };
+    }
+    if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
+
+    // Online, behind the online lookups switch: quote of the day (ZenQuotes), trivia (Open Trivia DB), translation (MyMemory).
+    const translate = parseTranslateRequest(lower);
+    const online = translate ? 'translate' : isQuoteRequest(lower) ? 'quote' : isTriviaRequest(lower) ? 'trivia' : '';
+    if (online) {
+      if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: online, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
+      try {
+        if (translate) return { handled: true, actionName: 'translate', speechReply: `In ${translate.language}, ${translate.text} is: ${await translateFromEnglish(translate.text, translate.code)}`, status: 'success', verified: true };
+        if (online === 'quote') return { handled: true, actionName: 'quote', speechReply: await fetchQuote(), status: 'success', verified: true };
+        this.trivia = await fetchTrivia();
+        return { handled: true, actionName: 'trivia', speechReply: askTrivia(this.trivia), status: 'success', verified: true };
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        const what = { translate: 'translate that', quote: 'get the quote of the day', trivia: 'get a trivia question' }[online];
+        return { handled: true, actionName: online, speechReply: `I could not ${what}: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
+      }
     }
     const weatherSwitch = parseWeatherSwitch(lower);
     if (weatherSwitch !== null && this.context.setWeatherEnabled) {

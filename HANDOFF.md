@@ -4,7 +4,15 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (Grok's Kevo previous track and online joke).
+Last updated: 2026-11-22 by Claude (Kevo dice, facts, quote, trivia and translation from Grok's branches).
+
+## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
+
+Rebuilt the useful part of Grok's broken branches on `claude/grok-kevo-extras` (Grok's versions wiped core files or did not build). Nothing taken from them as is.
+- Offline (`kevo-fun.ts`): "roll a die", "roll two dice", "roll a d20", "roll 2d6" (1-10 dice, 2-100 sides); "tell me a fact" picks one of 14 checked facts, never the same twice in a row.
+- Behind the online lookups switch: "translate X to/into LANG" and "how do you say X in LANG" (MyMemory, `kevo-translate.ts`); "quote of the day" (zenquotes.io, `kevo-quote.ts`); "trivia" asks an Open Trivia DB question with four choices and checks the next reply (a letter, the answer or "I give up"; anything else falls through as a normal command). With the switch off nothing is sent. Hosts added to both CSPs.
+- Redundant Grok branches left alone: define-word, kevo-weather-*, unit-conversion variants (main has them), kevo-random-fact and kevo-simple-calculator-enhancement (no commits), voice-assistant-research-summary (docs only), kevo-news-headlines (stub with made-up headlines).
+- Tests: `windows/tests/kevo-fun.test.ts` (fake fetch). Automated tests only; not tried on the PC.
 
 ## 2026-11-22 — Grok's Kevo previous track and joke (Claude)
 
