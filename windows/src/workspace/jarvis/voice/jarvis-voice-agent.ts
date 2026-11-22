@@ -454,6 +454,8 @@ export class JarvisVoiceAgent {
   private async handleOne(text: string, onPart?: (text: string) => void): Promise<ActionResult> {
     this.pruneFollowUpState();
     const result = await this.handle(text, onPart);
+    // Stopped while it was being worked out: whatever was said after Stop owns the follow-up state now.
+    if (result.actionName === 'abandoned') return result;
     const short = text.replace(/[.!?]+$/, '').trim();
     // A short name that was not a command ("Brave browser") is what a following "open it" means.
     if (short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {

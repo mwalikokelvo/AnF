@@ -174,6 +174,28 @@ describe('Kevo trivia', () => {
     }
   });
 
+  it('leaves a question asked after Stop open when the stopped one arrives late', async () => {
+    const real = globalThis.fetch;
+    const releases: ((r: Response) => void)[] = [];
+    globalThis.fetch = (() => new Promise<Response>((r) => { releases.push(r); })) as typeof fetch;
+    try {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const stopped = agent.processVoiceInput('quiz me');
+      await new Promise((r) => setTimeout(r, 10));
+      agent.abandon();
+      const fresh = agent.processVoiceInput('quiz me');
+      await new Promise((r) => setTimeout(r, 10));
+      releases[1](new Response(JSON.stringify(TRIVIA), { status: 200 }));
+      assert.equal((await fresh).actionName, 'trivia');
+      releases[0](new Response(JSON.stringify(TRIVIA), { status: 200 }));
+      assert.equal((await stopped).actionName, 'abandoned');
+      const answered = await agent.processVoiceInput('Nairobi');
+      assert.equal(answered.actionName, 'trivia_answer');
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
   it('keeps the question open when asked to say it again', async () => {
     await withFetch(() => TRIVIA, async () => {
       const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
