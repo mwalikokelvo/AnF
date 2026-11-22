@@ -3,19 +3,19 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-22T10:48Z
+lock: 
 phase: autopilot merged #270 (first-clause speech, Refs #266) at 01:06Z 22 Nov on main 75525ee, version 0.1.63; owner account merged #269 (Grok lookups) 23:11Z 21 Nov; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged; 0.5 fix 1 (#278) built by Antigravity as #282. HUD: H.1-H.6, H.8 merged; H.7 waits for Phase 8. Phase 1: 1.1-1.3 merged (1.4-1.6 merged by owner account 18 Nov); 1.5 fix 1 (#279) built by autopilot as #284. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: #284 (autopilot, claude/kevo-1.5-fix-1, Closes #279: ears download models on first use; draft, @codex review asked 10:5xZ, CI running on fe353d8). #282 (Antigravity, agy/kevo-0.5-fix-1, Fixes #278): CI green, 2 unresolved Codex findings (P1 stop check never plays speech, P2 synthetic turn saved to memory), passed back to the author 10:27Z; takeover allowed from 16:27Z. Owner account merged #280 (Antigravity queue) and #277 (online lookups on). #271 (Phase 7.1 fix, green, Codex not on head) left for the owner gate. #283 grok and #272 have no kevo issue ref. agy/ Phase 7.2-9.4 PRs held (owner gate). #255/#256/#262-#265/#268/#274 not Kevo
 pc_test: failed 0.1.63 (and 0.1.64, same outcome) judged 2026-11-22T06:4xZ: Phase 0 checks 4/5 (stop fails: model gave no reply on an 8 GB PC at 94 % RAM), wake clips 0/20, nothing heard through the speakers; fix rounds #278 (0.5 fix 1) and #279 (1.5 fix 1), team:claude
-waiting_for: CI + Codex review on #284 (Codex fallback: fresh-subagent review from 13:55Z); Antigravity's fix of #282 findings (takeover from 16:27Z); owner voice decision for Phase 7; #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
+waiting_for: CI (build, CodeQL rust) + Codex review (running since 10:47Z) on #284 head fe353d8 (Codex fallback: fresh-subagent review from 13:47Z); Antigravity's fix of #282 findings (takeover from 16:27Z); owner voice decision for Phase 7; #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
 blocked: 
 last_passed_version: none yet
 owner_needed: 
 last_main: 249caca (#277 online lookups on by default, owner account; #280 Antigravity queue; no version bump, 0.1.63 test build still the latest)
-chain: 0
-next_due: 
-quiet_fingerprint: 
+chain: 1
+next_due: 2026-11-22T13:47Z
+quiet_fingerprint: 92489ec619848a8efba92ae9d9918c459cf38d7c4c5242f41318f8646042f2f5
 
 fingerprint_format: sha256 of newline-joined lines: main sha; sorted pc-results/ names; per open PR sorted by number "n head_sha updated_at <sorted check conclusions joined by comma, null for unfinished>"; per open kevo issue "n updated_at"; trailing newline
 
@@ -70,3 +70,4 @@ fingerprint_format: sha256 of newline-joined lines: main sha; sorted pc-results/
 - 2026-11-22T06:27:22Z (autopilot): 2b.7 waiting. main moved cf3b3bd -> f5d5a3e (owner account merged #275 and #276, no version bump, so no new test build). No Kevo PR (#274/#277 refer to no kevo issue); board unchanged (#266 only). No PC result for 0.1.63 yet; 24 h notice due 2026-11-23T01:34Z. No notification.
 - 2026-11-22T06:45Z (autopilot): 2b.4 judged first PC results (pc-results/selftest-0.1.63.json and 0.1.64.json, both run 22 Nov 06:2xZ): FAIL. Phase 0 checks 4/5 (stop: no model reply under memory pressure), wake 0/20, no request clip heard; report version field hard-coded 0.1.58. Opened fix rounds #278 (0.5 fix 1) and #279 (1.5 fix 1), team:claude; owner_needed cleared; notified owner.
 - 2026-11-22T10:58Z (autopilot): 2a passed Codex's 2 findings on #282 (Antigravity, 0.5 fix 1) back to the author. 2b.5 built #279 (1.5 fix 1): root cause nothing ever downloaded the ears models (no caller of kevo_ears_install_models), so kevo_ears_start always failed; now start downloads them on first use and the self-test awaits it and records hearing errors. PR #284 (draft, @codex review asked). tsc, npm test 849, build, check-release 12, contracts, styles, cargo test --lib kevo-ears 211 (fts5 p95 over budget once under load, passes alone), clippy clean.
+- 2026-11-22T10:55Z (autopilot, chained 1): 2b.7 waiting. #284 CI on fe353d8 still running and Codex review running (asked 10:47Z); #282 waits on Antigravity (takeover 16:27Z). Board unchanged (#278 with Antigravity via #282, #279 in #284, #266). No notification.
