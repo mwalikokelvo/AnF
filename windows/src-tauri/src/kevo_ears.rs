@@ -464,11 +464,20 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         Ok(())
     }
 
+    /// One first-use download at a time, so two starts never write the same files.
+    static INSTALLING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
     #[tauri::command]
-    pub fn kevo_ears_start(app: tauri::AppHandle) -> Result<(), String> {
+    pub async fn kevo_ears_start(app: tauri::AppHandle) -> Result<(), String> {
         let dir = models_dir();
-        if !installed(&dir) {
-            return Err("Kevo hearing models are not installed yet".into());
+        // The models are downloaded on first use (phase-1 brief); nothing else ever fetched them (#279).
+        {
+            let _installing = INSTALLING.lock().await;
+            if !installed(&dir) {
+                kevo_ears_install_models(app.clone())
+                    .await
+                    .map_err(|e| format!("Kevo hearing models could not be downloaded: {e}"))?;
+            }
         }
 
         let mut state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;

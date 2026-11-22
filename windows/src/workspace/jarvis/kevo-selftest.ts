@@ -12,7 +12,7 @@
 import { Bridge } from '../../core/bridge';
 import type { JarvisVoiceAgent } from './voice/jarvis-voice-agent';
 import type { JarvisVoiceListener } from './voice/jarvis-voice-listener';
-import type { KevoEarsListener } from './voice/kevo-ears-listener';
+import { KevoEarsListener } from './voice/kevo-ears-listener';
 import type { JarvisSpeaker } from './voice/jarvis-speaker';
 
 export interface SelftestClipExpect {
@@ -549,6 +549,23 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   try {
     await Bridge.kevoPreloadModel?.();
   } catch {}
+
+  // On the PC, hearing must run before any clip plays: its first start downloads the models,
+  // and a failed start is the cause to report instead of empty results (#279).
+  const ears = listener instanceof KevoEarsListener ? listener : null;
+  const prevOnEarsError = ears?.onError;
+  if (ears) {
+    ears.onError = (err) => {
+      report.errors.push(`Hearing: ${err}`);
+      prevOnEarsError?.(err);
+    };
+    try {
+      if (!ears.getListeningState()) ears.start();
+      await Bridge.kevoEarsStart();
+    } catch (err) {
+      report.errors.push(`Hearing could not start: ${String(err)}`);
+    }
+  }
   const modelRoutedLatencies: number[] = [];
 
   for (let i = 0; i < manifest.clips.length; i++) {
@@ -890,6 +907,8 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.errors.push(`Barge-in measure error: ${String(err)}`);
     report.result = 'fail';
   }
+
+  if (ears) ears.onError = prevOnEarsError;
 
   onProgress?.('Saving self-test results...');
   const jsonString = JSON.stringify(report, null, 2);

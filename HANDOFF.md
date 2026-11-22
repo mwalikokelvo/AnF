@@ -6,6 +6,13 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-22 by Claude (online lookups and weather on by default; Kevo dice, facts, quote, trivia and translation from Grok's branches).
 
+## 2026-11-22 — Kevo 1.5 fix 1: Kevo's ears download their models on first use (Claude, autopilot)
+
+Refs #279. On the owner's PC 0 of 20 wake clips woke Kevo because `%LOCALAPPDATA%\Coucou\kevo-ears\models` did not exist: nothing ever called `kevo_ears_install_models`, so `kevo_ears_start` always failed with "models are not installed yet", the microphone was never opened, and the self-test did not record that error.
+- `kevo_ears_start` (Rust) is now async and downloads the pinned models through the existing checked download when they are missing (one download at a time), as the Phase 1 brief says ("downloaded on first use").
+- The self-test awaits the ears start before the first clip plays (so the first run waits for the download) and puts any hearing error in `errors` ("Hearing could not start: ..." or "Hearing: ..."), instead of leaving `heard` empty with no cause.
+- Tested: `npx tsc --noEmit`, the self-test tests (new test red before the change, green after), plus the verifier's full pre-PR checks. Not tested on the PC: whether the speaker-to-microphone path then reaches 19/20 is for the next PC test.
+
 ## 2026-11-22 — Online lookups and weather on by default (Claude)
 
 The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
