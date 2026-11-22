@@ -27,6 +27,7 @@ function mockContext(overrides?: Partial<JarvisActionContext>): JarvisActionCont
     playMusic: () => {},
     pauseMusic: () => {},
     nextTrack: () => {},
+    previousTrack: () => {},
     openApp: async (name) => name,
     openUrl: async () => {},
     searchWeb: async () => {},
@@ -52,6 +53,7 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
       'music_play',
       'music_pause',
       'next_track',
+      'previous_track',
       'timer_set',
       'timer_cancel',
       'take_note',
@@ -608,4 +610,19 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     assert.strictEqual(cancelNotFound.reason, 'NOT_FOUND');
     assert.match(cancelNotFound.speechReply, /could not find a reminder/i);
   });
+
+  it('previous_track invokes context.previousTrack and reports success', async () => {
+    let called = false;
+    const ctx = mockContext({
+      previousTrack: () => { called = true; },
+      dryRun: false,
+    });
+    const result = await executeKevoAction('previous_track', {}, ctx);
+    assert.equal(called, true);
+    assert.equal(result.actionName, 'previous_track');
+    assert.match(String(result.speechReply || ''), /previous track/i);
+    assert.equal(result.status, 'success');
+    assert.equal(result.verified, true);
+  });
+
 });

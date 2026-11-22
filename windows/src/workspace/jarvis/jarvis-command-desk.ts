@@ -17,23 +17,23 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
-import { JarvisExecutive } from './jarvis-executive';
-import { RevenueConnector } from './connectors/revenue-connector';
-import { AdsConnector } from './connectors/ads-connector';
+import { JarvisExecutive, type WorkspaceBriefingData } from './jarvis-executive';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
+import { fetchSystemTelemetry } from './connectors/system-connector';
 import { JarvisVoiceListener, type VoiceListenerOptions } from './voice/jarvis-voice-listener';
 import { KevoEarsListener } from './voice/kevo-ears-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } from './voice/jarvis-memory';
-import { listReminders, cancelReminder, clearReminders, type KevoReminder } from './voice/jarvis-schedule';
+import { listReminders, cancelReminder, clearReminders, getDailyBriefingSchedule, type KevoReminder } from './voice/jarvis-schedule';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
 import { Bridge } from '../../core/bridge';
 import { runKevoSelfTest } from './kevo-selftest';
+import { loadReadingQueue } from '../article-publishing';
 
 export interface JarvisCommandDeskOptions {
   onNotify?: (msg: string) => void;
@@ -41,6 +41,7 @@ export interface JarvisCommandDeskOptions {
   /** Kevo's log on this PC; adds "Save log" and "Open log folder" to the voice bar. */
   log?: KevoLogStore;
   activeModel?: () => string;
+  appVersion?: string;
 }
 
 export function formatModelDisplayName(modelId?: string): string {
@@ -73,8 +74,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Instantiate all subsystems
   const hud = createJarvisHud();
   const executive = new JarvisExecutive();
-  const revenue = new RevenueConnector();
-  const ads = new AdsConnector();
   const tom = new TomDeveloperAgent();
   const scout = new ScoutGrowthAgent();
   const support = new SupportOperationsAgent();
@@ -105,24 +104,50 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const toolbar = document.createElement('div');
   toolbar.className = 'jarvis-toolbar';
 
+  async function collectWorkspaceBriefingData(): Promise<WorkspaceBriefingData> {
+    const [allReminders, dailySched, telemetry] = await Promise.all([
+      listReminders().catch(() => []),
+      getDailyBriefingSchedule().catch(() => null),
+      fetchSystemTelemetry().catch(() => null),
+    ]);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    const remindersToday = (allReminders as KevoReminder[]).filter(
+      (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
+    ).length;
+
+    let pendingReading = 0;
+    try {
+      pendingReading = loadReadingQueue().length;
+    } catch {}
+
+    const notes = options?.voiceActionContext?.notes;
+
+    return {
+      vault: notes != null ? { totalNotes: notes.length, status: 'operational' } : undefined,
+      reading: { pendingItems: pendingReading },
+      schedule: {
+        remindersToday,
+        dailyBriefingScheduled: !!dailySched,
+        dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
+      },
+      system: telemetry != null
+        ? {
+            audioEngineStatus: telemetry.audioEngineStatus,
+            memoryUsedMb: telemetry.memoryUsedMb,
+          }
+        : undefined,
+    };
+  }
+
   const btnBriefing = makeBtn('Morning briefing', 'jarvis-btn-primary', async () => {
     btnBriefing.disabled = true;
     btnBriefing.textContent = 'Writing the briefing…';
     try {
-      const [revenueStats, adsStats, supportBriefing, devBriefing, contentBriefing] = await Promise.all([
-        revenue.getStats(),
-        ads.getStats(),
-        support.generateBriefing(),
-        tom.generateBriefing(),
-        scout.generateBriefing(),
-      ]);
-      const briefing = await executive.generateBriefing({}, {
-        revenue: revenueStats,
-        ads: adsStats,
-        support: { greeting: supportBriefing.greeting, summary: supportBriefing.summary, recommendation: supportBriefing.recommendation },
-        developer: { greeting: devBriefing.greeting, health: devBriefing.health, recommendation: devBriefing.recommendation },
-        content: { greeting: contentBriefing.greeting, metrics: contentBriefing.metrics, recommendation: contentBriefing.recommendation },
-      });
+      const data = await collectWorkspaceBriefingData();
+      const briefing = await executive.generateBriefing({}, data);
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
       hud.pulseMessage('Briefing complete — ' + briefing.summary);
@@ -225,10 +250,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     playMusic: options?.voiceActionContext?.playMusic,
     pauseMusic: options?.voiceActionContext?.pauseMusic,
     nextTrack: options?.voiceActionContext?.nextTrack,
+    previousTrack: options?.voiceActionContext?.previousTrack,
     setMusicVolume: options?.voiceActionContext?.setMusicVolume,
     getWeather: options?.voiceActionContext?.getWeather,
     weatherEnabled: options?.voiceActionContext?.weatherEnabled,
     setWeatherEnabled: options?.voiceActionContext?.setWeatherEnabled,
+    onlineLookupsEnabled: options?.voiceActionContext?.onlineLookupsEnabled,
+    setOnlineLookupsEnabled: options?.voiceActionContext?.setOnlineLookupsEnabled,
     searchMusic: options?.voiceActionContext?.searchMusic,
     searchVault: options?.voiceActionContext?.searchVault,
     openApp: options?.voiceActionContext?.openApp,
@@ -260,7 +288,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     triageSupport: () => support.autoTriage(),
     getBriefing: async () => {
-      const b = await executive.generateBriefing();
+      const data = await collectWorkspaceBriefingData();
+      const b = await executive.generateBriefing({}, data);
       return b.summary;
     },
     notify: (msg) => notify(msg),
@@ -550,6 +579,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       }),
     );
   }
+  const resolveAppVersion = async (): Promise<string | undefined> => {
+    if (options?.appVersion) return options.appVersion;
+    try {
+      const boot = await Bridge.boot();
+      if (boot?.version) return boot.version;
+    } catch {}
+    return undefined;
+  };
+
   // "Run self-test" button on the Kevo screen (Phase 0 step 0.4b)
   const btnRunSelfTest = makeBtn('Run self-test', '', async () => {
     btnRunSelfTest.disabled = true;
@@ -558,7 +596,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = true;
       const report = await runKevoSelfTest({
         agent: voiceAgent,
+        speaker,
+        stop: stopNow,
         listener,
+        appVersion: await resolveAppVersion(),
         onProgress: (step) => { speechStatusEl.textContent = step; },
       });
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = false;
@@ -581,7 +622,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       try {
         await runKevoSelfTest({
           agent: voiceAgent,
+          speaker,
+          stop: stopNow,
           listener,
+          appVersion: await resolveAppVersion(),
           onProgress: (step) => { speechStatusEl.textContent = step; },
         });
       } finally {

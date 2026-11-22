@@ -5,7 +5,62 @@
  * MP3 is missing. Destructive single speaker — no V2 stack.
  */
 
+import { Bridge } from '../../../core/bridge';
 import { getSelectedVoiceProfile, voicePackUrl, type VoiceProfile } from './jarvis-voice-pack';
+
+const audioSampleCache = new Map<string, number[]>();
+
+/** Decodes audio from a URL into 16 kHz mono Float32 samples for the echo canceller. */
+export async function fetchAndDecodeTo16kMono(url: string): Promise<number[]> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const buf = await res.arrayBuffer();
+    const AudioCtx = typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext);
+    if (!AudioCtx) return [];
+    const ctx = new AudioCtx({ sampleRate: 16000 });
+    try {
+      const decoded = await ctx.decodeAudioData(buf);
+      const ch0 = decoded.getChannelData(0);
+      if (decoded.sampleRate === 16000) {
+        return Array.from(ch0);
+      }
+      const ratio = decoded.sampleRate / 16000;
+      const len = Math.floor(ch0.length / ratio);
+      const out = new Array<number>(len);
+      for (let i = 0; i < len; i++) {
+        out[i] = ch0[Math.min(Math.floor(i * ratio), ch0.length - 1)];
+      }
+      return out;
+    } finally {
+      void ctx.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
+/** Generates 420 ms of 16 kHz mono Float32 chirp samples matching playChirpCue. */
+export function generateChirpSamples(): number[] {
+  const sampleRate = 16000;
+  const duration = 0.42;
+  const numSamples = Math.floor(sampleRate * duration);
+  const samples = new Array<number>(numSamples);
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const f = 880 * Math.pow(440 / 880, Math.min(t / 0.35, 1.0));
+    let g = 0.0001;
+    if (t <= 0.04) {
+      g = 0.0001 + (0.18 - 0.0001) * (t / 0.04);
+    } else if (t <= 0.4) {
+      g = 0.18 * Math.exp(-3.0 * (t - 0.04));
+    } else {
+      g = 0.0001;
+    }
+    samples[i] = g * Math.sin(2 * Math.PI * f * t);
+  }
+  return samples;
+}
 
 const STYLE_TONE: Record<string, { rate: number; pitch: number }> = {
   'calm-butler': { rate: 0.95, pitch: 0.95 },
@@ -93,6 +148,10 @@ export interface JarvisSpeakerOptions {
   duckAudio?: (duck: boolean) => void;
   /** Play ~1s identity cue before every reply. Default false: the cue plays on the wake word instead. */
   identityCue?: boolean;
+  /** Push reference audio samples to echo canceller. Defaults to Bridge.kevoEarsPushReference. */
+  onPushReference?: (samples: number[]) => void | Promise<void>;
+  /** Clear reference audio on echo canceller. Defaults to Bridge.kevoEarsClearReference. */
+  onClearReference?: () => void | Promise<void>;
 }
 
 export class JarvisSpeaker {
@@ -102,15 +161,50 @@ export class JarvisSpeaker {
   private onEnd?: () => void;
   private duckAudio?: (duck: boolean) => void;
   private identityCue: boolean;
+  private onPushReference?: (samples: number[]) => void | Promise<void>;
+  private onClearReference?: () => void | Promise<void>;
   private utteranceToken = 0;
   private cue: Promise<void> = Promise.resolve();
   private streamWake: (() => void) | null = null;
+  private soundStartWaiters: (() => void)[] = [];
 
   constructor(options?: JarvisSpeakerOptions) {
     this.onStart = options?.onStart;
     this.onEnd = options?.onEnd;
     this.duckAudio = options?.duckAudio;
     this.identityCue = options?.identityCue === true;
+    this.onPushReference = options?.onPushReference;
+    this.onClearReference = options?.onClearReference;
+  }
+
+  private async pushRef(samples: number[]): Promise<void> {
+    if (!samples || !samples.length) return;
+    try {
+      if (this.onPushReference) {
+        await this.onPushReference(samples);
+      } else if (typeof Bridge !== 'undefined' && Bridge.kevoEarsPushReference) {
+        await Bridge.kevoEarsPushReference(samples);
+      }
+    } catch {
+      /* ignore reference push failure */
+    }
+  }
+
+  private async clearRef(): Promise<void> {
+    try {
+      if (this.onClearReference) {
+        await this.onClearReference();
+      } else if (typeof Bridge !== 'undefined' && Bridge.kevoEarsClearReference) {
+        await Bridge.kevoEarsClearReference();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Resolves when sound actually starts: the speech engine's start event for the next sentence spoken. */
+  whenSoundStarts(): Promise<void> {
+    return new Promise((resolve) => this.soundStartWaiters.push(resolve));
   }
 
   /** Speak a phrase out loud. */
@@ -140,6 +234,22 @@ export class JarvisSpeaker {
       this.duckAudio?.(true);
       this.isSpeaking = true;
       this.onStart?.();
+
+      // Feed Kevo's speech output into echo canceller reference during normal replies (Review 1.6 Item 1)
+      void (async () => {
+        try {
+          const url = voicePackUrl(profile.filename);
+          let samples = audioSampleCache.get(url);
+          if (!samples) {
+            samples = await fetchAndDecodeTo16kMono(url);
+            if (samples.length) audioSampleCache.set(url, samples);
+          }
+          if (samples && samples.length) {
+            await this.pushRef(samples);
+          }
+        } catch {}
+      })();
+
       if (this.identityCue) await this.playIdentityCue(profile.filename);
 
       const canSpeak = 'speechSynthesis' in window;
@@ -165,6 +275,7 @@ export class JarvisSpeaker {
           }
           utterance.rate = tone.rate;
           utterance.pitch = tone.pitch;
+          utterance.onstart = () => { const waiting = this.soundStartWaiters; this.soundStartWaiters = []; for (const w of waiting) w(); };
           utterance.onend = () => resolve();
           utterance.onerror = () => resolve();
           window.speechSynthesis.speak(utterance);
@@ -211,6 +322,21 @@ export class JarvisSpeaker {
         const audio = new Audio(url);
         this.audioEl = audio;
         audio.volume = 0.85;
+
+        // Feed real playback audio into echo canceller reference (Review 1.6 Item 1)
+        void (async () => {
+          try {
+            let samples = audioSampleCache.get(url);
+            if (!samples) {
+              samples = await fetchAndDecodeTo16kMono(url);
+              if (samples.length) audioSampleCache.set(url, samples);
+            }
+            if (samples && samples.length) {
+              await this.pushRef(samples);
+            }
+          } catch {}
+        })();
+
         let settled = false;
         const done = (ok: boolean) => {
           if (settled) return;
@@ -265,6 +391,7 @@ export class JarvisSpeaker {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.42);
+      void this.pushRef(generateChirpSamples());
       await new Promise((r) => setTimeout(r, 450));
       await ctx.close();
     } catch {
@@ -282,6 +409,7 @@ export class JarvisSpeaker {
       this.audioEl.pause();
       this.audioEl = null;
     }
+    void this.clearRef();
     this.finishSpeaking();
   }
 
