@@ -17,7 +17,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
-import { JarvisExecutive } from './jarvis-executive';
+import { JarvisExecutive, type WorkspaceBriefingData } from './jarvis-executive';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
@@ -41,6 +41,7 @@ export interface JarvisCommandDeskOptions {
   /** Kevo's log on this PC; adds "Save log" and "Open log folder" to the voice bar. */
   log?: KevoLogStore;
   activeModel?: () => string;
+  appVersion?: string;
 }
 
 export function formatModelDisplayName(modelId?: string): string {
@@ -103,43 +104,50 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const toolbar = document.createElement('div');
   toolbar.className = 'jarvis-toolbar';
 
+  async function collectWorkspaceBriefingData(): Promise<WorkspaceBriefingData> {
+    const [allReminders, dailySched, telemetry] = await Promise.all([
+      listReminders().catch(() => []),
+      getDailyBriefingSchedule().catch(() => null),
+      fetchSystemTelemetry().catch(() => null),
+    ]);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    const remindersToday = (allReminders as KevoReminder[]).filter(
+      (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
+    ).length;
+
+    let pendingReading = 0;
+    try {
+      pendingReading = loadReadingQueue().length;
+    } catch {}
+
+    const notes = options?.voiceActionContext?.notes;
+
+    return {
+      vault: notes != null ? { totalNotes: notes.length, status: 'operational' } : undefined,
+      reading: { pendingItems: pendingReading },
+      schedule: {
+        remindersToday,
+        dailyBriefingScheduled: !!dailySched,
+        dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
+      },
+      system: telemetry != null
+        ? {
+            audioEngineStatus: telemetry.audioEngineStatus,
+            memoryUsedMb: telemetry.memoryUsedMb,
+          }
+        : undefined,
+    };
+  }
+
   const btnBriefing = makeBtn('Morning briefing', 'jarvis-btn-primary', async () => {
     btnBriefing.disabled = true;
     btnBriefing.textContent = 'Writing the briefing…';
     try {
-      const [allReminders, dailySched, telemetry] = await Promise.all([
-        listReminders().catch(() => []),
-        getDailyBriefingSchedule().catch(() => null),
-        fetchSystemTelemetry().catch(() => null),
-      ]);
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      const remindersToday = (allReminders as KevoReminder[]).filter(
-        (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
-      ).length;
-
-      let pendingReading = 0;
-      try {
-        pendingReading = loadReadingQueue().length;
-      } catch {}
-
-      const vaultNotes = options?.voiceActionContext?.notes?.length ?? 0;
-
-      const briefing = await executive.generateBriefing({}, {
-        vault: { totalNotes: vaultNotes, status: 'operational' },
-        reading: { pendingItems: pendingReading },
-        schedule: {
-          remindersToday,
-          dailyBriefingScheduled: !!dailySched,
-          dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
-        },
-        system: {
-          audioEngineStatus: telemetry?.audioEngineStatus ?? 'idle',
-          memoryUsedMb: telemetry?.memoryUsedMb,
-        },
-      });
+      const data = await collectWorkspaceBriefingData();
+      const briefing = await executive.generateBriefing({}, data);
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
       hud.pulseMessage('Briefing complete — ' + briefing.summary);
@@ -280,33 +288,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     triageSupport: () => support.autoTriage(),
     getBriefing: async () => {
-      const [allReminders, dailySched, telemetry] = await Promise.all([
-        listReminders().catch(() => []),
-        getDailyBriefingSchedule().catch(() => null),
-        fetchSystemTelemetry().catch(() => null),
-      ]);
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      const remindersToday = (allReminders as KevoReminder[]).filter(
-        (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
-      ).length;
-      let pendingReading = 0;
-      try { pendingReading = loadReadingQueue().length; } catch {}
-      const b = await executive.generateBriefing({}, {
-        vault: { totalNotes: options?.voiceActionContext?.notes?.length ?? 0, status: 'operational' },
-        reading: { pendingItems: pendingReading },
-        schedule: {
-          remindersToday,
-          dailyBriefingScheduled: !!dailySched,
-          dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
-        },
-        system: {
-          audioEngineStatus: telemetry?.audioEngineStatus ?? 'idle',
-          memoryUsedMb: telemetry?.memoryUsedMb,
-        },
-      });
+      const data = await collectWorkspaceBriefingData();
+      const b = await executive.generateBriefing({}, data);
       return b.summary;
     },
     notify: (msg) => notify(msg),
@@ -596,6 +579,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       }),
     );
   }
+  const resolveAppVersion = async (): Promise<string | undefined> => {
+    if (options?.appVersion) return options.appVersion;
+    try {
+      const boot = await Bridge.boot();
+      if (boot?.version) return boot.version;
+    } catch {}
+    return undefined;
+  };
+
   // "Run self-test" button on the Kevo screen (Phase 0 step 0.4b)
   const btnRunSelfTest = makeBtn('Run self-test', '', async () => {
     btnRunSelfTest.disabled = true;
@@ -604,7 +596,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = true;
       const report = await runKevoSelfTest({
         agent: voiceAgent,
+        speaker,
+        stop: stopNow,
         listener,
+        appVersion: await resolveAppVersion(),
         onProgress: (step) => { speechStatusEl.textContent = step; },
       });
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = false;
@@ -627,7 +622,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       try {
         await runKevoSelfTest({
           agent: voiceAgent,
+          speaker,
+          stop: stopNow,
           listener,
+          appVersion: await resolveAppVersion(),
           onProgress: (step) => { speechStatusEl.textContent = step; },
         });
       } finally {
