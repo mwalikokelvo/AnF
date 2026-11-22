@@ -4,7 +4,7 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Antigravity (Kevo 0.5 fix 1: Stop check synthetic speech fallback & truthful appVersion in self-test report; Closes #278).
+Last updated: 2026-11-22 by Claude (Kevo 0.5 fix 1 review: the Stop self-test now speaks through the real speaker, #282).
 
 ## 2026-11-22 — Kevo 0.5 fix 1: Stop check speech fallback & report appVersion (Antigravity, branch `agy/kevo-0.5-fix-1`)
 
@@ -13,6 +13,10 @@ Fixes issue #278:
 - Truthful report version: removed hard-coded `'0.1.58'` fallback from `runKevoSelfTest`. `jarvis-command-desk.ts` resolves `appVersion` via `options?.appVersion ?? (await Bridge.boot())?.version` and passes it to `runKevoSelfTest`.
 - Tests: added tests in `windows/tests/kevo-selftest.test.ts` verifying Check 5 passes when the real `askAI` returns empty, that `prevAskAI` is safely restored, and that `report.version` matches `appVersion` without defaulting to `0.1.58`.
 - Checks: `npx tsc --noEmit` (0 errors), `npm test` (850/850 passed across 135 suites), `npm run build` (built in 6.43s), `node scripts/check-release.mjs` (12/12 passed).
+
+## 2026-11-22 — Online lookups and weather on by default (Claude)
+
+The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
 
 ## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
 
@@ -1707,3 +1711,8 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Fix: `take_streamable_sentences` in `windows/src-tauri/src/local_ai.rs` now yields at the first clause boundary (comma, colon, semicolon after about 40 characters) when a sentence runs long without an early sentence ending. Sentences with a period under ~80 characters keep their clean sentence boundary; long sentences or streaming tokens that hit a clause after 40 characters yield immediately to `kevo-reply-part`. `windows/tests/kevo-performance.test.ts` updated to match this clause boundary behavior.
 - Checks: `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings`, `npx tsc --noEmit` clean, `npm test` 796 pass (only pre-existing CalDesk test failing), `node scripts/check-release.mjs` 12 pass, contracts and styles clean. No budget changed.
 - Autopilot review fix (Claude, 2026-11-21, fresh-subagent review since Codex was at its limit): the clause cut fired on every later part too, so a long answer was spoken as several short phrases. `take_streamable_sentences(buffer, first)` now cuts at a clause only for the first part (`kevo_ask` passes "no part sent yet"); later parts stay whole sentences. Dropped the `s > 80` rule (a finished sentence is spoken whole). The perf test's first-part regex now waits for the space after the mark, like the app. New test streams answers token by token, checks only the first part is cut and that "1,000" and "3:30" stay whole. Version 0.1.63 (merge-time bump).
+
+## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
+- Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
+- Deduplication: extracted the 25-line data gathering block across `btnBriefing` and `getBriefing` in `jarvis-command-desk.ts` into a single shared helper `collectWorkspaceBriefingData`.
+- Checks: `npx tsc --noEmit` clean, `tests/kevo-executive.test.ts` (7/7 pass), `tests/jarvis-executive.test.ts` (10/10 pass), `check-release.mjs` (12 pass), contracts and styles clean.
