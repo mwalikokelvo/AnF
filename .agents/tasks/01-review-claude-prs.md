@@ -11,4 +11,4 @@
 2. Check it against `AGENTS.md` section 5 (Ponytail, no telemetry, push not polling, replace in place, shipped views unchanged) and that its checks on GitHub are green.
 3. Post one comment starting `Antigravity review of <head SHA, first 7 characters>:` then `approve` or `changes needed`, then a short list of findings with file and line. Only real problems; no style nitpicks.
 
-**Done when**: each pull request is closed, or has a comment from you starting `Antigravity review of <its current head SHA>`. When the author pushes after your review, the head changes, so you review it again.
+**Done when**: each pull request is closed, or has a comment from you starting `Antigravity review of <first 7 characters of its current head SHA>:`. When the author pushes after your review, the head changes, so you review it again.
