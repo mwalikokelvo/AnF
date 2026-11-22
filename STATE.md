@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-22T16:26Z
+lock: 2026-11-22T20:26Z
 phase: autopilot merged #270 (first-clause speech, Refs #266) at 01:06Z 22 Nov on main 75525ee, version 0.1.63; owner account merged #269 (Grok lookups) 23:11Z 21 Nov; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged; 0.5 fix 1 (#278) built by Antigravity as #282. HUD: H.1-H.6, H.8 merged; H.7 waits for Phase 8. Phase 1: 1.1-1.3 merged (1.4-1.6 merged by owner account 18 Nov); 1.5 fix 1 (#279) built by autopilot as #284. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: #284 (autopilot, claude/kevo-1.5-fix-1, Closes #279: ears download models on first use; draft; Codex clean on 4d6fd4c; Phase 1 design review (fresh subagent) Ship with 1 P2 fixed in d02f119 (talk-over checks ran with the mic off), other findings answered; version 0.1.65 in b976331 (0.1.64 skipped, name taken in pc-results/); @codex review asked 14:5xZ on d02f119, CI running). #282 (Antigravity, agy/kevo-0.5-fix-1, Fixes #278): CI green, 2 unresolved Codex findings passed back 10:27Z, no new commits; takeover allowed from 16:27Z. #271 (Phase 7.1 fix) left for the owner gate. #283 grok and #272 have no kevo issue ref. agy/ Phase 7.2-9.4 PRs held (owner gate). #255/#256/#262-#265/#268/#274 not Kevo
