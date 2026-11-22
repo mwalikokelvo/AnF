@@ -13,7 +13,7 @@ blocked:
 last_passed_version: none yet
 owner_needed: PC test waiting since 19 Nov: owner asked (21 Nov) to turn the PC on, check the AnF self-test switch, and turn "Kevo PC results" back on
 last_main: 75525ee (#270, 0.1.63; Windows run 44969628943 in progress)
-chain: 4
+chain: 5
 next_due: 2026-11-22T02:00Z
 quiet_fingerprint: 83e15672d63f0bd0dc071bf33eb7b687853b17a5c86b6e3a6fd1dacd57630b02
 
@@ -62,3 +62,4 @@ quiet_fingerprint: 83e15672d63f0bd0dc071bf33eb7b687853b17a5c86b6e3a6fd1dacd57630
 - 2026-11-21T23:52Z (autopilot, chained 2): 2b.7 waiting on #270. Second fresh-subagent review of head 8dd3e8b: Ship (nice-to-haves: a token-by-token "1,"+"000" test; pre-existing decimal split at a streamed "3." is outside this PR). All CI green incl. Windows build, but the Cursor Security Reviewer check has been in_progress since 22:41Z, so the merge gate is not met yet. No notification.
 - 2026-11-22T01:07Z (autopilot, chained 3): 2b.3 merged #270 (Refs #266, first-clause speech, 0.1.63) as 75525ee. Main had moved (#269); merged main in cleanly (b2fdb2d); local check-release 12, contracts, styles, tsc, npm test 817, build, cargo test --lib 191 pass; all CI green on b2fdb2d (Cursor Security Reviewer finished this time). Review: fallback fresh-subagent reviews (Codex at limit), head 8dd3e8b "Ship". Main Windows run 44969628943 in progress. Owner notified.
 - 2026-11-22T01:06Z (autopilot, chained 4): 2b.7 waiting. Board unchanged (#266 only open kevo issue; #271/#272 still red, not the autopilot's; Phase 7.2+ PRs held). main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not yet published. No PC result. No notification.
+- 2026-11-22T01:06Z (autopilot, chained 5): 2b.7 waiting. Same as 01:06Z run: board unchanged, main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not published yet. No notification.
