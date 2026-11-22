@@ -10,6 +10,7 @@ import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFet
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
+import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
@@ -96,11 +97,11 @@ export interface JarvisActionContext {
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
   getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
-  /** Whether the owner turned weather on by saying "turn on weather". Off until then: weather sends the city to Open-Meteo. */
+  /** Whether weather is on. On unless the owner said "turn off weather": weather sends the city to Open-Meteo. */
   weatherEnabled?: () => boolean;
   /** Turns weather on or off, remembered on this computer. */
   setWeatherEnabled?: (on: boolean) => void;
-  /** Whether the owner turned on online lookups (Wikipedia, dictionary, currency rates) by saying "turn on online lookups". */
+  /** Whether online lookups (Wikipedia, dictionary, currency rates and the rest) are on. On unless the owner said "turn off online lookups". */
   onlineLookupsEnabled?: () => boolean;
   /** Turns online lookups on or off, remembered on this computer. */
   setOnlineLookupsEnabled?: (on: boolean) => void;
@@ -560,6 +561,13 @@ export class JarvisVoiceAgent {
     const translate = parseTranslateRequest(lower);
     if (translate) return this.online('translate', 'translate that', () => translateFromEnglish(translate.text, translate.code), (said) => `In ${translate.language}, ${translate.text} is: ${said}`);
 
+    // "What time is it in Tokyo" before the local clock, which would otherwise answer it with the time here.
+    const tzPlace = parseTimezoneRequest(lower);
+    if (tzPlace) {
+      const reply = timeInPlace(tzPlace);
+      if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
+      return { handled: true, actionName: 'time_in_place', speechReply: `I do not know the time zone for ${placeName(tzPlace)} yet.`, status: 'failure', verified: false, reason: 'UNKNOWN_PLACE' };
+    }
     // Clock / calendar (Phase 2B)
     if (
       lower.includes('what time') ||

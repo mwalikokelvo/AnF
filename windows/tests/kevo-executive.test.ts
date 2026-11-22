@@ -19,17 +19,21 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
     assert.strictEqual(briefing.fullText.includes('24,500'), false, 'no fake 24,500 organic reach');
     assert.strictEqual(briefing.summary.includes('30k'), false, 'summary has no fake $30k');
 
-    // Must include verified local workspace chunks
+    // Must include local workspace chunks
     const names = briefing.chunks.map(c => c.agentName);
     assert.ok(names.includes('Knowledge (Vault)'));
     assert.ok(names.includes('Reading Queue'));
     assert.ok(names.includes('Schedule'));
     assert.ok(names.includes('System & Audio'));
 
-    // Chunks must be flagged as verified local data
-    for (const chunk of briefing.chunks) {
-      assert.strictEqual(chunk.verified, true, `chunk ${chunk.agentName} has verified flag`);
-    }
+    // Missing data chunks must not fabricate numbers or claim verification
+    const vaultChunk = briefing.chunks.find(c => c.agentName === 'Knowledge (Vault)');
+    assert.strictEqual(vaultChunk?.verified, false, 'vault is unverified when no notes provided');
+    assert.ok(vaultChunk?.greeting.includes('not available'));
+
+    const sysChunk = briefing.chunks.find(c => c.agentName === 'System & Audio');
+    assert.strictEqual(sysChunk?.verified, false, 'system is unverified when no telemetry provided');
+    assert.ok(sysChunk?.greeting.includes('not available'));
   });
 
   it('omits external business and marketing cards when not configured or marked demo', async () => {
@@ -121,8 +125,10 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
   });
 
   it('Phase 7.2: createWorkspaceTeamCard renders truthful cards with verified local data badges', () => {
-    if (typeof document === 'undefined') {
-      const g = globalThis as any;
+    // A minimal fake document for this test only; removed afterwards so later tests keep the no-DOM path.
+    const g = globalThis as any;
+    const addedFakeDocument = typeof document === 'undefined';
+    if (addedFakeDocument) {
       g.document = {
         createElement: (tag: string) => ({
           className: '',
@@ -145,6 +151,7 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
     assert.ok(card.innerHTML.includes('Knowledge'));
     assert.ok(card.innerHTML.includes('42'));
     assert.ok(card.innerHTML.includes('Verified Local Data'));
+    if (addedFakeDocument) delete g.document;
   });
 
   describe('Phase 7.4: Settings & Owner Voice Selection Controls', () => {
@@ -229,5 +236,25 @@ describe('Kevo Phase 7.1: Real Workspace Data & Elimination of Fabricated Metric
       assert.ok(b.summary.includes('Reading: 3'));
       assert.ok(!b.summary.includes('Reminders:'));
     });
+  });
+
+  it('shows not available without verified badge when telemetry or vault data is missing', async () => {
+    const exec = new JarvisExecutive();
+    const briefing = await exec.generateBriefing({}, {});
+    const card = exec.renderSummaryCard(briefing);
+
+    // Summary says not available instead of made-up 0 or OK
+    assert.ok(briefing.summary.includes('Vault: not available'));
+    assert.ok(briefing.summary.includes('System: not available'));
+
+    // Chunks are flagged as unverified
+    const vault = briefing.chunks.find(c => c.agentName === 'Knowledge (Vault)');
+    assert.strictEqual(vault?.verified, false);
+    const system = briefing.chunks.find(c => c.agentName === 'System & Audio');
+    assert.strictEqual(system?.verified, false);
+
+    // Summary card does not show verified badge for missing data
+    assert.strictEqual(card.innerHTML.includes('Knowledge (Vault)</strong> <span>✓ Verified Local Data</span>'), false);
+    assert.strictEqual(card.innerHTML.includes('System & Audio</strong> <span>✓ Verified Local Data</span>'), false);
   });
 });
