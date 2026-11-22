@@ -118,6 +118,18 @@ describe('Kevo trivia', () => {
       assert.notEqual(after.actionName, 'trivia_answer');
     });
   });
+
+  it('keeps the question open when asked to say it again', async () => {
+    await withFetch(() => TRIVIA, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const asked = await agent.processVoiceInput('quiz me');
+      const again = await agent.processVoiceInput('say that again');
+      assert.equal(again.actionName, 'repeat');
+      assert.equal(again.speechReply, asked.speechReply);
+      const answered = await agent.processVoiceInput('Nairobi');
+      assert.equal(answered.actionName, 'trivia_answer');
+    });
+  });
 });
 
 describe('Kevo translation', () => {
@@ -141,6 +153,17 @@ describe('Kevo translation', () => {
       const res = await new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true }).processVoiceInput('translate thank you to Swahili');
       assert.equal(res.actionName, 'translate');
       assert.equal(res.speechReply, 'In Swahili, thank you is: Asante');
+    });
+  });
+
+  it('translates a phrase that sounds like another request', async () => {
+    await withFetch(() => ({ responseStatus: 200, responseData: { translatedText: 'Quelle heure est-il' } }), async (urls) => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      for (const said of ['how do you say what time is it in French', "how do you say what's your name in French", 'translate what is the date to French']) {
+        const res = await agent.processVoiceInput(said);
+        assert.equal(res.actionName, 'translate', said);
+      }
+      assert.equal(urls.length, 3);
     });
   });
 });

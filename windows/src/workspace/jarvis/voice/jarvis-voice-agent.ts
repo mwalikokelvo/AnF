@@ -460,8 +460,8 @@ export class JarvisVoiceAgent {
       this.lastSubject = short;
       this.lastSubjectTime = this.now();
     }
-    // "Say that again" repeats the last answer, so a pending "For how long?" still stands. Nothing else carries over.
-    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') {
+    // "Say that again" repeats the last answer, so a pending "For how long?" or trivia question still stands. Nothing else carries over.
+    if (result.actionName !== 'repeat' || (this.lastAction !== 'timer_unclear' && this.lastAction !== 'trivia')) {
       this.lastAction = result.actionName;
       this.lastActionTime = this.now();
     }
@@ -479,6 +479,17 @@ export class JarvisVoiceAgent {
     this.lastSubjectTime = 0;
     this.lastAction = '';
     this.lastActionTime = 0;
+  }
+
+  /** An answer from an online service, behind the online lookups switch. */
+  private async online(kind: 'translate' | 'quote' | 'trivia', what: string, ask: () => Promise<string>): Promise<ActionResult> {
+    if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: kind, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
+    try {
+      return { handled: true, actionName: kind, speechReply: await ask(), status: 'success', verified: true };
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      return { handled: true, actionName: kind, speechReply: `I could not ${what}: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
+    }
   }
 
   private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
@@ -519,6 +530,11 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Translation (MyMemory, behind the online lookups switch) comes before the clock and the quick answers, so
+    // "how do you say what time is it in French" is translated rather than answered.
+    const translate = parseTranslateRequest(lower);
+    if (translate) return this.online('translate', 'translate that', async () => `In ${translate.language}, ${translate.text} is: ${await translateFromEnglish(translate.text, translate.code)}`);
+
     // Clock / calendar (Phase 2B)
     if (
       lower.includes('what time') ||
@@ -544,10 +560,13 @@ export class JarvisVoiceAgent {
     }
 
     // Right after a trivia question, a letter, a choice or "I don't know" answers it; anything else is a new request.
+    // "Say that again" repeats the question and keeps it open.
     const pendingTrivia = this.lastAction === 'trivia' ? this.trivia : null;
-    this.trivia = null;
     const triviaReply = pendingTrivia && answerTrivia(pendingTrivia, text);
-    if (triviaReply) return { handled: true, actionName: 'trivia_answer', speechReply: triviaReply };
+    if (triviaReply) {
+      this.trivia = null;
+      return { handled: true, actionName: 'trivia_answer', speechReply: triviaReply };
+    }
 
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
@@ -720,22 +739,9 @@ export class JarvisVoiceAgent {
     }
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
 
-    // Online, behind the online lookups switch: quote of the day (ZenQuotes), trivia (Open Trivia DB), translation (MyMemory).
-    const translate = parseTranslateRequest(lower);
-    const online = translate ? 'translate' : isQuoteRequest(lower) ? 'quote' : isTriviaRequest(lower) ? 'trivia' : '';
-    if (online) {
-      if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: online, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
-      try {
-        if (translate) return { handled: true, actionName: 'translate', speechReply: `In ${translate.language}, ${translate.text} is: ${await translateFromEnglish(translate.text, translate.code)}`, status: 'success', verified: true };
-        if (online === 'quote') return { handled: true, actionName: 'quote', speechReply: await fetchQuote(), status: 'success', verified: true };
-        this.trivia = await fetchTrivia();
-        return { handled: true, actionName: 'trivia', speechReply: askTrivia(this.trivia), status: 'success', verified: true };
-      } catch (err: any) {
-        const errMsg = err?.message || String(err);
-        const what = { translate: 'translate that', quote: 'get the quote of the day', trivia: 'get a trivia question' }[online];
-        return { handled: true, actionName: online, speechReply: `I could not ${what}: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
-      }
-    }
+    // Online, behind the online lookups switch: quote of the day (ZenQuotes) and trivia (Open Trivia DB).
+    if (isQuoteRequest(lower)) return this.online('quote', 'get the quote of the day', () => fetchQuote());
+    if (isTriviaRequest(lower)) return this.online('trivia', 'get a trivia question', async () => askTrivia((this.trivia = await fetchTrivia())));
     const weatherSwitch = parseWeatherSwitch(lower);
     if (weatherSwitch !== null && this.context.setWeatherEnabled) {
       this.context.setWeatherEnabled(weatherSwitch);
