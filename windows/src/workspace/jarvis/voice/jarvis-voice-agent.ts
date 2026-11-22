@@ -952,8 +952,9 @@ export class JarvisVoiceAgent {
     }
 
     // 7. General AI Conversational Intelligence + memory
-    // A lone unknown word is a cough, a fragment or the room, not a question for the AI.
-    if (!/\s/.test(lower.trim())) return { handled: true, actionName: 'ignored', speechReply: '' };
+    // A lone unknown word is a cough, a fragment or the room, not a question for the AI. "Joke" is the exception: when the
+    // joke service did not answer above, the AI tells one.
+    if (!/\s/.test(lower.trim()) && !isJokeRequest(lower)) return { handled: true, actionName: 'ignored', speechReply: '' };
     if (this.context.askAI) {
       try {
         // A short history keeps the local model quick and stops old exchanges steering new answers.

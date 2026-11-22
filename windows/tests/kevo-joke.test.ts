@@ -59,10 +59,13 @@ describe('Kevo joke', () => {
       throw new Error('offline');
     }) as typeof fetch;
     try {
-      const res = await new JarvisVoiceAgent({ switchView: () => {} }).processVoiceInput('joke');
+      let aiAsked = '';
+      const askAI = async (query: string) => { aiAsked = query; return 'Why did the scarecrow win an award? He was outstanding in his field.'; };
+      const res = await new JarvisVoiceAgent({ switchView: () => {}, askAI }).processVoiceInput('joke');
       assert.equal(asked, 1);
       assert.notEqual(res.actionName, 'tell_joke');
-      assert.doesNotMatch(res.speechReply, /joke service/);
+      assert.match(aiAsked, /joke/);
+      assert.match(res.speechReply, /outstanding in his field/);
     } finally {
       globalThis.fetch = real;
     }
