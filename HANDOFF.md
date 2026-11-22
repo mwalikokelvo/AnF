@@ -4,7 +4,36 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-18 by Antigravity (Kevo 1.6: Echo cancellation reference feed, realistic echo tests, self-test own voice check, 0.1.62).
+Last updated: 2026-11-22 by Claude (Kevo dice, facts, quote, trivia and translation from Grok's branches).
+
+## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
+
+Rebuilt the useful part of Grok's broken branches on `claude/grok-kevo-extras` (Grok's versions wiped core files or did not build). Nothing taken from them as is.
+- Offline (`kevo-fun.ts`): "roll a die", "roll two dice", "roll a d20", "roll 2d6" (1-10 dice, 2-100 sides); "tell me a fact" picks one of 14 checked facts, never the same twice in a row.
+- Offline (`kevo-quote.ts`): "quote of the day" / "inspire me" gives one of 18 quotes kept in the app, the same all day. Grok used ZenQuotes, whose free service sends no CORS header, so the webview could not read it.
+- Behind the online lookups switch: "translate X to/into LANG" and "how do you say X in LANG" (MyMemory, `kevo-translate.ts`); "trivia" asks an Open Trivia DB question with four choices and checks the next reply (a letter, the answer or "I give up"; anything else falls through as a normal command; "say that again" keeps it open). Kevo names Open Trivia DB in each question (its data is CC BY-SA 4.0). With the switch off nothing is sent. Hosts added to both CSPs.
+- Redundant Grok branches left alone: define-word, kevo-weather-*, unit-conversion variants (main has them), kevo-random-fact and kevo-simple-calculator-enhancement (no commits), voice-assistant-research-summary (docs only), kevo-news-headlines (stub with made-up headlines).
+- Tests: `windows/tests/kevo-fun.test.ts` (fake fetch). Automated tests only; not tried on the PC.
+
+## 2026-11-22 — Kevo's joke is always on (Claude)
+
+Owner (22 Nov, in their words): "Make joke service always on even while online lookups are on or off." "tell me a joke" now always asks icanhazdadjoke.com, whatever the online lookups switch says; if it does not answer, the local AI tells one. Only the request is sent. Online lookups notice no longer names the joke service. Tests: `windows/tests/kevo-joke.test.ts`. Automated tests only.
+
+## 2026-11-22 — Grok's Kevo previous track and joke (Claude)
+
+Reviewed and fixed `grok/kevo-previous-track` and `grok/kevo-joke` on `claude/grok-kevo-previous-joke`. Grok's HANDOFF.md entry and its live-network test were left out.
+- `previous_track`: "previous song", "go back a track", "skip back a track" call `musicHub.step(-1)`. Now passed through the command desk too; "what was the last song?" and "don't go back a track" do nothing.
+- "tell me a joke" asks icanhazdadjoke.com only while online lookups are on (`kevo-joke.ts`, through `onlineGet`, which now takes headers). With them off, nothing is sent and the local AI tells one. Host added to the CSP `connect-src`; the online lookups notice names the joke service.
+- Tests: `windows/tests/kevo-joke.test.ts` (fake fetch). Automated tests only; not tried on the PC.
+
+## 2026-11-19 — Grok's Kevo lookups: units, Wikipedia, dictionary, currency (Claude)
+
+Reviewed and fixed four Grok branches (`grok/kevo-unit-conversion`, `grok/kevo-wikipedia-summary`, `grok/kevo-currency-conversion`, `grok/kevo-dictionary`) on `claude/grok-kevo-lookups`. Their HANDOFF.md deletions were left out.
+- `convert_units` (offline): length, mass, temperature; plurals, British spellings and "degrees" are understood.
+- `wikipedia_summary`, `define_word`, `convert_currency` (Wikipedia REST, dictionaryapi.dev, Frankfurter): one switch, off by default. "turn on online lookups" / "turn off online lookups", stored in localStorage `anf-kevo-online-on`. Hosts added to the CSP `connect-src`.
+- Shared fetch helper `kevo-online.ts` (8 s limit); `fetchWeather` uses it too.
+- Tests moved from jest style to node:test. Desktop only: Android does not load Kevo.
+- Not done: Grok's news headlines and duplicate weather branches (incomplete or redundant).
 
 ## 2026-11-18 — Kevo 1.6: Review Fixes (Feed real speech, live mic, speaker barge-in, RefRing sizing) (Antigravity)
 
@@ -1664,6 +1693,12 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Cause of the 50 s "first sentence" failures: prefill, not generation or thinking. The ~2,000-token compact prompt + tool list was read from scratch at ~42 tokens/s on the 4-core runner: once on the suite's first question (nothing had warmed that prefix), and again after every `remember`, because facts sat in the system prompt, which the Qwen3 template renders in front of the tool list (checked with `/apply-template`). The second is a real app bug.
 - Fix: facts go in their own system message after the tools (`getKevoMemoryPrompt`, `kevo_messages(.., memory)`, `kevo_ask` `memory`); `kevo_preload_model` now also writes one token over Kevo's prompt (tools, system, memory from `main.ts`), so it sits in the prompt cache before the first question; the perf test sends the app's request body and does the same preload before timing. Content checks accept equivalent correct forms ("9"/"nine", "dense"/"density", "dollar"/"$"). No budget changed, nothing skipped.
 - CI Linux run 44358144145: Test step (incl. new `remembered_facts_follow_the_unchanged_system_prompt`) and Kevo CI gate green, perf suite 13/13. Prefill after the fix: France 22 tokens 0.69 s (was 2,039 tokens 48.7 s), multi-turn turn 2 41 tokens 1.2 s (was 1,997 tokens 47.6 s); the preload itself takes 30.8 s on the runner. Automated tests only; not tried on the PC. Open: a question asked within the preload time right after launch still waits for it.
+
+## 2026-11-18: Kevo clause boundary sentence splitting for TTFS (Antigravity, branch `agy/kevo-clause-boundary-speech`, Refs #266)
+- Cause of long-first-sentence TTFS budget overruns (e.g. 6.35 s on "15 percent tip"): answers with complex reasoning or clauses generate >100 characters before reaching a period (`.`, `!`, `?`). At ~40 tokens/s, waiting for the final period delays speech synthesis past the 5.0 s budget even with warm prefill.
+- Fix: `take_streamable_sentences` in `windows/src-tauri/src/local_ai.rs` now yields at the first clause boundary (comma, colon, semicolon after about 40 characters) when a sentence runs long without an early sentence ending. Sentences with a period under ~80 characters keep their clean sentence boundary; long sentences or streaming tokens that hit a clause after 40 characters yield immediately to `kevo-reply-part`. `windows/tests/kevo-performance.test.ts` updated to match this clause boundary behavior.
+- Checks: `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings`, `npx tsc --noEmit` clean, `npm test` 796 pass (only pre-existing CalDesk test failing), `node scripts/check-release.mjs` 12 pass, contracts and styles clean. No budget changed.
+- Autopilot review fix (Claude, 2026-11-21, fresh-subagent review since Codex was at its limit): the clause cut fired on every later part too, so a long answer was spoken as several short phrases. `take_streamable_sentences(buffer, first)` now cuts at a clause only for the first part (`kevo_ask` passes "no part sent yet"); later parts stay whole sentences. Dropped the `s > 80` rule (a finished sentence is spoken whole). The perf test's first-part regex now waits for the space after the mark, like the app. New test streams answers token by token, checks only the first part is cut and that "1,000" and "3:30" stay whole. Version 0.1.63 (merge-time bump).
 
 ## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
 - Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
