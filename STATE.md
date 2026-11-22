@@ -13,9 +13,9 @@ blocked:
 last_passed_version: none yet
 owner_needed: 
 last_main: 100554f
-chain: 0
-next_due: 
-quiet_fingerprint: 
+chain: 1
+next_due: 2026-11-22T23:33Z
+quiet_fingerprint: e9a823af494bcfd8f1af4343fa1be507b88fb90cec65c469f72efa4b953b6335
 
 fingerprint_format: sha256 of newline-joined lines: main sha; sorted pc-results/ names; per open PR sorted by number "n head_sha updated_at <sorted check conclusions joined by comma, null for unfinished>"; per open kevo issue "n updated_at"; trailing newline
 
@@ -76,3 +76,4 @@ fingerprint_format: sha256 of newline-joined lines: main sha; sorted pc-results/
 - 2026-11-22T14:26Z (autopilot): 2b.2 on #284: Codex clean on 4d6fd4c and CI green, so started 2b.3 (branch level with main; version 0.1.65 in b976331, 0.1.64 skipped as pc-results/ already has that name). Phase 1 design review (fresh subagent): Ship, but 1 real P2: the typed-request check turns the mic off so the 1.6 own-voice and barge-in checks ran deaf; fixed in d02f119 (test red before, green after), other 4 findings answered in the PR; @codex review asked. tsc, npm test 850, build, check-release 12, contracts, styles pass. Not merged (new head needs Codex).
 - 2026-11-22T20:31Z (autopilot): 2b.2 on #284: Codex's 2 P2 findings on d02f119 fixed in 6a1264c (Bridge.kevoEarsStart used call(), which swallowed a failed start, now callOrThrow; listener binds all ears events before starting the backend and skips the start if switched off meanwhile); 3 tests red before, 852/852 after; tsc, build, check-release 12, contracts, styles pass; threads answered and resolved, @codex review asked. Failed Android packages check on d02f119 was a Maven lookup flake. main moved to 100554f (#271/#283/#282 by owner account, no version bump). The 16:26Z run left its lock and no log line.
 - 2026-11-22T20:35Z (autopilot): 2b.1 on #284: no checks had run on 6a1264c because the branch conflicted with main (mergeable dirty). Merged main in f62d976; one conflict in windows/tests/kevo-selftest.test.ts (both sides appended tests), kept both. tsc, npm test 859/859, build, check-release 12, contracts, styles pass; CI now running; @codex review asked on f62d976 (conflict merge needs its own review). No notification.
+- 2026-11-22T20:36Z (autopilot, chained 1): 2b.7 waiting. #284 CI on f62d976 running, Codex review asked 20:33Z; main unchanged at 100554f (the chain text was about the #271/#283/#282 merges already handled). The 20:3xZ run could not create the 40-min follow-up (scheduled-task changes need owner approval in a scheduled run); the 22:25Z run covers it. No notification.
