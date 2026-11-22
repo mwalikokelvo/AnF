@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { FACTS, isFactRequest, parseDiceRequest, randomFact, rollDice } from '../src/workspace/jarvis/voice/kevo-fun';
-import { fetchQuote, isQuoteRequest } from '../src/workspace/jarvis/voice/kevo-quote';
+import { isQuoteRequest, QUOTES, quoteOfTheDay } from '../src/workspace/jarvis/voice/kevo-quote';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest } from '../src/workspace/jarvis/voice/kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from '../src/workspace/jarvis/voice/kevo-translate';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
@@ -77,12 +77,17 @@ describe('Kevo quote of the day', () => {
     for (const said of ['quote me on that', 'get a quote for car insurance']) assert.equal(isQuoteRequest(said), false, said);
   });
 
-  it('reads ZenQuotes', async () => {
-    const urls: string[] = [];
-    const quote = await fetchQuote(async (url) => { urls.push(url); return { ok: true, status: 200, json: async () => [{ q: 'Well begun is half done.', a: 'Aristotle' }] }; });
-    assert.deepEqual(urls, ['https://zenquotes.io/api/today']);
-    assert.equal(quote, "Today's quote, from Aristotle: Well begun is half done.");
-    await assert.rejects(fetchQuote(ok([])), /no quote/);
+  it('gives the same quote all day and another the next day, without sending anything', async () => {
+    const morning = quoteOfTheDay(new Date(2026, 10, 22, 7));
+    assert.equal(quoteOfTheDay(new Date(2026, 10, 22, 23)), morning);
+    assert.notEqual(quoteOfTheDay(new Date(2026, 10, 23, 7)), morning);
+    assert.ok(QUOTES.some((q) => morning === `Today's quote, from ${q.from}: ${q.text}`));
+    await withFetch(() => ({}), async (urls) => {
+      const res = await new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => false }).processVoiceInput('inspire me');
+      assert.equal(res.actionName, 'quote');
+      assert.match(res.speechReply, /^Today's quote, from /);
+      assert.deepEqual(urls, []);
+    });
   });
 });
 
@@ -119,6 +124,19 @@ describe('Kevo trivia', () => {
       const answered = await agent.processVoiceInput('time');
       assert.equal(answered.actionName, 'trivia_answer');
       assert.equal(answered.speechReply, "That's right! It's Time.");
+    });
+  });
+
+  it('forgets an unanswered question once a new one cannot be fetched', async () => {
+    let up = true;
+    await withFetch(() => { if (!up) throw new Error('offline'); return TRIVIA; }, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      await agent.processVoiceInput('quiz me');
+      up = false;
+      const failed = await agent.processVoiceInput('quiz me');
+      assert.equal(failed.status, 'failure');
+      const after = await agent.processVoiceInput('Nairobi');
+      assert.notEqual(after.actionName, 'trivia_answer');
     });
   });
 
@@ -189,7 +207,7 @@ describe('Kevo online extras stay off until online lookups are on', () => {
   it('sends nothing while off', async () => {
     await withFetch(() => ({}), async (urls) => {
       const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => false });
-      for (const said of ['quote of the day', 'quiz me', 'translate hello to French']) {
+      for (const said of ['quiz me', 'translate hello to French']) {
         const res = await agent.processVoiceInput(said);
         assert.equal(res.speechReply, ONLINE_LOOKUPS_OFF, said);
         assert.equal(res.reason, 'ONLINE_LOOKUPS_OFF', said);

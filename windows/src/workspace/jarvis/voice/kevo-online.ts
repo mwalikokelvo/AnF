@@ -1,5 +1,5 @@
 /**
- * Kevo's online lookups (Wikipedia, word definitions, currency rates, translation, trivia, quote of the day) share one switch, off until the owner says
+ * Kevo's online lookups (Wikipedia, word definitions, currency rates, translation, trivia) share one switch, off until the owner says
  * "turn on online lookups": each sends what was asked about to a free public service (AGENTS.md: network calls only
  * to services the owner turned on). Weather has its own switch.
  */
@@ -7,7 +7,7 @@
 export type LookupFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 export const ONLINE_LOOKUPS_OFF =
-  'Online lookups are off. They send what you ask about to free public services: Wikipedia, a dictionary, a currency rate service, a translation service, a trivia quiz and a quote service. Say turn on online lookups to allow them.';
+  'Online lookups are off. They send what you ask about to free public services: Wikipedia, a dictionary, a currency rate service, a translation service and a trivia quiz. Say turn on online lookups to allow them.';
 
 /** One GET with an 8 second limit. A network failure says plainly that `service` did not answer. */
 export async function onlineGet(url: string, service: string, fetchFn?: LookupFetch, headers?: Record<string, string>): Promise<Awaited<ReturnType<LookupFetch>>> {

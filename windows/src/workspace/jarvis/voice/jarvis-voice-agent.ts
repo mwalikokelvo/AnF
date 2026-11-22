@@ -9,7 +9,7 @@ import type { KevoActionStatus } from './kevo-actions';
 import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
-import { fetchQuote, isQuoteRequest } from './kevo-quote';
+import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
@@ -482,7 +482,7 @@ export class JarvisVoiceAgent {
   }
 
   /** An answer from an online service, behind the online lookups switch. */
-  private async online(kind: 'translate' | 'quote' | 'trivia', what: string, ask: () => Promise<string>): Promise<ActionResult> {
+  private async online(kind: 'translate' | 'trivia', what: string, ask: () => Promise<string>): Promise<ActionResult> {
     if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: kind, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
     try {
       return { handled: true, actionName: kind, speechReply: await ask(), status: 'success', verified: true };
@@ -732,17 +732,21 @@ export class JarvisVoiceAgent {
         : { handled: true, actionName: 'online_lookups_off', speechReply: 'Online lookups are off.' };
     }
 
-    // Offline fun: dice and facts. Nothing is sent.
+    // Offline fun: dice, facts and the quote of the day. Nothing is sent.
     const dice = parseDiceRequest(lower);
     if (dice) {
       const { rolls, reply } = rollDice(dice.count, dice.sides);
       return { handled: true, actionName: 'roll_dice', speechReply: reply, status: 'success', verified: true, verificationDetails: `Rolled ${rolls.join(', ')} on d${dice.sides}` };
     }
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
+    if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
 
-    // Online, behind the online lookups switch: quote of the day (ZenQuotes) and trivia (Open Trivia DB).
-    if (isQuoteRequest(lower)) return this.online('quote', 'get the quote of the day', () => fetchQuote());
-    if (isTriviaRequest(lower)) return this.online('trivia', 'get a trivia question', async () => askTrivia((this.trivia = await fetchTrivia())));
+    // Online, behind the online lookups switch: trivia (Open Trivia DB). The old question goes first, so a failed or
+    // blocked request leaves nothing for the next reply to answer.
+    if (isTriviaRequest(lower)) {
+      this.trivia = null;
+      return this.online('trivia', 'get a trivia question', async () => askTrivia((this.trivia = await fetchTrivia())));
+    }
     const weatherSwitch = parseWeatherSwitch(lower);
     if (weatherSwitch !== null && this.context.setWeatherEnabled) {
       this.context.setWeatherEnabled(weatherSwitch);
