@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Antigravity (Phase 2 Step 2.8: one local model unblocked; merged main).
+Last updated: 2026-11-22 by Claude (PR #272: merged main, negated skip requests kept off the music tools).
+
+## 2026-11-22 — PR #272 phrase gate and Bugbot fixes (Claude)
+
+- The single model called music tools for refused commands ("Can you not skip this song?" → `music_pause`). When Kevo's own parser has already said no to a song or clock command and the words refuse it (`REFUSED_COMMAND` in `jarvis-voice-agent.ts`), `askAI` gets `answerOnly`: `ANSWER_ONLY_NOTE` is added after the user's words (after the cached prompt, so no re-read) and tool calls are not run (`main.ts` and the gate harness). Reminders and "why don't you ..." are left to the model.
+- Offline pack check is the engine only, so a missing model says "not downloaded yet, Settings → Conversations and AI → Offline models" instead of "run the installer"; diagnostics report `model` (download or pack file) instead of the old `fast`/`balanced` files.
+- Bugbot's "Vulkan runtime mixed with CPU binary" is not a bug: in b11380 the CPU and Vulkan archives are byte-identical except the Vulkan backend library (checked by sha256 of every file, Windows and Linux).
+- Automated tests, tsc, check-release, verify-contracts, check-styles locally; Rust only parse-checked here (no webkit2gtk), compiled and tested by CI.
+
+## 2026-11-22 — Online lookups and weather on by default (Claude)
+
+The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
 
 ## 2026-11-22 — Kevo 2.8: unblock CI & merge main (Antigravity)
 
@@ -1741,3 +1752,8 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Fix: `take_streamable_sentences` in `windows/src-tauri/src/local_ai.rs` now yields at the first clause boundary (comma, colon, semicolon after about 40 characters) when a sentence runs long without an early sentence ending. Sentences with a period under ~80 characters keep their clean sentence boundary; long sentences or streaming tokens that hit a clause after 40 characters yield immediately to `kevo-reply-part`. `windows/tests/kevo-performance.test.ts` updated to match this clause boundary behavior.
 - Checks: `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings`, `npx tsc --noEmit` clean, `npm test` 796 pass (only pre-existing CalDesk test failing), `node scripts/check-release.mjs` 12 pass, contracts and styles clean. No budget changed.
 - Autopilot review fix (Claude, 2026-11-21, fresh-subagent review since Codex was at its limit): the clause cut fired on every later part too, so a long answer was spoken as several short phrases. `take_streamable_sentences(buffer, first)` now cuts at a clause only for the first part (`kevo_ask` passes "no part sent yet"); later parts stay whole sentences. Dropped the `s > 80` rule (a finished sentence is spoken whole). The perf test's first-part regex now waits for the space after the mark, like the app. New test streams answers token by token, checks only the first part is cut and that "1,000" and "3:30" stay whole. Version 0.1.63 (merge-time bump).
+
+## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
+- Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
+- Deduplication: extracted the 25-line data gathering block across `btnBriefing` and `getBriefing` in `jarvis-command-desk.ts` into a single shared helper `collectWorkspaceBriefingData`.
+- Checks: `npx tsc --noEmit` clean, `tests/kevo-executive.test.ts` (7/7 pass), `tests/jarvis-executive.test.ts` (10/10 pass), `check-release.mjs` (12 pass), contracts and styles clean.

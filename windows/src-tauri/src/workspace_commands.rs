@@ -381,7 +381,7 @@ pub fn workspace_diagnostics(chat: State<Chat>) -> Value {
     };
     let documents = settings::local_dir().join("documents");
     let _ = crate::platform::ensure_private_dir(&documents);
-    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":target_port().map(|(p,_)|is_port_open(p)).unwrap_or(false),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
+    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"model":dir.as_deref().is_some_and(local_ai::model_available),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":target_port().map(|(p,_)|is_port_open(p)).unwrap_or(false),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
 }
 
 #[cfg(test)]

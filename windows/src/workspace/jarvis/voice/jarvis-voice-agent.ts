@@ -73,8 +73,11 @@ export interface JarvisActionContext {
   getDailyBriefingSchedule?: () => Promise<any | null>;
   /** Cancels the active daily briefing schedule. */
   cancelDailyBriefing?: () => Promise<boolean>;
-  /** Asks the AI. `onPart` receives each sentence as soon as it is written. */
-  askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void }) => Promise<JarvisAskAiResult>;
+  /**
+   * Asks the AI. `onPart` receives each sentence as soon as it is written. `answerOnly`: Kevo judged the words not to be a
+   * command, so the AI answers in words and any tool call it makes is not run.
+   */
+  askAI?: (query: string, options?: { history: JarvisTurn[]; onPart?: (text: string) => void; answerOnly?: boolean }) => Promise<JarvisAskAiResult>;
   /** Stops the answer the AI is writing. */
   cancelAI?: () => void;
   /** Opens a web search for the words in the owner's browser. */
@@ -95,11 +98,11 @@ export interface JarvisActionContext {
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
   getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
-  /** Whether the owner turned weather on by saying "turn on weather". Off until then: weather sends the city to Open-Meteo. */
+  /** Whether weather is on. On unless the owner said "turn off weather": weather sends the city to Open-Meteo. */
   weatherEnabled?: () => boolean;
   /** Turns weather on or off, remembered on this computer. */
   setWeatherEnabled?: (on: boolean) => void;
-  /** Whether the owner turned on online lookups (Wikipedia, dictionary, currency rates) by saying "turn on online lookups". */
+  /** Whether online lookups (Wikipedia, dictionary, currency rates and the rest) are on. On unless the owner said "turn off online lookups". */
   onlineLookupsEnabled?: () => boolean;
   /** Turns online lookups on or off, remembered on this computer. */
   setOnlineLookupsEnabled?: (on: boolean) => void;
@@ -224,6 +227,12 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
   }
   return asked;
 }
+
+// A refused song or clock command ("can you not skip this song?", "please don't skip that track"). Only checked once the
+// commands above have said no, so "I don't know, skip this song" never gets here. Reminders ("remind me not to skip ...",
+// "don't forget to tell me the time at noon") and "why don't you skip this song?" are not refusals: the model may act.
+const REFUSED_COMMAND = /\b(?:not|don'?t|never)\b[^.;!?]*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track)|tell me the (?:current )?time)\b/;
+const NOT_A_REFUSAL = /\b(?:remind|remember|forget)\b|\bwhy don'?t you\b/;
 
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind|forget|remind me)\b/i;
 
@@ -1033,14 +1042,16 @@ export class JarvisVoiceAgent {
             release.forEach(onPart);
           });
         };
-        let aiResult = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding() });
+        // Kevo already said no to the command it heard here: the model must not act on it either.
+        const answerOnly = REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower);
+        let aiResult = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding(), answerOnly });
         let aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
         let aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';
         if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
         // The same answer as last time means the model is stuck on the history, not answering: ask once more afresh.
         if (previous && squash(aiAnswer) === previous) {
           clearJarvisHistory();
-          aiResult = await this.context.askAI(text, { history: [], onPart: holding() });
+          aiResult = await this.context.askAI(text, { history: [], onPart: holding(), answerOnly });
           aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
           aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';
           if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };

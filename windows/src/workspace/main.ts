@@ -38,7 +38,7 @@ import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
-import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,getKevoMemoryPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
+import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,getKevoMemoryPrompt,ANSWER_ONLY_NOTE,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
 import {
   createReminder,
@@ -243,6 +243,15 @@ const attach=h('button',{text:'Attach documents',type:'button'});attach.addEvent
 section('chat','Chat',workflowButtons(()=>({sources,draft:draft.value}),(text,scope)=>{question.value=text;contextScope.value=scope;updateQuestionCount();autosave();},text=>status.textContent=text,()=>!busy),h('div',{class:'section-heading'},h('h2',{text:'Chat'}),h('p',{class:'hint',text:'Ask, explore your documents, or start a draft. This workspace runs on your computer.'})),conversation,h('div',{class:'quick-tasks'},button('Summarize PDF',a=>task(a,'Summarize the loaded document excerpts. List main points and cite sources. Say that this covers selected excerpts.',1)),button('Write a letter',a=>task(a,`Write a clear letter about: ${question.value.trim()||'my request'}. Use placeholders for unknown names or dates.`)),button('Compare documents',a=>task(a,'Compare the loaded documents. Cite evidence from each and identify gaps.',2))),followupHost,h('div',{class:'composer'},contextScope,question,questionCount,replyLength,h('p',{class:'hint',text:'Questions: up to 10,000 UTF-8 bytes. Long responses aim for 1,700 words; actual length varies. Long mode uses more memory and can take several minutes. Continue appends the next part to your draft.'}),h('div',{class:'row'},attach,button('Ask local AI',ask,'Thinking locally'),button('Continue to next part',async a=>{if(!history.length)throw Error('Start a conversation first.');question.value='Continue the previous answer with the next part. Pick up from its ending without repeating earlier material.';await ask(a,true);},'Continuing locally'),button('Export chat',async()=>{if(!history.length)throw Error('Start a conversation first.');const {serializeChatToMarkdown}=await import('./chat-export');const md=serializeChatToMarkdown(name.value||'Conversation',history,sources);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(name.value.trim()||'Conversation').replace(/[\\/:*?"<>|]/g,'_')}-notes.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);status.textContent='Exported conversation as Markdown note.';}))),h('p',{class:'hint',text:'Ctrl+Enter to send · Sources and citations appear below each answer.'}),evidenceList);
 let nativeMusic:Awaited<ReturnType<typeof attachDesktopSpotube>>;
 let audioStudio:ReturnType<typeof createAudioStudio>;
+/** A Kevo switch that is on unless turned off. The choice holds for this session even when storage fails. */
+function kevoSwitch(key:string){
+ let memory:boolean|null=null;
+ return {
+  get:()=>{if(memory!==null)return memory;try{return localStorage.getItem(key)!=='0';}catch{return true;}},
+  set:(on:boolean)=>{memory=on;try{localStorage.setItem(key,on?'1':'0');}catch{/* Holds for this session. */}},
+ };
+}
+const kevoWeather=kevoSwitch('anf-kevo-weather-on'),kevoOnline=kevoSwitch('anf-kevo-online-on');
 const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=message;},beforePlay:async()=>{audioStudio?.stop();audioStudio?.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
 
 let kevoTurn=0;
@@ -253,12 +262,12 @@ const jarvisActionContext: JarvisActionContext = {
     nextTrack:()=>{void musicHub.step(1);},
     previousTrack:()=>{void musicHub.step(-1);},
     setMusicVolume:change=>musicHub.changeVolume(change),
-    // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
-    weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},
-    setWeatherEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-weather-on','1');else localStorage.removeItem('anf-kevo-weather-on');}catch{/* Stays as it was. */}},
-    // Wikipedia, dictionary and currency rates: off until the owner says "turn on online lookups".
-    onlineLookupsEnabled:()=>{try{return localStorage.getItem('anf-kevo-online-on')==='1';}catch{return false;}},
-    setOnlineLookupsEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-online-on','1');else localStorage.removeItem('anf-kevo-online-on');}catch{/* Stays as it was. */}},
+    // Weather (Open-Meteo, sent the city) and online lookups (Wikipedia, dictionary, currency rates and the rest) are on
+    // by default, the owner's choice of 22 Nov 2026. "turn off weather" / "turn off online lookups" stores '0' and stops them.
+    weatherEnabled:kevoWeather.get,
+    setWeatherEnabled:kevoWeather.set,
+    onlineLookupsEnabled:kevoOnline.get,
+    setOnlineLookupsEnabled:kevoOnline.set,
     // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
     getWeather:async (place,day)=>{
      const key='anf-kevo-weather-place';
@@ -304,13 +313,13 @@ const jarvisActionContext: JarvisActionContext = {
       try{
         const res = await invoke<KevoAskReply | string>('kevo_ask',{
           id,
-          query,
+          query:options?.answerOnly?query+ANSWER_ONLY_NOTE:query,
           history:options?.history??[],
           model:model.value,
           ...await kevoPrompt(),
         });
         if (typeof res === 'string') return res;
-        if (res.tool_calls && res.tool_calls.length > 0) {
+        if (res.tool_calls && res.tool_calls.length > 0 && !options?.answerOnly) {
           const executed = await executeKevoToolCalls(res.tool_calls, jarvisActionContext, options?.onPart);
           const fullText = [res.text, executed.speechReply].filter(Boolean).join(' ').trim();
           return {
@@ -633,7 +642,7 @@ window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if((event.c
 
 foldGuidance(panelHost);showView('home');
 renderSources();setBusy(true);cancel.disabled=true;
-async function diagnostics(){try{if(!linkAddress.value)linkAddress.value=await invoke<string>('link_address')||'';if(await invoke<boolean>('link_status'))linkNotice.textContent='Sharing is currently on. Stop sharing to revoke the existing code, or start again to display a new pairing code.';}catch{}const d=await invoke<{runtime:boolean;fast:boolean;balanced:boolean;ocr:boolean;totalRam:number;freeRam:number;documents:string;log:string;version:string}>('workspace_diagnostics');if(!folder.value)folder.value=d.documents;diagnosticDetails.textContent=`AnF ${d.version} · Runtime ${d.runtime?'ready':'missing'} · Fast ${d.fast?'ready':'missing'} · Balanced ${d.balanced?'ready':'missing'} · OCR ${d.ocr?'ready':'missing'}${d.freeRam?` · ${(d.freeRam/1073741824).toFixed(1)} GB free RAM`:''}\nStartup log: ${d.log}`;status.textContent=d.runtime&&d.fast?'Ready · Offline AI is available.':'Some offline files are missing. Open Settings → Check installation for details.';}
+async function diagnostics(){try{if(!linkAddress.value)linkAddress.value=await invoke<string>('link_address')||'';if(await invoke<boolean>('link_status'))linkNotice.textContent='Sharing is currently on. Stop sharing to revoke the existing code, or start again to display a new pairing code.';}catch{}const d=await invoke<{runtime:boolean;model:boolean;ocr:boolean;totalRam:number;freeRam:number;documents:string;log:string;version:string}>('workspace_diagnostics');if(!folder.value)folder.value=d.documents;diagnosticDetails.textContent=`AnF ${d.version} · Runtime ${d.runtime?'ready':'missing'} · Model ${d.model?'ready':'not downloaded'} · OCR ${d.ocr?'ready':'missing'}${d.freeRam?` · ${(d.freeRam/1073741824).toFixed(1)} GB free RAM`:''}\nStartup log: ${d.log}`;status.textContent=!d.runtime?'Some offline files are missing. Open Settings → Check installation for details.':d.model?'Ready · Offline AI is available.':'Download the local model in Settings → Conversations and AI → Offline models to use offline AI.';}
 void (async()=>{try{await refreshProjects();await diagnostics();const entries=await invoke<Entry[]>('workspace_list_projects');if(entries.length){const p=await invoke<Project>('workspace_load_project',{id:entries[0].id});projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());selector.value=p.id;renderHistory();renderSources();saved.textContent='Reopened your most recent project.';}else await saveProject();await invoke('log_line',{message:'workspace ready'});}catch(e){status.textContent=`Workspace initialization failed: ${String(e)}. Check installation and the startup log.`;}finally{setBusy(false);void dashboard.refresh();}})();
 
 writing?.setNoteProvider(()=>invoke<Entry[]>('workspace_list_projects',{query:''}));

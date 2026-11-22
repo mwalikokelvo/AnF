@@ -3,20 +3,20 @@ import assert from 'node:assert/strict';
 import { gatedFetch, onlineLookupsEnabled, setOnlineLookups, safeHttpsUrl, cssUrl } from '../src/workspace/online-lookups.ts';
 import { fetchOnlineLyrics } from '../src/workspace/lyrics-provider.ts';
 
-test('online lookups are off by default and gatedFetch never reaches the network', async () => {
+test('online lookups are on by default, and once turned off gatedFetch never reaches the network', async () => {
   const real = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = (async () => { calls++; return new Response('{}'); }) as typeof fetch;
   try {
-    assert.equal(onlineLookupsEnabled(), false);
-    await assert.rejects(() => gatedFetch('https://lrclib.net/api/get'), /Online lookups are off/);
-    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
-    assert.equal(calls, 0);
-    setOnlineLookups(true);
+    assert.equal(onlineLookupsEnabled(), true);
     await gatedFetch('https://lrclib.net/api/get');
     assert.equal(calls, 1);
-  } finally {
     setOnlineLookups(false);
+    await assert.rejects(() => gatedFetch('https://lrclib.net/api/get'), /Online lookups are off/);
+    assert.equal(await fetchOnlineLyrics({ title: 'Song', artist: 'Artist' }), undefined);
+    assert.equal(calls, 1);
+  } finally {
+    setOnlineLookups(true);
     globalThis.fetch = real;
   }
 });

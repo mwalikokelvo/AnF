@@ -157,6 +157,28 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
     agentWithModel.dispose();
   });
 
+  it('asks the model for words only when a song or clock command is refused (#155)', async () => {
+    const seen: Record<string, boolean | undefined> = {};
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        askAI: async (query, options) => {
+          seen[query] = options?.answerOnly;
+          return `An answer to: ${query}`;
+        },
+      })
+    );
+    for (const said of ['Can you not skip this song?', "Please don't skip that track", "Please don't ever tell me the time"]) {
+      assert.strictEqual((await agent.processVoiceInput(said)).actionName, 'ai_conversation');
+      assert.strictEqual(seen[said], true, said);
+    }
+    // Not refusals: the model may still act on them.
+    for (const said of ['why is the sky blue?', "Why don't you skip this song?", "Don't forget to tell me the time at noon"]) {
+      await agent.processVoiceInput(said);
+      assert.strictEqual(seen[said], false, said);
+    }
+    agent.dispose();
+  });
+
   it('handles remember commands instantly on fast path with no model loaded (Step 3.2)', async () => {
     let remembered = '';
     const agent = new JarvisVoiceAgent(

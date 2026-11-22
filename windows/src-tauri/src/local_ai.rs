@@ -15,13 +15,17 @@ struct Running {
     profile: String,
     context: usize,
 }
+/// The offline pack is the engine (and OCR files); the model is downloaded separately, so it is not part of the check.
 fn pack_available(path: &std::path::Path) -> bool {
     path.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }).is_file()
-        && (path.join("model.gguf").is_file()
-            || path.join("model-fast.gguf").is_file()
-            || path.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
-            || path.join("models").join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
-            || crate::model_download::any_verified())
+}
+/// A model `Engine::start` can load: the verified download, or a model file in the offline pack.
+pub(crate) fn model_available(path: &std::path::Path) -> bool {
+    path.join("model.gguf").is_file()
+        || path.join("model-fast.gguf").is_file()
+        || path.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+        || path.join("models").join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+        || crate::model_download::any_verified()
 }
 
 /// Dynamically checks whether the host system has at least one Vulkan physical device available.
@@ -302,8 +306,12 @@ impl Engine {
                 directory.join("model-fast.gguf")
             }
         });
-        if !exe.is_file() || !model.is_file() {
-            return Err(format!("The offline pack in {} is incomplete: {} is missing. Run the full installer again to repair it, then reopen AnF. Your saved projects and settings are kept.", directory.display(), if !exe.is_file() { "the local engine" } else { "the selected model" }));
+        if !exe.is_file() {
+            return Err(format!("The offline pack in {} is incomplete: the local engine is missing. Run the full installer again to repair it, then reopen AnF. Your saved projects and settings are kept.", directory.display()));
+        }
+        // The model is not in the installer: it is downloaded once, from Settings.
+        if !model.is_file() {
+            return Err("The local model is not downloaded yet. Download it in Settings → Conversations and AI → Offline models, then ask again.".into());
         }
         let use_vulkan = has_vulkan_device();
         *self.device.lock().unwrap() = Some(if use_vulkan { "GPU (Vulkan)".into() } else { "CPU".into() });
@@ -997,7 +1005,7 @@ mod tests {
         e.configure(root.clone());
         assert!(!pack_available(&root));
         std::fs::write(root.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }), b"fixture").unwrap();
-        std::fs::write(root.join("model-fast.gguf"), b"fixture").unwrap();
+        // No model yet: the pack is still found, so the missing model can be named and downloaded.
         assert!(pack_available(&e.directory().unwrap()));
         std::fs::remove_dir_all(root).unwrap();
     }
