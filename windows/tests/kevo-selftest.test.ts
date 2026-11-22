@@ -600,11 +600,14 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
   it('starts hearing on the PC before any clip plays, and reports why when it cannot (Kevo 1.5 fix 1, #279)', async () => {
     const agent = new JarvisVoiceAgent({ switchView: () => {}, dryRun: true, openApp: async (n: string) => n, announce: () => {} });
     const order: string[] = [];
-    const listener = new KevoEarsListener({ eventSource: { onEvent: () => {}, start: async () => { order.push('listener-start'); }, stop: async () => {} } });
+    let startEars: () => Promise<void> = async () => {};
+    const listener = new KevoEarsListener({ eventSource: { onEvent: () => {}, start: () => startEars(), stop: async () => { order.push('ears-stopped'); } } });
     (Bridge as any).kevoSelftestGetClips = async () => JSON.stringify({ version: 1, clips: [{ id: 'wake-01', file: 'wake-01.wav', kind: 'wake', voice: 'x', words: 'Kevo', expect: { wake: true } }] });
     Bridge.systemStats = async () => ({ os: 'Windows_NT', cpuCores: 8 });
     Bridge.kevoGraphicsCard = async () => 'Intel UHD Graphics';
     Bridge.kevoSelftestSaveResult = async () => '~/AnF-Kevo/selftest-test.json';
+    let bridgeStarts = 0;
+    (Bridge as any).kevoEarsStart = async () => { bridgeStarts++; };
     const deps = {
       agent,
       listener,
@@ -617,18 +620,28 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       onBargeInMeasure: async () => 140,
     };
 
-    // Models download on the first start: the clips wait for it.
-    (Bridge as any).kevoEarsStart = async () => { await new Promise((r) => setTimeout(r, 10)); order.push('ears-started'); };
+    // Models download on the first start: the clips wait for it, and hearing is started once.
+    startEars = async () => { order.push('ears-start'); await new Promise((r) => setTimeout(r, 10)); order.push('ears-started'); };
     const okReport = await runKevoSelfTest(deps);
     assert.ok(order.indexOf('ears-started') >= 0 && order.indexOf('ears-started') < order.indexOf('play wake-01.wav'), order.join(', '));
-    assert.ok(order.includes('listener-start'));
+    assert.strictEqual(order.filter((o) => o === 'ears-start').length, 1, order.join(', '));
+    assert.strictEqual(bridgeStarts, 0, 'no second start through the bridge');
     assert.ok(!okReport.errors.some((e) => e.startsWith('Hearing')), okReport.errors.join('; '));
+    assert.strictEqual(listener.getListeningState(), false, 'the microphone was off before the self-test, so it is off after it');
 
-    // The download fails (offline): the report names the cause instead of empty fields.
-    (Bridge as any).kevoEarsStart = async () => { throw new Error('Kevo hearing models could not be downloaded: offline'); };
+    // Left on by the owner: the self-test leaves it on.
+    listener.start();
+    await listener.whenStarted();
+    await runKevoSelfTest(deps);
+    assert.strictEqual(listener.getListeningState(), true);
+    listener.stop();
+
+    // The download fails (offline): the report names the cause and could_not_start, not a code failure.
+    startEars = async () => { throw new Error('Kevo hearing models could not be downloaded: offline'); };
     const failReport = await runKevoSelfTest(deps);
     assert.ok(failReport.errors.some((e) => e.includes('Hearing could not start') && e.includes('could not be downloaded: offline')), failReport.errors.join('; '));
+    assert.strictEqual(failReport.result, 'could_not_start');
     assert.strictEqual(listener.onError, undefined, 'the error hook is restored after the run');
-    listener.stop();
+    assert.strictEqual(listener.getListeningState(), false);
   });
 });

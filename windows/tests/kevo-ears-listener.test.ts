@@ -85,6 +85,34 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     }
   };
 
+  it('reports listening only once the first-use download has finished, and shows the download (#284)', async () => {
+    let finish!: () => void;
+    eventSource.start = () => new Promise<void>((r) => { finish = r; });
+    const states: boolean[] = [];
+    const status: string[] = [];
+    const errors: string[] = [];
+    const listener = new KevoEarsListener({ eventSource, onListeningStateChange: (s) => states.push(s), onStatus: (t) => status.push(t), onError: (e) => errors.push(e) });
+    listener.start();
+    await wait(0);
+    emitEvent('kevo-ears-download-progress', { id: 'kevo-vad', phase: 'download', done: 1 });
+    assert.deepEqual(states, [], 'not listening while the models download');
+    assert.ok(status[0]?.includes('downloading'), status.join('; '));
+    finish();
+    await listener.whenStarted();
+    assert.deepEqual(states, [true]);
+    listener.stop();
+
+    // Switched off while downloading: a late failure is not reported and does not reopen anything.
+    let fail!: (e: Error) => void;
+    eventSource.start = () => new Promise<void>((_, reject) => { fail = reject; });
+    listener.start();
+    listener.stop();
+    fail(new Error('offline'));
+    await wait(0);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(states, [true, false]);
+  });
+
   it('kevo-ears-wake triggers onWakeWord and keeps listener awake', async () => {
     let wakeWord = '';
     const listener = new KevoEarsListener({

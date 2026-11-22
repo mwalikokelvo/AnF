@@ -553,18 +553,21 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   // On the PC, hearing must run before any clip plays: its first start downloads the models,
   // and a failed start is the cause to report instead of empty results (#279).
   const ears = listener instanceof KevoEarsListener ? listener : null;
+  const earsWasOn = ears?.getListeningState() ?? false;
   const prevOnEarsError = ears?.onError;
+  let hearingFailed = false;
   if (ears) {
+    try {
+      if (!ears.start()) throw new Error('on-PC hearing is not available');
+      await ears.whenStarted();
+    } catch (err) {
+      hearingFailed = true;
+      report.errors.push(`Hearing could not start: ${String(err)}`);
+    }
     ears.onError = (err) => {
       report.errors.push(`Hearing: ${err}`);
       prevOnEarsError?.(err);
     };
-    try {
-      if (!ears.getListeningState()) ears.start();
-      await Bridge.kevoEarsStart();
-    } catch (err) {
-      report.errors.push(`Hearing could not start: ${String(err)}`);
-    }
   }
   const modelRoutedLatencies: number[] = [];
 
@@ -908,7 +911,14 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.result = 'fail';
   }
 
-  if (ears) ears.onError = prevOnEarsError;
+  if (ears) {
+    ears.onError = prevOnEarsError;
+    // The microphone ends as the owner left it (the typed-request check turns it off).
+    if (!earsWasOn) ears.stop();
+    else if (!ears.getListeningState()) ears.start();
+  }
+  // Nothing could be heard, so the clip results say nothing about Kevo's hearing.
+  if (hearingFailed) report.result = 'could_not_start';
 
   onProgress?.('Saving self-test results...');
   const jsonString = JSON.stringify(report, null, 2);

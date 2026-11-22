@@ -12,6 +12,7 @@ Refs #279. On the owner's PC 0 of 20 wake clips woke Kevo because `%LOCALAPPDATA
 - `kevo_ears_start` (Rust) is now async and downloads the pinned models through the existing checked download when they are missing (one download at a time), as the Phase 1 brief says ("downloaded on first use").
 - The self-test awaits the ears start before the first clip plays (so the first run waits for the download) and puts any hearing error in `errors` ("Hearing could not start: ..." or "Hearing: ..."), instead of leaving `heard` empty with no cause.
 - Tested: `npx tsc --noEmit`, the self-test tests (new test red before the change, green after), plus the verifier's full pre-PR checks. Not tested on the PC: whether the speaker-to-microphone path then reaches 19/20 is for the next PC test.
+- Review round 1 (Codex, 5 findings on fe353d8): switching the mic off during the download now cancels that start (Rust stop counter checked under the `EARS` lock); the listener reports "listening" only once the microphone is open and shows "downloading its hearing models" in the speech status meanwhile; the self-test starts hearing once through the listener (`whenStarted()`), leaves the mic as the owner had it, and reports `could_not_start` when hearing cannot start. Tested: tsc, npm test 850, build, check-release 12, contracts, styles, cargo test --lib --features kevo-ears.
 
 ## 2026-11-22 — Online lookups and weather on by default (Claude)
 

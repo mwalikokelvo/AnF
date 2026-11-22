@@ -21,6 +21,8 @@ export interface KevoEarsEventSource {
 export interface KevoEarsListenerOptions extends VoiceListenerOptions {
   eventSource?: KevoEarsEventSource;
   onBargeIn?: () => void;
+  /** Told what hearing is doing before it listens (the first start downloads the models). */
+  onStatus?: (text: string) => void;
 }
 
 export class KevoEarsListener {
@@ -33,6 +35,7 @@ export class KevoEarsListener {
   public onWakeWord?: (wakeWord: string) => void;
   public onBargeIn?: () => void;
   public onError?: (err: string) => void;
+  public onStatus?: (text: string) => void;
   private requireWakeWord: boolean;
   private followUpMs: number;
   private awakeUntil = 0;
@@ -52,7 +55,10 @@ export class KevoEarsListener {
   private unlistenFinal: (() => void) | undefined;
   private unlistenError: (() => void) | undefined;
   private unlistenBargeIn: (() => void) | undefined;
+  private unlistenDownload: (() => void) | undefined;
   private eventSource?: KevoEarsEventSource;
+  private runId = 0;
+  private started: Promise<void> = Promise.resolve();
 
   constructor(options?: KevoEarsListenerOptions) {
     this.wakeWords = options?.wakeWords ?? ['kevo', 'keevo', 'kivo', 'kayvo', 'kebo', 'cavo', 'caval', 'cavil', 'kevel', 'kevil', 'cabo'];
@@ -66,6 +72,7 @@ export class KevoEarsListener {
     this.onWakeWord = options?.onWakeWord;
     this.onBargeIn = options?.onBargeIn;
     this.onError = options?.onError;
+    this.onStatus = options?.onStatus;
     this.eventSource = options?.eventSource;
   }
 
@@ -83,7 +90,7 @@ export class KevoEarsListener {
     try {
       this.isRunning = true;
       this.tapPending = true;
-      this.reportRunning(true);
+      const run = ++this.runId;
 
       // Bind events from Rust audio pipeline
       void this.bindEvents();
@@ -93,12 +100,17 @@ export class KevoEarsListener {
         ? this.eventSource.start()
         : Bridge.kevoEarsStart();
 
-      void Promise.resolve(starter).then(() => {
+      // Listening is reported only once the microphone is open: the first start downloads the models.
+      this.started = Promise.resolve(starter).then(() => {
+        if (run !== this.runId) return;
+        this.reportRunning(true);
         if (this.tapPending) {
           this.tapPending = false;
           this.keepAwake();
         }
-      }).catch((err: unknown) => {
+      });
+      this.started.catch((err: unknown) => {
+        if (run !== this.runId) return; // switched off (or restarted) meanwhile
         this.onError?.(`Failed to start hearing on PC: ${String(err)}`);
         this.stop();
       });
@@ -110,8 +122,14 @@ export class KevoEarsListener {
     }
   }
 
+  /** Resolves when the latest start has opened the microphone; rejects with why it could not. */
+  whenStarted(): Promise<void> {
+    return this.started;
+  }
+
   stop(): void {
     this.isRunning = false;
+    this.runId++;
     clearTimeout(this.settleTimer);
     clearTimeout(this.interimTimer);
     this.interim = '';
@@ -196,6 +214,12 @@ export class KevoEarsListener {
     });
     this.unlistenWake = typeof uWake === 'function' ? uWake : undefined;
 
+    const uDownload = await listenFn<unknown>('kevo-ears-download-progress', () => {
+      if (!this.isRunning || this.reported) return;
+      this.onStatus?.('Kevo is downloading its hearing models (first use only, about 80 MB)…');
+    });
+    this.unlistenDownload = typeof uDownload === 'function' ? uDownload : undefined;
+
     const uBargeIn = await listenFn<void>('kevo-ears-barge-in', () => {
       if (!this.isRunning) return;
       this.onBargeIn?.();
@@ -248,6 +272,8 @@ export class KevoEarsListener {
     this.unlistenError = undefined;
     this.unlistenBargeIn?.();
     this.unlistenBargeIn = undefined;
+    this.unlistenDownload?.();
+    this.unlistenDownload = undefined;
   }
 
   private promoteInterim(): void {
