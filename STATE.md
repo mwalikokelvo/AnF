@@ -3,7 +3,7 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 
+lock: 2026-11-22T20:32Z
 phase: main moved 249caca -> 100554f (owner account merged #271 Phase 7.1 fix, #283 grok offline city time, #282 0.5 fix 1 Closes #278, 14:4x-16:55Z 22 Nov; no version bump, so kevo-test-v0.1.63 is still the newest test build); Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged; 0.5 fix 1 (#278) merged as #282 (owner account, 16:55Z 22 Nov). HUD: H.1-H.6, H.8 merged; H.7 waits for Phase 8. Phase 1: 1.1-1.3 merged (1.4-1.6 merged by owner account 18 Nov); 1.5 fix 1 (#279) built by autopilot as #284. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: #284 (autopilot, claude/kevo-1.5-fix-1, Closes #279: ears download models on first use; draft; Phase 1 design review (fresh subagent) Ship; version 0.1.65 in b976331; Codex 2 P2 findings on d02f119 fixed in 6a1264c (bridge start now rejects on failure; events bound before the mic opens), threads resolved, @codex review asked 20:31Z; branch is behind main (#271/#283/#282), merge main at 2b.3). Android packages failure on d02f119 was a Maven Central kotlin-stdlib lookup flake. #283 grok and #272 have no kevo issue ref. agy/ Phase 7.2-9.4 PRs held (owner gate). #255/#256/#262-#265/#268/#274/#285 not Kevo
