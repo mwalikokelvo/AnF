@@ -13,4 +13,4 @@
 
 **Checks** (`docs/KEVO-MAP.md` "Checks"): `cd windows && npx tsc --noEmit && npm test`, `node scripts/check-release.mjs`, `cd windows && npm run build`. No Rust build needed.
 
-**Done when**: a pull request from `agy/kevo-0.5-fix-1` with `Closes #278` is open.
+**Done when**: a pull request from `agy/kevo-0.5-fix-1` with `Closes #278` exists (open, merged or closed): `gh pr list --head agy/kevo-0.5-fix-1 --state all`.
