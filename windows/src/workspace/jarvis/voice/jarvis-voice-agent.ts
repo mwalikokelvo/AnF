@@ -8,6 +8,7 @@ import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, l
 import type { KevoActionStatus } from './kevo-actions';
 import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
 import { fetchJoke, isJokeRequest } from './kevo-joke';
+import { isSpotifySearchRequest, spotifySearchUrl } from './kevo-spotify';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
 import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
@@ -314,7 +315,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke or a fact, roll dice, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke or a fact, roll dice, search Spotify, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -592,6 +593,13 @@ export class JarvisVoiceAgent {
 
     // "Tell me a joke": a fresh one from icanhazdadjoke.com, always on (the owner's choice, 22 Nov 2026), whatever the
     // online lookups switch says. When the service does not answer, the AI below tells one offline.
+    const spotifyQuery = isSpotifySearchRequest(lower);
+    if (spotifyQuery && this.context.openUrl) {
+      const url = spotifySearchUrl(spotifyQuery);
+      if (!this.context.dryRun) await this.context.openUrl(url);
+      return { handled: true, actionName: 'spotify_search', speechReply: `Searching Spotify for ${spotifyQuery}, sir.`, status: 'success', verified: true, verificationDetails: `Opened Spotify search for ${spotifyQuery}` };
+    }
+
     if (isJokeRequest(lower)) {
       const asked = this.generation;
       const joke = await fetchJoke().catch(() => null);
