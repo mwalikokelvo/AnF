@@ -167,10 +167,16 @@ describe('Spotube Streaming Audio Service', () => {
       source: 'spotube',
       previewUrl: 'https://preview.example.org/audio.mp3',
     };
-    const resolved = await service.resolveSpotubeStream(track);
-    assert.ok(resolved);
-    assert.equal(resolved.streamUrl, 'https://preview.example.org/audio.mp3');
-    assert.equal(resolved.preview, true);
+    // Offline: online lookups turned off, so no full stream is looked up.
+    setOnlineLookups(false);
+    try {
+      const resolved = await service.resolveSpotubeStream(track);
+      assert.ok(resolved);
+      assert.equal(resolved.streamUrl, 'https://preview.example.org/audio.mp3');
+      assert.equal(resolved.preview, true);
+    } finally {
+      setOnlineLookups(true);
+    }
   });
 
   test('searchMultiSource returns direct track when URL is supplied', async () => {

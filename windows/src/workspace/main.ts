@@ -256,6 +256,15 @@ const attach=h('button',{text:'Attach documents',type:'button'});attach.addEvent
 section('chat','Chat',workflowButtons(()=>({sources,draft:draft.value}),(text,scope)=>{question.value=text;contextScope.value=scope;updateQuestionCount();autosave();},text=>status.textContent=text,()=>!busy),h('div',{class:'section-heading'},h('h2',{text:'Chat'}),h('p',{class:'hint',text:'Ask, explore your documents, or start a draft. This workspace runs on your computer.'})),conversation,h('div',{class:'quick-tasks'},button('Summarize PDF',a=>task(a,'Summarize the loaded document excerpts. List main points and cite sources. Say that this covers selected excerpts.',1)),button('Write a letter',a=>task(a,`Write a clear letter about: ${question.value.trim()||'my request'}. Use placeholders for unknown names or dates.`)),button('Compare documents',a=>task(a,'Compare the loaded documents. Cite evidence from each and identify gaps.',2))),followupHost,h('div',{class:'composer'},contextScope,question,questionCount,replyLength,h('p',{class:'hint',text:'Questions: up to 10,000 UTF-8 bytes. Long responses aim for 1,700 words; actual length varies. Long mode uses more memory and can take several minutes. Continue appends the next part to your draft.'}),h('div',{class:'row'},attach,button('Ask local AI',ask,'Thinking locally'),button('Continue to next part',async a=>{if(!history.length)throw Error('Start a conversation first.');question.value='Continue the previous answer with the next part. Pick up from its ending without repeating earlier material.';await ask(a,true);},'Continuing locally'),button('Export chat',async()=>{if(!history.length)throw Error('Start a conversation first.');const {serializeChatToMarkdown}=await import('./chat-export');const md=serializeChatToMarkdown(name.value||'Conversation',history,sources);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(name.value.trim()||'Conversation').replace(/[\\/:*?"<>|]/g,'_')}-notes.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);status.textContent='Exported conversation as Markdown note.';}))),h('p',{class:'hint',text:'Ctrl+Enter to send · Sources and citations appear below each answer.'}),evidenceList);
 let nativeMusic:Awaited<ReturnType<typeof attachDesktopSpotube>>;
 let audioStudio:ReturnType<typeof createAudioStudio>;
+/** A Kevo switch that is on unless turned off. The choice holds for this session even when storage fails. */
+function kevoSwitch(key:string){
+ let memory:boolean|null=null;
+ return {
+  get:()=>{if(memory!==null)return memory;try{return localStorage.getItem(key)!=='0';}catch{return true;}},
+  set:(on:boolean)=>{memory=on;try{localStorage.setItem(key,on?'1':'0');}catch{/* Holds for this session. */}},
+ };
+}
+const kevoWeather=kevoSwitch('anf-kevo-weather-on'),kevoOnline=kevoSwitch('anf-kevo-online-on');
 const musicHub=createMusicHub({notify:(message:string)=>{status.textContent=message;},beforePlay:async()=>{audioStudio?.stop();audioStudio?.hideDock();await nativeMusic?.suspend();await invoke('music_pause');}});
 
 let kevoTurn=0;
@@ -264,10 +273,14 @@ const jarvisActionContext: JarvisActionContext = {
     pauseMusic:()=>{musicHub.suspend();audioStudio?.stop();void nativeMusic?.suspend();void invoke('music_pause');},
     playMusic:()=>{void musicHub.play();},
     nextTrack:()=>{void musicHub.step(1);},
+    previousTrack:()=>{void musicHub.step(-1);},
     setMusicVolume:change=>musicHub.changeVolume(change),
-    // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
-    weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},
-    setWeatherEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-weather-on','1');else localStorage.removeItem('anf-kevo-weather-on');}catch{/* Stays as it was. */}},
+    // Weather (Open-Meteo, sent the city) and online lookups (Wikipedia, dictionary, currency rates and the rest) are on
+    // by default, the owner's choice of 22 Nov 2026. "turn off weather" / "turn off online lookups" stores '0' and stops them.
+    weatherEnabled:kevoWeather.get,
+    setWeatherEnabled:kevoWeather.set,
+    onlineLookupsEnabled:kevoOnline.get,
+    setOnlineLookupsEnabled:kevoOnline.set,
     // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
     getWeather:async (place,day)=>{
      const key='anf-kevo-weather-place';
