@@ -555,6 +555,12 @@ export class JarvisVoiceAgent {
     const translate = parseTranslateRequest(lower);
     if (translate) return this.online('translate', 'translate that', () => translateFromEnglish(translate.text, translate.code), (said) => `In ${translate.language}, ${translate.text} is: ${said}`);
 
+    // "What time is it in Tokyo" before the local clock, which would otherwise answer it with the time here.
+    const tzPlace = parseTimezoneRequest(lower);
+    if (tzPlace) {
+      const reply = timeInPlace(tzPlace);
+      if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
+    }
     // Clock / calendar (Phase 2B)
     if (
       lower.includes('what time') ||
@@ -566,11 +572,6 @@ export class JarvisVoiceAgent {
       lower.includes('whats the time')
     ) {
       return { handled: true, actionName: 'tell_time', speechReply: speakClock() };
-    }
-    const tzPlace = parseTimezoneRequest(lower);
-    if (tzPlace) {
-      const reply = timeInPlace(tzPlace);
-      if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
     }
     if (
       lower.includes("today's date") ||

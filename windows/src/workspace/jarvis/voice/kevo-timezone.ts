@@ -32,7 +32,7 @@ const CITIES: Record<string, string> = {
 /** "what time is it in Tokyo", "time in London", "what's the time in Paris". */
 export function parseTimezoneRequest(lower: string): string | null {
   const said = bareRequest(lower);
-  const m = /^(?:what(?:'s| is) the )?(?:current )?time(?: is it)? in ([a-z ]+)$/.exec(said);
+  const m = /^(?:what(?:'s| is) the |whats the |what )?(?:current )?time(?: is it)? in ([a-z ]+)$/.exec(said);
   if (!m) return null;
   const place = m[1].trim().replace(/\s+/g, ' ');
   return CITIES[place] ? place : null;
@@ -48,7 +48,7 @@ export function timeInPlace(place: string, now: Date = new Date()): string | nul
       minute: '2-digit',
       hour12: false,
     }).format(now);
-    return `It is ${formatted} in ${place.charAt(0).toUpperCase() + place.slice(1)}.`;
+    return `It is ${formatted} in ${place.replace(/\b[a-z]/g, (c) => c.toUpperCase())}.`;
   } catch {
     return null;
   }
