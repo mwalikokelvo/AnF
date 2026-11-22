@@ -8,6 +8,7 @@ import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, l
 import type { KevoActionStatus } from './kevo-actions';
 import { onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
 import { fetchJoke, isJokeRequest } from './kevo-joke';
+import { fetchQuote, isQuoteRequest } from './kevo-quote';
 import {
   createReminder,
   listReminders,
@@ -307,7 +308,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke or a quote, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -549,6 +550,12 @@ export class JarvisVoiceAgent {
       // Stop pressed while the joke was on its way: say nothing and do not go on to the AI.
       if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
       if (joke) return { handled: true, actionName: 'tell_joke', speechReply: joke, status: 'success', verified: true };
+    }
+    if (isQuoteRequest(lower)) {
+      const asked = this.generation;
+      const quote = await fetchQuote().catch(() => null);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      if (quote) return { handled: true, actionName: 'tell_quote', speechReply: quote, status: 'success', verified: true };
     }
 
     // Fast path for memory recall (Phase 3 Step 3.3)
