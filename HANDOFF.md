@@ -6,6 +6,18 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-22 by Claude (Kevo 0.5 fix 1 review: the Stop self-test now speaks through the real speaker, #282).
 
+## 2026-11-18 — UI pass 1: one top bar, rail sections, Tonal Glass / Paper & Forest (Claude)
+
+Owner's spec "AnF UI Consolidation, Visual Polish & Rendering Performance (Pass 1)". Frontend only; no Rust, vault or audio pipeline changes. Stacked on #255 (music starts even when another player can't pause).
+- Header: one 48px bar. Workspace name and save status on the left; `Search… Ctrl+K` pill and Kevo micro-pill in the middle; `+ Quick note` on the right. Devices, Keys, AppFlowy, Cal.com, Swarm Review, Security Challenge and Community Support moved into the Ctrl+K palette (↑↓ to move, Enter, Esc; search debounced 150 ms).
+- Rail: Reader | Assistant | Music filter removed; WORKSPACE / STUDIO / SYSTEM labels when open; 56px closed.
+- Kevo: the bottom-right oval is gone. The top-bar micro-pill shows only what `kevo://state` says (no polling) and still toggles the microphone.
+- Home: Focus timer + Vault health in one compact strip; the companion-hub card and its dev links are gone from Home (palette instead).
+- `anf-tonal.css` replaces #255's `anf-mint.css`: dark #0D0F14 / #13161F / #1A1E2A with hairline borders and top highlight; light "Paper & Forest" (#142423 rail, #F7F8F6 canvas, white cards). One accent; neutral pills for secondary buttons; no blur on page panels; hover lifts are transform-only, 180 ms. Music Hub default theme is now Tonal Glass.
+- Tested: tsc, `npm test` 793/793, `npm run test:e2e` 138/138, check-release 12/12, verify-contracts, check-styles after `vite build`, browser fixture screenshots (light/dark Home, Music Hub, Documents, palette). `cargo check` not run here (no webkit2gtk); Rust is unchanged and CI runs it. Not installed on the PC.
+- Left for partners (issues filed): Writing `Tools ▾` + full focus mode, Audio Studio 3 tabs + (i) popover, Settings Integrations drawer, list virtualization (Chat history, Music tracks, OPDS).
+- Not done on purpose: unmounting inactive views. Music Hub, Writing and Audio Studio hold live state (playback queue and dock, unsaved editor, recording); unmounting would stop or lose it. Hidden panels are `display:none`, so they cost no layout or paint. Building views on first open is the safe version, left as a follow-up issue.
+
 ## 2026-11-22 — Kevo 0.5 fix 1 review: Stop check speaks for real (Claude, on `agy/kevo-0.5-fix-1`)
 
 Codex's review of #282 was right: Check 5 never sent the reply to the speaker, and the app never passed its speaker to the self-test, so Stop "passed" with nothing playing. Check 5 now speaks a fixed long reply through the real speaker (no AI call, so nothing made up lands in Kevo's history), waits for the engine's utterance start event (`speaker.whenSoundStarts()`, 5 s cap), then 2 s, requires the speech engine (`speechSynthesis.speaking`, not the speaker's own flag, which `stop()` clears) to be playing, presses the desk's real Stop action (`stopNow`, passed as `stop`) and requires silence 0.5 s later; with no speaker it fails. No polling loop. Tests use a fake speaker and cover sound that keeps playing after Stop and sound that never starts. Automated tests only (852/852); not tried on the PC.
