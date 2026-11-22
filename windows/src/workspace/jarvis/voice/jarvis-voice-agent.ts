@@ -541,14 +541,14 @@ export class JarvisVoiceAgent {
     const quick = this.quickAnswer(text);
     if (quick) return quick;
 
-    // "Tell me a joke": a fresh one from icanhazdadjoke.com while online lookups are on; otherwise the AI tells one offline.
-    if (isJokeRequest(lower) && this.context.onlineLookupsEnabled?.()) {
-      try {
-        return { handled: true, actionName: 'tell_joke', speechReply: await fetchJoke(), status: 'success', verified: true };
-      } catch (err: any) {
-        const errMsg = err?.message || String(err);
-        return { handled: true, actionName: 'tell_joke', speechReply: `I could not get a joke: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
-      }
+    // "Tell me a joke": a fresh one from icanhazdadjoke.com, always on (the owner's choice, 22 Nov 2026), whatever the
+    // online lookups switch says. When the service does not answer, the AI below tells one offline.
+    if (isJokeRequest(lower)) {
+      const asked = this.generation;
+      const joke = await fetchJoke().catch(() => null);
+      // Stop pressed while the joke was on its way: say nothing and do not go on to the AI.
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      if (joke) return { handled: true, actionName: 'tell_joke', speechReply: joke, status: 'success', verified: true };
     }
 
     // Fast path for memory recall (Phase 3 Step 3.3)
@@ -955,8 +955,9 @@ export class JarvisVoiceAgent {
     }
 
     // 7. General AI Conversational Intelligence + memory
-    // A lone unknown word is a cough, a fragment or the room, not a question for the AI.
-    if (!/\s/.test(lower.trim())) return { handled: true, actionName: 'ignored', speechReply: '' };
+    // A lone unknown word is a cough, a fragment or the room, not a question for the AI. "Joke" is the exception: when the
+    // joke service did not answer above, the AI tells one.
+    if (!/\s/.test(lower.trim()) && !isJokeRequest(lower)) return { handled: true, actionName: 'ignored', speechReply: '' };
     if (this.context.askAI) {
       try {
         // A short history keeps the local model quick and stops old exchanges steering new answers.

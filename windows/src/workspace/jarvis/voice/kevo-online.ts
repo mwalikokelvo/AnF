@@ -1,5 +1,5 @@
 /**
- * Kevo's online lookups (Wikipedia, word definitions, currency rates, jokes) share one switch, off until the owner says
+ * Kevo's online lookups (Wikipedia, word definitions, currency rates) share one switch, off until the owner says
  * "turn on online lookups": each sends what was asked about to a free public service (AGENTS.md: network calls only
  * to services the owner turned on). Weather has its own switch.
  */
@@ -7,15 +7,20 @@
 export type LookupFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 export const ONLINE_LOOKUPS_OFF =
-  'Online lookups are off. They send what you ask about to free public services: Wikipedia, a dictionary, a currency rate service and a joke service. Say turn on online lookups to allow them.';
+  'Online lookups are off. They send what you ask about to free public services: Wikipedia, a dictionary and a currency rate service. Say turn on online lookups to allow them.';
 
 /** One GET with an 8 second limit. A network failure says plainly that `service` did not answer. */
-export async function onlineGet(url: string, service: string, fetchFn?: LookupFetch, headers?: Record<string, string>): Promise<Awaited<ReturnType<LookupFetch>>> {
-  const send: LookupFetch = fetchFn ?? ((u, init) => fetch(u, { headers: init?.headers, signal: AbortSignal.timeout(8000) }));
+export async function onlineGet(url: string, service: string, fetchFn?: LookupFetch, headers?: Record<string, string>, timeoutMs = 8000): Promise<Awaited<ReturnType<LookupFetch>>> {
+  const send: LookupFetch = fetchFn ?? ((u, init) => fetch(u, { headers: init?.headers, signal: AbortSignal.timeout(timeoutMs) }));
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await send(url, headers && { headers });
+    // The deadline holds for any fetch, so a service that never answers cannot hold Kevo past it.
+    const late = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), timeoutMs); });
+    return await Promise.race([send(url, headers && { headers }), late]);
   } catch {
     throw new Error(`${service} did not answer. Check the internet connection.`);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

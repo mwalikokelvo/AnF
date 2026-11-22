@@ -4,7 +4,11 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (Grok's Kevo previous track and online joke).
+Last updated: 2026-11-22 by Claude (Kevo's joke is always on).
+
+## 2026-11-22 — Kevo's joke is always on (Claude)
+
+Owner (22 Nov, in their words): "Make joke service always on even while online lookups are on or off." "tell me a joke" now always asks icanhazdadjoke.com, whatever the online lookups switch says; if it does not answer, the local AI tells one. Only the request is sent. Online lookups notice no longer names the joke service. Tests: `windows/tests/kevo-joke.test.ts`. Automated tests only.
 
 ## 2026-11-22 — Grok's Kevo previous track and joke (Claude)
 
