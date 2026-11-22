@@ -349,10 +349,12 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
     const playing = deps.isAudioPlaying ?? (() => typeof window !== 'undefined' && Boolean(window.speechSynthesis?.speaking));
     const pressStop = deps.stop ?? (() => { agent.abandon(); speaker?.stop(); });
     if (speaker) {
-      await speaker.ready?.(); // voices load first, so the 2 s below are all reply
+      const soundStarted = speaker.whenSoundStarts().then(() => true);
       void speaker.speak(STOP_CHECK_REPLY).catch(() => {});
-      await sleep(2000); // Stop is pressed 2 s into the reply
-      spokenBeforeStop = playing();
+      if (await Promise.race([soundStarted, sleep(5000).then(() => false)])) {
+        await sleep(2000); // Stop is pressed 2 s into the reply
+        spokenBeforeStop = playing();
+      }
       if (spokenBeforeStop) {
         pressStop();
         await sleep(500); // sound must have ended within 0.5 s

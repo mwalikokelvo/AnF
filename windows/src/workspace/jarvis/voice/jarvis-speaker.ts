@@ -166,6 +166,7 @@ export class JarvisSpeaker {
   private utteranceToken = 0;
   private cue: Promise<void> = Promise.resolve();
   private streamWake: (() => void) | null = null;
+  private soundStartWaiters: (() => void)[] = [];
 
   constructor(options?: JarvisSpeakerOptions) {
     this.onStart = options?.onStart;
@@ -201,9 +202,9 @@ export class JarvisSpeaker {
     }
   }
 
-  /** Resolves once the speech engine's voices are loaded, so the next reply starts without that wait. */
-  async ready(): Promise<void> {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) await loadVoices();
+  /** Resolves when sound actually starts: the speech engine's start event for the next sentence spoken. */
+  whenSoundStarts(): Promise<void> {
+    return new Promise((resolve) => this.soundStartWaiters.push(resolve));
   }
 
   /** Speak a phrase out loud. */
@@ -274,6 +275,7 @@ export class JarvisSpeaker {
           }
           utterance.rate = tone.rate;
           utterance.pitch = tone.pitch;
+          utterance.onstart = () => { const waiting = this.soundStartWaiters; this.soundStartWaiters = []; for (const w of waiting) w(); };
           utterance.onend = () => resolve();
           utterance.onerror = () => resolve();
           window.speechSynthesis.speak(utterance);
