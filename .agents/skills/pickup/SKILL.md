@@ -1,4 +1,5 @@
 ---
+name: pickup
 description: Work through the Antigravity job queue in .agents/tasks/, one job after another, until it is empty
 ---
 

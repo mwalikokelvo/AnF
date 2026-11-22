@@ -1,6 +1,6 @@
 # Antigravity job queue
 
-Claude writes jobs here so Antigravity builds them on the owner's PC; Claude then only reviews the result. Start the queue in Antigravity with `/pickup`.
+Claude writes jobs here so Antigravity builds them on the owner's PC; Claude then only reviews the result. Start the queue in Antigravity with `/pickup` (the skill in `.agents/skills/pickup/SKILL.md`; if `/pickup` is not offered, say "follow .agents/skills/pickup/SKILL.md").
 
 - One file per job, numbered in the order to do them: `NN-short-name.md`.
 - Each job has: **Goal**, **Branch**, **Files** it may touch, **Steps**, **Checks**, **Done when** (a fact on GitHub that shows the job is finished, so a finished job is skipped next time).
