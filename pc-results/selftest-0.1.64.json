@@ -1,0 +1,225 @@
+{
+  "version": "0.1.58",
+  "timestamp": "2026-11-22T06:27:02.021Z",
+  "result": "fail",
+  "systemStats": {
+    "hostName": "AlwaysnForever",
+    "os": "11 (26300)",
+    "osVersion": "Windows 11 Pro",
+    "arch": "x86_64",
+    "cpuCores": 8,
+    "cpuUsagePercent": 100,
+    "memoryTotalBytes": 8325648384,
+    "memoryAvailableBytes": 553910272,
+    "memoryUsagePercent": 93.34694,
+    "processCount": 402,
+    "disks": [
+      {
+        "name": "",
+        "fileSystem": "NTFS",
+        "mountPoint": "C:\\",
+        "totalBytes": 510597787648,
+        "availableBytes": 192467898368,
+        "usagePercent": 62.305378
+      }
+    ]
+  },
+  "graphicsCard": "Intel(R) UHD Graphics 620",
+  "requests": [
+    {
+      "id": "req-time-ljspeech",
+      "check": "several_in_a_row",
+      "expected": {
+        "action": "tell_time"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 2.774,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-help-ljspeech",
+      "check": "several_in_a_row",
+      "expected": {
+        "action": "help"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 1.797,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-timer-ljspeech",
+      "check": "several_in_a_row",
+      "expected": {
+        "action": "timer_set",
+        "seconds": 10
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 2.957,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-open-brave-ljspeech",
+      "check": "open_app",
+      "expected": {
+        "action": "open_app",
+        "app": "Brave"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 2.82,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-black-holes-ljspeech",
+      "check": "stop",
+      "expected": {
+        "action": "ai_conversation"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 3.58,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-time-libritts-3922",
+      "check": "several_in_a_row",
+      "expected": {
+        "action": "tell_time"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 1.839,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-help-libritts-3922",
+      "check": "several_in_a_row",
+      "expected": {
+        "action": "help"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 1.56,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-timer-libritts-3922",
+      "check": "several_in_a_row",
+      "expected": {
+        "action": "timer_set",
+        "seconds": 10
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 2.32,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-open-brave-libritts-3922",
+      "check": "open_app",
+      "expected": {
+        "action": "open_app",
+        "app": "Brave"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 2.36,
+        "heardToReplyMs": 0
+      }
+    },
+    {
+      "id": "req-black-holes-libritts-3922",
+      "check": "stop",
+      "expected": {
+        "action": "ai_conversation"
+      },
+      "heard": "",
+      "action": "",
+      "reply": "",
+      "timings": {
+        "durationSeconds": 2.54,
+        "heardToReplyMs": 0
+      }
+    }
+  ],
+  "wakeClips": {
+    "total": 20,
+    "wakes": 0,
+    "rate": 0
+  },
+  "lookalikeClips": {
+    "total": 10,
+    "falseWakes": 0
+  },
+  "phase0Checks": [
+    {
+      "check": "several_in_a_row",
+      "passed": true,
+      "details": "Three answers in a row, actions: tell_time, help, timer_set"
+    },
+    {
+      "check": "open_app",
+      "passed": true,
+      "details": "Dispatched action open_app for Brave (reply: \"Opening Brave.\")"
+    },
+    {
+      "check": "timer",
+      "passed": true,
+      "details": "Timer fired: \"Your 10 seconds timer is done.\" after 7s"
+    },
+    {
+      "check": "typed_request",
+      "passed": true,
+      "details": "Help response received: \"I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke, and answer questions.\""
+    },
+    {
+      "check": "stop",
+      "passed": true,
+      "details": "Speech stopped within 0.5s and nothing more was said"
+    }
+  ],
+  "errors": [
+    "Barge-in did not trigger when speaking over Kevo through speakers.",
+    "Barge-in stop delay (301 ms) exceeded 300 ms budget."
+  ],
+  "idleCpuPercent60s": 80.815605,
+  "hudChecks": {
+    "stateChangeDelayMs": 39,
+    "idleCpuPercent60s": 0,
+    "approvalClickMs": 15,
+    "approvalVoiceYesMs": 6,
+    "approvalVoiceCancelMs": 1,
+    "droppedFileSearchRank": 1
+  },
+  "ownVoiceNeverInterrupts": true,
+  "bargeInStopDelayMs": 301
+}
