@@ -1,7 +1,7 @@
 /**
- * Kevo's online lookups (Wikipedia, word definitions, currency rates, jokes) share one switch, off until the owner says
- * "turn on online lookups": each sends what was asked about to a free public service (AGENTS.md: network calls only
- * to services the owner turned on). Weather has its own switch.
+ * Kevo's online lookups (Wikipedia, word definitions, currency rates, jokes) share one switch, on unless the owner says
+ * "turn off online lookups" (the owner's choice, 22 Nov 2026): each sends what was asked about to a free public
+ * service. Weather has its own switch.
  */
 
 export type LookupFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;

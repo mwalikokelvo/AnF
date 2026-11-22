@@ -265,12 +265,12 @@ const jarvisActionContext: JarvisActionContext = {
     nextTrack:()=>{void musicHub.step(1);},
     previousTrack:()=>{void musicHub.step(-1);},
     setMusicVolume:change=>musicHub.changeVolume(change),
-    // Weather is off until the owner says "turn on weather", since it sends the city to Open-Meteo.
-    weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')==='1';}catch{return false;}},
-    setWeatherEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-weather-on','1');else localStorage.removeItem('anf-kevo-weather-on');}catch{/* Stays as it was. */}},
-    // Wikipedia, dictionary and currency rates: off until the owner says "turn on online lookups".
-    onlineLookupsEnabled:()=>{try{return localStorage.getItem('anf-kevo-online-on')==='1';}catch{return false;}},
-    setOnlineLookupsEnabled:on=>{try{if(on)localStorage.setItem('anf-kevo-online-on','1');else localStorage.removeItem('anf-kevo-online-on');}catch{/* Stays as it was. */}},
+    // Weather (Open-Meteo, sent the city) and online lookups (Wikipedia, dictionary, currency rates and the rest) are on
+    // by default, the owner's choice of 22 Nov 2026. "turn off weather" / "turn off online lookups" stores '0' and stops them.
+    weatherEnabled:()=>{try{return localStorage.getItem('anf-kevo-weather-on')!=='0';}catch{return true;}},
+    setWeatherEnabled:on=>{try{localStorage.setItem('anf-kevo-weather-on',on?'1':'0');}catch{/* Stays as it was. */}},
+    onlineLookupsEnabled:()=>{try{return localStorage.getItem('anf-kevo-online-on')!=='0';}catch{return true;}},
+    setOnlineLookupsEnabled:on=>{try{localStorage.setItem('anf-kevo-online-on',on?'1':'0');}catch{/* Stays as it was. */}},
     // Weather from Open-Meteo, only when asked. No place named: the last place asked about, kept on this device.
     getWeather:async (place,day)=>{
      const key='anf-kevo-weather-place';

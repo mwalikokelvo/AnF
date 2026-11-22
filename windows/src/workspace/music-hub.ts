@@ -372,7 +372,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const onlineBox=h('input',{type:'checkbox','aria-label':'Online lookups'}) as HTMLInputElement;
  onlineBox.checked=onlineLookupsEnabled();
  onlineBox.addEventListener('change',()=>{setOnlineLookups(onlineBox.checked);report(onlineBox.checked?'Online lookups on: lyrics, metadata and streaming sources may be contacted.':'Online lookups off. Nothing is sent to third-party services.');});
- const onlineToggle=h('label',{class:'music-label',title:'Allow lyrics, metadata and streaming lookups on third-party services (off by default)'},onlineBox,' Online lookups');
+ const onlineToggle=h('label',{class:'music-label',title:'Allow lyrics, metadata and streaming lookups on third-party services (on by default)'},onlineBox,' Online lookups');
  const flowBtn=button('Music Flow',()=>openMusicFlow());
  flowBtn.className='nothing-pill';
 
