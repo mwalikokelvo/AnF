@@ -544,7 +544,10 @@ export class JarvisVoiceAgent {
     // "Tell me a joke": a fresh one from icanhazdadjoke.com, always on (the owner's choice, 22 Nov 2026), whatever the
     // online lookups switch says. When the service does not answer, the AI below tells one offline.
     if (isJokeRequest(lower)) {
+      const asked = this.generation;
       const joke = await fetchJoke().catch(() => null);
+      // Stop pressed while the joke was on its way: say nothing and do not go on to the AI.
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
       if (joke) return { handled: true, actionName: 'tell_joke', speechReply: joke, status: 'success', verified: true };
     }
 

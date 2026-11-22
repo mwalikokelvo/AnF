@@ -16,9 +16,12 @@ export function isJokeRequest(lower: string): boolean {
   return /^(?:tell me (?:a|another) joke|(?:a |another )?joke|make me laugh|say something funny)$/.test(said);
 }
 
-/** One joke as plain text. Throws when the service does not answer or sends no joke. */
-export async function fetchJoke(fetchFn?: LookupFetch): Promise<string> {
-  const res = await onlineGet('https://icanhazdadjoke.com/', 'the joke service', fetchFn, { Accept: 'application/json' });
+/**
+ * One joke as plain text. Throws when the service does not answer within 2 seconds or sends no joke, so the local AI
+ * can still start one inside Kevo's 5-second answer budget.
+ */
+export async function fetchJoke(fetchFn?: LookupFetch, timeoutMs = 2000): Promise<string> {
+  const res = await onlineGet('https://icanhazdadjoke.com/', 'the joke service', fetchFn, { Accept: 'application/json' }, timeoutMs);
   if (!res.ok) throw new Error(`the joke service answered ${res.status}.`);
   const joke = String(((await res.json()) as { joke?: unknown }).joke ?? '').trim();
   if (!joke) throw new Error('the joke service sent no joke.');

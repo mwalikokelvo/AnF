@@ -39,6 +39,32 @@ describe('Kevo joke', () => {
     await assert.rejects(fetchJoke(async () => { throw new Error('offline'); }), /joke service did not answer/);
   });
 
+  it('gives up on a joke service that never answers, so the AI can start in time', async () => {
+    const start = Date.now();
+    await assert.rejects(fetchJoke(() => new Promise(() => {}), 50), /joke service did not answer/);
+    assert.ok(Date.now() - start < 1000);
+  });
+
+  it('says nothing and asks no AI when Stop is pressed while the joke is on its way', async () => {
+    const real = globalThis.fetch;
+    let release: (r: Response) => void = () => {};
+    globalThis.fetch = (() => new Promise<Response>((r) => { release = r; })) as typeof fetch;
+    try {
+      let aiAsked = false;
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, askAI: async () => { aiAsked = true; return 'A joke.'; } });
+      const pending = agent.processVoiceInput('tell me a joke');
+      await new Promise((r) => setTimeout(r, 10));
+      agent.abandon();
+      release(new Response(JSON.stringify({ joke: 'Late joke.' }), { status: 200 }));
+      const res = await pending;
+      assert.equal(res.actionName, 'abandoned');
+      assert.equal(res.speechReply, '');
+      assert.equal(aiAsked, false);
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
   it('tells a joke whether online lookups are on or off', async () => {
     for (const on of [true, false]) {
       await withFetch('I only know 25 letters of the alphabet. I do not know y.', async (calls) => {
