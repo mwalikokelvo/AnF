@@ -6,6 +6,10 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-22 by Claude (Kevo 0.5 fix 1 review: the Stop self-test now speaks through the real speaker, #282).
 
+## 2026-11-22 — Kevo 0.5 fix 1 review: Stop check speaks for real (Claude, on `agy/kevo-0.5-fix-1`)
+
+Codex's review of #282 was right: Check 5 never sent the reply to the speaker, and the app never passed its speaker to the self-test, so Stop "passed" with nothing playing. Check 5 now speaks a fixed long reply through the real speaker (no AI call, so nothing made up lands in Kevo's history), presses Stop 2 s in and requires silence within 0.5 s; with no speaker it fails. `jarvis-command-desk.ts` passes `speaker` to both self-test runs. Tests use a fake speaker and cover a speaker that ignores Stop. Automated tests only (852/852); not tried on the PC.
+
 ## 2026-11-22 — Kevo 0.5 fix 1: Stop check speech fallback & report appVersion (Antigravity, branch `agy/kevo-0.5-fix-1`)
 
 Fixes issue #278:

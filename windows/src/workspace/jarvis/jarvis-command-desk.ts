@@ -596,6 +596,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = true;
       const report = await runKevoSelfTest({
         agent: voiceAgent,
+        speaker,
         listener,
         appVersion: await resolveAppVersion(),
         onProgress: (step) => { speechStatusEl.textContent = step; },
@@ -620,6 +621,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       try {
         await runKevoSelfTest({
           agent: voiceAgent,
+          speaker,
           listener,
           appVersion: await resolveAppVersion(),
           onProgress: (step) => { speechStatusEl.textContent = step; },
