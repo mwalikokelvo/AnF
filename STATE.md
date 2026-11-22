@@ -3,19 +3,21 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-22T04:26:35Z
+lock: 
 phase: autopilot merged #270 (first-clause speech, Refs #266) at 01:06Z 22 Nov on main 75525ee, version 0.1.63; owner account merged #269 (Grok lookups) 23:11Z 21 Nov; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
-open_pr: none of the autopilot's. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268 not Kevo
+open_pr: none of the autopilot's. New drafts #274 (test-build download redirect fix, 0.1.64: likely why ~/AnF-Kevo stays empty), #275 (joke always on), #276 (Grok extras) by interactive Claude sessions, no kevo issue ref, CI green. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268 not Kevo
 pc_test: pending 0.1.63 since 2026-11-22T01:34Z (kevo-test-v0.1.63 published by main Windows run 44969628943, green); no result for 0.1.61/0.1.62; 24 h notice for 0.1.61/0.1.62 sent 2026-11-21T22:4xZ
-waiting_for: PC self-test result pc-results/selftest-0.1.63.json (the "Kevo PC results" scheduled task is turned off). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
+waiting_for: PC self-test result pc-results/selftest-0.1.63.json ("Kevo PC results" is on again, daily 21:00 America/Chicago; #274 fixes AnF never downloading test builds, so results likely need it merged). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
 blocked: 
 last_passed_version: none yet
 owner_needed: PC test waiting since 19 Nov: owner asked (21 Nov) to turn the PC on, check the AnF self-test switch, and turn "Kevo PC results" back on
 last_main: cf3b3bd (#273 by owner account 01:53Z, no version bump; 0.1.63 test build published from 75525ee)
 chain: 0
 next_due: 2026-11-23T01:34Z
-quiet_fingerprint: 07fe1bcf035399d3b309f2c34b2be9cf50d7b8fec1119605cb647309a93b35ea
+quiet_fingerprint: 761bc5fffff0d1a7861bda41f3de5d316087bf717e855a7b291b723d24381ac8
+
+fingerprint_format: sha256 of newline-joined lines: main sha; sorted pc-results/ names; per open PR sorted by number "n head_sha updated_at <sorted check conclusions joined by comma, null for unfinished>"; per open kevo issue "n updated_at"; trailing newline
 
 ## Run log (newest last, keep 60)
 
@@ -64,3 +66,4 @@ quiet_fingerprint: 07fe1bcf035399d3b309f2c34b2be9cf50d7b8fec1119605cb647309a93b3
 - 2026-11-22T01:06Z (autopilot, chained 4): 2b.7 waiting. Board unchanged (#266 only open kevo issue; #271/#272 still red, not the autopilot's; Phase 7.2+ PRs held). main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not yet published. No PC result. No notification.
 - 2026-11-22T01:06Z (autopilot, chained 5): 2b.7 waiting. Same as 01:06Z run: board unchanged, main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not published yet. No notification.
 - 2026-11-22T02:05Z (autopilot, owner-requested): 2b.7 waiting. main Windows run 44969628943 green, kevo-test-v0.1.63 published 01:34Z; pc_test pending 0.1.63. main moved 75525ee -> cf3b3bd (owner account merged #273, previous track + online joke, no version bump; its CI running). Board unchanged. Owner told in the session reply.
+- 2026-11-22T04:26Z (autopilot): 2b.7 waiting. main unchanged at cf3b3bd. New drafts #274/#275/#276 by interactive Claude sessions refer to no kevo issue, so not Kevo PRs for the autopilot; #274 fixes the test-build download (sha256 redirect), which likely explains the missing PC results. No PC result; "Kevo PC results" task is on again. No notification.
