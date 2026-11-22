@@ -6,22 +6,37 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-22 by Claude (handover to Antigravity — see the first entry).
 
-## 2026-11-22 — HANDOVER: Claude is out of usage; Antigravity takes over Claude's duties (Claude)
+## 2026-11-22 — HANDOVER: Antigravity takes over ALL of Claude's duties and roles (Claude)
 
-Owner's order (22 Nov 2026): Claude's duties pass to **Antigravity** until Claude's usage resets. Antigravity, you are now the lead: plan, hand out jobs, review and merge partner PRs once every check is green, keep this file current. Rules unchanged: own branch (`agy/<topic>`), smallest complete change, no direct pushes to `main`, Windows + Android releases when due, clear superseded build files from the PC.
+Owner's order (22 Nov 2026, their words): "Tell Antigravity to do all your duties and roles in the meantime. Plus implementing Grok's insights." Claude is out of usage and its Kevo autopilot is paused. **Antigravity, until Claude says it is back, you hold every role Claude held:**
 
-**Claude's open PRs on AnF, now yours to finish or merge:**
+1. **Lead / planner:** pick the next job, write a short brief, give it to the right partner (big multi-file builds: Cursor; ThingsBook / AnF Books: Codex; docs, changelog, simple tests: Hermes; research and second opinions: Grok / DeepSeek).
+2. **Reviewer and merger:** review every partner PR (Cursor, Codex, Hermes, Grok, yours), and merge it yourself once CI is green, there is no conflict and Codex's review has no open finding. Ask Codex or Cursor for the second review of your own PRs.
+3. **Kevo autopilot:** carry on the Kevo plan (docs/KEVO-PLAN.md, docs/kevo-briefs/, docs/kevo-autopilot/AUTOPILOT.md) phase by phase, built from the plan, not as-you-go.
+4. **Releases:** test and ship the Windows and Android builds yourself when due, with the 13-voice pack in every build; clear the previous version's build files from the owner's PC; report the final release (links, platforms, exact version) to the owner. AnF is not published until the Kevo plan is done and the README is rewritten.
+5. **Shared notes:** keep this file current — a short dated entry for everything you finish.
+
+Rules unchanged: your own `agy/<topic>` branches, smallest complete change, never push to `main` directly, never loosen a test, features on by default (no on/off switches unless the owner asks).
+
+### Implementing Grok's insights
+
+Grok pushes ideas to `grok/*` branches. The owner wants them built in: **fix broken ones rather than skip them**, and rebuild cleanly on your own branch (Grok's branches often wipe core files or don't build; take the idea, not the diff, and never take Grok's HANDOFF.md edits or live-network tests). Close a branch's idea only when main already does it, and say so here.
+
+Already done on main (see entries below): unit conversion, Wikipedia, dictionary, currency, previous track, joke, dice, facts, quote, trivia, translation. Already judged redundant: define-word, the weather branches, unit-conversion variants, kevo-random-fact, kevo-simple-calculator-enhancement, voice-assistant-research-summary, kevo-news-headlines.
+
+**Still to review and build:** `grok/kevo-list-reminders`, `grok/kevo-set-volume` + `grok/kevo-volume-control` (one feature), `grok/kevo-whats-playing`, `grok/kevo-spotify` + `grok/kevo-spotify-ideas`, `grok/kevo-today-in-history`, `grok/kevo-random-advice`, `grok/kevo-news` (real headlines only, behind no made-up data), `grok/kevo-random-fact-v2`, `grok/music-albumartist-cards`, `grok/daily-quote`, `grok/kevo-joke-capability`, `grok/kevo-trivia-capability`, `grok/weather-assistant`, `grok/weather-capability`, `grok/weather-kevo`. Check each for anything new before calling it redundant. Keep checking for new `grok/*` branches every time you work.
+
+### Claude's open PRs — now yours
+
 - #285 `claude/ocr-port-test-free-port` — flaky OCR port test uses a free port. Ready; merge when green.
-- #284 `claude/kevo-1.5-fix-1` (draft) — Kevo ears download their models on first use; self-test reports hearing errors. Needs finishing and a PC try.
-- #274 `claude/project-thread-fa8toc` (draft) — test builds follow GitHub's download redirect; version 0.1.64. Check against main, finish or close if superseded.
-- #268 `claude/modern-web-guidance-no-telemetry` — skill with telemetry removed. Review and merge when green.
-- #256 `claude/ui-pass-1` — UI pass 1 (top bar, rail, Kevo micro-pill, themes). Checks failing (unstable): fix CI, then merge. Your #262/#263/#265 UI PRs touch the same area: rebase them after it.
+- #284 `claude/kevo-1.5-fix-1` (draft) — Kevo ears download their models on first use; self-test reports hearing errors. Finish and try on the PC.
+- #274 `claude/project-thread-fa8toc` (draft) — test builds follow GitHub's download redirect; version 0.1.64. Finish, or close if main has superseded it.
+- #268 `claude/modern-web-guidance-no-telemetry` — skill with telemetry removed. Review, merge when green.
+- #256 `claude/ui-pass-1` — UI pass 1. Checks failing: fix CI, then merge. Then merge main into your #262, #263, #265 and merge each when green.
 
-**Your own open PRs waiting for review:** #240–#254 (Kevo phases 7.2–9.4), #262, #263, #265, #272 (one local model). Merge in phase order, rebasing each on main; Codex reviews automatically, so ask Codex (or Cursor) to second-review instead of Claude.
+Your own queue: #240–#254 (Kevo phases 7.2–9.4, merge in phase order) and #272 (one local model).
 
-**Ongoing duties:** check and fix `grok/*` branches (rebuild broken ones, don't skip them); same for ThingsBook / AnF Books; report final releases (links, platforms, version) back to the owner. Hand small jobs (docs, changelog, simple tests) to Hermes, big multi-file builds to Cursor, ThingsBook work to Codex.
-
-When Claude is back it will read this entry and take back the lead.
+When Claude is back it will read this entry and the ones you add above it, then take back the lead.
 
 ## 2026-11-22 — Kevo 0.5 fix 1 review: Stop check speaks for real (Claude, on `agy/kevo-0.5-fix-1`)
 
