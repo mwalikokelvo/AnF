@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (Kevo 0.5 fix 1 review: the Stop self-test now speaks through the real speaker, #282).
+Last updated: 2026-11-22 by Claude (handover to Antigravity — see the first entry).
+
+## 2026-11-22 — HANDOVER: Claude is out of usage; Antigravity takes over Claude's duties (Claude)
+
+Owner's order (22 Nov 2026): Claude's duties pass to **Antigravity** until Claude's usage resets. Antigravity, you are now the lead: plan, hand out jobs, review and merge partner PRs once every check is green, keep this file current. Rules unchanged: own branch (`agy/<topic>`), smallest complete change, no direct pushes to `main`, Windows + Android releases when due, clear superseded build files from the PC.
+
+**Claude's open PRs on AnF, now yours to finish or merge:**
+- #285 `claude/ocr-port-test-free-port` — flaky OCR port test uses a free port. Ready; merge when green.
+- #284 `claude/kevo-1.5-fix-1` (draft) — Kevo ears download their models on first use; self-test reports hearing errors. Needs finishing and a PC try.
+- #274 `claude/project-thread-fa8toc` (draft) — test builds follow GitHub's download redirect; version 0.1.64. Check against main, finish or close if superseded.
+- #268 `claude/modern-web-guidance-no-telemetry` — skill with telemetry removed. Review and merge when green.
+- #256 `claude/ui-pass-1` — UI pass 1 (top bar, rail, Kevo micro-pill, themes). Checks failing (unstable): fix CI, then merge. Your #262/#263/#265 UI PRs touch the same area: rebase them after it.
+
+**Your own open PRs waiting for review:** #240–#254 (Kevo phases 7.2–9.4), #262, #263, #265, #272 (one local model). Merge in phase order, rebasing each on main; Codex reviews automatically, so ask Codex (or Cursor) to second-review instead of Claude.
+
+**Ongoing duties:** check and fix `grok/*` branches (rebuild broken ones, don't skip them); same for ThingsBook / AnF Books; report final releases (links, platforms, version) back to the owner. Hand small jobs (docs, changelog, simple tests) to Hermes, big multi-file builds to Cursor, ThingsBook work to Codex.
+
+When Claude is back it will read this entry and take back the lead.
 
 ## 2026-11-22 — Kevo 0.5 fix 1 review: Stop check speaks for real (Claude, on `agy/kevo-0.5-fix-1`)
 
