@@ -10,6 +10,7 @@ import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFet
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
+import { parseTimezoneRequest, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
@@ -565,6 +566,11 @@ export class JarvisVoiceAgent {
       lower.includes('whats the time')
     ) {
       return { handled: true, actionName: 'tell_time', speechReply: speakClock() };
+    }
+    const tzPlace = parseTimezoneRequest(lower);
+    if (tzPlace) {
+      const reply = timeInPlace(tzPlace);
+      if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
     }
     if (
       lower.includes("today's date") ||
