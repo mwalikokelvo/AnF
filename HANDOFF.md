@@ -4,7 +4,11 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (Kevo dice, facts, quote, trivia and translation from Grok's branches).
+Last updated: 2026-11-22 by Claude (online lookups and weather on by default; Kevo dice, facts, quote, trivia and translation from Grok's branches).
+
+## 2026-11-22 — Online lookups and weather on by default (Claude)
+
+The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
 
 ## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
 
@@ -1704,3 +1708,8 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Owner asked for Google Chrome's `modern-web-guidance` skill in the repos with all tracking removed. Vendored npm 1.0.1 (skill 2026_11_10-47b4c80e, Apache-2.0) into `.agents/skills/modern-web-guidance/`, linked from `.claude/skills/` (new `!.claude/skills/` exception in `.gitignore`).
 - Upstream posts every search query, retrieved guide, OS, agent name and timing to Google Clearcut (`play.googleapis.com/log`) from a detached `watchdog` process. Removed: the watchdog, its client, and the logger (now a no-op); `install`/`update`/`uninstall` refuse to run so the tracking build cannot come back; `SKILL.md` runs the local copy with `node`, never `npx ...@latest`. Details and how to update: `PRIVACY-PATCH.md` in the skill folder.
 - Tested: `node .agents/skills/modern-web-guidance/check-no-telemetry.mjs` passes (runs search and retrieve with sockets, fetch and child processes blocked); the same check fails on the unmodified upstream copy at the point where it starts the uploader. No app code changed. Needs Node 22+.
+
+## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
+- Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
+- Deduplication: extracted the 25-line data gathering block across `btnBriefing` and `getBriefing` in `jarvis-command-desk.ts` into a single shared helper `collectWorkspaceBriefingData`.
+- Checks: `npx tsc --noEmit` clean, `tests/kevo-executive.test.ts` (7/7 pass), `tests/jarvis-executive.test.ts` (10/10 pass), `check-release.mjs` (12 pass), contracts and styles clean.

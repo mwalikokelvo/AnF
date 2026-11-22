@@ -29,7 +29,7 @@
  * - tell_date: report today's date
  * - audius_search: search music on Audius
  * - convert_units: length, mass and temperature, offline
- * - wikipedia_summary, define_word, convert_currency: online lookups, off until the owner turns them on
+ * - wikipedia_summary, define_word, convert_currency: online lookups, on unless the owner turns them off
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
