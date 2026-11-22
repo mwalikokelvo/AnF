@@ -22,6 +22,7 @@ import {clipText,type ReadingState} from './reader-data';
 import './workspace.css';
 import './anf-design.css';
 import './anf-color.css';
+import './anf-mint.css';
 import {attachNavRail} from './nav-rail';
 import {appCatalogPanel} from './apps-catalog';
 import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
