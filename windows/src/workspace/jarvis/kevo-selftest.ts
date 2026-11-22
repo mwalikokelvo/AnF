@@ -337,7 +337,7 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
     // Simulate query that generates a longer reply
     const originalContext = (agent as any).context;
     const prevAskAI = originalContext?.askAI;
-    if (!originalContext?.askAI && originalContext) {
+    if (originalContext) {
       originalContext.askAI = async () =>
         'Black holes are regions of spacetime where gravity is so strong that nothing, including light or other electromagnetic waves, has enough energy to escape it.';
     }
@@ -357,8 +357,12 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
         stopPassed = spokenBeforeStop && !spokenAfterStop;
       }
     } finally {
-      if (!prevAskAI && originalContext) {
-        delete originalContext.askAI;
+      if (originalContext) {
+        if (prevAskAI) {
+          originalContext.askAI = prevAskAI;
+        } else {
+          delete originalContext.askAI;
+        }
       }
     }
 
@@ -532,7 +536,7 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   }
 
   const report: KevoSelfTestReport = {
-    version: deps.appVersion ?? '0.1.58',
+    version: deps.appVersion ?? '',
     timestamp: new Date().toISOString(),
     result: 'pass',
     systemStats: await Bridge.systemStats(),

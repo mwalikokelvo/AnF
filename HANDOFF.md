@@ -4,7 +4,15 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (Kevo dice, facts, quote, trivia and translation from Grok's branches).
+Last updated: 2026-11-22 by Antigravity (Kevo 0.5 fix 1: Stop check synthetic speech fallback & truthful appVersion in self-test report; Closes #278).
+
+## 2026-11-22 — Kevo 0.5 fix 1: Stop check speech fallback & report appVersion (Antigravity, branch `agy/kevo-0.5-fix-1`)
+
+Fixes issue #278:
+- Check 5 (Stop check): always installs synthetic `askAI` for the duration of the Stop test and restores `prevAskAI` in `finally`. On the real PC, the check no longer relies on the local model returning text under memory pressure, ensuring Stop is consistently measured against active playback (`spokenBeforeStop=true`).
+- Truthful report version: removed hard-coded `'0.1.58'` fallback from `runKevoSelfTest`. `jarvis-command-desk.ts` resolves `appVersion` via `options?.appVersion ?? (await Bridge.boot())?.version` and passes it to `runKevoSelfTest`.
+- Tests: added tests in `windows/tests/kevo-selftest.test.ts` verifying Check 5 passes when the real `askAI` returns empty, that `prevAskAI` is safely restored, and that `report.version` matches `appVersion` without defaulting to `0.1.58`.
+- Checks: `npx tsc --noEmit` (0 errors), `npm test` (850/850 passed across 135 suites), `npm run build` (built in 6.43s), `node scripts/check-release.mjs` (12/12 passed).
 
 ## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
 

@@ -595,4 +595,76 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(failBargeReport.bargeInStopDelayMs, 350);
     assert.strictEqual(failBargeReport.result, 'fail');
   });
+
+  it('check 5 passes when the real askAI returns nothing', async () => {
+    const dummyAskAI = async () => '';
+
+    const actionContext = {
+      openApp: async () => {},
+      switchView: () => {},
+      dryRun: true,
+      askAI: dummyAskAI,
+    };
+
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const playClipAudio = async (filename: string) => {
+      if (filename.includes('timer')) {
+        listener.onFinalSpeech?.('Set a timer for ten seconds');
+      } else if (filename.includes('time')) {
+        listener.onFinalSpeech?.('Kevo, what time is it?');
+      } else if (filename.includes('help')) {
+        listener.onFinalSpeech?.('What can you do?');
+      } else if (filename.includes('open-brave')) {
+        listener.onFinalSpeech?.('Kevo, open Brave browser');
+      } else if (filename.includes('black-holes')) {
+        listener.onFinalSpeech?.('Kevo, tell me about black holes');
+      }
+    };
+
+    const checks = await runFivePhase0Checks({
+      agent,
+      listener,
+      playClipAudio,
+      simulateTimerFire: true,
+      sleepMs: async () => {},
+    });
+
+    const checksByName = Object.fromEntries(checks.map((c) => [c.check, c]));
+    assert.strictEqual(checksByName.stop.passed, true);
+    assert.strictEqual((agent as any).context.askAI, dummyAskAI, 'real askAI must be restored after check 5');
+  });
+
+  it('report version matches the appVersion passed in and removes hard-coded 0.1.58 fallback', async () => {
+    const actionContext = {
+      openApp: async () => {},
+      switchView: () => {},
+      dryRun: true,
+    };
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const playClipAudio = async () => {};
+
+    const reportCustom = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.64',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+    });
+    assert.strictEqual(reportCustom.version, '0.1.64');
+
+    const reportEmpty = await runKevoSelfTest({
+      agent,
+      listener,
+      playClipAudio,
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+    });
+    assert.strictEqual(reportEmpty.version, '');
+    assert.notStrictEqual(reportEmpty.version, '0.1.58');
+  });
 });

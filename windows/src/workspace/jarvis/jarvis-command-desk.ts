@@ -41,6 +41,7 @@ export interface JarvisCommandDeskOptions {
   /** Kevo's log on this PC; adds "Save log" and "Open log folder" to the voice bar. */
   log?: KevoLogStore;
   activeModel?: () => string;
+  appVersion?: string;
 }
 
 export function formatModelDisplayName(modelId?: string): string {
@@ -596,6 +597,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       }),
     );
   }
+  const resolveAppVersion = async (): Promise<string | undefined> => {
+    if (options?.appVersion) return options.appVersion;
+    try {
+      const boot = await Bridge.boot();
+      if (boot?.version) return boot.version;
+    } catch {}
+    return undefined;
+  };
+
   // "Run self-test" button on the Kevo screen (Phase 0 step 0.4b)
   const btnRunSelfTest = makeBtn('Run self-test', '', async () => {
     btnRunSelfTest.disabled = true;
@@ -605,6 +615,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       const report = await runKevoSelfTest({
         agent: voiceAgent,
         listener,
+        appVersion: await resolveAppVersion(),
         onProgress: (step) => { speechStatusEl.textContent = step; },
       });
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = false;
@@ -628,6 +639,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
         await runKevoSelfTest({
           agent: voiceAgent,
           listener,
+          appVersion: await resolveAppVersion(),
           onProgress: (step) => { speechStatusEl.textContent = step; },
         });
       } finally {
