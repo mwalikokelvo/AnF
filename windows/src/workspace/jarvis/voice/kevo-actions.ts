@@ -15,7 +15,7 @@
  * - music_play: resume music or search and play track
  * - music_pause: pause music
  * - music_next: skip to next track
- * - music_previous: skip to previous track
+ * - previous_track: go back to the previous track
  * - timer_set: set countdown timer
  * - timer_cancel: cancel timer
  * - take_note: save note to vault

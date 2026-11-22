@@ -7,6 +7,7 @@
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
 import type { KevoActionStatus } from './kevo-actions';
 import { onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
+import { fetchJoke, isJokeRequest } from './kevo-joke';
 import {
   createReminder,
   listReminders,
@@ -306,7 +307,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -539,6 +540,16 @@ export class JarvisVoiceAgent {
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
+
+    // "Tell me a joke": a fresh one from icanhazdadjoke.com while online lookups are on; otherwise the AI tells one offline.
+    if (isJokeRequest(lower) && this.context.onlineLookupsEnabled?.()) {
+      try {
+        return { handled: true, actionName: 'tell_joke', speechReply: await fetchJoke(), status: 'success', verified: true };
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        return { handled: true, actionName: 'tell_joke', speechReply: `I could not get a joke: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
+      }
+    }
 
     // Fast path for memory recall (Phase 3 Step 3.3)
     if (/^(what do you (remember|know)( about (me|myself))?|list (your |my )?memories)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
@@ -859,8 +870,8 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
 
-    // Previous track: "previous song", "go back a track", "play the last one"
-    if (asksFor(lower, /\b(?:previous|prev|last|back) (?:song|track)/, /^(?:(?:go|jump|move|switch|play|put on|give me)(?: back)?(?: to)? )?(?:the )?(?:previous|prev|last) (?:song|track)\b/)) {
+    // "Previous song", "go back a track", "skip back a track"; "what was the last song?" is a question, not a request.
+    if (asksFor(lower, /\b(?:previous|prev|last|back(?: a| one)?) (?:song|track)/, /^(?:(?:go|jump|move|switch|play|put on|give me|skip)(?: back)?(?: to)? )?(?:the )?(?:previous|prev|last|a|one) (?:song|track)\b/)) {
       this.context.previousTrack?.();
       return { handled: true, actionName: 'previous_track', speechReply: 'Going back to the previous track, sir.' };
     }

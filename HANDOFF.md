@@ -4,7 +4,14 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-19 by Claude (Grok's Kevo lookups merged: units, Wikipedia, dictionary, currency).
+Last updated: 2026-11-22 by Claude (Grok's Kevo previous track and online joke).
+
+## 2026-11-22 — Grok's Kevo previous track and joke (Claude)
+
+Reviewed and fixed `grok/kevo-previous-track` and `grok/kevo-joke` on `claude/grok-kevo-previous-joke`. Grok's HANDOFF.md entry and its live-network test were left out.
+- `previous_track`: "previous song", "go back a track", "skip back a track" call `musicHub.step(-1)`. Now passed through the command desk too; "what was the last song?" and "don't go back a track" do nothing.
+- "tell me a joke" asks icanhazdadjoke.com only while online lookups are on (`kevo-joke.ts`, through `onlineGet`, which now takes headers). With them off, nothing is sent and the local AI tells one. Host added to the CSP `connect-src`; the online lookups notice names the joke service.
+- Tests: `windows/tests/kevo-joke.test.ts` (fake fetch). Automated tests only; not tried on the PC.
 
 ## 2026-11-19 — Grok's Kevo lookups: units, Wikipedia, dictionary, currency (Claude)
 
