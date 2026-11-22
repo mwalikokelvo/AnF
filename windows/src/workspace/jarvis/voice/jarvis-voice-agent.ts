@@ -95,11 +95,11 @@ export interface JarvisActionContext {
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
   getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
-  /** Whether the owner turned weather on by saying "turn on weather". Off until then: weather sends the city to Open-Meteo. */
+  /** Whether weather is on. On unless the owner said "turn off weather": weather sends the city to Open-Meteo. */
   weatherEnabled?: () => boolean;
   /** Turns weather on or off, remembered on this computer. */
   setWeatherEnabled?: (on: boolean) => void;
-  /** Whether the owner turned on online lookups (Wikipedia, dictionary, currency rates) by saying "turn on online lookups". */
+  /** Whether online lookups (Wikipedia, dictionary, currency rates and the rest) are on. On unless the owner said "turn off online lookups". */
   onlineLookupsEnabled?: () => boolean;
   /** Turns online lookups on or off, remembered on this computer. */
   setOnlineLookupsEnabled?: (on: boolean) => void;

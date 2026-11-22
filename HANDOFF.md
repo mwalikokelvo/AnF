@@ -4,7 +4,11 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (Kevo dice, facts, quote, trivia and translation from Grok's branches).
+Last updated: 2026-11-22 by Claude (online lookups and weather on by default; Kevo dice, facts, quote, trivia and translation from Grok's branches).
+
+## 2026-11-22 — Online lookups and weather on by default (Claude)
+
+The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
 
 ## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
 
