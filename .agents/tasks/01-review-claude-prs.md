@@ -9,6 +9,6 @@
 **Steps**, for each one:
 1. Read the description and the diff (`gh pr diff <n>`).
 2. Check it against `AGENTS.md` section 5 (Ponytail, no telemetry, push not polling, replace in place, shipped views unchanged) and that its checks on GitHub are green.
-3. Post one comment: `Antigravity review: approve` or `Antigravity review: changes needed`, then a short list of findings with file and line. Only real problems; no style nitpicks.
+3. Post one comment starting `Antigravity review of <head SHA, first 7 characters>:` then `approve` or `changes needed`, then a short list of findings with file and line. Only real problems; no style nitpicks.
 
-**Done when**: each of the six pull requests has a comment from you that starts with `Antigravity review:`.
+**Done when**: each pull request is closed, or has a comment from you starting `Antigravity review of <its current head SHA>`. When the author pushes after your review, the head changes, so you review it again.
