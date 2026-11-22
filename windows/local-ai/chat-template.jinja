@@ -5,7 +5,7 @@
     {%- else %}
         {{- 'You are a helpful assistant.' }}
     {%- endif %}
-    {{- "\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>" }}
+    {{- "\n\n# Tools\n\nYou may call one or more functions to assist with the user query. Do not call any function if the user query is conversational, asks a clarifying question, quotes a command, or explicitly asks NOT to perform an action (such as 'don\'t skip', 'do not', 'never'). In those cases, respond conversationally with plain text.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>" }}
     {%- for tool in tools %}
         {{- "\n" }}
         {{- tool | tojson }}
