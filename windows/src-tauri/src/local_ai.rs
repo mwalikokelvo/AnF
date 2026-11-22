@@ -20,6 +20,7 @@ fn pack_available(path: &std::path::Path) -> bool {
         && (path.join("model.gguf").is_file()
             || path.join("model-fast.gguf").is_file()
             || path.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+            || path.join("models").join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
             || crate::model_download::any_verified())
 }
 
@@ -290,8 +291,11 @@ impl Engine {
         });
         let model = crate::model_download::verified_model(profile).unwrap_or_else(|| {
             let single = directory.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf");
+            let in_models = directory.join("models").join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf");
             if single.is_file() {
                 single
+            } else if in_models.is_file() {
+                in_models
             } else if directory.join("model.gguf").is_file() {
                 directory.join("model.gguf")
             } else {

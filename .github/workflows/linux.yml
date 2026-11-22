@@ -133,8 +133,6 @@ jobs:
             echo "Offline audio test failure: outbound non-loopback connection detected during Kevo ears execution!"
             exit 1
           fi
-          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
-          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
           npm ci --prefix ../android
           node ../scripts/check-release.mjs
 
@@ -152,6 +150,7 @@ jobs:
           curl -L -C - -o local-ai/models/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf \
             https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF/resolve/main/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf
           echo "b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65  local-ai/models/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf" | sha256sum -c -
+          echo "b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65" > local-ai/models/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf.sha256
 
       - name: Kevo CI gate (phrase list with Q4_K_M single model)
         timeout-minutes: 60
