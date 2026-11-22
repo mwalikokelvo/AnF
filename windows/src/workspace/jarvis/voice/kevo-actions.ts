@@ -15,6 +15,7 @@
  * - music_play: resume music or search and play track
  * - music_pause: pause music
  * - music_next: skip to next track
+ * - previous_track: go back to the previous track
  * - timer_set: set countdown timer
  * - timer_cancel: cancel timer
  * - take_note: save note to vault
@@ -505,6 +506,48 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         handled: false,
         actionName: 'next_track',
         speechReply: 'Skipping tracks is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
+    },
+  },
+  {
+    name: 'previous_track',
+    description: 'Goes back to the previous music track in the queue.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (ctx.previousTrack) {
+        try {
+          if (!ctx.dryRun) ctx.previousTrack();
+          return {
+            handled: true,
+            actionName: 'previous_track',
+            speechReply: 'Going back to the previous track, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: 'Previous track selected',
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'previous_track',
+            speechReply: `Failed to go to previous track: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
+      }
+      return {
+        handled: false,
+        actionName: 'previous_track',
+        speechReply: 'Going to the previous track is not supported.',
         status: 'failure',
         verified: false,
         reason: 'NOT_SUPPORTED',
