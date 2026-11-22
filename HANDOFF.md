@@ -4,11 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (online lookups and weather on by default).
+Last updated: 2026-11-22 by Claude (online lookups and weather on by default; Kevo dice, facts, quote, trivia and translation from Grok's branches).
 
 ## 2026-11-22 — Online lookups and weather on by default (Claude)
 
 The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
+
+## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
+
+Rebuilt the useful part of Grok's broken branches on `claude/grok-kevo-extras` (Grok's versions wiped core files or did not build). Nothing taken from them as is.
+- Offline (`kevo-fun.ts`): "roll a die", "roll two dice", "roll a d20", "roll 2d6" (1-10 dice, 2-100 sides); "tell me a fact" picks one of 14 checked facts, never the same twice in a row.
+- Offline (`kevo-quote.ts`): "quote of the day" / "inspire me" gives one of 18 quotes kept in the app, the same all day. Grok used ZenQuotes, whose free service sends no CORS header, so the webview could not read it.
+- Behind the online lookups switch: "translate X to/into LANG" and "how do you say X in LANG" (MyMemory, `kevo-translate.ts`); "trivia" asks an Open Trivia DB question with four choices and checks the next reply (a letter, the answer or "I give up"; anything else falls through as a normal command; "say that again" keeps it open). Kevo names Open Trivia DB in each question (its data is CC BY-SA 4.0). With the switch off nothing is sent. Hosts added to both CSPs.
+- Redundant Grok branches left alone: define-word, kevo-weather-*, unit-conversion variants (main has them), kevo-random-fact and kevo-simple-calculator-enhancement (no commits), voice-assistant-research-summary (docs only), kevo-news-headlines (stub with made-up headlines).
+- Tests: `windows/tests/kevo-fun.test.ts` (fake fetch). Automated tests only; not tried on the PC.
+
+## 2026-11-22 — Kevo's joke is always on (Claude)
+
+Owner (22 Nov, in their words): "Make joke service always on even while online lookups are on or off." "tell me a joke" now always asks icanhazdadjoke.com, whatever the online lookups switch says; if it does not answer, the local AI tells one. Only the request is sent. Online lookups notice no longer names the joke service. Tests: `windows/tests/kevo-joke.test.ts`. Automated tests only.
 
 ## 2026-11-22 — Grok's Kevo previous track and joke (Claude)
 
