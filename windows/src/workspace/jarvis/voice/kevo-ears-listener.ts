@@ -92,16 +92,12 @@ export class KevoEarsListener {
       this.tapPending = true;
       const run = ++this.runId;
 
-      // Bind events from Rust audio pipeline
-      void this.bindEvents();
-
-      // Start capture pipeline in Rust
-      const starter = this.eventSource?.start
-        ? this.eventSource.start()
-        : Bridge.kevoEarsStart();
-
+      // Every event is bound before the Rust pipeline starts, so its first wake or speech is not lost.
       // Listening is reported only once the microphone is open: the first start downloads the models.
-      this.started = Promise.resolve(starter).then(() => {
+      this.started = this.bindEvents().then(() => {
+        if (run !== this.runId) return; // switched off while binding: never open the mic
+        return this.eventSource?.start ? this.eventSource.start() : Bridge.kevoEarsStart();
+      }).then(() => {
         if (run !== this.runId) return;
         this.reportRunning(true);
         if (this.tapPending) {

@@ -106,11 +106,38 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     let fail!: (e: Error) => void;
     eventSource.start = () => new Promise<void>((_, reject) => { fail = reject; });
     listener.start();
+    await wait(0);
     listener.stop();
     fail(new Error('offline'));
     await wait(0);
     assert.deepEqual(errors, []);
     assert.deepEqual(states, [true, false]);
+  });
+
+  it('binds every event before the backend starts, so a fast first wake is not lost (#284)', async () => {
+    // Tauri's listen() registers asynchronously; an installed backend can emit at once.
+    eventSource.onEvent = (event: string, handler: (payload: any) => void) =>
+      wait(1).then(() => { eventHandlers[event] = handler; return () => { delete eventHandlers[event]; }; });
+    eventSource.start = async () => emitEvent('kevo-ears-wake', 'kevo');
+    const wakes: string[] = [];
+    const listener = new KevoEarsListener({ eventSource, onWakeWord: (w) => wakes.push(w) });
+    listener.start();
+    await listener.whenStarted();
+    assert.deepEqual(wakes, ['kevo']);
+    listener.stop();
+
+    // Switched off while the events are still binding: the backend is never started.
+    let starts = 0;
+    eventSource.start = async () => { starts++; };
+    listener.start();
+    listener.stop();
+    await wait(20);
+    assert.equal(starts, 0);
+  });
+
+  it('the bridge start rejects on a failed start instead of resolving (#284)', async () => {
+    const { Bridge } = await import('../src/core/bridge');
+    await assert.rejects(Bridge.kevoEarsStart());
   });
 
   it('kevo-ears-wake triggers onWakeWord and keeps listener awake', async () => {
