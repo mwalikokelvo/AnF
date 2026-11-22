@@ -7,6 +7,8 @@ describe('Kevo timezone time', () => {
     assert.equal(parseTimezoneRequest('what time is it in tokyo'), 'tokyo');
     assert.equal(parseTimezoneRequest('time in london'), 'london');
     assert.equal(parseTimezoneRequest('what is the time in new york'), 'new york');
+    assert.equal(parseTimezoneRequest('what time is it in tokyo right now?'), 'tokyo');
+    assert.equal(parseTimezoneRequest('what time is it in atlantis'), 'atlantis');
     assert.equal(parseTimezoneRequest('what time is it'), null);
   });
 

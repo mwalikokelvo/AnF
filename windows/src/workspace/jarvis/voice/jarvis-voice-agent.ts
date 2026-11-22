@@ -10,7 +10,7 @@ import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFet
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
-import { parseTimezoneRequest, timeInPlace } from './kevo-timezone';
+import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
@@ -560,6 +560,7 @@ export class JarvisVoiceAgent {
     if (tzPlace) {
       const reply = timeInPlace(tzPlace);
       if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
+      return { handled: true, actionName: 'time_in_place', speechReply: `I do not know the time zone for ${placeName(tzPlace)} yet.`, status: 'failure', verified: false, reason: 'UNKNOWN_PLACE' };
     }
     // Clock / calendar (Phase 2B)
     if (

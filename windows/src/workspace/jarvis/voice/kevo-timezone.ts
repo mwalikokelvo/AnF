@@ -29,13 +29,14 @@ const CITIES: Record<string, string> = {
   'sao paulo': 'America/Sao_Paulo',
 };
 
-/** "what time is it in Tokyo", "time in London", "what's the time in Paris". */
+/**
+ * "what time is it in Tokyo (now)", "time in London", "what's the time in Paris": the place asked about, known or not,
+ * so a place Kevo has no time zone for is never answered with the time here.
+ */
 export function parseTimezoneRequest(lower: string): string | null {
   const said = bareRequest(lower);
-  const m = /^(?:what(?:'s| is) the |whats the |what )?(?:current )?time(?: is it)? in ([a-z ]+)$/.exec(said);
-  if (!m) return null;
-  const place = m[1].trim().replace(/\s+/g, ' ');
-  return CITIES[place] ? place : null;
+  const m = /^(?:what(?:'s| is) the |whats the |what )?(?:current )?time(?: is it)?(?: right now| now)? in ([a-z ]+?)(?: right now| now)?$/.exec(said);
+  return m ? m[1].trim().replace(/\s+/g, ' ') : null;
 }
 
 export function timeInPlace(place: string, now: Date = new Date()): string | null {
@@ -48,8 +49,13 @@ export function timeInPlace(place: string, now: Date = new Date()): string | nul
       minute: '2-digit',
       hour12: false,
     }).format(now);
-    return `It is ${formatted} in ${place.replace(/\b[a-z]/g, (c) => c.toUpperCase())}.`;
+    return `It is ${formatted} in ${placeName(place)}.`;
   } catch {
     return null;
   }
+}
+
+/** "new york" -> "New York". */
+export function placeName(place: string): string {
+  return place.replace(/\b[a-z]/g, (c) => c.toUpperCase());
 }
