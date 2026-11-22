@@ -616,15 +616,18 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.5,
-      onOwnVoiceMeasure: async () => true,
-      onBargeInMeasure: async () => 140,
+      onOwnVoiceMeasure: async () => { order.push(`own-voice mic ${listener.getListeningState() ? 'on' : 'off'}`); return true; },
+      onBargeInMeasure: async () => { order.push(`barge-in mic ${listener.getListeningState() ? 'on' : 'off'}`); return 140; },
     };
 
     // Models download on the first start: the clips wait for it, and hearing is started once.
     startEars = async () => { order.push('ears-start'); await new Promise((r) => setTimeout(r, 10)); order.push('ears-started'); };
     const okReport = await runKevoSelfTest(deps);
     assert.ok(order.indexOf('ears-started') >= 0 && order.indexOf('ears-started') < order.indexOf('play wake-01.wav'), order.join(', '));
-    assert.strictEqual(order.filter((o) => o === 'ears-start').length, 1, order.join(', '));
+    const beforeClips = order.slice(0, order.indexOf('play wake-01.wav'));
+    assert.strictEqual(beforeClips.filter((o) => o === 'ears-start').length, 1, order.join(', '));
+    // The typed-request check turns the mic off; the step 1.6 checks need it on again.
+    assert.ok(order.includes('own-voice mic on') && order.includes('barge-in mic on'), order.join(', '));
     assert.strictEqual(bridgeStarts, 0, 'no second start through the bridge');
     assert.ok(!okReport.errors.some((e) => e.startsWith('Hearing')), okReport.errors.join('; '));
     assert.strictEqual(listener.getListeningState(), false, 'the microphone was off before the self-test, so it is off after it');

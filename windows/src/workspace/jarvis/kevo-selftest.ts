@@ -749,6 +749,16 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.result = 'fail';
   }
 
+  // The typed-request check turned the mic off; the step 1.6 checks must listen again.
+  if (ears && !hearingFailed && !ears.getListeningState()) {
+    try {
+      if (!ears.start()) throw new Error('on-PC hearing is not available');
+      await ears.whenStarted();
+    } catch (err) {
+      report.errors.push(`Hearing could not restart for the talk-over checks: ${String(err)}`);
+    }
+  }
+
   // Step 1.6: Play Kevo reply through speakers while listening; verify own voice never interrupts
   onProgress?.('Testing echo cancellation through speakers (own voice never interrupts)...');
   try {
