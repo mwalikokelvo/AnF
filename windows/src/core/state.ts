@@ -100,6 +100,9 @@ export interface Settings {
   localFallback: boolean;
   kevoHearing: "pc" | "browser";
   kevoAutoTest: boolean;
+  kevoVoiceId?: string;
+  kevoRealWorkspaceDataOnly?: boolean;
+  kevoOnlineVoices?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -122,6 +125,9 @@ export const DEFAULT_SETTINGS: Settings = {
   localFallback: true,
   kevoHearing: "pc",
   kevoAutoTest: false,
+  kevoVoiceId: "kelvin-mwamburi",
+  kevoRealWorkspaceDataOnly: true,
+  kevoOnlineVoices: true,
 };
 
 type Listener = () => void;
