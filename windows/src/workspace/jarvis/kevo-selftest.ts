@@ -105,6 +105,10 @@ export interface SelfTestDeps {
   agent: JarvisVoiceAgent;
   listener: JarvisVoiceListener | KevoEarsListener;
   speaker?: JarvisSpeaker;
+  /** The Stop button's own action; Check 5 presses it. Defaults to abandoning the answer and stopping the speaker. */
+  stop?: () => void;
+  /** Whether sound is really coming out (the browser's speech engine, not the speaker's own flag). */
+  isAudioPlaying?: () => boolean;
   playClipAudio?: (filename: string) => Promise<void>;
   appVersion?: string;
   onProgress?: (step: string) => void;
@@ -341,16 +345,17 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
 
     // Speak a long fixed reply through the real speaker, so the check never depends on the
     // local model answering and never writes a made-up exchange into Kevo's history (#278).
+    // Whether sound is playing is read from the speech engine, never from the flag stop() clears.
+    const playing = deps.isAudioPlaying ?? (() => typeof window !== 'undefined' && Boolean(window.speechSynthesis?.speaking));
+    const pressStop = deps.stop ?? (() => { agent.abandon(); speaker?.stop(); });
     if (speaker) {
       void speaker.speak(STOP_CHECK_REPLY).catch(() => {});
-      for (let waited = 0; !speaker.getIsSpeaking() && waited < 2000; waited += 50) await sleep(50);
-      spokenBeforeStop = speaker.getIsSpeaking();
+      await sleep(2000); // Stop is pressed 2 s into the reply
+      spokenBeforeStop = playing();
       if (spokenBeforeStop) {
-        await sleep(2000); // Stop is pressed 2 s into the reply
-        agent.abandon();
-        speaker.stop();
-        await sleep(500); // speech must have ended within 0.5 s
-        spokenAfterStop = speaker.getIsSpeaking();
+        pressStop();
+        await sleep(500); // sound must have ended within 0.5 s
+        spokenAfterStop = playing() || speaker.getIsSpeaking();
         stopPassed = !spokenAfterStop;
       }
       speaker.stop();
