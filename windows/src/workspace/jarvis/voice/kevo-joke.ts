@@ -1,4 +1,7 @@
-/** A short joke from icanhazdadjoke.com (free, no key), for "tell me a joke" while online lookups are on. */
+/**
+ * A short joke from icanhazdadjoke.com (free, no key), for "tell me a joke". Always on, apart from the online lookups
+ * switch: the owner turned it on for good on 22 Nov 2026. Only the request itself is sent, nothing the owner said.
+ */
 
 import { onlineGet, type LookupFetch } from './kevo-online';
 
