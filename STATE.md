@@ -7,15 +7,15 @@ lock:
 phase: autopilot merged #270 (first-clause speech, Refs #266) at 01:06Z 22 Nov on main 75525ee, version 0.1.63; owner account merged #269 (Grok lookups) 23:11Z 21 Nov; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: none of the autopilot's. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268 not Kevo
-pc_test: pending 0.1.63 from 75525ee once main Windows run 44969628943 publishes kevo-test-v0.1.63 (in progress at 01:07Z 22 Nov); no result for 0.1.61/0.1.62; 24 h notice sent 2026-11-21T22:4xZ
-waiting_for: main Windows run 44969628943 to go green and publish kevo-test-v0.1.63 (still in progress at 01:10Z 22 Nov; check after 02:00Z). PC self-test result pc-results/selftest-0.1.63.json (the "Kevo PC results" scheduled task is turned off). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
+pc_test: pending 0.1.63 since 2026-11-22T01:34Z (kevo-test-v0.1.63 published by main Windows run 44969628943, green); no result for 0.1.61/0.1.62; 24 h notice for 0.1.61/0.1.62 sent 2026-11-21T22:4xZ
+waiting_for: PC self-test result pc-results/selftest-0.1.63.json (the "Kevo PC results" scheduled task is turned off). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
 blocked: 
 last_passed_version: none yet
 owner_needed: PC test waiting since 19 Nov: owner asked (21 Nov) to turn the PC on, check the AnF self-test switch, and turn "Kevo PC results" back on
-last_main: 75525ee (#270, 0.1.63; Windows run 44969628943 in progress)
-chain: 5
-next_due: 2026-11-22T02:00Z
-quiet_fingerprint: 83e15672d63f0bd0dc071bf33eb7b687853b17a5c86b6e3a6fd1dacd57630b02
+last_main: cf3b3bd (#273 by owner account 01:53Z, no version bump; 0.1.63 test build published from 75525ee)
+chain: 0
+next_due: 2026-11-23T01:34Z
+quiet_fingerprint: 07fe1bcf035399d3b309f2c34b2be9cf50d7b8fec1119605cb647309a93b35ea
 
 ## Run log (newest last, keep 60)
 
@@ -63,3 +63,4 @@ quiet_fingerprint: 83e15672d63f0bd0dc071bf33eb7b687853b17a5c86b6e3a6fd1dacd57630
 - 2026-11-22T01:07Z (autopilot, chained 3): 2b.3 merged #270 (Refs #266, first-clause speech, 0.1.63) as 75525ee. Main had moved (#269); merged main in cleanly (b2fdb2d); local check-release 12, contracts, styles, tsc, npm test 817, build, cargo test --lib 191 pass; all CI green on b2fdb2d (Cursor Security Reviewer finished this time). Review: fallback fresh-subagent reviews (Codex at limit), head 8dd3e8b "Ship". Main Windows run 44969628943 in progress. Owner notified.
 - 2026-11-22T01:06Z (autopilot, chained 4): 2b.7 waiting. Board unchanged (#266 only open kevo issue; #271/#272 still red, not the autopilot's; Phase 7.2+ PRs held). main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not yet published. No PC result. No notification.
 - 2026-11-22T01:06Z (autopilot, chained 5): 2b.7 waiting. Same as 01:06Z run: board unchanged, main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not published yet. No notification.
+- 2026-11-22T02:05Z (autopilot, owner-requested): 2b.7 waiting. main Windows run 44969628943 green, kevo-test-v0.1.63 published 01:34Z; pc_test pending 0.1.63. main moved 75525ee -> cf3b3bd (owner account merged #273, previous track + online joke, no version bump; its CI running). Board unchanged. Owner told in the session reply.
