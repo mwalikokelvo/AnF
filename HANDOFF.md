@@ -34,7 +34,7 @@ Already done on main (see entries below): unit conversion, Wikipedia, dictionary
 - #268 `claude/modern-web-guidance-no-telemetry` — skill with telemetry removed. Review, merge when green.
 - #256 `claude/ui-pass-1` — UI pass 1. Checks failing: fix CI, then merge. Then merge main into your #262, #263, #265 and merge each when green.
 
-Your own queue: #240–#254 (Kevo phases 7.2–9.4, merge in phase order) and #272 (one local model).
+Your own queue (open on 22 Nov): #240, #241, #242, #243, #244, #247, #248, #249, #250, #251, #252, #253, #254 (Kevo phases 7.2–9.4, merge in phase order) and #272 (one local model). Check each is still open before working it. To bring any published PR up to date, merge `main` into it; never rebase or force-push.
 
 When Claude is back it will read this entry and the ones you add above it, then take back the lead.
 
