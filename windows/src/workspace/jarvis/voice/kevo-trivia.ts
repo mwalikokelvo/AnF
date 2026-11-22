@@ -1,6 +1,8 @@
 /**
  * A multiple-choice trivia question from the Open Trivia Database (free, no key), for "ask me a trivia question"
  * while online lookups are on. Kevo asks, then the next reply is the answer. From Grok.
+ * Open Trivia DB's questions are licensed CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), so Kevo
+ * names the source in every question it asks.
  */
 
 import { onlineGet, type LookupFetch } from './kevo-online';
@@ -20,6 +22,9 @@ export function isTriviaRequest(lower: string): boolean {
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
+/** Lower case without accents or punctuation, so a spoken "Pokemon" matches the choice "Pokémon". */
+const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim();
+
 export async function fetchTrivia(fetchFn?: LookupFetch, random: () => number = Math.random): Promise<TriviaQuestion> {
   const res = await onlineGet('https://opentdb.com/api.php?amount=1&type=multiple&encode=url3986', 'the trivia service', fetchFn);
   if (!res.ok) throw new Error(`the trivia service answered ${res.status}.`);
@@ -36,10 +41,10 @@ export async function fetchTrivia(fetchFn?: LookupFetch, random: () => number = 
   return { category: decode(item.category), question: decode(item.question), choices, answer };
 }
 
-/** "A Geography question: … Is it A, Paris; B, Rome; C, Madrid; or D, Lisbon?" */
+/** "A Geography question from Open Trivia DB: … Is it A, Paris; B, Rome; C, Madrid; or D, Lisbon?" */
 export function askTrivia(q: TriviaQuestion): string {
   const options = q.choices.map((c, i) => `${LETTERS[i]}, ${c}`);
-  return `A ${q.category} question: ${q.question} Is it ${options.slice(0, -1).join('; ')}; or ${options[options.length - 1]}?`;
+  return `A ${q.category} question from Open Trivia DB: ${q.question} Is it ${options.slice(0, -1).join('; ')}; or ${options[options.length - 1]}?`;
 }
 
 /**
@@ -51,7 +56,7 @@ export function answerTrivia(q: TriviaQuestion, said: string): string | null {
   const reveal = `The answer is ${LETTERS[q.choices.indexOf(q.answer)]}, ${q.answer}.`;
   if (/^(?:i (?:don'?t|do not) know|no idea|tell me|what'?s the answer|what is the answer|i give up|give up|pass|skip)$/.test(bare)) return reveal;
   const letter = /^(?:letter )?([abcd])$/.exec(bare)?.[1];
-  const picked = letter ? q.choices[LETTERS.indexOf(letter.toUpperCase())] : q.choices.find((c) => c.toLowerCase() === bare || (bare.length >= 3 && c.toLowerCase().replace(/[^a-z0-9 ]/g, '') === bare.replace(/[^a-z0-9 ]/g, '')));
+  const picked = letter ? q.choices[LETTERS.indexOf(letter.toUpperCase())] : q.choices.find((c) => c.toLowerCase() === bare || (bare.length >= 3 && fold(c) === fold(bare)));
   if (!picked) return null;
   return picked === q.answer ? `That's right! It's ${q.answer}.` : `Not quite. ${reveal}`;
 }

@@ -98,12 +98,28 @@ describe('Kevo trivia', () => {
     assert.equal(q.choices.length, 4);
     assert.ok(q.choices.includes('Nairobi'));
     const letter = 'ABCD'[q.choices.indexOf('Nairobi')];
-    assert.match(askTrivia(q), /^A Geography question: What is the capital of Kenya\? Is it A, .+; B, .+; C, .+; or D, .+\?$/);
+    assert.match(askTrivia(q), /^A Geography question from Open Trivia DB: What is the capital of Kenya\? Is it A, .+; B, .+; C, .+; or D, .+\?$/);
     assert.equal(answerTrivia(q, letter.toLowerCase()), "That's right! It's Nairobi.");
     assert.equal(answerTrivia(q, "I think it's nairobi"), "That's right! It's Nairobi.");
     assert.equal(answerTrivia(q, 'Mombasa'), `Not quite. The answer is ${letter}, Nairobi.`);
     assert.equal(answerTrivia(q, "I don't know"), `The answer is ${letter}, Nairobi.`);
     assert.equal(answerTrivia(q, 'play some music'), null);
+  });
+
+  it('matches a spoken choice without its accents', () => {
+    const q = { category: 'Video Games', question: 'Which series has Pikachu?', choices: ['Pokémon', 'Zelda', 'Mario', 'Sonic'], answer: 'Pokémon' };
+    assert.equal(answerTrivia(q, 'pokemon'), "That's right! It's Pokémon.");
+  });
+
+  it('takes a choice that sounds like a request as the answer', async () => {
+    const TIME = { response_code: 0, results: [{ category: 'Science', question: 'What%20is%20measured%20in%20seconds%3F', correct_answer: 'Time', incorrect_answers: ['Mass', 'Heat', 'Light'] }] };
+    await withFetch(() => TIME, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      await agent.processVoiceInput('quiz me');
+      const answered = await agent.processVoiceInput('time');
+      assert.equal(answered.actionName, 'trivia_answer');
+      assert.equal(answered.speechReply, "That's right! It's Time.");
+    });
   });
 
   it('takes the next reply as the answer, once', async () => {
@@ -146,6 +162,7 @@ describe('Kevo translation', () => {
     assert.deepEqual(urls, ['https://api.mymemory.translated.net/get?q=good%20morning&langpair=en%7Csw']);
     assert.equal(text, 'Habari ya asubuhi');
     await assert.rejects(translateFromEnglish('x', 'sw', ok({ responseStatus: 429, responseData: { translatedText: 'MYMEMORY WARNING' } })), /could not translate/);
+    assert.equal(await translateFromEnglish('where is it', 'fr', ok({ responseStatus: 200, responseData: { translatedText: 'O&#249; est-ce qu&#39;il est &amp;amp; &quot;ici&quot;' } })), 'Où est-ce qu\'il est &amp; "ici"');
   });
 
   it('answers through Kevo', async () => {

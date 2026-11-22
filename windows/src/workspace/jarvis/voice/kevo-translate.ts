@@ -24,13 +24,24 @@ export function parseTranslateRequest(lower: string): { text: string; language: 
   return { text, language: m[2][0].toUpperCase() + m[2].slice(1), code };
 }
 
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+/** MyMemory sometimes sends `&#39;` and the like: decoded once, so Kevo says the apostrophe. */
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, name: string) => {
+    if (name[0] !== '#') return ENTITIES[name.toLowerCase()] ?? whole;
+    const code = name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+  });
+}
+
 /** The translated text. Throws when the service does not answer or refuses. */
 export async function translateFromEnglish(text: string, code: string, fetchFn?: LookupFetch): Promise<string> {
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`en|${code}`)}`;
   const res = await onlineGet(url, 'the translation service', fetchFn);
   if (!res.ok) throw new Error(`the translation service answered ${res.status}.`);
   const data = (await res.json()) as { responseStatus?: number | string; responseData?: { translatedText?: string } };
-  const translated = data.responseData?.translatedText?.trim();
+  const translated = decodeEntities(data.responseData?.translatedText ?? '').trim();
   if (Number(data.responseStatus) !== 200 || !translated) throw new Error('the translation service could not translate that.');
   return translated;
 }

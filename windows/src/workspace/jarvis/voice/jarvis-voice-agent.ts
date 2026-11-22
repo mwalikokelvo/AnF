@@ -530,6 +530,16 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Right after a trivia question, a letter, a choice or "I don't know" answers it; anything else is a new request.
+    // It comes before the clock and the quick answers, so a choice such as "Time" is taken as the answer.
+    // "Say that again" repeats the question and keeps it open.
+    const pendingTrivia = this.lastAction === 'trivia' ? this.trivia : null;
+    const triviaReply = pendingTrivia && answerTrivia(pendingTrivia, text);
+    if (triviaReply) {
+      this.trivia = null;
+      return { handled: true, actionName: 'trivia_answer', speechReply: triviaReply };
+    }
+
     // Translation (MyMemory, behind the online lookups switch) comes before the clock and the quick answers, so
     // "how do you say what time is it in French" is translated rather than answered.
     const translate = parseTranslateRequest(lower);
@@ -557,15 +567,6 @@ export class JarvisVoiceAgent {
       lower.includes("tell me today's date")
     ) {
       return { handled: true, actionName: 'tell_date', speechReply: speakDate() };
-    }
-
-    // Right after a trivia question, a letter, a choice or "I don't know" answers it; anything else is a new request.
-    // "Say that again" repeats the question and keeps it open.
-    const pendingTrivia = this.lastAction === 'trivia' ? this.trivia : null;
-    const triviaReply = pendingTrivia && answerTrivia(pendingTrivia, text);
-    if (triviaReply) {
-      this.trivia = null;
-      return { handled: true, actionName: 'trivia_answer', speechReply: triviaReply };
     }
 
     // Answers that need no AI, so they come at once
