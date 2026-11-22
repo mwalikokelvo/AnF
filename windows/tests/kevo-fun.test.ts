@@ -153,6 +153,27 @@ describe('Kevo trivia', () => {
     });
   });
 
+  it('says and keeps nothing when Stop is pressed while the question is on its way', async () => {
+    const real = globalThis.fetch;
+    let release: (r: Response) => void = () => {};
+    globalThis.fetch = (() => new Promise<Response>((r) => { release = r; })) as typeof fetch;
+    try {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const pending = agent.processVoiceInput('quiz me');
+      await new Promise((r) => setTimeout(r, 10));
+      agent.abandon();
+      release(new Response(JSON.stringify(TRIVIA), { status: 200 }));
+      const res = await pending;
+      assert.equal(res.actionName, 'abandoned');
+      assert.equal(res.speechReply, '');
+      globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
+      const after = await agent.processVoiceInput('Nairobi');
+      assert.notEqual(after.actionName, 'trivia_answer');
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
   it('keeps the question open when asked to say it again', async () => {
     await withFetch(() => TRIVIA, async () => {
       const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });

@@ -481,12 +481,19 @@ export class JarvisVoiceAgent {
     this.lastActionTime = 0;
   }
 
-  /** An answer from an online service, behind the online lookups switch. */
-  private async online(kind: 'translate' | 'trivia', what: string, ask: () => Promise<string>): Promise<ActionResult> {
+  /**
+   * An answer from an online service, behind the online lookups switch. `say` runs only when the answer is still
+   * wanted: Stop pressed or a new conversation while it was on its way leaves nothing said or kept.
+   */
+  private async online<T>(kind: 'translate' | 'trivia', what: string, ask: () => Promise<T>, say: (answer: T) => string): Promise<ActionResult> {
     if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: kind, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
+    const asked = this.generation;
     try {
-      return { handled: true, actionName: kind, speechReply: await ask(), status: 'success', verified: true };
+      const answer = await ask();
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: kind, speechReply: say(answer), status: 'success', verified: true };
     } catch (err: any) {
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
       const errMsg = err?.message || String(err);
       return { handled: true, actionName: kind, speechReply: `I could not ${what}: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
     }
@@ -543,7 +550,7 @@ export class JarvisVoiceAgent {
     // Translation (MyMemory, behind the online lookups switch) comes before the clock and the quick answers, so
     // "how do you say what time is it in French" is translated rather than answered.
     const translate = parseTranslateRequest(lower);
-    if (translate) return this.online('translate', 'translate that', async () => `In ${translate.language}, ${translate.text} is: ${await translateFromEnglish(translate.text, translate.code)}`);
+    if (translate) return this.online('translate', 'translate that', () => translateFromEnglish(translate.text, translate.code), (said) => `In ${translate.language}, ${translate.text} is: ${said}`);
 
     // Clock / calendar (Phase 2B)
     if (
@@ -745,7 +752,7 @@ export class JarvisVoiceAgent {
     // blocked request leaves nothing for the next reply to answer.
     if (isTriviaRequest(lower)) {
       this.trivia = null;
-      return this.online('trivia', 'get a trivia question', async () => askTrivia((this.trivia = await fetchTrivia())));
+      return this.online('trivia', 'get a trivia question', fetchTrivia, (question) => askTrivia((this.trivia = question)));
     }
     const weatherSwitch = parseWeatherSwitch(lower);
     if (weatherSwitch !== null && this.context.setWeatherEnabled) {
