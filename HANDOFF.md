@@ -15,6 +15,10 @@ Rebuilt the useful part of Grok's broken branches on `claude/grok-kevo-extras` (
 - Redundant Grok branches left alone: define-word, kevo-weather-*, unit-conversion variants (main has them), kevo-random-fact and kevo-simple-calculator-enhancement (no commits), voice-assistant-research-summary (docs only), kevo-news-headlines (stub with made-up headlines).
 - Tests: `windows/tests/kevo-fun.test.ts` (fake fetch). Automated tests only; not tried on the PC.
 
+## 2026-11-22 — Kevo's joke is always on (Claude)
+
+Owner (22 Nov, in their words): "Make joke service always on even while online lookups are on or off." "tell me a joke" now always asks icanhazdadjoke.com, whatever the online lookups switch says; if it does not answer, the local AI tells one. Only the request is sent. Online lookups notice no longer names the joke service. Tests: `windows/tests/kevo-joke.test.ts`. Automated tests only.
+
 ## 2026-11-22 — Grok's Kevo previous track and joke (Claude)
 
 Reviewed and fixed `grok/kevo-previous-track` and `grok/kevo-joke` on `claude/grok-kevo-previous-joke`. Grok's HANDOFF.md entry and its live-network test were left out.
