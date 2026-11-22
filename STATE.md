@@ -3,19 +3,19 @@
 Read and written by every autopilot run (`docs/kevo-autopilot/AUTOPILOT.md` on `main`). Owner: edit `paused: yes` to stop the autopilot.
 
 paused: no
-lock: 2026-11-22T01:05Z
+lock: 
 phase: autopilot merged #270 (first-clause speech, Refs #266) at 01:06Z 22 Nov on main 75525ee, version 0.1.63; owner account merged #269 (Grok lookups) 23:11Z 21 Nov; Phase 7.2+ still waits for the owner voice decision
 step: Phase 0: 0.1 #179, 0.2 #154 + fixes #157/#189/#190/#191, 0.3 #174, 0.4a #156, 0.4b #192, 0.5 #193 all merged. HUD: H.1 #178, H.2 #184, H.3 #185, H.4a #181, H.4b #188, H.5 #186, H.6 #187, H.8 #194 merged; H.7 waits for Phase 8. Phase 1: 1.1 #180, 1.2 #182, 1.3 #195 merged; 1.4 #197 handed to Codex 08:18Z (Codex finished, no PR yet); 1.5 #198 team:any; 1.6 after 1.1-1.5 pass on the PC. Open: #175 (Phase 2 phrase cases from #157)
 open_pr: none of the autopilot's. #271/#272 red; agy/ Phase 7.2-9.4 PRs (#240-#254) held (owner gate). #255/#256/#262-#265/#268 not Kevo
 pc_test: pending 0.1.63 from 75525ee once main Windows run 44969628943 publishes kevo-test-v0.1.63 (in progress at 01:07Z 22 Nov); no result for 0.1.61/0.1.62; 24 h notice sent 2026-11-21T22:4xZ
-waiting_for: main Windows run 44969628943 to go green and publish kevo-test-v0.1.63 (check next run). PC self-test result pc-results/selftest-0.1.63.json (the "Kevo PC results" scheduled task is turned off). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
+waiting_for: main Windows run 44969628943 to go green and publish kevo-test-v0.1.63 (still in progress at 01:10Z 22 Nov; check after 02:00Z). PC self-test result pc-results/selftest-0.1.63.json (the "Kevo PC results" scheduled task is turned off). Owner voice decision for Phase 7. #266 (Antigravity triage list). Autopilot: no merges of Phase 7.2+ work
 blocked: 
 last_passed_version: none yet
 owner_needed: PC test waiting since 19 Nov: owner asked (21 Nov) to turn the PC on, check the AnF self-test switch, and turn "Kevo PC results" back on
 last_main: 75525ee (#270, 0.1.63; Windows run 44969628943 in progress)
-chain: 3
-next_due: 
-quiet_fingerprint: 
+chain: 4
+next_due: 2026-11-22T02:00Z
+quiet_fingerprint: 83e15672d63f0bd0dc071bf33eb7b687853b17a5c86b6e3a6fd1dacd57630b02
 
 ## Run log (newest last, keep 60)
 
@@ -61,3 +61,4 @@ quiet_fingerprint:
 - 2026-11-21T22:42Z (autopilot): no runs since 19 Nov 02:30Z. main moved ebfbcfc -> d18c989 (owner account merged #239 7.1 and #267 1.6, 0.1.62; Windows green, kevo-test-v0.1.62 published). 2b.3 on #270 (Refs #266): Codex at limit, fresh-subagent review found the clause cut fired on every part (choppy speech); fixed in 8dd3e8b with a streamed test (red before) + perf-test regex aligned + 0.1.63 bump; check-release 12, contracts, styles, tsc, npm test 799, build, cargo test --lib 191 pass. Merge waits for CI. Sent the 24 h PC-result notice (no result for 0.1.61/0.1.62; "Kevo PC results" task is off).
 - 2026-11-21T23:52Z (autopilot, chained 2): 2b.7 waiting on #270. Second fresh-subagent review of head 8dd3e8b: Ship (nice-to-haves: a token-by-token "1,"+"000" test; pre-existing decimal split at a streamed "3." is outside this PR). All CI green incl. Windows build, but the Cursor Security Reviewer check has been in_progress since 22:41Z, so the merge gate is not met yet. No notification.
 - 2026-11-22T01:07Z (autopilot, chained 3): 2b.3 merged #270 (Refs #266, first-clause speech, 0.1.63) as 75525ee. Main had moved (#269); merged main in cleanly (b2fdb2d); local check-release 12, contracts, styles, tsc, npm test 817, build, cargo test --lib 191 pass; all CI green on b2fdb2d (Cursor Security Reviewer finished this time). Review: fallback fresh-subagent reviews (Codex at limit), head 8dd3e8b "Ship". Main Windows run 44969628943 in progress. Owner notified.
+- 2026-11-22T01:06Z (autopilot, chained 4): 2b.7 waiting. Board unchanged (#266 only open kevo issue; #271/#272 still red, not the autopilot's; Phase 7.2+ PRs held). main 75525ee Windows run 44969628943 still in progress, kevo-test-v0.1.63 not yet published. No PC result. No notification.
