@@ -32,6 +32,7 @@ function fakeAudio(opts: { ignoreStop?: boolean; neverPlays?: boolean } = {}) {
   const said: string[] = [];
   const speaker = {
     said,
+    ready: async () => {},
     speak: async (text: string) => { said.push(text); speaking = true; audio = !opts.neverPlays; },
     stop: () => { speaking = false; if (!opts.ignoreStop) audio = false; },
     getIsSpeaking: () => speaking,

@@ -201,6 +201,11 @@ export class JarvisSpeaker {
     }
   }
 
+  /** Resolves once the speech engine's voices are loaded, so the next reply starts without that wait. */
+  async ready(): Promise<void> {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) await loadVoices();
+  }
+
   /** Speak a phrase out loud. */
   async speak(text: string): Promise<void> {
     if (!text || typeof window === 'undefined') return;
