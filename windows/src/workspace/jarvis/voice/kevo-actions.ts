@@ -15,6 +15,7 @@
  * - music_play: resume music or search and play track
  * - music_pause: pause music
  * - music_next: skip to next track
+ * - previous_track: go back to the previous track
  * - timer_set: set countdown timer
  * - timer_cancel: cancel timer
  * - take_note: save note to vault
@@ -27,10 +28,17 @@
  * - tell_time: report current time
  * - tell_date: report today's date
  * - audius_search: search music on Audius
+ * - convert_units: length, mass and temperature, offline
+ * - wikipedia_summary, define_word, convert_currency: online lookups, off until the owner turns them on
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
+import { convertUnits } from './kevo-unit-convert';
+import { ONLINE_LOOKUPS_OFF } from './kevo-online';
+import { wikipediaSummary } from './kevo-wikipedia';
+import { lookupWord, formatDefinition } from './kevo-dictionary';
+import { currencyCode, convertCurrency, formatConversion } from './kevo-currency';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
   createReminder,
@@ -81,6 +89,15 @@ export interface KevoActionDefinition<TArgs = any> {
   description: string;
   parameters: JSONSchemaObject;
   execute: (args: TArgs, context: JarvisActionContext) => Promise<Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string }>;
+}
+
+/** What an online lookup says while the owner has not turned online lookups on. Nothing is sent. */
+function onlineOff(actionName: string): Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string } {
+  return { handled: true, actionName, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
+}
+
+function lookupFailed(actionName: string, speechReply: string): Partial<KevoActionExecutionResult> & { actionName: string; speechReply: string } {
+  return { handled: false, actionName, speechReply, status: 'failure', verified: false, error: speechReply, reason: 'EXECUTION_FAILED' };
 }
 
 export const KEVO_ACTIONS: KevoActionDefinition[] = [
@@ -496,6 +513,48 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
   },
   {
+    name: 'previous_track',
+    description: 'Goes back to the previous music track in the queue.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (ctx.previousTrack) {
+        try {
+          if (!ctx.dryRun) ctx.previousTrack();
+          return {
+            handled: true,
+            actionName: 'previous_track',
+            speechReply: 'Going back to the previous track, sir.',
+            status: 'success',
+            verified: true,
+            verificationDetails: 'Previous track selected',
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'previous_track',
+            speechReply: `Failed to go to previous track: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
+      }
+      return {
+        handled: false,
+        actionName: 'previous_track',
+        speechReply: 'Going to the previous track is not supported.',
+        status: 'failure',
+        verified: false,
+        reason: 'NOT_SUPPORTED',
+      };
+    },
+  },
+  {
     name: 'timer_set',
     description: 'Sets a countdown timer for a specified duration in seconds.',
     parameters: {
@@ -848,6 +907,105 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         status: 'success',
         verified: true,
       };
+    },
+  },
+  {
+    name: 'convert_units',
+    description: 'Converts a value between common units of length, mass or temperature (offline).',
+    parameters: {
+      type: 'object',
+      properties: {
+        value: { type: 'number', description: 'Numeric value to convert' },
+        from: { type: 'string', description: 'Source unit (e.g. meters, kg, celsius)' },
+        to: { type: 'string', description: 'Target unit (e.g. feet, pounds, fahrenheit)' },
+      },
+      required: ['value', 'from', 'to'],
+    },
+    execute: async (args: { value: number; from: string; to: string }, _ctx: JarvisActionContext) => {
+      const result = convertUnits(Number(args?.value), args?.from || '', args?.to || '');
+      return {
+        handled: result.ok,
+        actionName: 'convert_units',
+        speechReply: result.speech,
+        status: result.ok ? 'success' : 'failure',
+        verified: result.ok,
+        data: result.ok ? { value: result.value, from: result.from, to: result.to } : undefined,
+      };
+    },
+  },
+
+  {
+    name: 'wikipedia_summary',
+    description: 'Gives a short Wikipedia summary of a person, place or topic (online, when online lookups are on).',
+    parameters: {
+      type: 'object',
+      properties: {
+        topic: { type: 'string', description: 'Topic or subject to summarize from Wikipedia' },
+      },
+      required: ['topic'],
+    },
+    execute: async (args: { topic: string }, ctx: JarvisActionContext) => {
+      const topic = (args?.topic || '').trim();
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('wikipedia_summary');
+      try {
+        const found = await wikipediaSummary(topic);
+        if (!found) return { handled: false, actionName: 'wikipedia_summary', speechReply: `Wikipedia has no page for ${topic}.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        return { handled: true, actionName: 'wikipedia_summary', speechReply: found.summary, status: 'success', verified: true, data: found };
+      } catch (err: any) {
+        return lookupFailed('wikipedia_summary', `I could not get the Wikipedia summary: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'define_word',
+    description: 'Says what an English word means, from a free dictionary (online, when online lookups are on).',
+    parameters: {
+      type: 'object',
+      properties: {
+        word: { type: 'string', description: 'The English word to define' },
+      },
+      required: ['word'],
+    },
+    execute: async (args: { word: string }, ctx: JarvisActionContext) => {
+      const word = (args?.word || '').trim();
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('define_word');
+      try {
+        const entry = await lookupWord(word);
+        if (!entry) return { handled: false, actionName: 'define_word', speechReply: `The dictionary has no entry for ${word}.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        return { handled: true, actionName: 'define_word', speechReply: formatDefinition(entry), status: 'success', verified: true, data: entry };
+      } catch (err: any) {
+        return lookupFailed('define_word', `I could not look that word up: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'convert_currency',
+    description: "Converts an amount of money between currencies at today's central bank rate (online, when online lookups are on).",
+    parameters: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', description: 'Amount of money to convert' },
+        from: { type: 'string', description: 'Currency to convert from, a code or name (e.g. USD, euros)' },
+        to: { type: 'string', description: 'Currency to convert to, a code or name (e.g. KES, pounds)' },
+      },
+      required: ['amount', 'from', 'to'],
+    },
+    execute: async (args: { amount: number; from: string; to: string }, ctx: JarvisActionContext) => {
+      const amount = Number(args?.amount);
+      const from = currencyCode(String(args?.from || ''));
+      const to = currencyCode(String(args?.to || ''));
+      if (!Number.isFinite(amount) || amount <= 0 || !from || !to) {
+        return { handled: false, actionName: 'convert_currency', speechReply: 'Say an amount and two currencies, for example convert 100 dollars to euros.', status: 'failure', verified: false, reason: 'INVALID_ARGUMENT' };
+      }
+      if (from === to) return { handled: true, actionName: 'convert_currency', speechReply: `${amount} ${from} is ${amount} ${to}.`, status: 'success', verified: true };
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('convert_currency');
+      try {
+        const conv = await convertCurrency(amount, from, to);
+        if (!conv) return { handled: false, actionName: 'convert_currency', speechReply: `I have no rate from ${from} to ${to}.`, status: 'failure', verified: false, reason: 'NOT_FOUND' };
+        return { handled: true, actionName: 'convert_currency', speechReply: formatConversion(conv), status: 'success', verified: true, data: conv };
+      } catch (err: any) {
+        return lookupFailed('convert_currency', `I could not get the exchange rate: ${err?.message || String(err)}`);
+      }
     },
   },
   {
