@@ -5,3 +5,39 @@
 input[type=checkbox]{width:20px;height:20px;min-height:20px;vertical-align:middle;margin-right:8px;accent-color:var(--accent)}.callout>select{margin:10px 0}
 
 .connection-card textarea{min-height:90px;font-size:13px}.connection-card>button{margin:4px 6px 8px 0}.connection-card label{display:block;margin:12px 0}.connection-card p{margin-bottom:14px}
+
+/* ── Kevo Android Desk Companion (Phase 8 Step 8.1 / HUD H.7) ── */
+.desk-companion-container{display:flex;flex-direction:column;height:100%;width:100%;padding:16px 20px 24px;box-sizing:border-box;background:radial-gradient(circle at 50% 20%,color-mix(in srgb,var(--accent) 12%,transparent),var(--bg) 75%)}
+.desk-companion-header{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:12px}
+.desk-connection-badge{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:var(--panel)}
+.desk-connection-badge.connected{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.desk-connection-badge.disconnected{color:var(--muted)}
+.desk-exit-btn{font-size:12px;padding:6px 14px;min-height:36px;border-radius:20px}
+.desk-companion-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;position:relative}
+.desk-kevo-orb{position:relative;width:160px;height:160px;display:grid;place-items:center;margin:8px 0}
+.desk-kevo-ring{position:absolute;border-radius:50%;pointer-events:none}
+.desk-kevo-ring.outer{inset:0;border:2px dashed color-mix(in srgb,var(--accent) 30%,transparent);animation:desk-spin 20s linear infinite}
+.desk-kevo-ring.inner{inset:16px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+.desk-kevo-core{position:absolute;inset:32px;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--accent) 60%,#fff),var(--accent) 40%,#000 100%);box-shadow:0 0 30px color-mix(in srgb,var(--accent) 45%,transparent);display:flex;align-items:center;justify-content:center;gap:14px;transition:transform .2s ease,box-shadow .3s ease}
+.desk-kevo-eye{width:8px;height:14px;border-radius:4px;background:#091916;transition:all .2s ease}
+[data-state=listening] .desk-kevo-eye{height:18px;background:#000}
+[data-state=thinking] .desk-kevo-eye{height:4px;width:12px}
+[data-state=speaking] .desk-kevo-core{animation:desk-pulse 1.2s ease-in-out infinite}
+[data-state=alert] .desk-kevo-core{box-shadow:0 0 35px #f4505e;background:radial-gradient(circle at 35% 30%,#ff8892,#f4505e 50%,#000 100%)}
+.desk-kevo-waveform{display:flex;align-items:center;justify-content:center;gap:6px;height:36px;margin:4px 0}
+.desk-waveform-bar{width:6px;height:32px;background:var(--accent);border-radius:3px;transform:scaleY(0.15);transform-origin:center;transition:transform .08s ease}
+.desk-kevo-status{font-size:20px;font-weight:700;margin:4px 0;letter-spacing:-0.01em}
+.desk-kevo-sub{font-size:12px;color:var(--muted);margin:0}
+.desk-companion-footer{display:flex;flex-direction:column;align-items:center;width:100%;padding-top:12px}
+.desk-hold-talk-btn{width:100%;max-width:360px;min-height:56px;font-size:16px;font-weight:700;border-radius:28px;background:var(--panel);border:2px solid var(--accent);color:var(--accent);touch-action:none;user-select:none;-webkit-user-select:none;transition:all .15s ease}
+.desk-hold-talk-btn.active{background:var(--accent);color:var(--bg);box-shadow:0 0 24px color-mix(in srgb,var(--accent) 60%,transparent);transform:scale(0.98)}
+.desk-approval-card{position:absolute;inset:auto 12px 10px 12px;background:var(--panel);border:1px solid var(--accent);border-radius:20px;padding:16px;box-shadow:0 12px 40px #000c;z-index:20;text-align:left}
+.desk-approval-header{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.desk-approval-title{font-size:16px;margin:4px 0}
+.desk-approval-summary{font-size:13px;color:var(--muted);margin:4px 0 14px}
+.desk-approval-actions{display:flex;gap:10px}
+.desk-approval-actions button{flex:1;min-height:44px;font-size:13px;border-radius:12px}
+.desk-deny-btn{border-color:var(--line);color:var(--muted)}
+@keyframes desk-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes desk-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@media (orientation:landscape) and (max-height:520px){.desk-companion-stage{flex-direction:row;justify-content:space-around}.desk-kevo-orb{width:120px;height:120px}}

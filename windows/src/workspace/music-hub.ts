@@ -391,7 +391,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const onlineBox=h('input',{type:'checkbox','aria-label':'Online lookups'}) as HTMLInputElement;
  onlineBox.checked=onlineLookupsEnabled();
  onlineBox.addEventListener('change',()=>{setOnlineLookups(onlineBox.checked);report(onlineBox.checked?'Online lookups on: lyrics, metadata and streaming sources may be contacted.':'Online lookups off. Nothing is sent to third-party services.');});
- const onlineToggle=h('label',{class:'music-label',title:'Allow lyrics, metadata and streaming lookups on third-party services (off by default)'},onlineBox,' Online lookups');
+ const onlineToggle=h('label',{class:'music-label',title:'Allow lyrics, metadata and streaming lookups on third-party services (on by default)'},onlineBox,' Online lookups');
  const flowBtn=button('Music Flow',()=>openMusicFlow());
  flowBtn.className='nothing-pill';
 
@@ -1106,6 +1106,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  async function resume(){
   stopFade();fadeOutArmed=false;
   if(!current)return;
+  fetchMissingLyrics(current);
   suspended=false;
   dock.hidden=false;
   document.body.classList.add('has-music-player');
@@ -1214,6 +1215,25 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   return next;
  }
 
+ // Online lyrics for a track that has none, looked up once it starts playing, so restoring the last song at launch
+ // sends nothing.
+ let lyricsAsked='';
+ function fetchMissingLyrics(track:AudioTrack){
+  if(track.lyrics||!onlineLookupsEnabled()||lyricsAsked===track.id)return;
+  lyricsAsked=track.id;
+  void fetchOnlineLyrics({title:track.title,artist:track.artist,album:track.album,duration:track.duration}).then(async onlineText=>{
+   if(onlineText){
+    track.lyrics=onlineText;
+    if(current?.id===track.id){
+     current.lyrics=onlineText;
+     renderLyrics();
+     paintLyrics();
+    }
+    if(!track.id.startsWith('stream:'))await library.put(track).catch(()=>{});
+   }
+  }).catch(()=>{});
+ }
+
  async function select(track:AudioTrack,play=true,position?:number){
   const token=++epoch;
   track=await ensurePlayable(track);
@@ -1234,19 +1254,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
   if(cover&&cover.startsWith('blob:'))URL.revokeObjectURL(cover);
   current=track;
   renderLyrics();
-  if(onlineLookupsEnabled()&&!track.lyrics){
-   void fetchOnlineLyrics({title:track.title,artist:track.artist,album:track.album,duration:track.duration}).then(async onlineText=>{
-    if(onlineText){
-     track.lyrics=onlineText;
-     if(current?.id===track.id){
-      current.lyrics=onlineText;
-      renderLyrics();
-      paintLyrics();
-     }
-     if(!track.id.startsWith('stream:'))await library.put(track).catch(()=>{});
-    }
-   }).catch(()=>{});
-  }
+  lyricsAsked='';
 
   if(track.blob&&track.blob.size>0){
    source=URL.createObjectURL(track.blob);

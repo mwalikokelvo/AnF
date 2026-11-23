@@ -168,7 +168,7 @@ native distribution. This acknowledgement does not imply upstream endorsement.
 ## Synced lyrics
 
 - **Local first:** lyrics come from `.lrc` files imported with the music (paired by folder path, then by file name) or from lyrics embedded in the audio file (`lyrics.ts`).
-- **Online, opt-in:** with *Online lookups* turned on, `lyrics-provider.ts` asks [LRCLIB](https://lrclib.net/docs): an exact lookup first, then a search ranked by how close each version's length is to the track. Titles are cleaned of upload labels such as "(Official Video)" first. Found lyrics are saved on the track for offline use.
+- **Online, on by default:** while *Online lookups* is on (the default; the switch in the Music Hub header turns it off), a track without lyrics that starts playing makes `lyrics-provider.ts` ask [LRCLIB](https://lrclib.net/docs): an exact lookup first, then a search ranked by how close each version's length is to the track. Titles are cleaned of upload labels such as "(Official Video)" first. Found lyrics are saved on the track for offline use.
 - **Player:** the full player highlights the current line, keeps it centred, and seeks when a line is clicked.
 
 This code is AnF's own. MKR Music (GPL-3.0) inspired the feature, but none of its code is included. See `integrations/mkr-music/README.md`.

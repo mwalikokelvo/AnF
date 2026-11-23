@@ -164,74 +164,244 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
  });
  const transcribeButton=action('Transcribe to Note',async()=>{report('Transcribing speech locally (OpenWhispr / VoiceStudio)…');const b=await render(mode.value==='cleaned');const blob=waveBlob(b);const clipTitle=(title.value.trim()||track?.title||'voice-note').replace(/[^\p{L}\p{N}._ -]/gu,'_');const res=await transcribeAudio({audio:blob,filename:clipTitle+'.wav'});if(!res.text)throw Error('No speech detected in this audio segment.');const note=transcriptionToMarkdownNote(res,title.value.trim()||track?.title||'Voice Note');const noteName=clipTitle+'-transcript.md';if(saveNote){await saveNote(noteName,note);}else{const url=URL.createObjectURL(new Blob([note],{type:'text/markdown;charset=utf-8'}));h('a',{href:url,download:noteName}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);}report('Transcribed speech: '+res.text.slice(0,50)+(res.text.length>50?'…':'')+' · Saved '+noteName);});
 
- root.append(h('header',{},h('p',{class:'audio-eyebrow',text:'LOCAL SOUND · YOUR LIBRARY'}),h('h2',{text:'Audio Studio'})),h('div',{class:'audio-controls'},h('label',{},'Add tracks ',file),h('details',{},h('summary',{text:'Import a folder'}),folder)),h('div',{class:'audio-track-fields'},artwork,title,artist,action('Save details',async()=>{if(!track)throw Error('Open a track first.');track={...track,title:title.value.trim()||track.name,artist:artist.value.trim()};await library.put(track);dockTitle.textContent=track.title;mediaSession();await refresh();report('Saved AnF details. Embedded source tags are unchanged.');}),action('Remove',async()=>{if(!track||!confirm('Remove this track from AnF? Your original file stays unchanged.'))return;await library.remove(track.id);clearPlayer();await refresh();saveState();paint();})),canvas,seek,time,h('div',{class:'audio-controls'},action('Previous',previous),play,action('Next',()=>advance()),action('−15 seconds',()=>jump(-15)),action('+15 seconds',()=>jump(15)),mode),meter,h('details',{class:'audio-processing'},h('summary',{text:'Restore speech & export'}),h('p',{text:'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.'}),h('div',{class:'audio-controls'},h('label',{},profile,'Use noise profile'),h('label',{},'Start (seconds) ',noiseStart),noiseLength,action('Use current position',()=>{noiseStart.value=audio.currentTime.toFixed(1);})),h('div',{class:'audio-controls'},h('label',{},'Hum ',hum),h('label',{},'Sample rate ',rate),h('label',{},'Channels ',channels),action('Cache waveform',async()=>{await decode();report('Waveform cached for this track.');}),cleanButton,exportButton,clipDuration,clipButton,transcribeButton)),message,cancel,h('div',{class:'audio-controls'},h('h3',{text:'Play queue'}),action('Shuffle queue',()=>{state.order=shuffled(state.order);saveState();renderQueue();}),repeat,action('Queue all library tracks',()=>{state.custom=false;state.order=orderedTracks(all,state.order).map(t=>t.id);saveState();renderQueue();})),list,h('details',{},h('summary',{text:'Add from your library'}),available),h('details',{},h('summary',{text:'Saved playlists'}),h('div',{class:'audio-controls'},playlistName,action('Save current queue',async()=>{const name=playlistName.value.trim();if(!name)throw Error('Name this playlist first.');if(!state.order.length)throw Error('Add tracks to the queue before saving a playlist.');const saved=await library.playlists();if(saved.length>=50&&!saved.some(p=>p.name===name))throw Error('Keep up to 50 saved playlists.');const existing=saved.find(p=>p.name===name);await library.savePlaylist({id:existing?.id||crypto.randomUUID(),name,order:[...state.order]});await renderPlaylists();report('Saved '+state.order.length+' tracks in '+name+'.');}),action('Export queue M3U',async()=>{const tracks=queueTracks();if(!tracks.length)throw Error('Add tracks to the queue before exporting M3U.');const m3u=serializeM3u(tracks.map(t=>({title:t.title,artist:t.artist,duration:t.duration,uri:t.name})));const blob=new Blob([m3u],{type:'audio/x-mpegurl;charset=utf-8'});const url=URL.createObjectURL(blob);h('a',{href:url,download:(playlistName.value.trim()||'queue')+'.m3u8'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);report('Exported queue as M3U8 playlist.');})),playlists),h('details',{},h('summary',{text:'Current capabilities & storage'}),h('p',{text:'Playback streams local files using your device’s codecs. Up to 100 tracks / 384 MB total; 96 MB per file. Waveform and speech editing: 5 minutes / 16 MB, mono or stereo. WAV export: 32 MB. Audio, playlists and waveform caches stay in this device’s unencrypted audio library, outside conversation backup/sync. Browser media controls and background playback depend on your device; native media services and universal codecs are not installed by this screen. Keep original files.'})));
+ // --- Native Cap Screen Recording & Supoclip 9:16 Video Clipper ---
+ let supoclipSection: HTMLElement;
+ const capPanel = createCapRecorderPanel({
+   notify: report,
+   onTranscribeAudio: async (clip) => {
+     report('Transcribing screen recording audio with Whisper…');
+     try {
+       const res = await transcribeAudio({ audio: clip.blob, filename: clip.id + '.webm' });
+       if (!res.text) throw Error('No speech detected in this recording.');
+       const note = transcriptionToMarkdownNote(res, clip.title);
+       const noteName = clip.id + '-transcript.md';
+       if (saveNote) {
+         await saveNote(noteName, note);
+       } else {
+         const url = URL.createObjectURL(new Blob([note], { type: 'text/markdown;charset=utf-8' }));
+         h('a', { href: url, download: noteName }).click();
+         setTimeout(() => URL.revokeObjectURL(url), 30000);
+       }
+       report('Transcribed screen recording: ' + res.text.slice(0, 50) + '…');
+     } catch (err: any) {
+       report('Transcription failed: ' + (err?.message || String(err)));
+     }
+   },
+   onSendToSupoclip: (_clip) => {
+     selectTab('screen-clip', false);
+     supoclipSection?.scrollIntoView({ behavior: 'smooth' });
+     report('Loaded Cap recording into Supoclip 9:16 Video Clipper.');
+   }
+ });
 
- trackControls=Array.from(root.querySelectorAll<HTMLButtonElement>('.audio-track-fields button'));syncTrackControls();
- if(nativeConvert){
+ const supoclipPanel = createSupoclipPanel({
+   notify: report
+ });
 
-  const target=h('select',{'aria-label':'Convert format'},...['mp3','m4a','opus','ogg','flac','wav'].map(value=>h('option',{value,text:value.toUpperCase()}))),preset=h('select',{'aria-label':'Compression preset'},h('option',{value:'quality',text:'High quality'}),h('option',{value:'voice',text:'Voice / speech'}),h('option',{value:'compact',text:'Compact (Opus 32 kbps)'}));
+ // Capabilities info popover & toggle button
+ const infoBtn = h('button', {
+   class: 'audio-studio-info-btn',
+   type: 'button',
+   'aria-label': 'Capabilities and storage information',
+   'aria-expanded': 'false',
+   'aria-haspopup': 'dialog',
+   title: 'Current capabilities & storage',
+   text: 'ℹ'
+ }) as HTMLButtonElement;
 
-  async function convertBatch(batch:AudioTrack[]){if(!batch.length)throw Error('Open a track first.');let completed=0;const paths:string[]=[];for(const t of batch){if(cancelled)break;if(t.blob.size>16_000_000)throw Error('Native conversion currently accepts files up to 16 MB. Completed exports were retained: '+paths.join(' · '));conversionId=crypto.randomUUID();report('Converting '+t.title+' locally…');try{paths.push(await nativeConvert!.convert(conversionId,t.blob,target.value,preset.value));completed++;}catch(e){throw Error(String(e)+' Completed exports retained: '+(paths.join(' · ')||'none'));}finally{conversionId=undefined;}}report('Exported '+completed+' files: '+paths.join(' · '));}
+ const infoPopover = h('div', {
+   class: 'audio-studio-info-popover',
+   role: 'dialog',
+   'aria-label': 'Current capabilities and storage',
+   hidden: true
+ },
+   h('div', { class: 'audio-studio-info-popover-header' },
+     h('h4', { text: 'Current capabilities & storage' }),
+     h('button', {
+       type: 'button',
+       class: 'audio-studio-info-close',
+       'aria-label': 'Close capabilities info',
+       text: '✕',
+       onclick: () => closeInfoPopover()
+     })
+   ),
+   h('p', { text: 'Playback streams local files using your device’s codecs. Up to 100 tracks / 384 MB total; 96 MB per file. Waveform and speech editing: 5 minutes / 16 MB, mono or stereo. WAV export: 32 MB. Audio, playlists and waveform caches stay in this device’s unencrypted audio library, outside conversation backup/sync. Browser media controls and background playback depend on your device; native media services and universal codecs are not installed by this screen. Keep original files.' })
+ ) as HTMLDivElement;
 
-  root.append(h('details',{},h('summary',{text:'Native audio conversion'}),h('p',{text:'Windows FFmpeg · local-only · original files retained. Converts original audio; use Export WAV for the cleaned comparison. 16 MB input and 64 MB output per job. Exports go to AnF’s documents/audio-exports folder. MP3 voice: 128 kbps mono at 16 kHz; Opus voice: 64 kbps; compact: Opus 32 kbps. Other formats use their supported settings.'}),h('div',{class:'audio-controls'},target,preset,action('Convert current track',()=>convertBatch(track?[track]:[])),action('Convert queue',()=>convertBatch(queueTracks())))));
-
+ function toggleInfoPopover() {
+   if (infoPopover.hidden) {
+     infoPopover.hidden = false;
+     infoBtn.setAttribute('aria-expanded', 'true');
+     const close = infoPopover.querySelector<HTMLButtonElement>('.audio-studio-info-close');
+     close?.focus();
+   } else {
+     closeInfoPopover();
+   }
  }
 
-  // --- Native Cap Screen Recording & Supoclip 9:16 Video Clipper ---
-  let supoclipDetails: HTMLDetailsElement;
-  const capPanel = createCapRecorderPanel({
-    notify: report,
-    onTranscribeAudio: async (clip) => {
-      report('Transcribing screen recording audio with Whisper…');
-      try {
-        const res = await transcribeAudio({ audio: clip.blob, filename: clip.id + '.webm' });
-        if (!res.text) throw Error('No speech detected in this recording.');
-        const note = transcriptionToMarkdownNote(res, clip.title);
-        const noteName = clip.id + '-transcript.md';
-        if (saveNote) {
-          await saveNote(noteName, note);
-        } else {
-          const url = URL.createObjectURL(new Blob([note], { type: 'text/markdown;charset=utf-8' }));
-          h('a', { href: url, download: noteName }).click();
-          setTimeout(() => URL.revokeObjectURL(url), 30000);
-        }
-        report('Transcribed screen recording: ' + res.text.slice(0, 50) + '…');
-      } catch (err: any) {
-        report('Transcription failed: ' + (err?.message || String(err)));
-      }
-    },
-    onSendToSupoclip: (_clip) => {
-      supoclipDetails.open = true;
-      supoclipDetails.scrollIntoView({ behavior: 'smooth' });
-      report('Loaded Cap recording into Supoclip 9:16 Video Clipper.');
-    }
-  });
+ function closeInfoPopover() {
+   if (!infoPopover.hidden) {
+     infoPopover.hidden = true;
+     infoBtn.setAttribute('aria-expanded', 'false');
+     infoBtn.focus();
+   }
+ }
 
-  const supoclipPanel = createSupoclipPanel({
-    notify: report
-  });
+ infoBtn.addEventListener('click', e => { e.stopPropagation(); toggleInfoPopover(); });
+ infoPopover.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeInfoPopover(); } });
+ document.addEventListener('click', e => { if (!infoPopover.hidden && !infoPopover.contains(e.target as Node) && e.target !== infoBtn) closeInfoPopover(); });
 
-  const capDetails = h('details', { class: 'audio-processing cap-studio-details' },
-    h('summary', { text: 'Cap Screen & Audio Recording Studio' }),
-    capPanel
-  ) as HTMLDetailsElement;
+ // 3-tab sub-navigation: Library & Queue, Convert & Transcode, Screen & Clip Studio
+ type StudioTabId = 'library-queue' | 'convert-transcode' | 'screen-clip';
+ const tabDefs: { id: StudioTabId; label: string }[] = [
+   { id: 'library-queue', label: 'Library & Queue' },
+   { id: 'convert-transcode', label: 'Convert & Transcode' },
+   { id: 'screen-clip', label: 'Screen & Clip Studio' }
+ ];
 
-  supoclipDetails = h('details', { class: 'audio-processing supoclip-studio-details' },
-    h('summary', { text: 'Supoclip AI Video Clipper & 9:16 Shorts' }),
-    supoclipPanel
-  ) as HTMLDetailsElement;
+ const tabButtons: HTMLButtonElement[] = [];
+ const tabPanels: Record<StudioTabId, HTMLDivElement> = {
+   'library-queue': h('div', { class: 'audio-studio-panel', id: 'audio-panel-library-queue', role: 'tabpanel', 'aria-labelledby': 'audio-tab-library-queue' }) as HTMLDivElement,
+   'convert-transcode': h('div', { class: 'audio-studio-panel', id: 'audio-panel-convert-transcode', role: 'tabpanel', 'aria-labelledby': 'audio-tab-convert-transcode', hidden: true }) as HTMLDivElement,
+   'screen-clip': h('div', { class: 'audio-studio-panel', id: 'audio-panel-screen-clip', role: 'tabpanel', 'aria-labelledby': 'audio-tab-screen-clip', hidden: true }) as HTMLDivElement
+ };
 
-  root.append(capDetails, supoclipDetails);
+ function selectTab(id: StudioTabId, focusTab = true) {
+   tabDefs.forEach(t => {
+     const isSelected = t.id === id;
+     const btn = tabButtons.find(b => (b.dataset?.tabId || b.getAttribute('data-tab-id')) === t.id);
+     if (btn) {
+       btn.setAttribute('aria-selected', String(isSelected));
+       btn.tabIndex = isSelected ? 0 : -1;
+       if (isSelected) btn.classList.add('active'); else btn.classList.remove('active');
+       if (isSelected && focusTab) btn.focus();
+     }
+     const panel = tabPanels[t.id];
+     if (panel) panel.hidden = !isSelected;
+   });
+ }
 
-  document.addEventListener('anf-open-cap', () => {
-    capDetails.open = true;
-    capDetails.scrollIntoView({ behavior: 'smooth' });
-  });
+ const tabList = h('div', { class: 'audio-studio-tabs', role: 'tablist', 'aria-label': 'Audio Studio Sections' },
+   ...tabDefs.map((t, idx) => {
+     const btn = h('button', {
+       type: 'button',
+       role: 'tab',
+       id: `audio-tab-${t.id}`,
+       class: 'audio-studio-tab music-pill' + (idx === 0 ? ' active' : ''),
+       'aria-selected': String(idx === 0),
+       'aria-controls': `audio-panel-${t.id}`,
+       tabindex: idx === 0 ? 0 : -1,
+       'data-tab-id': t.id,
+       text: t.label,
+       onclick: () => selectTab(t.id, false)
+     }) as HTMLButtonElement;
 
-  document.addEventListener('anf-open-supoclip', () => {
-    supoclipDetails.open = true;
-    supoclipDetails.scrollIntoView({ behavior: 'smooth' });
-  });
+     btn.addEventListener('keydown', e => {
+       let targetIdx = -1;
+       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') targetIdx = (idx + 1) % tabDefs.length;
+       else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') targetIdx = (idx - 1 + tabDefs.length) % tabDefs.length;
+       else if (e.key === 'Home') targetIdx = 0;
+       else if (e.key === 'End') targetIdx = tabDefs.length - 1;
+       if (targetIdx >= 0) {
+         e.preventDefault();
+         selectTab(tabDefs[targetIdx].id, true);
+       }
+     });
+
+     tabButtons.push(btn);
+     return btn;
+   }),
+   infoBtn
+ );
+
+ // Tab 1: Library & Queue
+ tabPanels['library-queue'].append(
+   h('div', { class: 'audio-controls' }, h('label', {}, 'Add tracks ', file), h('details', {}, h('summary', { text: 'Import a folder' }), folder)),
+   h('div', { class: 'audio-track-fields' }, artwork, title, artist, action('Save details', async () => { if (!track) throw Error('Open a track first.'); track = { ...track, title: title.value.trim() || track.name, artist: artist.value.trim() }; await library.put(track); dockTitle.textContent = track.title; mediaSession(); await refresh(); report('Saved AnF details. Embedded source tags are unchanged.'); }), action('Remove', async () => { if (!track || !confirm('Remove this track from AnF? Your original file stays unchanged.')) return; await library.remove(track.id); clearPlayer(); await refresh(); saveState(); paint(); })),
+   canvas, seek, time,
+   h('div', { class: 'audio-controls' }, action('Previous', previous), play, action('Next', () => advance()), action('−15 seconds', () => jump(-15)), action('+15 seconds', () => jump(15)), mode),
+   meter, message, cancel,
+   h('div', { class: 'audio-controls' }, h('h3', { text: 'Play queue' }), action('Shuffle queue', () => { state.order = shuffled(state.order); saveState(); renderQueue(); }), repeat, action('Queue all library tracks', () => { state.custom = false; state.order = orderedTracks(all, state.order).map(t => t.id); saveState(); renderQueue(); })),
+   list,
+   h('details', {}, h('summary', { text: 'Add from your library' }), available),
+   h('details', {}, h('summary', { text: 'Saved playlists' }), h('div', { class: 'audio-controls' }, playlistName, action('Save current queue', async () => { const name = playlistName.value.trim(); if (!name) throw Error('Name this playlist first.'); if (!state.order.length) throw Error('Add tracks to the queue before saving a playlist.'); const saved = await library.playlists(); if (saved.length >= 50 && !saved.some(p => p.name === name)) throw Error('Keep up to 50 saved playlists.'); const existing = saved.find(p => p.name === name); await library.savePlaylist({ id: existing?.id || crypto.randomUUID(), name, order: [...state.order] }); await renderPlaylists(); report('Saved ' + state.order.length + ' tracks in ' + name + '.'); }), action('Export queue M3U', async () => { const tracks = queueTracks(); if (!tracks.length) throw Error('Add tracks to the queue before exporting M3U.'); const m3u = serializeM3u(tracks.map(t => ({ title: t.title, artist: t.artist, duration: t.duration, uri: t.name }))); const blob = new Blob([m3u], { type: 'audio/x-mpegurl;charset=utf-8' }); const url = URL.createObjectURL(blob); h('a', { href: url, download: (playlistName.value.trim() || 'queue') + '.m3u8' }).click(); setTimeout(() => URL.revokeObjectURL(url), 30000); report('Exported queue as M3U8 playlist.'); })), playlists)
+ );
+
+ // Tab 2: Convert & Transcode
+ tabPanels['convert-transcode'].append(
+   h('section', { class: 'audio-processing audio-card' },
+     h('h3', { text: 'Restore speech & export' }),
+     h('p', { text: 'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.' }),
+     h('div', { class: 'audio-controls' }, h('label', {}, profile, 'Use noise profile'), h('label', {}, 'Start (seconds) ', noiseStart), noiseLength, action('Use current position', () => { noiseStart.value = audio.currentTime.toFixed(1); })),
+     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, clipDuration, clipButton, transcribeButton)
+   )
+ );
+
+ trackControls = Array.from(tabPanels['library-queue'].querySelectorAll<HTMLButtonElement>('.audio-track-fields button'));
+ syncTrackControls();
+
+ if (nativeConvert) {
+   const target = h('select', { 'aria-label': 'Convert format' }, ...['mp3', 'm4a', 'opus', 'ogg', 'flac', 'wav'].map(value => h('option', { value, text: value.toUpperCase() })));
+   const preset = h('select', { 'aria-label': 'Compression preset' }, h('option', { value: 'quality', text: 'High quality' }), h('option', { value: 'voice', text: 'Voice / speech' }), h('option', { value: 'compact', text: 'Compact (Opus 32 kbps)' }));
+
+   async function convertBatch(batch: AudioTrack[]) {
+     if (!batch.length) throw Error('Open a track first.');
+     let completed = 0;
+     const paths: string[] = [];
+     for (const t of batch) {
+       if (cancelled) break;
+       if (t.blob.size > 16_000_000) throw Error('Native conversion currently accepts files up to 16 MB. Completed exports were retained: ' + paths.join(' · '));
+       conversionId = crypto.randomUUID();
+       report('Converting ' + t.title + ' locally…');
+       try {
+         paths.push(await nativeConvert!.convert(conversionId, t.blob, target.value, preset.value));
+         completed++;
+       } catch (e) {
+         throw Error(String(e) + ' Completed exports retained: ' + (paths.join(' · ') || 'none'));
+       } finally {
+         conversionId = undefined;
+       }
+     }
+     report('Exported ' + completed + ' files: ' + paths.join(' · '));
+   }
+
+   tabPanels['convert-transcode'].append(
+     h('section', { class: 'audio-native-convert audio-card' },
+       h('h3', { text: 'Native audio conversion' }),
+       h('p', { text: 'Windows FFmpeg · local-only · original files retained. Converts original audio; use Export WAV for the cleaned comparison. 16 MB input and 64 MB output per job. Exports go to AnF’s documents/audio-exports folder. MP3 voice: 128 kbps mono at 16 kHz; Opus voice: 64 kbps; compact: Opus 32 kbps. Other formats use their supported settings.' }),
+       h('div', { class: 'audio-controls' }, target, preset, action('Convert current track', () => convertBatch(track ? [track] : [])), action('Convert queue', () => convertBatch(queueTracks())))
+     )
+   );
+ }
+
+ // Tab 3: Screen & Clip Studio
+ const capSection = h('section', { class: 'audio-processing cap-studio-details audio-card' }, h('h3', { text: 'Cap Screen & Audio Recording Studio' }), capPanel);
+ supoclipSection = h('section', { class: 'audio-processing supoclip-studio-details audio-card' }, h('h3', { text: 'Supoclip AI Video Clipper & 9:16 Shorts' }), supoclipPanel);
+ tabPanels['screen-clip'].append(capSection, supoclipSection);
+
+ document.addEventListener('anf-open-cap', () => {
+   selectTab('screen-clip', false);
+   capSection.scrollIntoView({ behavior: 'smooth' });
+ });
+
+ document.addEventListener('anf-open-supoclip', () => {
+   selectTab('screen-clip', false);
+   supoclipSection.scrollIntoView({ behavior: 'smooth' });
+ });
+
+ root.append(
+   h('header', { class: 'audio-studio-header' },
+     h('div', { class: 'audio-studio-header-title' },
+       h('p', { class: 'audio-eyebrow', text: 'LOCAL SOUND · YOUR LIBRARY' }),
+       h('h2', { text: 'Audio Studio' })
+     ),
+     infoPopover
+   ),
+   tabList,
+   tabPanels['library-queue'],
+   tabPanels['convert-transcode'],
+   tabPanels['screen-clip']
+ );
 
   dock.append(dockTitle,action('Previous',previous),dockPlay,action('Next',()=>advance()),dockTime);document.body.append(dock);
 

@@ -14,12 +14,31 @@ import {
   runKevoSelfTest,
   runFivePhase0Checks,
   runHudSelfTestChecks,
+  pcm16WavToFloat32,
   type KevoSelfTestReport,
 } from '../src/workspace/jarvis/kevo-selftest';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
 import { DEFAULT_SETTINGS } from '../src/core/state';
 import { Bridge } from '../src/core/bridge';
+
+/**
+ * Stands in for JarvisSpeaker plus the speech engine. `audio` is the sound itself; with `ignoreStop`
+ * stop() clears the speaker's flag (as the real one does) but the sound keeps playing.
+ */
+function fakeAudio(opts: { ignoreStop?: boolean; neverPlays?: boolean } = {}) {
+  let speaking = false;
+  let audio = false;
+  const said: string[] = [];
+  const speaker = {
+    said,
+    whenSoundStarts: () => (opts.neverPlays ? new Promise<void>(() => {}) : Promise.resolve()),
+    speak: async (text: string) => { said.push(text); speaking = true; audio = !opts.neverPlays; },
+    stop: () => { speaking = false; if (!opts.ignoreStop) audio = false; },
+    getIsSpeaking: () => speaking,
+  } as any;
+  return { speaker, isAudioPlaying: () => audio };
+}
 
 describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
   it('DEFAULT_SETTINGS sets kevoAutoTest to false by default', () => {
@@ -114,6 +133,7 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
 
     const progressSteps: string[] = [];
     const report = await runKevoSelfTest({
+      ...fakeAudio(),
       agent,
       listener,
       playClipAudio,
@@ -216,6 +236,7 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     const checks = await runFivePhase0Checks({
       agent,
       listener,
+      ...fakeAudio(),
       playClipAudio,
       simulateTimerFire: true,
       sleepMs: async () => {},
@@ -348,6 +369,7 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     };
 
     const passReport = await runKevoSelfTest({
+      ...fakeAudio(),
       agent,
       listener,
       playClipAudio: playClipAudioPass,
@@ -355,6 +377,8 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.5,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
     });
 
     assert.strictEqual(passReport.wakeClips.total, 20);
@@ -380,6 +404,7 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     };
 
     const lowWakeReport = await runKevoSelfTest({
+      ...fakeAudio(),
       agent,
       listener,
       playClipAudio: playClipAudioLowWake,
@@ -387,6 +412,8 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.2,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
     });
 
     assert.strictEqual(lowWakeReport.wakeClips.wakes, 18);
@@ -403,6 +430,7 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     };
 
     const highFalseWakeReport = await runKevoSelfTest({
+      ...fakeAudio(),
       agent,
       listener,
       playClipAudio: playClipAudioHighFalseWake,
@@ -410,6 +438,8 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
       sleepMs: async () => {},
       simulateTimerFire: true,
       onIdleCpuMeasure: async () => 0.1,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
     });
 
     assert.strictEqual(highFalseWakeReport.lookalikeClips.falseWakes, 2);
@@ -473,6 +503,7 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     };
 
     const passReport = await runKevoSelfTest({
+      ...fakeAudio(),
       agent,
       listener,
       playClipAudio,
@@ -486,5 +517,182 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
     assert.strictEqual(passReport.modelCommandLatencies.firstPassed, true);
     assert.strictEqual(passReport.modelCommandLatencies.subsequentPassed, true);
     assert.strictEqual(passReport.result, 'pass');
+  });
+
+  it('pcm16WavToFloat32 decodes 16-bit PCM bytes to normalized float32 samples', () => {
+    // Header 44 bytes + 4 samples (8 bytes)
+    const bytes = new Array(44 + 8).fill(0);
+    const view = new DataView(new Uint8Array(bytes).buffer);
+    // Write sample 0: 0
+    view.setInt16(44, 0, true);
+    // Write sample 1: 16384 (0.5)
+    view.setInt16(46, 16384, true);
+    // Write sample 2: -16384 (-0.5)
+    view.setInt16(48, -16384, true);
+    // Write sample 3: 32767 (~1.0)
+    view.setInt16(50, 32767, true);
+
+    const floats = pcm16WavToFloat32(Array.from(new Uint8Array(view.buffer)));
+    assert.strictEqual(floats.length, 4);
+    assert.strictEqual(floats[0], 0);
+    assert.ok(Math.abs(floats[1] - 0.5) < 1e-4);
+    assert.ok(Math.abs(floats[2] - -0.5) < 1e-4);
+    assert.ok(Math.abs(floats[3] - 1.0) < 1e-4);
+  });
+
+  it('records ownVoiceNeverInterrupts and bargeInStopDelayMs in self-test report (Step 1.6)', async () => {
+    const actionContext = {
+      switchView: () => {},
+      dryRun: true,
+      openApp: async (name: string) => name,
+      announce: () => {},
+    };
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const manifest: SelftestClipsManifest = {
+      version: 1,
+      clips: [],
+    };
+    (Bridge as any).kevoSelftestGetClips = async () => JSON.stringify(manifest);
+
+    const playClipAudio = async (filename: string) => {
+      if (filename.includes('open-brave')) {
+        listener.onFinalSpeech?.('Kevo, open Brave browser');
+      } else if (filename.includes('timer')) {
+        listener.onFinalSpeech?.('Set a timer for ten seconds');
+      } else if (filename.includes('time')) {
+        listener.onFinalSpeech?.('Kevo, what time is it?');
+      } else if (filename.includes('help')) {
+        listener.onFinalSpeech?.('What can you do?');
+      } else if (filename.includes('black-holes')) {
+        listener.onFinalSpeech?.('tell me about black holes');
+      }
+    };
+
+    // Scenario A: Own voice never interrupts, barge-in stop delay <= 300 ms -> passes
+    const passReport = await runKevoSelfTest({
+      ...fakeAudio(),
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.62',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 140,
+    });
+
+    assert.strictEqual(passReport.ownVoiceNeverInterrupts, true);
+    assert.strictEqual(passReport.bargeInStopDelayMs, 140);
+    assert.strictEqual(passReport.result, 'pass');
+
+    // Scenario B: Own voice interrupts -> fails
+    const failOwnVoiceReport = await runKevoSelfTest({
+      ...fakeAudio(),
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.62',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+      onOwnVoiceMeasure: async () => false,
+      onBargeInMeasure: async () => 140,
+    });
+
+    assert.strictEqual(failOwnVoiceReport.ownVoiceNeverInterrupts, false);
+    assert.strictEqual(failOwnVoiceReport.result, 'fail');
+
+    // Scenario C: Barge-in stop delay > 300 ms -> fails
+    const failBargeReport = await runKevoSelfTest({
+      ...fakeAudio(),
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.62',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.0,
+      onOwnVoiceMeasure: async () => true,
+      onBargeInMeasure: async () => 350,
+    });
+
+    assert.strictEqual(failBargeReport.bargeInStopDelayMs, 350);
+    assert.strictEqual(failBargeReport.result, 'fail');
+  });
+
+  it('check 5 presses the Stop action during real sound without asking the AI', async () => {
+    let askCalls = 0;
+    const askAI = async () => { askCalls++; return ''; };
+    const agent = new JarvisVoiceAgent({ openApp: async () => {}, switchView: () => {}, dryRun: true, askAI });
+    const listener = new JarvisVoiceListener();
+    const audio = fakeAudio();
+    let stopPresses = 0;
+
+    const checks = await runFivePhase0Checks({
+      agent, listener, ...audio, stop: () => { stopPresses++; audio.speaker.stop(); },
+      playClipAudio: async () => {}, simulateTimerFire: true, sleepMs: async () => {},
+    });
+    const stop = checks.find((c) => c.check === 'stop')!;
+    assert.strictEqual(stop.passed, true, stop.details);
+    assert.strictEqual(stopPresses, 1, 'the Stop action given by the desk is the one pressed');
+    assert.strictEqual(audio.speaker.said.length, 1, 'the reply went to the speaker');
+    assert.strictEqual(askCalls, 0, 'the Stop check never asks the AI, so nothing made up reaches the history');
+  });
+
+  it('check 5 fails when sound keeps playing after Stop, never started, or there is no speaker', async () => {
+    const agent = new JarvisVoiceAgent({ openApp: async () => {}, switchView: () => {}, dryRun: true });
+    const listener = new JarvisVoiceListener();
+    const deps = { agent, listener, playClipAudio: async () => {}, simulateTimerFire: true, sleepMs: async () => {} };
+    const stopCheck = async (extra: object) =>
+      (await runFivePhase0Checks({ ...deps, ...extra })).find((c) => c.check === 'stop')!;
+
+    const stuck = await stopCheck(fakeAudio({ ignoreStop: true }));
+    assert.strictEqual(stuck.passed, false, 'the speaker flag clears but sound continues');
+    assert.match(stuck.details, /spokenAfterStop=true/);
+
+    const silent = await stopCheck(fakeAudio({ neverPlays: true }));
+    assert.strictEqual(silent.passed, false);
+    assert.match(silent.details, /spokenBeforeStop=false/);
+
+    const none = await stopCheck({});
+    assert.strictEqual(none.passed, false);
+    assert.match(none.details, /no speaker/);
+  });
+
+  it('report version matches the appVersion passed in and removes hard-coded 0.1.58 fallback', async () => {
+    const actionContext = {
+      openApp: async () => {},
+      switchView: () => {},
+      dryRun: true,
+    };
+    const agent = new JarvisVoiceAgent(actionContext);
+    const listener = new JarvisVoiceListener();
+
+    const playClipAudio = async () => {};
+
+    const reportCustom = await runKevoSelfTest({
+      ...fakeAudio(),
+      agent,
+      listener,
+      playClipAudio,
+      appVersion: '0.1.64',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+    });
+    assert.strictEqual(reportCustom.version, '0.1.64');
+
+    const reportEmpty = await runKevoSelfTest({
+      ...fakeAudio(),
+      agent,
+      listener,
+      playClipAudio,
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+    });
+    assert.strictEqual(reportEmpty.version, '');
+    assert.notStrictEqual(reportEmpty.version, '0.1.58');
   });
 });

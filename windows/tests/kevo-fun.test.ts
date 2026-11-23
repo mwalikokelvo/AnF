@@ -1,0 +1,261 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { FACTS, isFactRequest, parseDiceRequest, randomFact, rollDice } from '../src/workspace/jarvis/voice/kevo-fun';
+import { isQuoteRequest, QUOTES, quoteOfTheDay } from '../src/workspace/jarvis/voice/kevo-quote';
+import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest } from '../src/workspace/jarvis/voice/kevo-trivia';
+import { parseTranslateRequest, translateFromEnglish } from '../src/workspace/jarvis/voice/kevo-translate';
+import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
+import { ONLINE_LOOKUPS_OFF } from '../src/workspace/jarvis/voice/kevo-online';
+
+const ok = (body: unknown) => async () => ({ ok: true, status: 200, json: async () => body });
+
+/** Runs `body` with a fake global fetch that answers by URL and records each request. */
+async function withFetch<T>(answer: (url: string) => unknown, body: (urls: string[]) => Promise<T>): Promise<T> {
+  const real = globalThis.fetch;
+  const urls: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    urls.push(String(url));
+    return { ok: true, status: 200, json: async () => answer(String(url)) };
+  }) as typeof fetch;
+  try {
+    return await body(urls);
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
+const TRIVIA = {
+  response_code: 0,
+  results: [{ category: 'Geography', question: 'What%20is%20the%20capital%20of%20Kenya%3F', correct_answer: 'Nairobi', incorrect_answers: ['Mombasa', 'Kisumu', 'Nakuru'] }],
+};
+
+describe('Kevo dice', () => {
+  it('understands dice requests', () => {
+    assert.deepEqual(parseDiceRequest('roll a die'), { count: 1, sides: 6 });
+    assert.deepEqual(parseDiceRequest('can you roll the dice please?'), { count: 1, sides: 6 });
+    assert.deepEqual(parseDiceRequest('roll two dice'), { count: 2, sides: 6 });
+    assert.deepEqual(parseDiceRequest('roll 3 dice with 20 sides'), { count: 3, sides: 20 });
+    assert.deepEqual(parseDiceRequest('roll a d20'), { count: 1, sides: 20 });
+    assert.deepEqual(parseDiceRequest('roll 2d6'), { count: 2, sides: 6 });
+    for (const said of ['roll 50 dice', 'roll a d1', 'roll the window down', 'what is a die']) assert.equal(parseDiceRequest(said), null, said);
+  });
+
+  it('rolls within range and adds up', () => {
+    assert.deepEqual(rollDice(1, 6, () => 0.5), { rolls: [4], reply: 'You rolled a 4.' });
+    assert.equal(rollDice(1, 20, () => 0.39).reply, 'You rolled an 8.');
+    assert.deepEqual(rollDice(3, 6, () => 0), { rolls: [1, 1, 1], reply: 'You rolled 1, 1 and 1, a total of 3.' });
+    for (const r of rollDice(10, 20).rolls) assert.ok(r >= 1 && r <= 20);
+  });
+
+  it('answers through Kevo without the AI', async () => {
+    const res = await new JarvisVoiceAgent({ switchView: () => {} }).processVoiceInput('roll two dice');
+    assert.equal(res.actionName, 'roll_dice');
+    assert.match(res.speechReply, /^You rolled \d, \d+ and \d+|^You rolled \d and \d, a total of \d+\.$/);
+  });
+});
+
+describe('Kevo facts', () => {
+  it('understands fact requests', () => {
+    for (const said of ['tell me a fact', 'give me a random fact', 'fun fact', 'tell me something interesting', 'kevo, tell me another fun fact']) assert.equal(isFactRequest(said), true, said);
+    for (const said of ['is that a fact', 'facts about the moon', 'tell me a joke']) assert.equal(isFactRequest(said), false, said);
+  });
+
+  it('never repeats the last fact', () => {
+    for (const last of FACTS) assert.notEqual(randomFact(last, () => 0), last);
+  });
+
+  it('answers through Kevo without the AI', async () => {
+    const res = await new JarvisVoiceAgent({ switchView: () => {} }).processVoiceInput('tell me a fact');
+    assert.equal(res.actionName, 'random_fact');
+    assert.ok(FACTS.includes(res.speechReply));
+  });
+});
+
+describe('Kevo quote of the day', () => {
+  it('understands quote requests', () => {
+    for (const said of ['quote of the day', "what's the quote of the day?", 'give me a quote', 'inspire me', 'daily quote please']) assert.equal(isQuoteRequest(said), true, said);
+    for (const said of ['quote me on that', 'get a quote for car insurance']) assert.equal(isQuoteRequest(said), false, said);
+  });
+
+  it('gives the same quote all day and another the next day, without sending anything', async () => {
+    const morning = quoteOfTheDay(new Date(2026, 10, 22, 7));
+    assert.equal(quoteOfTheDay(new Date(2026, 10, 22, 23)), morning);
+    assert.notEqual(quoteOfTheDay(new Date(2026, 10, 23, 7)), morning);
+    assert.ok(QUOTES.some((q) => morning === `Today's quote, from ${q.from}: ${q.text}`));
+    await withFetch(() => ({}), async (urls) => {
+      const res = await new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => false }).processVoiceInput('inspire me');
+      assert.equal(res.actionName, 'quote');
+      assert.match(res.speechReply, /^Today's quote, from /);
+      assert.deepEqual(urls, []);
+    });
+  });
+});
+
+describe('Kevo trivia', () => {
+  it('understands trivia requests', () => {
+    for (const said of ['trivia', "let's play trivia", 'quiz me', 'ask me a trivia question', 'give me another quiz question']) assert.equal(isTriviaRequest(said), true, said);
+    for (const said of ['what is trivia', 'the quiz show was fun']) assert.equal(isTriviaRequest(said), false, said);
+  });
+
+  it('asks with lettered choices and checks the answer', async () => {
+    const q = await fetchTrivia(ok(TRIVIA), () => 0.99);
+    assert.equal(q.question, 'What is the capital of Kenya?');
+    assert.equal(q.choices.length, 4);
+    assert.ok(q.choices.includes('Nairobi'));
+    const letter = 'ABCD'[q.choices.indexOf('Nairobi')];
+    assert.match(askTrivia(q), /^A Geography question from Open Trivia DB: What is the capital of Kenya\? Is it A, .+; B, .+; C, .+; or D, .+\?$/);
+    assert.equal(answerTrivia(q, letter.toLowerCase()), "That's right! It's Nairobi.");
+    assert.equal(answerTrivia(q, "I think it's nairobi"), "That's right! It's Nairobi.");
+    assert.equal(answerTrivia(q, 'Mombasa'), `Not quite. The answer is ${letter}, Nairobi.`);
+    assert.equal(answerTrivia(q, "I don't know"), `The answer is ${letter}, Nairobi.`);
+    assert.equal(answerTrivia(q, 'play some music'), null);
+  });
+
+  it('matches a spoken choice without its accents', () => {
+    const q = { category: 'Video Games', question: 'Which series has Pikachu?', choices: ['Pokémon', 'Zelda', 'Mario', 'Sonic'], answer: 'Pokémon' };
+    assert.equal(answerTrivia(q, 'pokemon'), "That's right! It's Pokémon.");
+  });
+
+  it('takes a choice that sounds like a request as the answer', async () => {
+    const TIME = { response_code: 0, results: [{ category: 'Science', question: 'What%20is%20measured%20in%20seconds%3F', correct_answer: 'Time', incorrect_answers: ['Mass', 'Heat', 'Light'] }] };
+    await withFetch(() => TIME, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      await agent.processVoiceInput('quiz me');
+      const answered = await agent.processVoiceInput('time');
+      assert.equal(answered.actionName, 'trivia_answer');
+      assert.equal(answered.speechReply, "That's right! It's Time.");
+    });
+  });
+
+  it('forgets an unanswered question once a new one cannot be fetched', async () => {
+    let up = true;
+    await withFetch(() => { if (!up) throw new Error('offline'); return TRIVIA; }, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      await agent.processVoiceInput('quiz me');
+      up = false;
+      const failed = await agent.processVoiceInput('quiz me');
+      assert.equal(failed.status, 'failure');
+      const after = await agent.processVoiceInput('Nairobi');
+      assert.notEqual(after.actionName, 'trivia_answer');
+    });
+  });
+
+  it('takes the next reply as the answer, once', async () => {
+    await withFetch(() => TRIVIA, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const asked = await agent.processVoiceInput('quiz me');
+      assert.equal(asked.actionName, 'trivia');
+      const answered = await agent.processVoiceInput('Nairobi');
+      assert.equal(answered.actionName, 'trivia_answer');
+      assert.equal(answered.speechReply, "That's right! It's Nairobi.");
+      const after = await agent.processVoiceInput('Nairobi');
+      assert.notEqual(after.actionName, 'trivia_answer');
+    });
+  });
+
+  it('says and keeps nothing when Stop is pressed while the question is on its way', async () => {
+    const real = globalThis.fetch;
+    let release: (r: Response) => void = () => {};
+    globalThis.fetch = (() => new Promise<Response>((r) => { release = r; })) as typeof fetch;
+    try {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const pending = agent.processVoiceInput('quiz me');
+      await new Promise((r) => setTimeout(r, 10));
+      agent.abandon();
+      release(new Response(JSON.stringify(TRIVIA), { status: 200 }));
+      const res = await pending;
+      assert.equal(res.actionName, 'abandoned');
+      assert.equal(res.speechReply, '');
+      globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
+      const after = await agent.processVoiceInput('Nairobi');
+      assert.notEqual(after.actionName, 'trivia_answer');
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
+  it('leaves a question asked after Stop open when the stopped one arrives late', async () => {
+    const real = globalThis.fetch;
+    const releases: ((r: Response) => void)[] = [];
+    globalThis.fetch = (() => new Promise<Response>((r) => { releases.push(r); })) as typeof fetch;
+    try {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const stopped = agent.processVoiceInput('quiz me');
+      await new Promise((r) => setTimeout(r, 10));
+      agent.abandon();
+      const fresh = agent.processVoiceInput('quiz me');
+      await new Promise((r) => setTimeout(r, 10));
+      releases[1](new Response(JSON.stringify(TRIVIA), { status: 200 }));
+      assert.equal((await fresh).actionName, 'trivia');
+      releases[0](new Response(JSON.stringify(TRIVIA), { status: 200 }));
+      assert.equal((await stopped).actionName, 'abandoned');
+      const answered = await agent.processVoiceInput('Nairobi');
+      assert.equal(answered.actionName, 'trivia_answer');
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
+  it('keeps the question open when asked to say it again', async () => {
+    await withFetch(() => TRIVIA, async () => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      const asked = await agent.processVoiceInput('quiz me');
+      const again = await agent.processVoiceInput('say that again');
+      assert.equal(again.actionName, 'repeat');
+      assert.equal(again.speechReply, asked.speechReply);
+      const answered = await agent.processVoiceInput('Nairobi');
+      assert.equal(answered.actionName, 'trivia_answer');
+    });
+  });
+});
+
+describe('Kevo translation', () => {
+  it('understands translation requests', () => {
+    assert.deepEqual(parseTranslateRequest('translate good morning to swahili'), { text: 'good morning', language: 'Swahili', code: 'sw' });
+    assert.deepEqual(parseTranslateRequest('can you translate "thank you" into french?'), { text: 'thank you', language: 'French', code: 'fr' });
+    assert.deepEqual(parseTranslateRequest('how do you say where is the station in spanish'), { text: 'where is the station', language: 'Spanish', code: 'es' });
+    for (const said of ['translate this to klingon', 'translate hello to english', 'how are you']) assert.equal(parseTranslateRequest(said), null, said);
+  });
+
+  it('asks MyMemory from English', async () => {
+    const urls: string[] = [];
+    const text = await translateFromEnglish('good morning', 'sw', async (url) => { urls.push(url); return { ok: true, status: 200, json: async () => ({ responseStatus: 200, responseData: { translatedText: 'Habari ya asubuhi' } }) }; });
+    assert.deepEqual(urls, ['https://api.mymemory.translated.net/get?q=good%20morning&langpair=en%7Csw']);
+    assert.equal(text, 'Habari ya asubuhi');
+    await assert.rejects(translateFromEnglish('x', 'sw', ok({ responseStatus: 429, responseData: { translatedText: 'MYMEMORY WARNING' } })), /could not translate/);
+    assert.equal(await translateFromEnglish('where is it', 'fr', ok({ responseStatus: 200, responseData: { translatedText: 'O&#249; est-ce qu&#39;il est &amp;amp; &quot;ici&quot;' } })), 'Où est-ce qu\'il est &amp; "ici"');
+  });
+
+  it('answers through Kevo', async () => {
+    await withFetch(() => ({ responseStatus: 200, responseData: { translatedText: 'Asante' } }), async () => {
+      const res = await new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true }).processVoiceInput('translate thank you to Swahili');
+      assert.equal(res.actionName, 'translate');
+      assert.equal(res.speechReply, 'In Swahili, thank you is: Asante');
+    });
+  });
+
+  it('translates a phrase that sounds like another request', async () => {
+    await withFetch(() => ({ responseStatus: 200, responseData: { translatedText: 'Quelle heure est-il' } }), async (urls) => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
+      for (const said of ['how do you say what time is it in French', "how do you say what's your name in French", 'translate what is the date to French']) {
+        const res = await agent.processVoiceInput(said);
+        assert.equal(res.actionName, 'translate', said);
+      }
+      assert.equal(urls.length, 3);
+    });
+  });
+});
+
+describe('Kevo online extras stay off until online lookups are on', () => {
+  it('sends nothing while off', async () => {
+    await withFetch(() => ({}), async (urls) => {
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => false });
+      for (const said of ['quiz me', 'translate hello to French']) {
+        const res = await agent.processVoiceInput(said);
+        assert.equal(res.speechReply, ONLINE_LOOKUPS_OFF, said);
+        assert.equal(res.reason, 'ONLINE_LOOKUPS_OFF', said);
+      }
+      assert.deepEqual(urls, []);
+    });
+  });
+});

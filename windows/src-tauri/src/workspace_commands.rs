@@ -105,7 +105,7 @@ pub async fn kevo_ask(
     let answer = async {
         let reply = chat.local.reply_tools(&messages, tools.as_deref(), &model, 160, |piece| {
             unsent.push_str(piece);
-            if let Some(text) = local_ai::take_streamable_sentences(&mut unsent) {
+            if let Some(text) = local_ai::take_streamable_sentences(&mut unsent, first_sentence_ms.load(Ordering::SeqCst) == 0) {
                 let _ = first_sentence_ms.compare_exchange(0, started.elapsed().as_millis() as u64, Ordering::SeqCst, Ordering::Relaxed);
                 let _ = app.emit("kevo-reply-part", KevoPart { id, text });
             }
@@ -410,7 +410,9 @@ mod tests {
     }
     #[test]
     fn ocr_port_check_reports_offline_on_unused_port() {
-        assert!(!is_port_open(59997));
+        // A port the OS just handed out and released, not a fixed one another process on the runner may hold.
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        assert!(!is_port_open(port));
     }
     #[test]
     fn ocr_backend_only_accepts_the_fixed_exe() {

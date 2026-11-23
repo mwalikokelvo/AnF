@@ -1,14 +1,15 @@
 /**
- * Opt-in switch and URL hygiene for third-party music lookups (lyrics, metadata,
- * streaming resolvers). Off by default: nothing leaves the device for these
- * services until the user turns "Online lookups" on in the Music Hub header.
+ * Switch and URL hygiene for third-party music lookups (lyrics, metadata,
+ * streaming resolvers). On by default (the owner's choice, 22 Nov 2026); once the
+ * user turns "Online lookups" off in the Music Hub header, nothing leaves the
+ * device for these services until it is turned back on.
  */
 const KEY = 'anf-online-lookups';
 let memory: boolean | null = null;
 
 export function onlineLookupsEnabled(): boolean {
   if (memory !== null) return memory;
-  try { return typeof localStorage !== 'undefined' && localStorage.getItem(KEY) === '1'; } catch { return false; }
+  try { return typeof localStorage === 'undefined' || localStorage.getItem(KEY) !== '0'; } catch { return true; }
 }
 
 export function setOnlineLookups(on: boolean): void {
@@ -18,7 +19,7 @@ export function setOnlineLookups(on: boolean): void {
 
 export const ONLINE_LOOKUPS_OFF = 'Online lookups are off. Turn on "Online lookups" in the Music Hub header to contact third-party lyrics and streaming services.';
 
-/** fetch() that refuses to run until the user has opted in. */
+/** fetch() that refuses to run while the user has online lookups off. */
 export function gatedFetch(input: string | URL, init?: RequestInit): Promise<Response> {
   if (!onlineLookupsEnabled()) return Promise.reject(new Error(ONLINE_LOOKUPS_OFF));
   return fetch(input, init);
