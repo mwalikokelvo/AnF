@@ -1,4 +1,5 @@
 import {h,svg} from '../views/dom';
+import {createVirtualList,debounce} from './virtual-list';
 import {AbLoopEngine} from './ab-loop';
 import {audioLibrary,type AudioTrack,type AudioPlaylist} from './audio-library';
 import {readAudioMetadata,formatBadge} from './audio-metadata';
@@ -198,6 +199,16 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  const search=h('input',{type:'search',placeholder:'Search songs, artists, albums or podcasts…','aria-label':'Search music'});
  const files=h('input',{type:'file',multiple:true,accept:'audio/*,.flac,.mp3,.m4a,.m4b,.ogg,.opus,.wav,.lrc','aria-label':'Import local music',hidden:true});
  const folder=h('input',{type:'file',multiple:true,webkitdirectory:'','aria-label':'Import music folder',hidden:true});
+ let currentTrackList:AudioTrack[]=[];
+ const virtualTrackGrid=createVirtualList<AudioTrack[]>({
+  itemHeight:280,
+  overscan:2,
+  role:'none',
+  className:'music-virtual-grid',
+  renderItem:(rowTracks)=>{
+   return h('div',{class:'music-grid',style:'margin-bottom:14px;'},...rowTracks.map(t=>card(t,currentTrackList)));
+  }
+ });
  let tracks:AudioTrack[]=[],playlists:AudioPlaylist[]=[],tab='music',feeds:PodcastFeed[]=loadFeeds(),selectedFeed:PodcastFeed|null=null,current:AudioTrack|undefined,queue:string[]=[],epoch=0,source='',cover='',pending=0,busy=false,lastSave=0,suspended=false,libraryLimit=80;
  let playbackState:PlaybackState='idle',playbackError:string|null=null;
  let streamingResults:StreamTrackMetadata[]=[],streamingQuery='',streamingBusy=false,streamingServiceTab:'all'|'audius'|'archive'|'youtube'|'spotify'|'audiobook'|'subsonic'|'cached'='all',directUrlInput='',fullSongsOnly=true;
@@ -2939,9 +2950,16 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
    save();await refresh();report('Removed '+ids.size+' broken stream '+(ids.size===1?'entry':'entries')+'.');
   })));
 
-  const grid=h('div',{class:'music-grid'});
-  grid.append(...list.map(t=>card(t,list)));
-  content.append(grid);
+  currentTrackList=list;
+  const CHUNK_SIZE=6;
+  const trackRows:AudioTrack[][]=[];
+  for(let i=0;i<list.length;i+=CHUNK_SIZE){
+   trackRows.push(list.slice(i,i+CHUNK_SIZE));
+  }
+  virtualTrackGrid.setItems(trackRows);
+  if(trackRows.length){
+   content.append(virtualTrackGrid.root);
+  }
   if(more)content.append(button('Show more',()=>{libraryLimit+=80;render();}));
   if(!list.length){
    content.append(h('p',{class:'music-empty',text:tab==='favorites'?'No liked tracks yet. Heart a track to add it here.':'No tracks here. Import audio files or add a podcast feed.'}));
@@ -3024,7 +3042,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
  async function removeFeed(f:PodcastFeed){if(!await askConfirm('Remove '+(f.title||f.url)+'?'))return;feeds=feeds.filter(x=>x.url!==f.url);saveFeeds(feeds);await refresh();report('Feed removed.');}
 
  files.addEventListener('change',()=>{const selected=Array.from(files.files||[]);files.value='';if(selected.length)void run(()=>importFiles(selected));});
- search.addEventListener('input',()=>{
+ search.addEventListener('input',debounce(()=>{
   if(tab==='streaming'){
    streamingQuery=search.value;
    directUrlInput=search.value;
@@ -3033,7 +3051,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
    libraryLimit=80;
    render();
   }
- });
+ },150));
  search.addEventListener('keydown',(e:KeyboardEvent)=>{
   if(e.key==='Enter'){
    const q=search.value.trim();

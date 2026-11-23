@@ -17,6 +17,7 @@ import {libraryCard,refreshLibrary,libraryControls} from './library';
 import {createDashboard,foldGuidance} from './dashboard';
 import {captureText,dayName} from './dashboard-data';
 import {createReader} from './reader';
+import {createVirtualList,debounce} from './virtual-list';
 import {createLazyViewRegistry} from './lazy-views';
 import {neuralSpeechEnabled,neuralSpeechToggleAvailable,setNeuralSpeechEnabled} from './neural-speech';
 import {clipText,type ReadingState} from './reader-data';
@@ -62,7 +63,7 @@ type Evidence={id:number;sourceName:string;page:number|null;text:string;ocr:bool
 type Project={revision?:string;id:string;name:string;title:string;question:string;draft:string;history:Turn[];sources:Source[];memory:string;model:string};
 type Entry={id:string;name:string;updated:number;snippet?:string};
 let writing:ReturnType<typeof createWritingEditor>|undefined;
-let searchRequest=0,searchTimer:ReturnType<typeof setTimeout>|undefined;
+let searchRequest=0;
 const progress=h('span',{class:'progress-text'}),diagnosticDetails=h('pre',{class:'diagnostic-details'});
 let lastSavedSignature='';
 let projectRevision:string|undefined;
@@ -73,6 +74,23 @@ const root=document.getElementById('workspace-root')!;
 const shell=h('div',{class:'workspace-layout'}),sidebar=h('aside',{class:'history-sidebar'}),main=h('main',{class:'workspace-content'});
 const searchHistory=h('input',{type:'search',placeholder:'Search conversations…','aria-label':'Search saved conversations','data-keep-enabled':true,maxlength:256}) as HTMLInputElement;
 const historyItems=h('nav',{'aria-label':'Conversation history'});
+const virtualHistoryList=createVirtualList<Entry>({
+  itemHeight:54,
+  overscan:4,
+  scrollContainer:sidebar,
+  role:'none',
+  renderItem:e=>{
+    const b=h('button',{class:'history-item',title:e.name+' · '+new Date(e.updated).toLocaleString(),'aria-current':e.id===projectId?'true':'false'},
+      h('strong',{text:e.name}),
+      h('time',{datetime:new Date(e.updated).toISOString(),text:historyDate(e.updated)}),
+      showPreviews.checked&&e.snippet?h('small',{text:e.snippet}):null
+    ) as HTMLButtonElement;
+    b.disabled=busy;
+    b.addEventListener('click',()=>{selector.value=e.id;selector.dispatchEvent(new Event('change'));});
+    return b;
+  }
+});
+historyItems.append(virtualHistoryList.root);
 shell.append(sidebar,main);root.replaceChildren(shell);
 sidebar.append(h('h2',{text:'History'}),searchHistory,historyItems);
 const status=h('p',{class:'hint',role:'status',text:'Starting workspace…'});
@@ -156,9 +174,19 @@ async function run(action:(active:number)=>Promise<unknown>,label='Working'){
 function button(label:string,action:(active:number)=>Promise<unknown>,progress=label):HTMLButtonElement{const b=h('button',{text:label}) as HTMLButtonElement;b.addEventListener('click',()=>void run(action,progress));return b;}
 function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:model.value||'fast'};}
 async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});selector.replaceChildren(h('option',{value:'',text:'Choose a saved project…'}),...entries.map(e=>h('option',{value:e.id,text:e.name})));selector.value=projectId;if(searchHistory.value.trim())await searchProjects();else renderProjectHistory(entries);}
-function renderProjectHistory(entries:Entry[]){historyItems.replaceChildren(...entries.map(e=>{const b=h('button',{class:'history-item',title:e.name+' · '+new Date(e.updated).toLocaleString(),'aria-current':e.id===projectId?'true':'false'},h('strong',{text:e.name}),h('time',{datetime:new Date(e.updated).toISOString(),text:historyDate(e.updated)}),showPreviews.checked&&e.snippet?h('small',{text:e.snippet}):null);b.disabled=busy;b.addEventListener('click',()=>{selector.value=e.id;selector.dispatchEvent(new Event('change'));});return b;}));if(!entries.length)historyItems.append(h('p',{class:'hint',text:searchHistory.value?'No matching conversations.':'Start a conversation. It will be saved here.'}));}
+function renderProjectHistory(entries:Entry[]){
+  if(!entries.length){
+    virtualHistoryList.setItems([]);
+    historyItems.replaceChildren(h('p',{class:'hint',text:searchHistory.value?'No matching conversations.':'Start a conversation. It will be saved here.'}));
+  }else{
+    if(!historyItems.contains(virtualHistoryList.root)){
+      historyItems.replaceChildren(virtualHistoryList.root);
+    }
+    virtualHistoryList.setItems(entries);
+  }
+}
 async function searchProjects(){const request=++searchRequest;try{const entries=await invoke<Entry[]>('workspace_list_projects',{query:searchHistory.value});if(request===searchRequest)renderProjectHistory(entries);}catch(e){if(request===searchRequest)status.textContent=String(e);}}
-searchHistory.addEventListener('input',()=>{searchRequest++;if(searchTimer)clearTimeout(searchTimer);searchTimer=setTimeout(()=>void searchProjects(),220);});
+searchHistory.addEventListener('input',debounce(()=>{searchRequest++;void searchProjects();},150));
 function saveProject():Promise<void>{if(saveTimer)clearTimeout(saveTimer);saveTimer=undefined;const p=snapshot();const current=projectGeneration;saveQueue=saveQueue.catch(()=>{}).then(async()=>{try{if(current===projectGeneration)p.id=projectId;const signature=JSON.stringify(p);if(current===projectGeneration&&signature===lastSavedSignature){saved.textContent='Saved locally. No changes to save.';saveAlert.saved();return;}const result=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:current===projectGeneration?projectRevision:undefined});if(current===projectGeneration){if(projectId&&projectId!==result.id){name.value=result.name;status.textContent='Both devices changed this conversation. Your work was kept as a conflict copy; the other version is in History.';}projectId=result.id;projectRevision=result.revision;lastSavedSignature=JSON.stringify({...p,id:result.id,name:result.name});saved.textContent='Saved locally. Full conversation and loaded source text are retained.';}saveAlert.saved();if(current===projectGeneration)await refreshProjects().catch(e=>{status.textContent=`Saved, but the history list could not refresh: ${String(e)}`;});}catch(e){saved.textContent=`Could not save: ${String(e)}`;saveAlert.failed(e);throw e;}});return saveQueue;}
 function autosave(){if(saveTimer)clearTimeout(saveTimer);saved.textContent='Unsaved changes…';saveTimer=setTimeout(()=>void saveProject().catch(()=>{}),800);}
 let shownMessages=40;
