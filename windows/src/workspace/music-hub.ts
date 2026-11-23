@@ -371,10 +371,10 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
  tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const index=tabButtons.indexOf(document.activeElement as HTMLButtonElement);const next=event.key==='Home'?0:event.key==='End'?tabButtons.length-1:(index+(event.key==='ArrowRight'?1:tabButtons.length-1))%tabButtons.length;tabButtons[next].focus();tabButtons[next].click();});
  content.id='music-content';content.setAttribute('role','tabpanel');
  const subtitle=h('p',{text:'Your music, audiobooks, and podcasts. Everything plays from this computer.'});
- const theme=h('select',{'aria-label':'Music theme'},...[['mint','Mint Glass (Default)'],['ink','Emerald Ink'],['bloom','Bloom (Neon)'],['cyberpunk','Cyberpunk Neon'],['velvet','Midnight Velvet'],['oled','OLED Pure Black']].map(([value,text])=>h('option',{value,text}))) as HTMLSelectElement;
- const savedTheme=localStorage.getItem('anf-music-theme')||'mint';
+ const theme=h('select',{'aria-label':'Music theme'},...[['tonal','Tonal Glass (Default)'],['ink','Emerald Ink'],['bloom','Bloom (Neon)'],['cyberpunk','Cyberpunk Neon'],['velvet','Midnight Velvet'],['oled','OLED Pure Black']].map(([value,text])=>h('option',{value,text}))) as HTMLSelectElement;
+ const savedTheme=localStorage.getItem('anf-music-theme')||'tonal';
  const initialTheme=savedTheme==='ember'?'cyberpunk':savedTheme==='violet'?'bloom':savedTheme==='dusk'?'velvet':savedTheme;
- theme.value=['mint','ink','bloom','cyberpunk','velvet','oled'].includes(initialTheme)?initialTheme:'mint';
+ theme.value=['tonal','ink','bloom','cyberpunk','velvet','oled'].includes(initialTheme)?initialTheme:'tonal';
  function applyTheme(){root.dataset.musicTheme=theme.value;try{localStorage.setItem('anf-music-theme',theme.value);}catch{/* The theme still applies for this session. */}}
  theme.addEventListener('change',applyTheme);
  const onlineBox=h('input',{type:'checkbox','aria-label':'Online lookups'}) as HTMLInputElement;

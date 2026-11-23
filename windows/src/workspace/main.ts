@@ -22,7 +22,7 @@ import {clipText,type ReadingState} from './reader-data';
 import './workspace.css';
 import './anf-design.css';
 import './anf-color.css';
-import './anf-mint.css';
+import './anf-tonal.css';
 import {attachNavRail} from './nav-rail';
 import {appCatalogPanel} from './apps-catalog';
 import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
@@ -73,7 +73,7 @@ const historyItems=h('nav',{'aria-label':'Conversation history'});
 shell.append(sidebar,main);root.replaceChildren(shell);
 sidebar.append(h('h2',{text:'History'}),searchHistory,historyItems);
 const status=h('p',{class:'hint',role:'status',text:'Starting workspace…'});
-const saved=h('p',{class:'hint',role:'status',text:'Projects stay on this computer.'});
+const saved=h('p',{class:'hint',role:'status',text:'On this computer'});
 // UI-04: bringing the workspace to the front folds an open island so it does not cover the work, unless the person keeps it open.
 const keepIsland=h('input',{type:'checkbox','data-keep-enabled':true}) as HTMLInputElement;
 // UI-05: previews can show private text in the sidebar, so they can be turned off.
@@ -232,15 +232,9 @@ actionFiles.addEventListener('change',()=>void run(async(active)=>{organizedPath
 writing=createWritingEditor(draft,autosave,text=>{status.textContent=text;});
 const panels=new Map<string,HTMLElement>(),navigation=h('nav',{class:'workspace-navigation','aria-label':'Workspace sections'}),viewTitle=h('h1',{text:'Chat'});
 const panelHost=h('div',{class:'panel-host'});
-const modeOf:Record<string,'read'|'ask'|'listen'|'keep'>={home:'read',documents:'read',writing:'read',chat:'ask',jarvis:'ask',music:'listen',audio:'listen',settings:'keep'};
-const modeLabels={read:'Reader',ask:'Assistant',listen:'Music'} as const;
-let workspaceMode:'read'|'ask'|'listen'='ask';
-const modeRail=h('div',{class:'mode-rail',role:'tablist','aria-label':'Workspace modes'});
-function paintModes(){for(const b of modeRail.querySelectorAll('button'))b.setAttribute('aria-selected',b.getAttribute('data-mode')===workspaceMode?'true':'false');for(const b of navigation.querySelectorAll('button'))b.hidden=false;}
-function showView(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id==='jarvis'?'Kevo':id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
+function showView(id:string){document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id==='jarvis'?'Kevo':id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
 document.addEventListener('anf-switch-view',(e:Event)=>{const target=(e as CustomEvent<string>).detail;if(typeof target==='string'&&panels.has(target))showView(target);});
-function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-mode':modeOf[id]||'keep','data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);paintModes();}
-for(const id of ['read','ask','listen'] as const){const tab=h('button',{type:'button',role:'tab',text:modeLabels[id],'data-mode':id,'aria-selected':id==='ask'?'true':'false'});tab.addEventListener('click',()=>showView(id==='read'?'documents':id==='ask'?'chat':'music'));modeRail.append(tab);}
+function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);}
 const captureDaily=async (text:string)=>{let failure:unknown;await run(async()=>{try{await saveProject();const entries=await invoke<Entry[]>('workspace_list_projects',{query:''}),entry=entries.find(p=>p.name===dayName());const p=entry?await invoke<Project>('workspace_load_project',{id:entry.id}):{id:'',name:dayName(),title:dayName(),draft:'',question:'',history:[],sources:[],memory:'',model:'fast'} as Project;p.draft=captureText(p.draft,text);const savedDaily=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:p.revision});if(savedDaily.id===projectId){draft.value=savedDaily.draft;projectRevision=savedDaily.revision;lastSavedSignature=JSON.stringify(snapshot());writing?.refresh(projectId);}await refreshProjects();}catch(e){failure=e;throw e;}},'Saving quick capture');if(failure)throw failure;};
 const quickNote=quickCapture(captureDaily,()=>!busy);
 const dashboard=createDashboard({current:()=>({id:projectId,name:name.value,draft:draft.value,sources}),allowed:()=>!busy,notify:t=>status.textContent=t,
@@ -250,7 +244,7 @@ const dashboard=createDashboard({current:()=>({id:projectId,name:name.value,draf
 });
 section('home','Home',dashboard.root);
 const newProject=button('New conversation',async()=>{await saveProject();projectGeneration++;replyDraft.reset();projectId='';projectRevision=undefined;lastSavedSignature='';name.value='New project';title.value='My document';question.value='';draft.value='';memory.value='';history=[];sources=[];renderSources();renderHistory();evidenceList.replaceChildren();await saveProject();showView('chat');status.textContent='New conversation ready.';},'New project');
-sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored on this computer'}),modeRail,navigation,newProject,h('h2',{class:'history-heading',text:'Conversations'}),searchHistory,button('Refresh history',async()=>{await refreshProjects();status.textContent='History refreshed. Open a conversation to see its latest saved version.';}),historyItems);
+sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored on this computer'}),navigation,newProject,h('h2',{class:'history-heading',text:'Conversations'}),searchHistory,button('Refresh history',async()=>{await refreshProjects();status.textContent='History refreshed. Open a conversation to see its latest saved version.';}),historyItems);
 attachNavRail(sidebar,shell);
 const attach=h('button',{text:'Attach documents',type:'button'});attach.addEventListener('click',()=>file.click());
 section('chat','Chat',workflowButtons(()=>({sources,draft:draft.value}),(text,scope)=>{question.value=text;contextScope.value=scope;updateQuestionCount();autosave();},text=>status.textContent=text,()=>!busy),h('div',{class:'section-heading'},h('h2',{text:'Chat'}),h('p',{class:'hint',text:'Ask, explore your documents, or start a draft. This workspace runs on your computer.'})),conversation,h('div',{class:'quick-tasks'},button('Summarize PDF',a=>task(a,'Summarize the loaded document excerpts. List main points and cite sources. Say that this covers selected excerpts.',1)),button('Write a letter',a=>task(a,`Write a clear letter about: ${question.value.trim()||'my request'}. Use placeholders for unknown names or dates.`)),button('Compare documents',a=>task(a,'Compare the loaded documents. Cite evidence from each and identify gaps.',2))),followupHost,h('div',{class:'composer'},contextScope,question,questionCount,replyLength,h('p',{class:'hint',text:'Questions: up to 10,000 UTF-8 bytes. Long responses aim for 1,700 words; actual length varies. Long mode uses more memory and can take several minutes. Continue appends the next part to your draft.'}),h('div',{class:'row'},attach,button('Ask local AI',ask,'Thinking locally'),button('Continue to next part',async a=>{if(!history.length)throw Error('Start a conversation first.');question.value='Continue the previous answer with the next part. Pick up from its ending without repeating earlier material.';await ask(a,true);},'Continuing locally'),button('Export chat',async()=>{if(!history.length)throw Error('Start a conversation first.');const {serializeChatToMarkdown}=await import('./chat-export');const md=serializeChatToMarkdown(name.value||'Conversation',history,sources);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(name.value.trim()||'Conversation').replace(/[\\/:*?"<>|]/g,'_')}-notes.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);status.textContent='Exported conversation as Markdown note.';}))),h('p',{class:'hint',text:'Ctrl+Enter to send · Sources and citations appear below each answer.'}),evidenceList);
@@ -421,24 +415,12 @@ void attachDesktopSpotube(musicHub.root,()=>{musicHub.suspend();audioStudio.stop
 section('music','Music Hub',musicHub.root);
 section('audio','Audio Studio',audioStudio.root);
 
-// Global floating Kevo Voice Companion pill
-const globalJarvisPill=document.createElement('div');
-globalJarvisPill.className='jarvis-global-pill';
-globalJarvisPill.title='Kevo: click to turn the microphone on or off, then say "Kevo"';
-const pillMic=document.createElement('button');
-pillMic.className='jarvis-global-pill-mic';
-pillMic.setAttribute('aria-label','Turn Kevo’s microphone on or off');
-const pillStatus=document.createElement('span');
-pillStatus.className='jarvis-global-pill-status';
-pillStatus.textContent='Kevo';
-globalJarvisPill.append(pillMic,pillStatus);
-shell.append(globalJarvisPill);
-
-function updateGlobalPill(listening:boolean){
- globalJarvisPill.classList.toggle('active',listening);
- pillMic.classList.toggle('active',listening);
- pillStatus.textContent=listening?'Listening…':'Kevo';
-}
+// Kevo micro-pill in the top bar. It shows only what Rust's `kevo://state` event says (AGENTS.md rule 4:
+// no polling); clicking turns Kevo's microphone on or off, as on the Kevo view.
+const kevoPillLabel=h('span',{class:'kevo-micro-label',text:'Kevo'});
+const kevoPill=h('button',{type:'button',class:'kevo-micro-pill','data-state':'off','aria-label':'Kevo: turn the microphone on or off',title:'Kevo: click to turn the microphone on or off, then say "Kevo"'},h('span',{class:'kevo-micro-dot','aria-hidden':'true'}),kevoPillLabel) as HTMLButtonElement;
+const kevoPillText:Record<string,string>={off:'Kevo',sleeping:'Kevo',idle:'Kevo · ready',listening:'Listening…',thinking:'Thinking…',speaking:'Speaking…',alert:'Kevo · needs you'};
+void listen<{state:string}>('kevo://state',event=>{const state=event.payload?.state;if(!state||!(state in kevoPillText))return;kevoPill.dataset.state=state;kevoPillLabel.textContent=kevoPillText[state];}).catch(()=>{});
 
 // Kevo's fixed instructions and tool list (about 2,000 tokens) come first and never change, so llama-server
 // keeps them in its prompt cache; remembered facts follow in their own message.
@@ -453,7 +435,6 @@ function preloadKevoModel(){
 }
 
 jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
- updateGlobalPill(listening);
  if(listening) preloadKevoModel();
 });
 
@@ -461,7 +442,7 @@ if(jarvisCommandDesk.listener.getListeningState()){
  preloadKevoModel();
 }
 
-pillMic.addEventListener('click',()=>{
+kevoPill.addEventListener('click',()=>{
  if(jarvisCommandDesk.listener.getListeningState()){
   jarvisCommandDesk.listener.stop();
   jarvisCommandDesk.speaker.stop(); // as on the Kevo view: microphone off also stops Kevo talking
@@ -664,9 +645,24 @@ const settingsHub=h('div',{class:'settings-hub'},settingsNav,h('div',{class:'set
 section('settings','Settings',settingsHub);
 const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{query:''}),load:id=>invoke<Project>('workspace_load_project',{id}),current:()=>snapshot(),allowed:()=>!busy,view:showView,
  open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value=p.model;lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
- append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
-const studioTools=h('div',{class:'studio-header-tools'},h('button',{text:'Quick note',onclick:()=>quickNote.open()}),h('button',{text:'Devices',class:'studio-status','aria-label':'Connect another device',onclick:()=>{showView('settings');selectSettingsCategory('sync');linkPanel.open=true;}}),h('button',{text:'Search (Ctrl+K)','aria-label':'Search and commands (Ctrl+K)',onclick:()=>void studio.open()}),h('button',{text:'Keys',title:'Keyboard Shortcuts (?)',onclick:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())}),h('button',{text:'Settings',onclick:()=>showView('settings')}));
-main.replaceChildren(h('header',{class:'workspace-header'},h('div',{},viewTitle,h('span',{class:'hint',text:'Private workspace · Saved on this computer'})),h('div',{class:'project-title'},name,saved),studioTools),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress,saveAlert.root,replyDraft.bar),cancel));
+ append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},commands:()=>{const open=(name:string)=>()=>document.dispatchEvent(new Event(name));return [
+ {label:'Quick note',run:()=>quickNote.open()},
+ {label:'Devices · connect another device',run:()=>{showView('settings');selectSettingsCategory('sync');linkPanel.open=true;}},
+ {label:'Keys · keyboard shortcuts',run:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())},
+ {label:'AppFlowy board',run:open('anf-open-appflowy')},
+ {label:'Cal.com schedule',run:open('anf-open-calcom')},
+ {label:'Swarm review',run:open('anf-open-swarm')},
+ {label:'Security challenge',run:open('anf-open-security')},
+ {label:'Community support',run:open('anf-open-chatwoot')}];},
+ health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
+const searchPill=h('button',{type:'button',class:'topbar-search','aria-label':'Search and commands (Ctrl+K)',onclick:()=>void studio.open()},h('span',{text:'Search…'}),h('kbd',{text:'Ctrl+K'}));
+const quickNoteButton=h('button',{type:'button',class:'primary topbar-quick',text:'+ Quick note',onclick:()=>quickNote.open()});
+viewTitle.classList.add('visually-hidden');
+const navSection=(text:string)=>h('p',{class:'nav-section',text});
+navigation.querySelector('[data-view=home]')?.before(navSection('Workspace'));
+navigation.querySelector('[data-view=music]')?.before(navSection('Studio'));
+navigation.querySelector('[data-view=settings]')?.before(navSection('System'));
+main.replaceChildren(h('header',{class:'workspace-header anf-topbar'},viewTitle,h('div',{class:'project-title'},name,saved),h('div',{class:'topbar-center'},searchPill,kevoPill),quickNoteButton),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress,saveAlert.root,replyDraft.bar),cancel));
 window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){const active=document.activeElement as HTMLElement|null;if(!active?.closest('input,textarea,select')&&!active?.isContentEditable){event.preventDefault();void studio.open();return;}}if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();if(!busy)void run(ask,'Thinking locally');}if(event.ctrlKey&&event.key.toLowerCase()==='s'){event.preventDefault();if(!busy)void saveProject().catch(()=>{});}if(event.ctrlKey&&event.key.toLowerCase()==='f'){event.preventDefault();searchHistory.focus();}
   if((event.key==='?'&&!((event.target as HTMLElement)?.closest('input,textarea,select')||(event.target as HTMLElement)?.isContentEditable))||(event.ctrlKey&&event.key==='/')){
     event.preventDefault();
