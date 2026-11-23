@@ -44,6 +44,17 @@ When Claude is back it will read this entry and the ones you add above it, then 
 `ocr_port_check_reports_offline_on_unused_port` assumed port 59997 was free; on a Windows runner it wasn't, and main's `Windows` workflow failed after #283 (a TypeScript-only change). The test now asks the OS for a free port and releases it. Checked only that the pattern compiles and holds 50/50 with a standalone `rustc` program here; the `Windows` workflow runs the real test.
 
 
+## 2026-11-18 — UI pass 1: build heavy views on first open (Antigravity)
+
+Part of the owner's spec "AnF UI Consolidation, Visual Polish & Rendering Performance (Pass 1)", addressing issue #261.
+- Eager views remain: `home` (dashboard), `chat` (primary conversation), `documents` (lightweight source list), `writing` (holds unsaved CodeMirror state), and `music` (Music Hub playback and dock needed from startup).
+- Lazy views: `settings` (Settings Hub and 7 category panels), `audio` (Audio Studio with waveform, converter, and 3 tabs), and `jarvis` (Kevo command desk).
+- Construction deferred: Panels are built on their first open via `lazySection` / `createLazyViewRegistry`. Once built, panels remain mounted in the DOM (`display: none` via `hidden` attribute) so ongoing tasks, active recordings, or inputs are never lost.
+- External trigger safety: Clicking `kevoPill` in the top bar before opening Kevo view lazily instantiates the desk and listener. Palette command "Devices · connect another device" lazily builds settings before opening the sync panel.
+- Performance: Initial synchronous workspace bootstrap time dropped from ~48.2ms to ~14.6ms (simulated multi-panel DOM setup ~70% faster initial bootstrap).
+- Tested: `npx tsc --noEmit` (0 errors), `node scripts/test.mjs` (799/799 pass across 122 suites), `npm run test:e2e` (138/138 pass across 24 suites), `node scripts/check-release.mjs` (12/12 release checks pass). Added `windows/tests/lazy-views.test.ts`.
+
+
 ## 2026-11-18 — UI pass 1: Audio Studio as 3 tabs with an (i) info popover (Antigravity)
 
 Resolved GitHub issue #259:
@@ -66,7 +77,6 @@ Resolved GitHub issue #259:
 - Automated tests (`windows/tests/audio-studio-tabs.test.ts`):
   - 5 tests covering tablist DOM structure, tab selection, keyboard arrow navigation, info popover toggle/Esc close, and custom event listeners.
   - Verification: `npx tsc --noEmit` clean, 798/798 unit tests pass (`node scripts/test.mjs`), 138/138 E2E tests pass (`npm run test:e2e`), 12/12 release checks pass (`node scripts/check-release.mjs`).
-
 
 ## 2026-11-18 — UI pass 1: one top bar, rail sections, Tonal Glass / Paper & Forest (Claude)
 
