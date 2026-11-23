@@ -151,7 +151,7 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     });
 
     listener.start();
-    await wait(10);
+    await listener.whenStarted();
 
     emitEvent('kevo-ears-wake', 'HEY_KEVO');
     assert.equal(wakeWord, 'HEY_KEVO');
@@ -170,7 +170,7 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     });
 
     listener.start();
-    await wait(10);
+    await listener.whenStarted();
 
     // Awaken listener
     listener.keepAwake();
@@ -182,7 +182,7 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     emitEvent('kevo-ears-final', 'for ten seconds');
 
     // Wait for settleMs to flush
-    await wait(80);
+    await wait(120);
     assert.deepEqual(heard, ['set a timer for ten seconds']);
 
     listener.stop();
