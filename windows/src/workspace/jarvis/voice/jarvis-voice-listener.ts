@@ -44,6 +44,7 @@ export class JarvisVoiceListener {
   private onInterimSpeech?: (transcript: string) => void;
   public onFinalSpeech?: (transcript: string) => void;
   public onWakeWord?: (wakeWord: string) => void;
+  public onBargeIn?: () => void;
   private onError?: (err: string, code?: string) => void;
   private onIgnored?: (text: string, reason: KevoIgnoredReason) => void;
   private requireWakeWord: boolean;
@@ -77,6 +78,7 @@ export class JarvisVoiceListener {
     this.onInterimSpeech = options?.onInterimSpeech;
     this.onFinalSpeech = options?.onFinalSpeech;
     this.onWakeWord = options?.onWakeWord;
+    this.onBargeIn = options?.onBargeIn;
     this.onError = options?.onError;
     this.onIgnored = options?.onIgnored;
   }
