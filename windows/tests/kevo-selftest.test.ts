@@ -19,6 +19,7 @@ import {
 } from '../src/workspace/jarvis/kevo-selftest';
 import { JarvisVoiceAgent } from '../src/workspace/jarvis/voice/jarvis-voice-agent';
 import { JarvisVoiceListener } from '../src/workspace/jarvis/voice/jarvis-voice-listener';
+import { KevoEarsListener } from '../src/workspace/jarvis/voice/kevo-ears-listener';
 import { DEFAULT_SETTINGS } from '../src/core/state';
 import { Bridge } from '../src/core/bridge';
 
@@ -621,6 +622,57 @@ describe('Kevo Self-Test (Phase 0 steps 0.4b & 0.5)', () => {
 
     assert.strictEqual(failBargeReport.bargeInStopDelayMs, 350);
     assert.strictEqual(failBargeReport.result, 'fail');
+  });
+
+  it('starts hearing on the PC before any clip plays, and reports why when it cannot (Kevo 1.5 fix 1, #279)', async () => {
+    const agent = new JarvisVoiceAgent({ switchView: () => {}, dryRun: true, openApp: async (n: string) => n, announce: () => {} });
+    const order: string[] = [];
+    let startEars: () => Promise<void> = async () => {};
+    const listener = new KevoEarsListener({ eventSource: { onEvent: () => {}, start: () => startEars(), stop: async () => { order.push('ears-stopped'); } } });
+    (Bridge as any).kevoSelftestGetClips = async () => JSON.stringify({ version: 1, clips: [{ id: 'wake-01', file: 'wake-01.wav', kind: 'wake', voice: 'x', words: 'Kevo', expect: { wake: true } }] });
+    Bridge.systemStats = async () => ({ os: 'Windows_NT', cpuCores: 8 });
+    Bridge.kevoGraphicsCard = async () => 'Intel UHD Graphics';
+    Bridge.kevoSelftestSaveResult = async () => '~/AnF-Kevo/selftest-test.json';
+    let bridgeStarts = 0;
+    (Bridge as any).kevoEarsStart = async () => { bridgeStarts++; };
+    const deps = {
+      agent,
+      listener,
+      playClipAudio: async (file: string) => { order.push(`play ${file}`); },
+      appVersion: '0.1.65',
+      sleepMs: async () => {},
+      simulateTimerFire: true,
+      onIdleCpuMeasure: async () => 0.5,
+      onOwnVoiceMeasure: async () => { order.push(`own-voice mic ${listener.getListeningState() ? 'on' : 'off'}`); return true; },
+      onBargeInMeasure: async () => { order.push(`barge-in mic ${listener.getListeningState() ? 'on' : 'off'}`); return 140; },
+    };
+
+    // Models download on the first start: the clips wait for it, and hearing is started once.
+    startEars = async () => { order.push('ears-start'); await new Promise((r) => setTimeout(r, 10)); order.push('ears-started'); };
+    const okReport = await runKevoSelfTest(deps);
+    assert.ok(order.indexOf('ears-started') >= 0 && order.indexOf('ears-started') < order.indexOf('play wake-01.wav'), order.join(', '));
+    const beforeClips = order.slice(0, order.indexOf('play wake-01.wav'));
+    assert.strictEqual(beforeClips.filter((o) => o === 'ears-start').length, 1, order.join(', '));
+    // The typed-request check turns the mic off; the step 1.6 checks need it on again.
+    assert.ok(order.includes('own-voice mic on') && order.includes('barge-in mic on'), order.join(', '));
+    assert.strictEqual(bridgeStarts, 0, 'no second start through the bridge');
+    assert.ok(!okReport.errors.some((e) => e.startsWith('Hearing')), okReport.errors.join('; '));
+    assert.strictEqual(listener.getListeningState(), false, 'the microphone was off before the self-test, so it is off after it');
+
+    // Left on by the owner: the self-test leaves it on.
+    listener.start();
+    await listener.whenStarted();
+    await runKevoSelfTest(deps);
+    assert.strictEqual(listener.getListeningState(), true);
+    listener.stop();
+
+    // The download fails (offline): the report names the cause and could_not_start, not a code failure.
+    startEars = async () => { throw new Error('Kevo hearing models could not be downloaded: offline'); };
+    const failReport = await runKevoSelfTest(deps);
+    assert.ok(failReport.errors.some((e) => e.includes('Hearing could not start') && e.includes('could not be downloaded: offline')), failReport.errors.join('; '));
+    assert.strictEqual(failReport.result, 'could_not_start');
+    assert.strictEqual(listener.onError, undefined, 'the error hook is restored after the run');
+    assert.strictEqual(listener.getListeningState(), false);
   });
 
   it('check 5 presses the Stop action during real sound without asking the AI', async () => {

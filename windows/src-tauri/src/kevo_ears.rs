@@ -23,7 +23,7 @@ mod ears_impl {
         OnlineTransducerModelConfig, SileroVadModelConfig, VadModelConfig, VoiceActivityDetector,
     };
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{Arc, Mutex, OnceLock};
 
     pub const RATE: i32 = 16_000;
@@ -382,6 +382,16 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
     }
 
     static EARS: OnceLock<Mutex<Option<EarsHandle>>> = OnceLock::new();
+    /// Bumped by every stop, so a start still downloading the models when the mic is switched off never opens it.
+    static STOPS: AtomicU64 = AtomicU64::new(0);
+
+    pub(crate) fn stops_now() -> u64 {
+        STOPS.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn stopped_since(at: u64) -> bool {
+        stops_now() != at
+    }
 
     #[tauri::command]
     pub fn kevo_ears_models_installed() -> bool {
@@ -416,6 +426,7 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
 
     #[tauri::command]
     pub fn kevo_ears_stop() -> Result<(), String> {
+        STOPS.fetch_add(1, Ordering::SeqCst);
         let mut state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
         if let Some(handle) = state.take() {
             handle.stop_flag.store(true, Ordering::Relaxed);
@@ -464,15 +475,26 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         Ok(())
     }
 
+    /// One first-use download at a time, so two starts never write the same files.
+    static INSTALLING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
     #[tauri::command]
-    pub fn kevo_ears_start(app: tauri::AppHandle) -> Result<(), String> {
+    pub async fn kevo_ears_start(app: tauri::AppHandle) -> Result<(), String> {
+        let stops_at_start = stops_now();
         let dir = models_dir();
-        if !installed(&dir) {
-            return Err("Kevo hearing models are not installed yet".into());
+        // The models are downloaded on first use (phase-1 brief); nothing else ever fetched them (#279).
+        {
+            let _installing = INSTALLING.lock().await;
+            if !installed(&dir) {
+                kevo_ears_install_models(app.clone())
+                    .await
+                    .map_err(|e| format!("Kevo hearing models could not be downloaded: {e}"))?;
+            }
         }
 
         let mut state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
-        if state.is_some() {
+        // Checked under the EARS lock: a stop after this point finds the handle and closes it.
+        if state.is_some() || stopped_since(stops_at_start) {
             return Ok(());
         }
 
@@ -794,6 +816,15 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     #[cfg(feature = "kevo-ears")]
     use std::sync::{Arc, OnceLock};
+
+    #[cfg(feature = "kevo-ears")]
+    #[test]
+    fn switching_the_mic_off_cancels_a_start_still_downloading() {
+        let at = stops_now();
+        kevo_ears_stop().unwrap();
+        assert!(stopped_since(at), "a start that began before the stop must not open the microphone");
+        assert!(!stopped_since(stops_now()));
+    }
 
     #[test]
     fn linear_resampler_resamples_from_48k_to_16k_accurately() {

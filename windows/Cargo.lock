@@ -813,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "coucou"
-version = "0.1.64"
+version = "0.1.65"
 dependencies = [
  "cpal",
  "flate2",
@@ -846,7 +846,7 @@ dependencies = [
 
 [[package]]
 name = "coucou-hook"
-version = "0.1.64"
+version = "0.1.65"
 dependencies = [
  "libc",
  "serde_json",

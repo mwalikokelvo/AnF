@@ -12,7 +12,7 @@
 import { Bridge } from '../../core/bridge';
 import type { JarvisVoiceAgent } from './voice/jarvis-voice-agent';
 import type { JarvisVoiceListener } from './voice/jarvis-voice-listener';
-import type { KevoEarsListener } from './voice/kevo-ears-listener';
+import { KevoEarsListener } from './voice/kevo-ears-listener';
 import type { JarvisSpeaker } from './voice/jarvis-speaker';
 
 export interface SelftestClipExpect {
@@ -573,6 +573,26 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   try {
     await Bridge.kevoPreloadModel?.();
   } catch {}
+
+  // On the PC, hearing must run before any clip plays: its first start downloads the models,
+  // and a failed start is the cause to report instead of empty results (#279).
+  const ears = listener instanceof KevoEarsListener ? listener : null;
+  const earsWasOn = ears?.getListeningState() ?? false;
+  const prevOnEarsError = ears?.onError;
+  let hearingFailed = false;
+  if (ears) {
+    try {
+      if (!ears.start()) throw new Error('on-PC hearing is not available');
+      await ears.whenStarted();
+    } catch (err) {
+      hearingFailed = true;
+      report.errors.push(`Hearing could not start: ${String(err)}`);
+    }
+    ears.onError = (err) => {
+      report.errors.push(`Hearing: ${err}`);
+      prevOnEarsError?.(err);
+    };
+  }
   const modelRoutedLatencies: number[] = [];
 
   for (let i = 0; i < manifest.clips.length; i++) {
@@ -761,6 +781,16 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.result = 'fail';
   }
 
+  // The typed-request check turned the mic off; the step 1.6 checks must listen again.
+  if (ears && !hearingFailed && !ears.getListeningState()) {
+    try {
+      if (!ears.start()) throw new Error('on-PC hearing is not available');
+      await ears.whenStarted();
+    } catch (err) {
+      report.errors.push(`Hearing could not restart for the talk-over checks: ${String(err)}`);
+    }
+  }
+
   // Step 1.6: Play Kevo reply through speakers while listening; verify own voice never interrupts
   onProgress?.('Testing echo cancellation through speakers (own voice never interrupts)...');
   try {
@@ -922,6 +952,15 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
     report.errors.push(`Barge-in measure error: ${String(err)}`);
     report.result = 'fail';
   }
+
+  if (ears) {
+    ears.onError = prevOnEarsError;
+    // The microphone ends as the owner left it (the typed-request check turns it off).
+    if (!earsWasOn) ears.stop();
+    else if (!ears.getListeningState()) ears.start();
+  }
+  // Nothing could be heard, so the clip results say nothing about Kevo's hearing.
+  if (hearingFailed) report.result = 'could_not_start';
 
   onProgress?.('Saving self-test results...');
   const jsonString = JSON.stringify(report, null, 2);

@@ -145,7 +145,7 @@ export const Bridge = {
   approvalDecline: (requestId: string) => call<void>("approval_decline", { requestId }),
 
   // ── Kevo Ears (Phase 1 listening pipeline) ──────────────────────────────
-  kevoEarsStart: () => call<void>("kevo_ears_start"),
+  kevoEarsStart: () => callOrThrow<void>("kevo_ears_start"),
   kevoEarsStop: () => call<void>("kevo_ears_stop"),
   kevoEarsMute: (muted: boolean) => call<void>("kevo_ears_mute", { muted }),
   kevoEarsStatus: () => call<{ running: boolean; muted: boolean }>("kevo_ears_status"),

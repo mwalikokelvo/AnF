@@ -646,7 +646,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
 
   // In the desktop app on PC, Kevo Ears (sherpa-onnx) is the sole hearing pipeline.
   const listener: JarvisVoiceListener | KevoEarsListener = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-    ? new KevoEarsListener(listenerOptions)
+    ? new KevoEarsListener({ ...listenerOptions, onStatus: (text) => { speechStatusEl.textContent = text; } })
     : new JarvisVoiceListener(listenerOptions);
 
   micBtn.addEventListener('click', () => {
