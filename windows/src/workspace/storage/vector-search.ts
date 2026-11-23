@@ -20,6 +20,14 @@ export interface HybridSearchResult {
   vectorRank?: number;
 }
 
+export function generateDenseVector(text: string, dimension = VECTOR_DIMENSION): Float32Array {
+  return VectorSearchCore.embedText(text, dimension);
+}
+
+export function computeCosineSimilarity(a: Float32Array, b: Float32Array): number {
+  return VectorSearchCore.cosineSimilarity(a, b);
+}
+
 export const VectorSearchCore = {
   /**
    * Fast 32-bit FNV-1a hash for string token.

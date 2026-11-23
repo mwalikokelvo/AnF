@@ -2196,3 +2196,23 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
   - ThingsBook portable test suite: 33 passed, 0 failed, 47 skipped (`node work/run-tests.cjs`).
   - AnF test suite: 10 passed, 0 failed across Wave A and Wave B test suites.
 - Clean conventional commit across both repositories on `agy/ten-repos-integration`.
+
+
+## 2026-11-23: Ten Repositories Final Frontiers (2 to 10) & ThingsBook Multi-Format Book Reader Cross-Port (Antigravity, branch `agy/ten-repos-integration`)
+- Completed all Final Frontiers (2 to 10) extracted across the 10 reference repositories for both AnF and ThingsBook:
+  1. **Frontier 2: Side-Chain Audio Ducking & Stem Mixer (`VoiceStudio`)**: `AnF/windows/src/workspace/audio/audio-ducker.ts` & `ThingsBook/outputs/ThingsBook/vendor/audio-ducker.js`. Multi-track stem mixing with automated speech-activity side-chain ducking of background music, configurable attack/release time, and tanh soft-clipping.
+  2. **Frontier 3: Goal Drift Detector & Autonomous Safety Gate (`Paperclip`)**: `AnF/windows/src/workspace/ai/goal-drift-detector.ts` & `ThingsBook/outputs/ThingsBook/vendor/goal-drift-detector.js`. Measures vector cosine similarity between active subtasks and root goals; flags drift alerts and issues recalibration/halt directives when drift index exceeds threshold.
+  3. **Frontier 4: Solar Ephemeris & Day/Night Shadow Terminator (`God's Eye View`)**: `AnF/windows/src/workspace/reader/solar-terminator.ts` & `ThingsBook/outputs/ThingsBook/vendor/solar-terminator.js`. Calculates astronomical solar declination, subsolar coordinates, solar zenith angle, and day/night twilight terminator coordinates.
+  4. **Frontier 5: RoPE & RMSNorm Math Kernels (`MiniMind`)**: `AnF/windows/src/workspace/ai/rope-kernels.ts` & `ThingsBook/outputs/ThingsBook/vendor/rope-kernels.js`. Pure Float32Array transformer math kernels: Root Mean Square Normalization (RMSNorm), 2D Givens Rotary Positional Embeddings (RoPE), and Scaled Dot-Product Attention with numerically stable Softmax.
+  5. **Frontier 6: SponsorBlock & Non-Content Segment Skipping (`Invidious`)**: `AnF/windows/src/workspace/media/sponsorblock.ts` & `ThingsBook/outputs/ThingsBook/vendor/sponsorblock.js`. Parses, sorts, and merges promotional/intro/outro intervals and computes timestamp jump offsets for clean audiobook/video playback.
+  6. **Frontier 7: Prompt Cache Breakpoint Optimizer (`OpenClaude`)**: `AnF/windows/src/workspace/ai/prompt-cache-optimizer.ts` & `ThingsBook/outputs/ThingsBook/vendor/prompt-cache-optimizer.js`. Analyzes prompt block boundaries, applies ephemeral cache breakpoints to large static prefixes, and computes token cost savings.
+  7. **Frontier 8: Blackboard / Chalkboard SVG Stage Director (`OpenMAIC`)**: `AnF/windows/src/workspace/reader/blackboard-director.ts` & `ThingsBook/outputs/ThingsBook/vendor/blackboard-director.js`. Generates synchronized chalkboard visual cues, concept boxes, and connecting arrows timed to dialogue speech turns, rendered as standalone SVG.
+  8. **Frontier 9: Academic Hedging Calibrator & De-Jargonizer (`Academic-Research-Skills`)**: `AnF/windows/src/workspace/research/hedging-calibrator.ts` & `ThingsBook/outputs/ThingsBook/vendor/hedging-calibrator.js`. Measures epistemic humility, hedging density, over-assertive dogmatic phrasing, and heavy nominalizations in scholarly prose.
+  9. **Frontier 10: Citation Snowballing Tree Graph (`Research-Skills`)**: `AnF/windows/src/workspace/research/citation-snowball.ts` & `ThingsBook/outputs/ThingsBook/vendor/citation-snowball.js`. Constructs bidirectional citation graphs (backward reference foundation traversal and forward derivative traversal) and compiles Mermaid dependency diagrams.
+- **Cross-Ported ThingsBook Multi-Format Book Reader & FSRS into AnF**:
+  - `AnF/windows/src/workspace/reader/formats/book-formats.ts`: Full support for CBZ comic archives, FB2 XML, Kindle MOBI/AZW3, Word DOCX, OpenDocument ODT, RTF with Windows-1252/Unicode escapes, and single-file WebDoc archives.
+  - `AnF/windows/src/workspace/reader/formats/fsrs-scheduler.ts`: Free Spaced Repetition Scheduler (FSRS-4.5) for book study cards, tracking stability, difficulty, retrievability, and review intervals across Again/Hard/Good/Easy responses.
+  - `AnF/shared/domain/library-data.ts`: Updated format detection to recognize CBZ, FB2, MOBI, AZW, AZW3, ODT, RTF, WEBDOC.
+- Tests:
+  - ThingsBook: 34 passed, 0 failed, 47 skipped (`node work/run-tests.cjs`).
+  - AnF: 28 passed, 0 failed across `final-frontiers.test.ts`, `book-formats.test.ts`, `wave-a-engines.test.ts`, and `wave-b-engines.test.ts`.
