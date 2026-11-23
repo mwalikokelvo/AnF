@@ -4,7 +4,27 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-23 by Antigravity (Bi-Weekly Systems Intelligence & Security Runbook on agy/biweekly-2026-11-23).
+Last updated: 2026-11-23 by Antigravity (Release readiness execution on agy/biweekly-2026-11-23).
+
+## 2026-11-23 — Release Readiness Execution: Regression Verification, README Rewrite, Compilation Fixes (Antigravity on agy/biweekly-2026-11-23)
+
+1. **Full Regression Verification (Green)**:
+   - AnF: **1,072 passed**, 0 failed across 170 test suites (`node windows/scripts/test.mjs`).
+   - AnF Release Checks: **12 / 12 passed** (`node scripts/check-release.mjs`).
+   - ThingsBook: **40 passed**, 0 failed, 47 skipped across portable test suite (`node work/run-tests.cjs`).
+2. **README Alignment with Current Capabilities**:
+   - Updated `README.md` to document Kevo's native offline sherpa-onnx streaming hearing engine in Rust, unified local GGUF model architecture (`DeepSeek-V4-Pro-Qwen3.5-9B`), 8-format book reader (EPUB, PDF, CBZ, FB2, MOBI, DOCX, ODT, RTF) with FSRS-4.5 flashcards, and built-in desktop security / LocalSend P2P suite.
+3. **Workspace Production Bundling & TypeScript Compilation**:
+   - Fixed webview runtime boundary in `agent-tool-guard.ts` (replaced Node `path` dependency with zero-dependency cross-platform path normalizer).
+   - Fixed `kevo-actions.ts` action status typing (`status: 'failure'`) and wired `ctx.saveQuickNote`.
+   - Cleared unused variables and imports in `bpe-tokenizer.ts`, `speaker-diarization.ts`, `invidious-service.ts`, and `spatial-scrubber.ts`.
+   - Verified `tsc --noEmit` exits 0 with 0 errors.
+   - Built complete production distribution bundle with `vite build` (all 377 modules transformed, HTML/CSS/JS chunks generated in `windows/dist/`).
+4. **Native Core Packaging**:
+   - Compiled verified ThingsBook release binary `thingsbook-core.exe` (`cargo build --release --bin thingsbook-core`).
+5. **Release Status & Labels**:
+   - Tested on PC (Node/TS tests executed and passed, 1072 tests).
+   - Ready for branch push, PR creation, and CI build execution.
 
 ## 2026-11-23 — Bi-Weekly Systems Intelligence & Security Runbook (Antigravity on agy/biweekly-2026-11-23)
 
