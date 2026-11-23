@@ -2153,3 +2153,26 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
 - Deduplication: extracted the 25-line data gathering block across `btnBriefing` and `getBriefing` in `jarvis-command-desk.ts` into a single shared helper `collectWorkspaceBriefingData`.
 - Checks: `npx tsc --noEmit` clean, `tests/kevo-executive.test.ts` (7/7 pass), `tests/jarvis-executive.test.ts` (10/10 pass), `check-release.mjs` (12 pass), contracts and styles clean.
+
+
+## 2026-11-23: Ten Repositories Full Systems-Level Integration — Tier 3 (Antigravity, branch `agy/ten-repos-integration`)
+- Completed all 5 Systems-Level Frontiers synthesized across the 10 reference repositories (`OpenMAIC`, `magnitude`, `voicestudio`, `paperclip`, `gods-eye-view`, `research-skills`, `academic-research-skills`, `minimind`, `invidious`, `openclaude`) for both AnF and ThingsBook:
+  1. **Frontier 1: Dense Vector Embeddings & Hybrid RRF Search (MiniMind)**:
+     - `AnF/windows/src/workspace/storage/vector-search.ts` & `ThingsBook/outputs/ThingsBook/vendor/vector-search.js`: 128-dimensional deterministic n-gram and token hashing projections producing normalized embeddings; cosine similarity; Reciprocal Rank Fusion ($k=60$) combining BM25 lexical score and dense vector semantic score.
+     - Tests: `AnF/windows/tests/vector-search.test.ts` (pass) & `ThingsBook/work/tests/vector-search.cjs` (pass).
+  2. **Frontier 2: Speaker Diarization & Audio Clustering (VoiceStudio)**:
+     - `AnF/windows/src/workspace/audio/speaker-diarization.ts` & `ThingsBook/outputs/ThingsBook/vendor/prosody-narrator.js`: Zero-crossing rate, RMS energy, spectral centroid audio feature extraction; KMeans clustering for multi-speaker separation; prosody and emotion contour attribution.
+     - Tests: `AnF/windows/tests/speaker-diarization.test.ts` (pass) & `ThingsBook/work/tests/prosody-narrator.cjs` (pass).
+  3. **Frontier 3: Concept Mindmaps & Presentation Deck Compiler (OpenMAIC)**:
+     - `AnF/windows/src/workspace/editor/concept-mindmap.ts` & `ThingsBook/outputs/ThingsBook/vendor/concept-mindmap.js`: Hierarchical Markdown document AST parsing; Mermaid mindmap syntax generation; self-contained dark-mode HTML5 presentation slide compiler with keyboard navigation and progress bar.
+     - Tests: `AnF/windows/tests/concept-mindmap.test.ts` (pass) & `ThingsBook/work/tests/concept-mindmap.cjs` (pass).
+  4. **Frontier 4: Air-Gapped Offline Globe & Transit Velocity (God's Eye View)**:
+     - `AnF/windows/src/workspace/reader/offline-globe.ts` & `ThingsBook/outputs/ThingsBook/vendor/offline-globe.js`: Built-in continental polygon coordinates (<5KB); Haversine great-circle distance; spherical slerp route waypoint interpolation; 2D Equirectangular and 3D Orthographic sphere projections with front-hemisphere clipping; historical transit speed estimation (foot, horse courier, sailing ship, steam railway, commercial flight); pure offline vector SVG renderer.
+     - Tests: `AnF/windows/tests/offline-globe.test.ts` (pass) & `ThingsBook/work/tests/offline-globe.cjs` (pass).
+  5. **Frontier 5: Session Forking & Compute Energy Ledger (OpenClaude & Paperclip)**:
+     - `AnF/windows/src/workspace/ai/session-forking.ts` & `ThingsBook/outputs/ThingsBook/vendor/compute-ledger.js`: Tree-structured conversational branch management (`SessionTreeManager` / `SessionTree`) with branching at arbitrary message indices; hardware-aware compute and energy accounting ledger (`ComputeEnergyLedger`) tracking inference duration, prompt/completion tokens, throughput tokens/sec, hardware TDP wattage (CPU, DirectML, CUDA, Apple MPS), and milliwatt-hours (mWh).
+     - Tests: `AnF/windows/tests/session-forking.test.ts` (pass) & `ThingsBook/work/tests/compute-ledger.cjs` (pass).
+- Test suite verification:
+  - ThingsBook portable suite: 31 passed, 0 failed, 47 skipped (`node work/run-tests.cjs`).
+  - AnF Frontier suite: 14 passed, 0 failed (`vector-search`, `speaker-diarization`, `concept-mindmap`, `offline-globe`, `session-forking`).
+- Zero external cloud dependencies, zero telemetry, 100% offline-first and private.
