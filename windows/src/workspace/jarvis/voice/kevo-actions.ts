@@ -1649,6 +1649,12 @@ export interface KevoAskReply {
   tool_calls?: KevoToolCall[];
 }
 
+/**
+ * Added after the owner's words when Kevo has already judged them not to be a command ("can you not skip this song?").
+ * It goes after the cached prompt, so the model reads only these few tokens more; any tool call it still makes is not run.
+ */
+export const ANSWER_ONLY_NOTE = '\n\n(This is not a request to act. Reply in words and call no tool.)';
+
 /** Executes a sequence of tool calls in order against a JarvisActionContext. */
 export async function executeKevoToolCalls(
   toolCalls: KevoToolCall[],

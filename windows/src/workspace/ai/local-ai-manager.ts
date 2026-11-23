@@ -31,107 +31,18 @@ export interface LocalAiManager {
 }
 
 export const OFFICIAL_PROFILES: ModelWeightProfile[] = [
-  // --- Latest DeepSeek AI Models (Hugging Face) ---
   {
-    id: 'deepseek-v4.1-flash',
-    name: 'DeepSeek V4.1 Flash (1017)',
+    id: 'deepseek-v4-pro-qwen3.5-9b',
+    name: 'DeepSeek V4 Pro (Qwen3.5 9B Uncensored)',
     family: 'deepseek',
-    architecture: 'Engram · Sparse Attention MoE',
+    architecture: 'Qwen3.5 9B Uncensored · MoE/Dense',
     quant: 'Q4_K_M',
-    sizeBytes: 2_450_000_000,
-    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    sizeBytes: 5_780_092_768,
+    sha256: 'b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65',
     minRamGb: 8,
-    bucketUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/deepseek-v4.1-flash-q4_k_m.gguf',
-    huggingFaceRepo: 'unsloth/DeepSeek-V4.1-Flash-1017-GGUF',
-    description: 'DeepSeek flagship 1017 Flash update with n-gram lookup tables, sparse attention, and hyper-connections for ultra-fast local inference.',
-    recommendedRole: 'fast',
-  },
-  {
-    id: 'deepseek-v3.2-reasoning',
-    name: 'DeepSeek V3.2 Reasoning (DSA)',
-    family: 'deepseek',
-    architecture: 'DeepSeek Sparse Attention · Hybrid MoE',
-    quant: 'Q4_K_M',
-    sizeBytes: 3_200_000_000,
-    sha256: 'c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef',
-    minRamGb: 8,
-    bucketUrl: 'https://huggingface.co/unsloth/DeepSeek-V3.2-GGUF/deepseek-v3.2-q4_k_m.gguf',
-    huggingFaceRepo: 'unsloth/DeepSeek-V3.2-GGUF',
-    description: 'DeepSeek V3.2 featuring native DeepSeek Sparse Attention (DSA) and hybrid reasoning with thinking traces.',
-    recommendedRole: 'reasoning',
-  },
-  {
-    id: 'deepseek-r1-distill-qwen-1.5b',
-    name: 'DeepSeek R1 Distill 1.5B (Edge)',
-    family: 'deepseek',
-    architecture: 'Dense Reasoning Distillation',
-    quant: 'Q4_K_M',
-    sizeBytes: 980_000_000,
-    sha256: 'd1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcd',
-    minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/deepseek-r1-distill-qwen-1.5b-q4_k_m.gguf',
-    huggingFaceRepo: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
-    description: 'Ultra-compact edge reasoning model distilled from DeepSeek-R1, optimized for lower-RAM laptops and mobile devices.',
-    recommendedRole: 'reasoning',
-  },
-
-  // --- Latest Moonshot Kimi Models (Hugging Face) ---
-  {
-    id: 'kimi-k3-thinking',
-    name: 'Kimi K3 Thinking (KDA · MoE)',
-    family: 'kimi',
-    architecture: 'Kimi Delta Attention · LatentMoE',
-    quant: 'Q4_K_M',
-    sizeBytes: 3_950_000_000,
-    sha256: 'f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90123456789abcd',
-    minRamGb: 8,
-    bucketUrl: 'https://huggingface.co/unsloth/Kimi-K3-GGUF/kimi-k3-thinking-q4_k_m.gguf',
-    huggingFaceRepo: 'unsloth/Kimi-K3-GGUF',
-    description: 'Moonshot AI flagship Kimi-K3 multimodal agentic model with Kimi Delta Attention (KDA) and step-by-step reasoning.',
-    recommendedRole: 'reasoning',
-  },
-  {
-    id: 'kimi-linear-a3b',
-    name: 'Kimi Linear 48B-A3B (Edge Fast)',
-    family: 'kimi',
-    architecture: 'Linear Attention · 3B Active Weights',
-    quant: 'Q4_K_M',
-    sizeBytes: 1_850_000_000,
-    sha256: 'e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9',
-    minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/bartowski/moonshotai_Kimi-Linear-48B-A3B-Instruct-GGUF/kimi-linear-48b-a3b-instruct-q4_k_m.gguf',
-    huggingFaceRepo: 'bartowski/moonshotai_Kimi-Linear-48B-A3B-Instruct-GGUF',
-    description: 'High-throughput Moonshot Kimi Linear hybrid model with only 3B active weights for fast CPU inference.',
-    recommendedRole: 'fast',
-  },
-
-  // --- Lightweight Fallbacks ---
-  {
-    id: 'qwen3-0.6b-fast',
-    name: 'Fast · Qwen3 0.6B',
-    family: 'qwen',
-    architecture: 'Dense Transformer',
-    quant: 'Q4_K_M',
-    sizeBytes: 412_000_000,
-    sha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
-    minRamGb: 2,
-    bucketUrl: 'https://huggingface.co/buckets/mwalikokelvo/flint-bucket/qwen3-0.6b-q4_k_m.gguf',
-    huggingFaceRepo: 'Qwen/Qwen3-0.6B',
-    description: 'Ultra-lightweight fallback model requiring only 2 GB RAM.',
-    recommendedRole: 'fast',
-  },
-  {
-    id: 'qwen3-1.7b-balanced',
-    name: 'Balanced · Qwen3 1.7B',
-    family: 'qwen',
-    architecture: 'Dense Transformer',
-    quant: 'Q4_K_M',
-    sizeBytes: 1_180_000_000,
-    sha256: 'b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1',
-    minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/buckets/mwalikokelvo/flint-bucket/qwen3-1.7b-q4_k_m.gguf',
-    huggingFaceRepo: 'Qwen/Qwen3-1.7B',
-    description: 'Balanced fallback model requiring 4 GB RAM.',
+    bucketUrl: 'https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF/resolve/main/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf',
+    huggingFaceRepo: 'mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF',
+    description: 'Unified local model: DeepSeek V4 Pro Qwen3.5 9B Uncensored (5.78 GB, Q4_K_M). Verified SHA-256.',
     recommendedRole: 'chat',
   },
 ];
@@ -157,27 +68,31 @@ export function createLocalAiManager(options?: {
   invokeFn?: (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
 }): LocalAiManager {
   const systemRamGb = options?.systemRamGb ?? 16;
-  let activeProfileId = options?.initialProfileId || 'deepseek-v4.1-flash';
+  const resolveProfileId = (id?: string) => {
+    if (!id || id === 'deepseek-v4-pro-qwen3.5-9b') return 'deepseek-v4-pro-qwen3.5-9b';
+    // Map any old alias profile to the new model without error
+    if (['fast', 'balanced', 'deepseek-v4.1-flash', 'deepseek-v3.2-reasoning', 'deepseek-v3.2', 'deepseek-r1-distill-qwen-1.5b', 'deepseek-r1-distill', 'kimi-k3-thinking', 'kimi-k3', 'kimi-linear-a3b', 'kimi-linear', 'qwen3-0.6b-fast', 'qwen3-1.7b-balanced'].includes(id)) {
+      return 'deepseek-v4-pro-qwen3.5-9b';
+    }
+    return 'deepseek-v4-pro-qwen3.5-9b';
+  };
+  let activeProfileId = resolveProfileId(options?.initialProfileId);
 
   return {
     listAvailableProfiles(): ModelWeightProfile[] {
       return OFFICIAL_PROFILES;
     },
 
-    getProfilesByFamily(family: 'deepseek' | 'kimi' | 'qwen'): ModelWeightProfile[] {
-      return OFFICIAL_PROFILES.filter(p => p.family === family);
+    getProfilesByFamily(_family: 'deepseek' | 'kimi' | 'qwen'): ModelWeightProfile[] {
+      return OFFICIAL_PROFILES;
     },
 
     getActiveProfile(): ModelWeightProfile {
-      const found = OFFICIAL_PROFILES.find(p => p.id === activeProfileId);
-      return found || OFFICIAL_PROFILES[0];
+      return OFFICIAL_PROFILES.find(p => p.id === activeProfileId) || OFFICIAL_PROFILES[0];
     },
 
     setActiveProfile(profileId: string): void {
-      const exists = OFFICIAL_PROFILES.some(p => p.id === profileId);
-      if (exists) {
-        activeProfileId = profileId;
-      }
+      activeProfileId = resolveProfileId(profileId);
     },
 
     checkSystemMemory() {
@@ -190,10 +105,8 @@ export function createLocalAiManager(options?: {
     },
 
     async downloadWeights(profileId: string, onProgress: (pct: number) => void): Promise<void> {
-      const profile = OFFICIAL_PROFILES.find(p => p.id === profileId);
-      if (!profile) {
-        throw new Error(`Unknown model weight profile: ${profileId}`);
-      }
+      const resolved = resolveProfileId(profileId);
+      const profile = OFFICIAL_PROFILES.find(p => p.id === resolved) || OFFICIAL_PROFILES[0];
 
       if (!validateHuggingFaceUrl(profile.bucketUrl)) {
         throw new Error(`Untrusted model download URL: ${profile.bucketUrl}. Only huggingface.co is permitted.`);

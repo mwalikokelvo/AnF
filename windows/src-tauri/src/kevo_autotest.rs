@@ -25,6 +25,44 @@ const GITHUB_COMPARE_API: &str =
 const DOWNLOAD_PREFIX: &str =
     "https://github.com/mwalikokelvo/AnF/releases/download/";
 const USER_AGENT: &str = "AnF-Kevo-Autotest";
+/// Hosts a release download may be redirected to. `github.com` answers
+/// `/releases/download/` with a 302 to GitHub's asset storage.
+const ALLOWED_REDIRECT_HOSTS: [&str; 3] = [
+    "github.com",
+    "release-assets.githubusercontent.com",
+    "objects.githubusercontent.com",
+];
+const MAX_REDIRECTS: usize = 5;
+/// The zip is ~85 MB; the client's 30 s limit is too short on a home line.
+const ZIP_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// Whether a redirect after `hops` earlier redirects may be followed:
+/// https only, to one of `ALLOWED_REDIRECT_HOSTS`, at most `MAX_REDIRECTS`.
+fn redirect_allowed(url: &reqwest::Url, hops: usize) -> bool {
+    hops < MAX_REDIRECTS
+        && url.scheme() == "https"
+        && url
+            .host_str()
+            .is_some_and(|h| ALLOWED_REDIRECT_HOSTS.contains(&h))
+}
+
+fn redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if redirect_allowed(attempt.url(), attempt.previous().len()) {
+            attempt.follow()
+        } else {
+            let msg = format!("refused redirect to {}", attempt.url());
+            attempt.error(msg)
+        }
+    })
+}
+
+/// The hash from a `.sha256` file (`<64 hex>  <name>`), lowercased.
+fn parse_sha256_file(text: &str) -> Option<String> {
+    let hash = text.split_whitespace().next()?;
+    (hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
+        .then(|| hash.to_ascii_lowercase())
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -198,6 +236,12 @@ pub fn kevo_graphics_card() -> Result<String, String> {
     Ok("Standard Graphics Adapter".into())
 }
 
+/// Returns the active local AI model execution device ("GPU (Vulkan)" or "CPU").
+#[tauri::command]
+pub fn kevo_model_device(chat: tauri::State<'_, crate::Chat>) -> String {
+    chat.local.device()
+}
+
 /// Measures average host CPU usage percentage over `seconds` of idle time (default 60s).
 #[tauri::command]
 pub async fn kevo_measure_idle_cpu(seconds: Option<u64>) -> Result<f32, String> {
@@ -221,7 +265,7 @@ pub async fn kevo_measure_idle_cpu(seconds: Option<u64>) -> Result<f32, String> 
 pub async fn check_and_run_test_build(app: &AppHandle) -> Result<Option<String>, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(redirect_policy())
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -350,28 +394,40 @@ pub async fn check_and_run_test_build(app: &AppHandle) -> Result<Option<String>,
     }
 
     // 4. Download SHA-256 and zip bytes
-    let sha_text = client
+    let sha_resp = client
         .get(sha_url)
         .header("User-Agent", USER_AGENT)
         .send()
         .await
-        .map_err(|e| format!("Failed to download sha256: {e}"))?
+        .map_err(|e| format!("Failed to download sha256: {e}"))?;
+    let sha_status = sha_resp.status();
+    if !sha_status.is_success() {
+        return Err(format!("sha256 download returned status {sha_status}"));
+    }
+    let sha_text = sha_resp
         .text()
         .await
         .map_err(|e| format!("Failed to read sha256 text: {e}"))?;
 
-    let expected_hash = sha_text
-        .split_whitespace()
-        .next()
-        .ok_or("Invalid sha256 file format.")?
-        .to_lowercase();
+    let expected_hash = parse_sha256_file(&sha_text).ok_or_else(|| {
+        format!(
+            "Invalid sha256 file format (HTTP {sha_status}, {} bytes); expected 64 hex characters.",
+            sha_text.len()
+        )
+    })?;
 
-    let zip_bytes = client
+    let zip_resp = client
         .get(zip_url)
         .header("User-Agent", USER_AGENT)
+        .timeout(ZIP_DOWNLOAD_TIMEOUT)
         .send()
         .await
-        .map_err(|e| format!("Failed to download zip: {e}"))?
+        .map_err(|e| format!("Failed to download zip: {e}"))?;
+    let zip_status = zip_resp.status();
+    if !zip_status.is_success() {
+        return Err(format!("zip download returned status {zip_status}"));
+    }
+    let zip_bytes = zip_resp
         .bytes()
         .await
         .map_err(|e| format!("Failed to read zip bytes: {e}"))?;
@@ -638,6 +694,53 @@ mod tests {
         assert_eq!(parse_kevo_version("0.2.0"), Some((0, 2, 0)));
         assert_eq!(parse_kevo_version("kevo-test-v0.1.58-beta"), None);
         assert_eq!(parse_kevo_version("invalid"), None);
+    }
+
+    fn url(s: &str) -> reqwest::Url {
+        reqwest::Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn redirects_follow_github_asset_hosts_over_https() {
+        for u in [
+            "https://github.com/mwalikokelvo/AnF/releases/download/x/y.zip",
+            "https://release-assets.githubusercontent.com/github-production-release-asset/1/2?sig=a",
+            "https://objects.githubusercontent.com/github-production-release-asset-2e65be/1/2",
+        ] {
+            assert!(redirect_allowed(&url(u), 0), "{u}");
+        }
+    }
+
+    #[test]
+    fn redirects_refuse_http_other_hosts_and_too_many_hops() {
+        for u in [
+            "http://release-assets.githubusercontent.com/a",
+            "http://github.com/a",
+            "https://example.com/a",
+            "https://evil.githubusercontent.com/a",
+            "https://github.com.evil.example/a",
+            "https://raw.githubusercontent.com/a",
+            "https://api.github.com/a",
+        ] {
+            assert!(!redirect_allowed(&url(u), 0), "{u}");
+        }
+        let ok = url("https://release-assets.githubusercontent.com/a");
+        assert!(redirect_allowed(&ok, MAX_REDIRECTS - 1));
+        assert!(!redirect_allowed(&ok, MAX_REDIRECTS));
+    }
+
+    #[test]
+    fn sha256_file_needs_64_hex_characters() {
+        let h = "474BFA24".repeat(8);
+        assert_eq!(
+            parse_sha256_file(&format!("{h}  AnF-Windows-0.1.63-kevo-test.zip\n")),
+            Some(h.to_ascii_lowercase())
+        );
+        assert_eq!(parse_sha256_file(""), None);
+        assert_eq!(parse_sha256_file("   \n"), None);
+        assert_eq!(parse_sha256_file("abc123  file.zip"), None);
+        assert_eq!(parse_sha256_file(&format!("{}  f", "g".repeat(64))), None);
+        assert_eq!(parse_sha256_file("<html>Found</html>"), None);
     }
 
     #[test]

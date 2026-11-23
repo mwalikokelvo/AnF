@@ -7,6 +7,9 @@ import { Bridge, onEvent, type HookStatus } from "../core/bridge";
 import { DEFAULT_SETTINGS, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
 import { BROWSER_APPS } from "../core/ai";
+import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from "../workspace/jarvis/voice/jarvis-voice-pack";
+import { onlineVoicesAllowed, setOnlineVoicesAllowed } from "../workspace/jarvis/voice/jarvis-speaker";
+import { isRealWorkspaceDataOnly, setRealWorkspaceDataOnly } from "../workspace/jarvis/jarvis-executive";
 
 let settings: Settings = { ...DEFAULT_SETTINGS };
 let version = "";
@@ -450,6 +453,17 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  const modelFolderInput = h("input", {
+    type: "text",
+    value: settings.modelFolder ?? "",
+    placeholder: "Default (local-ai/models)",
+    style: "flex: 1; min-width: 200px; padding: 4px 8px;",
+  }) as HTMLInputElement;
+  modelFolderInput.addEventListener("change", () => {
+    settings.modelFolder = modelFolderInput.value.trim();
+    void save();
+  });
+
   return h(
     "section",
     {},
@@ -473,12 +487,71 @@ function generalSection(): HTMLElement {
       hearing,
     ),
     h("div", { class: "row" },
+      h("label", { text: "Model folder" }),
+      modelFolderInput,
+      h("span", { class: "hint", text: "Folder for local AI model weights (leave empty for default)" }),
+    ),
+    h("div", { class: "row" },
       h("label", { text: "Launch at startup" }),
       toggle(settings.autostart, (v) => { settings.autostart = v; void save(); }),
     ),
     h("div", { class: "row" },
       h("label", { text: "Run Kevo test builds and Kevo's self-test automatically" }),
       toggle(settings.kevoAutoTest, (v) => { settings.kevoAutoTest = v; void save(); }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Kevo voice pack" }),
+      (() => {
+        const sel = h("select", {}) as HTMLSelectElement;
+        for (const v of JARVIS_VOICE_PACK) {
+          sel.append(h("option", { value: v.id, text: v.name }));
+        }
+        sel.value = settings.kevoVoiceId ?? getSelectedVoiceId();
+        sel.addEventListener("change", () => {
+          settings.kevoVoiceId = sel.value;
+          setSelectedVoiceId(sel.value);
+          void save();
+        });
+        return sel;
+      })(),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Natural online voices (neural)" }),
+      (() => {
+        const isOnline = settings.kevoOnlineVoices ?? onlineVoicesAllowed();
+        const hint = h("span", {
+          class: "hint",
+          text: isOnline ? "Active: Neural online voice" : "Active: Native local system voice (offline)",
+        });
+        const sw = toggle(isOnline, (v) => {
+          settings.kevoOnlineVoices = v;
+          setOnlineVoicesAllowed(v);
+          hint.textContent = v ? "Active: Neural online voice" : "Active: Native local system voice (offline)";
+          void save();
+        });
+        const wrap = h("div", { style: "display:inline-flex;align-items:center;gap:10px" });
+        wrap.append(sw, hint);
+        return wrap;
+      })(),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Executive briefing: real workspace data only" }),
+      (() => {
+        const isReal = settings.kevoRealWorkspaceDataOnly ?? isRealWorkspaceDataOnly();
+        const hint = h("span", {
+          class: "hint",
+          text: isReal ? "Enforced: Zero fabricated business metrics" : "Permissive: All sources",
+        });
+        const sw = toggle(isReal, (v) => {
+          settings.kevoRealWorkspaceDataOnly = v;
+          setRealWorkspaceDataOnly(v);
+          hint.textContent = v ? "Enforced: Zero fabricated business metrics" : "Permissive: All sources";
+          void save();
+        });
+        const wrap = h("div", { style: "display:inline-flex;align-items:center;gap:10px" });
+        wrap.append(sw, hint);
+        return wrap;
+      })(),
     ),
   );
 }
