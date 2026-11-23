@@ -23,6 +23,7 @@ exit /b %RC%
 
 :main
 echo [build] start %DATE% %TIME% tree=%NEW% old=%OLD%
+if exist "C:\Program Files\Git\usr\bin\perl.exe" set "PATH=C:\Program Files\Git\usr\bin;%PATH%"
 set CARGO_BUILD_JOBS=1
 set CARGO_INCREMENTAL=0
 set CL=/Zm500
