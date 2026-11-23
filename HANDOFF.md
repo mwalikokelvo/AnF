@@ -6,6 +6,10 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-22 by Claude (Kevo 0.5 fix 1 review: the Stop self-test now speaks through the real speaker, #282).
 
+
+## 2026-11-22 — Flaky OCR port test (Claude)
+
+`ocr_port_check_reports_offline_on_unused_port` assumed port 59997 was free; on a Windows runner it wasn't, and main's `Windows` workflow failed after #283 (a TypeScript-only change). The test now asks the OS for a free port and releases it. Checked only that the pattern compiles and holds 50/50 with a standalone `rustc` program here; the `Windows` workflow runs the real test.
 ## 2026-11-22 — Kevo 0.5 fix 1 review: Stop check speaks for real (Claude, on `agy/kevo-0.5-fix-1`)
 
 Codex's review of #282 was right: Check 5 never sent the reply to the speaker, and the app never passed its speaker to the self-test, so Stop "passed" with nothing playing. Check 5 now speaks a fixed long reply through the real speaker (no AI call, so nothing made up lands in Kevo's history), waits for the engine's utterance start event (`speaker.whenSoundStarts()`, 5 s cap), then 2 s, requires the speech engine (`speechSynthesis.speaking`, not the speaker's own flag, which `stop()` clears) to be playing, presses the desk's real Stop action (`stopNow`, passed as `stop`) and requires silence 0.5 s later; with no speaker it fails. No polling loop. Tests use a fake speaker and cover sound that keeps playing after Stop and sound that never starts. Automated tests only (852/852); not tried on the PC.
