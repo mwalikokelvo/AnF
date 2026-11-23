@@ -1,0 +1,2 @@
+# Search index files are binary; never convert line endings.
+gen/** binary

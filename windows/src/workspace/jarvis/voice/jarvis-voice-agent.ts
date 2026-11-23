@@ -6,6 +6,13 @@
 
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
 import type { KevoActionStatus } from './kevo-actions';
+import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
+import { fetchJoke, isJokeRequest } from './kevo-joke';
+import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
+import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
+import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
+import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
+import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
   createReminder,
   listReminders,
@@ -15,6 +22,7 @@ import {
   getDailyBriefingSchedule,
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
+import { kevoLinkBus } from '../kevo-link-bus';
 
 export type JarvisAskAiResult =
   | string
@@ -32,10 +40,15 @@ export interface JarvisActionContext {
   playMusic?: () => void;
   pauseMusic?: () => void;
   nextTrack?: () => void;
+  /** Skips to the previous music track. */
+  previousTrack?: () => void;
   /** Changes the Music Hub volume and returns the new level, 0 to 100. */
   setMusicVolume?: (change: VolumeRequest) => number;
   searchMusic?: (query: string) => Promise<boolean>;
   searchVault?: (query: string) => Promise<string>;
+  /** Optional access to workspace notes for vault telemetry. */
+  notes?: any[];
+  getVaultNoteCount?: () => Promise<number> | number;
   /** Opens an installed app by name; resolves to the name of the app it opened. */
   openApp?: (name: string) => Promise<string>;
   openQuickCapture?: () => void;
@@ -84,10 +97,14 @@ export interface JarvisActionContext {
   getBriefing?: () => Promise<string>;
   /** Today's weather, spoken. No place: the last place asked about; null when there is none yet (Kevo asks which city). */
   getWeather?: (place?: string, day?: 0 | 1) => Promise<string | null>;
-  /** Whether the owner turned weather on by saying "turn on weather". Off until then: weather sends the city to Open-Meteo. */
+  /** Whether weather is on. On unless the owner said "turn off weather": weather sends the city to Open-Meteo. */
   weatherEnabled?: () => boolean;
   /** Turns weather on or off, remembered on this computer. */
   setWeatherEnabled?: (on: boolean) => void;
+  /** Whether online lookups (Wikipedia, dictionary, currency rates and the rest) are on. On unless the owner said "turn off online lookups". */
+  onlineLookupsEnabled?: () => boolean;
+  /** Turns online lookups on or off, remembered on this computer. */
+  setOnlineLookupsEnabled?: (on: boolean) => void;
   notify?: (msg: string) => void;
   /** Currently pending approval request (H.4b). */
   pendingApproval?: () => PendingApproval | null;
@@ -251,6 +268,8 @@ export class JarvisVoiceAgent {
   /** The app or thing last talked about, which "open it" refers to. */
   private lastSubject = '';
   private lastSubjectTime = 0;
+  /** The trivia question Kevo just asked, which the next reply may answer. */
+  private trivia: TriviaQuestion | null = null;
 
   private now(): number {
     return this.context.now ? this.context.now() : Date.now();
@@ -296,7 +315,7 @@ export class JarvisVoiceAgent {
     if (/^(help|(\S+ ){0,2}what (else )?can (you|i) (do|say|ask)|what do you do)$/.test(lower)
       // "Which task can you do?", "what kind of things can you help me with", "what are you able to do"
       || /^(\S+ ){0,2}(what|which)( \S+){0,3} (can|could) you (do|handle|help( me)?( with)?)( for me)?$|^what are you (able to do|capable of|good at)$/.test(lower)) {
-      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, and answer questions.');
+      return done('help', 'I can open apps and places in AnF, play or pause music, change the volume, search your notes or the web, take a note, set a timer, do sums, tell the time and date, check the weather, tell a joke or a fact, roll dice, and answer questions.');
     }
 
     // Questions about hearing it: the answer is how the microphone works, which the AI does not know.
@@ -394,6 +413,11 @@ export class JarvisVoiceAgent {
 
   setPendingApproval(approval: PendingApproval | null): void {
     this.currentApproval = approval;
+    kevoLinkBus.setPendingApproval(approval ? {
+      id: String(approval.id),
+      action: approval.action,
+      summary: approval.summary,
+    } : null);
   }
 
   getPendingApproval(): PendingApproval | null {
@@ -437,14 +461,16 @@ export class JarvisVoiceAgent {
   private async handleOne(text: string, onPart?: (text: string) => void): Promise<ActionResult> {
     this.pruneFollowUpState();
     const result = await this.handle(text, onPart);
+    // Stopped while it was being worked out: whatever was said after Stop owns the follow-up state now.
+    if (result.actionName === 'abandoned') return result;
     const short = text.replace(/[.!?]+$/, '').trim();
     // A short name that was not a command ("Brave browser") is what a following "open it" means.
     if (short.split(/\s+/).length <= 3 && !COMMAND_START.test(short) && result.actionName !== 'greeting') {
       this.lastSubject = short;
       this.lastSubjectTime = this.now();
     }
-    // "Say that again" repeats the last answer, so a pending "For how long?" still stands. Nothing else carries over.
-    if (result.actionName !== 'repeat' || this.lastAction !== 'timer_unclear') {
+    // "Say that again" repeats the last answer, so a pending "For how long?" or trivia question still stands. Nothing else carries over.
+    if (result.actionName !== 'repeat' || (this.lastAction !== 'timer_unclear' && this.lastAction !== 'trivia')) {
       this.lastAction = result.actionName;
       this.lastActionTime = this.now();
     }
@@ -462,6 +488,24 @@ export class JarvisVoiceAgent {
     this.lastSubjectTime = 0;
     this.lastAction = '';
     this.lastActionTime = 0;
+  }
+
+  /**
+   * An answer from an online service, behind the online lookups switch. `say` runs only when the answer is still
+   * wanted: Stop pressed or a new conversation while it was on its way leaves nothing said or kept.
+   */
+  private async online<T>(kind: 'translate' | 'trivia', what: string, ask: () => Promise<T>, say: (answer: T) => string): Promise<ActionResult> {
+    if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: kind, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
+    const asked = this.generation;
+    try {
+      const answer = await ask();
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: kind, speechReply: say(answer), status: 'success', verified: true };
+    } catch (err: any) {
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      const errMsg = err?.message || String(err);
+      return { handled: true, actionName: kind, speechReply: `I could not ${what}: ${errMsg}`, status: 'failure', verified: false, error: errMsg, reason: 'EXECUTION_FAILED' };
+    }
   }
 
   private async handle(spokenText: string, onPart?: (text: string) => void): Promise<ActionResult> {
@@ -502,6 +546,28 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Right after a trivia question, a letter, a choice or "I don't know" answers it; anything else is a new request.
+    // It comes before the clock and the quick answers, so a choice such as "Time" is taken as the answer.
+    // "Say that again" repeats the question and keeps it open.
+    const pendingTrivia = this.lastAction === 'trivia' ? this.trivia : null;
+    const triviaReply = pendingTrivia && answerTrivia(pendingTrivia, text);
+    if (triviaReply) {
+      this.trivia = null;
+      return { handled: true, actionName: 'trivia_answer', speechReply: triviaReply };
+    }
+
+    // Translation (MyMemory, behind the online lookups switch) comes before the clock and the quick answers, so
+    // "how do you say what time is it in French" is translated rather than answered.
+    const translate = parseTranslateRequest(lower);
+    if (translate) return this.online('translate', 'translate that', () => translateFromEnglish(translate.text, translate.code), (said) => `In ${translate.language}, ${translate.text} is: ${said}`);
+
+    // "What time is it in Tokyo" before the local clock, which would otherwise answer it with the time here.
+    const tzPlace = parseTimezoneRequest(lower);
+    if (tzPlace) {
+      const reply = timeInPlace(tzPlace);
+      if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
+      return { handled: true, actionName: 'time_in_place', speechReply: `I do not know the time zone for ${placeName(tzPlace)} yet.`, status: 'failure', verified: false, reason: 'UNKNOWN_PLACE' };
+    }
     // Clock / calendar (Phase 2B)
     if (
       lower.includes('what time') ||
@@ -529,6 +595,16 @@ export class JarvisVoiceAgent {
     // Answers that need no AI, so they come at once
     const quick = this.quickAnswer(text);
     if (quick) return quick;
+
+    // "Tell me a joke": a fresh one from icanhazdadjoke.com, always on (the owner's choice, 22 Nov 2026), whatever the
+    // online lookups switch says. When the service does not answer, the AI below tells one offline.
+    if (isJokeRequest(lower)) {
+      const asked = this.generation;
+      const joke = await fetchJoke().catch(() => null);
+      // Stop pressed while the joke was on its way: say nothing and do not go on to the AI.
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      if (joke) return { handled: true, actionName: 'tell_joke', speechReply: joke, status: 'success', verified: true };
+    }
 
     // Fast path for memory recall (Phase 3 Step 3.3)
     if (/^(what do you (remember|know)( about (me|myself))?|list (your |my )?memories)$/i.test(lower.replace(/[.!?]+$/, '').trim())) {
@@ -671,6 +747,29 @@ export class JarvisVoiceAgent {
 
     // Weather (free Open-Meteo, no key): "what's the weather", "weather in Nairobi", "how's the weather in Haubstadt today".
     // Right after "Which city?", a short place name on its own is the answer.
+    const onlineSwitch = parseOnlineLookupsSwitch(lower);
+    if (onlineSwitch !== null && this.context.setOnlineLookupsEnabled) {
+      this.context.setOnlineLookupsEnabled(onlineSwitch);
+      return onlineSwitch
+        ? { handled: true, actionName: 'online_lookups_on', speechReply: 'Online lookups are on. Ask, for example, what does serendipity mean, or convert 100 dollars to shillings.' }
+        : { handled: true, actionName: 'online_lookups_off', speechReply: 'Online lookups are off.' };
+    }
+
+    // Offline fun: dice, facts and the quote of the day. Nothing is sent.
+    const dice = parseDiceRequest(lower);
+    if (dice) {
+      const { rolls, reply } = rollDice(dice.count, dice.sides);
+      return { handled: true, actionName: 'roll_dice', speechReply: reply, status: 'success', verified: true, verificationDetails: `Rolled ${rolls.join(', ')} on d${dice.sides}` };
+    }
+    if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
+    if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
+
+    // Online, behind the online lookups switch: trivia (Open Trivia DB). The old question goes first, so a failed or
+    // blocked request leaves nothing for the next reply to answer.
+    if (isTriviaRequest(lower)) {
+      this.trivia = null;
+      return this.online('trivia', 'get a trivia question', fetchTrivia, (question) => askTrivia((this.trivia = question)));
+    }
     const weatherSwitch = parseWeatherSwitch(lower);
     if (weatherSwitch !== null && this.context.setWeatherEnabled) {
       this.context.setWeatherEnabled(weatherSwitch);
@@ -842,6 +941,12 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'next_track', speechReply: 'Skipping to next track, sir.' };
     }
 
+    // "Previous song", "go back a track", "skip back a track"; "what was the last song?" is a question, not a request.
+    if (asksFor(lower, /\b(?:previous|prev|last|back(?: a| one)?) (?:song|track)/, /^(?:(?:go|jump|move|switch|play|put on|give me|skip)(?: back)?(?: to)? )?(?:the )?(?:previous|prev|last|a|one) (?:song|track)\b/)) {
+      this.context.previousTrack?.();
+      return { handled: true, actionName: 'previous_track', speechReply: 'Going back to the previous track, sir.' };
+    }
+
     // 3. Places inside AnF. Exact names only, so "open Visual Studio Code" or "open ChatGPT" reach the apps below.
     const place = /^(?:open|go to|show)\s+(?:the\s+|my\s+)?(.+?)[.!?]*$/.exec(lower);
     const route = place && WORKSPACE_PLACES[place[1]];
@@ -921,8 +1026,9 @@ export class JarvisVoiceAgent {
     }
 
     // 7. General AI Conversational Intelligence + memory
-    // A lone unknown word is a cough, a fragment or the room, not a question for the AI.
-    if (!/\s/.test(lower.trim())) return { handled: true, actionName: 'ignored', speechReply: '' };
+    // A lone unknown word is a cough, a fragment or the room, not a question for the AI. "Joke" is the exception: when the
+    // joke service did not answer above, the AI tells one.
+    if (!/\s/.test(lower.trim()) && !isJokeRequest(lower)) return { handled: true, actionName: 'ignored', speechReply: '' };
     if (this.context.askAI) {
       try {
         // A short history keeps the local model quick and stops old exchanges steering new answers.
@@ -1059,22 +1165,13 @@ export function placeReply(text: string): string | undefined {
   return said;
 }
 
-type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 /**
  * Today's weather for a place, as one spoken line, from Open-Meteo (https://open-meteo.com: free, no key).
  * Fahrenheit and mph when `fahrenheit` is set (US English), else Celsius and km/h.
  */
-export async function fetchWeather(place: string, options: { fahrenheit?: boolean; day?: 0 | 1; fetchFn?: FetchLike } = {}): Promise<string> {
-  const plain: FetchLike = (url) => fetch(url, { signal: AbortSignal.timeout(8000) });
-  const send = options.fetchFn ?? plain;
-  const get: FetchLike = async (url) => {
-    try {
-      return await send(url);
-    } catch {
-      throw new Error('the weather service did not answer. Check the internet connection.');
-    }
-  };
+export async function fetchWeather(place: string, options: { fahrenheit?: boolean; day?: 0 | 1; fetchFn?: LookupFetch } = {}): Promise<string> {
+  const get = (url: string) => onlineGet(url, 'the weather service', options.fetchFn);
   const asked = place.trim();
   if (!asked) throw new Error('say which city.');
   const geo = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(asked)}&count=1&language=en&format=json`);
