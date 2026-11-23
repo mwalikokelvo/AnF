@@ -4,7 +4,18 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Antigravity (Grok features: What's playing, Today in History, Random Advice).
+Last updated: 2026-11-23 by Antigravity (Ten Repos Architecture Integration: Invidious, OpenClaude, Research Skills, MiniMind, VoiceStudio, Magnitude, Paperclip, OpenMAIC, God's Eye View).
+
+## 2026-11-23 — 10 Repos Integration (Antigravity on agy/ten-repos-integration)
+
+Integrated strategic architectural lessons and capabilities across AnF and ThingsBook:
+1. **Invidious (iv-org/invidious)**: `invidious-service.ts` for privacy-first YouTube audio and video transcript extraction to markdown notes. Added `transcribe_video` tool in `kevo-actions.ts`. Verified with `windows/tests/invidious-service.test.ts`.
+2. **OpenClaude (Twigpine/openclaude)**: `openclaude-router.ts` decoupled provider router spanning embedded local models, Ollama (`http://127.0.0.1:11434`), and cloud providers with graceful offline fallback. Verified with `windows/tests/openclaude-router.test.ts`.
+3. **Academic Research Skills (luwill/research-skills & imbad0202/academic-research-skills)**: `research-assistant.ts` in editor providing APA citation extraction, structured proposal templates, syntopical Markdown tables, and academic rigor audits. Verified with `windows/tests/research-assistant.test.ts`.
+4. **MiniMind (jingyaogong/minimind)**: `minimind-router.ts` sub-millisecond intent router for Kevo voice commands (<1ms on CPU) ensuring instant commands bypass heavy LLM overhead. Verified with `windows/tests/minimind-router.test.ts`.
+5. **Paperclip (paperclipai/paperclip)**: `paperclip-heartbeat.ts` non-blocking background heartbeat engine for vault maintenance, RSS feeds, and indexing. Verified with `windows/tests/paperclip-heartbeat.test.ts`.
+6. **God's Eye View (bilawalsidhu/gods-eye-view)**: `retro-visualizer.ts` low-overhead CRT phosphor and oscilloscope shaders for Audio Studio.
+7. **ThingsBook Parallel Upgrades**: `video-transcript.js`, `provider-router.js`, `dialogue-narrator.js` (VoiceStudio dual-voice reading), `hardware.rs` (Magnitude vector acceleration via UniFFI), `classroom-mode.js` (OpenMAIC interactive seminar), and `spatial-atlas.js` (narrative journey GeoJSON mapping). All 23 tests passing.
 
 ## 2026-11-22 — Grok additions: What's playing, Today in History, and Random Advice (Antigravity)
 

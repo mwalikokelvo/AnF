@@ -44,6 +44,7 @@ import { currencyCode, convertCurrency, formatConversion } from './kevo-currency
 import { formatWhatsPlaying } from './kevo-whats-playing';
 import { todayInHistory } from './kevo-history';
 import { randomAdvice } from './kevo-advice';
+import { fetchInvidiousTranscript, formatTranscriptMarkdown } from '../../invidious-service';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
   createReminder,
@@ -1084,6 +1085,56 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         verified: true,
         data: { advice },
       };
+    },
+  },
+  {
+    name: 'transcribe_video',
+    description: 'Fetches the transcript of an educational or video link via privacy-friendly Invidious and creates a note from it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'YouTube or Invidious video URL or ID to transcribe' },
+        save_as_note: { type: 'boolean', description: 'Whether to save the transcript directly as a new note in the vault' },
+      },
+      required: ['url'],
+    },
+    execute: async (args: any, ctx: JarvisActionContext) => {
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('transcribe_video');
+      const url = typeof args?.url === 'string' ? args.url : '';
+      if (!url) {
+        return {
+          handled: true,
+          actionName: 'transcribe_video',
+          speechReply: 'Please provide a video URL or video ID to transcribe, sir.',
+          status: 'failed',
+          verified: false,
+        };
+      }
+      try {
+        const transcript = await fetchInvidiousTranscript(url);
+        const md = formatTranscriptMarkdown(transcript);
+        if (args.save_as_note && ctx.createNote) {
+          await ctx.createNote(transcript.title, md);
+          return {
+            handled: true,
+            actionName: 'transcribe_video',
+            speechReply: `I have transcribed "${transcript.title}" and saved it as a note in your vault, sir.`,
+            status: 'success',
+            verified: true,
+            data: { title: transcript.title, videoId: transcript.videoId, wordCount: transcript.fullText.split(/\s+/).length },
+          };
+        }
+        return {
+          handled: true,
+          actionName: 'transcribe_video',
+          speechReply: `Transcribed "${transcript.title}". It contains ${transcript.segments.length} captioned sections and about ${transcript.fullText.split(/\s+/).length} words, sir.`,
+          status: 'success',
+          verified: true,
+          data: { title: transcript.title, videoId: transcript.videoId, text: transcript.fullText.slice(0, 500) },
+        };
+      } catch (err: any) {
+        return lookupFailed('transcribe_video', `Could not transcribe this video: ${err?.message || String(err)}`);
+      }
     },
   },
   {
