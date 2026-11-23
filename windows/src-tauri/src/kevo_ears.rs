@@ -243,7 +243,8 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         }
     }
 
-    /// Acoustic Echo Canceller using Normalized Least Mean Squares (NLMS) (Phase 1, Step 1.6).
+    /// Acoustic Echo Canceller using Normalized Least Mean Squares (NLMS) with
+    /// Residual Echo Suppression (RES) (Phase 1, Step 1.6).
     /// Subtracts speaker audio / Kevo's speech from the microphone signal.
     pub struct EchoCanceller {
         filter_len: usize,
@@ -252,13 +253,14 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         history_idx: usize,
         mu: f32,
         eps: f32,
+        echo_power: f32,
+        err_power: f32,
     }
 
     impl EchoCanceller {
         pub fn new(filter_len: usize, step_size: f32) -> Self {
-            let len = filter_len.max(16);
-            let mut weights = vec![0.0; len];
-            weights[0] = 1.0;
+            let len = filter_len.max(16).next_power_of_two();
+            let weights = vec![0.0; len];
             Self {
                 filter_len: len,
                 weights,
@@ -266,6 +268,8 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
                 history_idx: 0,
                 mu: step_size,
                 eps: 1e-4,
+                echo_power: 0.0,
+                err_power: 0.0,
             }
         }
 
@@ -273,27 +277,48 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
             self.history[self.history_idx] = ref_sample;
             let mut est_echo = 0.0;
             let mut norm_sq = 0.0;
+            let mask = self.filter_len - 1;
 
             for i in 0..self.filter_len {
-                let idx = (self.history_idx + self.filter_len - i) % self.filter_len;
+                let idx = (self.history_idx + self.filter_len - i) & mask;
                 let x = self.history[idx];
                 est_echo += self.weights[i] * x;
                 norm_sq += x * x;
             }
 
-            let err = mic_sample - est_echo;
+            let raw_err = mic_sample - est_echo;
 
             if norm_sq > self.eps {
                 let factor = self.mu / (self.eps + norm_sq);
                 for i in 0..self.filter_len {
-                    let idx = (self.history_idx + self.filter_len - i) % self.filter_len;
-                    self.weights[i] += factor * err * self.history[idx];
+                    let idx = (self.history_idx + self.filter_len - i) & mask;
+                    self.weights[i] += factor * raw_err * self.history[idx];
                     self.weights[i] = self.weights[i].clamp(-2.0, 2.0);
                 }
             }
 
-            self.history_idx = (self.history_idx + 1) % self.filter_len;
-            err
+            self.history_idx = (self.history_idx + 1) & mask;
+
+            // Track smoothed energy of estimated echo and raw error
+            let alpha = 0.98;
+            self.echo_power = alpha * self.echo_power + (1.0 - alpha) * est_echo * est_echo;
+            self.err_power = alpha * self.err_power + (1.0 - alpha) * raw_err * raw_err;
+
+            // Residual echo suppression (RES):
+            // When Kevo's echo is active and raw error power is low relative to echo power,
+            // this is single-talk (Kevo speaking alone). Suppress residual echo leakage so
+            // Kevo's own voice never triggers VAD or KWS.
+            // When the user speaks over Kevo, err_power rises sharply, echo_ratio exceeds 0.8,
+            // and the user's voice passes through unattenuated.
+            let mut out = raw_err;
+            if self.echo_power > 1e-5 {
+                let echo_ratio = self.err_power / (self.echo_power + 1e-6);
+                if echo_ratio < 0.8 {
+                    let suppression = (echo_ratio / 0.8).clamp(0.01, 1.0);
+                    out *= suppression;
+                }
+            }
+            out
         }
 
         pub fn process(&mut self, mic: &[f32], reference: &[f32], output: &mut Vec<f32>) {
@@ -306,11 +331,54 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         }
     }
 
+    /// Ring buffer for TTS reference samples pushed from the web view.
+    /// The echo canceller drains this to subtract Kevo's own speech from the
+    /// microphone signal (Step 1.6: push, not polling).
+    pub struct RefRing {
+        queue: std::collections::VecDeque<f32>,
+    }
+
+    impl RefRing {
+        pub fn new(capacity: usize) -> Self {
+            Self {
+                queue: std::collections::VecDeque::with_capacity(capacity),
+            }
+        }
+
+        /// Push TTS playback samples into the ring buffer, sizing to the clip.
+        /// Unread samples are never overwritten and pop() never reads stale data.
+        pub fn push(&mut self, samples: &[f32]) {
+            self.queue.reserve(samples.len());
+            self.queue.extend(samples.iter().copied());
+        }
+
+        /// Pop the next reference sample, or 0.0 when no TTS audio is queued.
+        pub fn pop(&mut self) -> f32 {
+            self.queue.pop_front().unwrap_or(0.0)
+        }
+
+        /// Clear unread samples when playback stops or microphone un-mutes.
+        pub fn clear(&mut self) {
+            self.queue.clear();
+        }
+
+        #[allow(dead_code)]
+        pub fn len(&self) -> usize {
+            self.queue.len()
+        }
+
+        #[allow(dead_code)]
+        pub fn is_empty(&self) -> bool {
+            self.queue.is_empty()
+        }
+    }
+
     /// The microphone stream (`cpal::Stream`) is not `Send` on Windows, so it
     /// lives on the pipeline thread and is dropped when that thread ends.
     struct EarsHandle {
         stop_flag: Arc<AtomicBool>,
         muted: Arc<AtomicBool>,
+        ref_ring: Arc<Mutex<RefRing>>,
     }
 
     static EARS: OnceLock<Mutex<Option<EarsHandle>>> = OnceLock::new();
@@ -360,6 +428,38 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
         if let Some(handle) = state.as_ref() {
             handle.muted.store(muted, Ordering::Relaxed);
+            if !muted {
+                if let Ok(mut ring) = handle.ref_ring.lock() {
+                    ring.clear();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Clear all queued reference samples.
+    #[tauri::command]
+    pub fn kevo_ears_clear_reference() -> Result<(), String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            if let Ok(mut ring) = handle.ref_ring.lock() {
+                ring.clear();
+            }
+        }
+        Ok(())
+    }
+
+    /// Push TTS playback samples into the echo canceller's reference ring.
+    /// Called by the web view whenever SpeechSynthesisUtterance produces audio
+    /// (via a ScriptProcessorNode / AudioWorklet capture). The samples are
+    /// f32 mono at 16 kHz — the same rate as the microphone pipeline.
+    #[tauri::command]
+    pub fn kevo_ears_push_reference(samples: Vec<f32>) -> Result<(), String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            if let Ok(mut ring) = handle.ref_ring.lock() {
+                ring.push(&samples);
+            }
         }
         Ok(())
     }
@@ -382,8 +482,11 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
 
         let stop_flag = Arc::new(AtomicBool::new(false));
         let muted = Arc::new(AtomicBool::new(false));
+        // 2 seconds of 16 kHz mono — enough to absorb a TTS push/consume timing mismatch.
+        let ref_ring = Arc::new(Mutex::new(RefRing::new(32_000)));
         let worker_stop = Arc::clone(&stop_flag);
         let worker_muted = Arc::clone(&muted);
+        let worker_ref = Arc::clone(&ref_ring);
         let own_stop = Arc::clone(&stop_flag);
         let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel::<Result<(), String>>(1);
 
@@ -398,7 +501,8 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
                     }
                 };
                 let _ = ready_tx.send(Ok(()));
-                run_ears_pipeline(rx, worker_stop, worker_muted, app.clone(), vad, kws, asr);
+                let models = EarModels { vad, kws, asr };
+                run_ears_pipeline(rx, worker_stop, worker_muted, worker_ref, app.clone(), models);
                 drop(stream);
                 // Ended without kevo_ears_stop (the microphone went away): forget this
                 // handle so the status is honest and kevo_ears_start works again.
@@ -413,7 +517,7 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
             .map_err(|e| format!("Failed to spawn pipeline thread: {e}"))?;
 
         ready_rx.recv().map_err(|_| "Kevo hearing stopped while starting".to_string())??;
-        *state = Some(EarsHandle { stop_flag, muted });
+        *state = Some(EarsHandle { stop_flag, muted, ref_ring });
         Ok(())
     }
 
@@ -503,20 +607,26 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
         Ok((stream, rx))
     }
 
+    struct EarModels {
+        vad: VoiceActivityDetector,
+        kws: KeywordSpotter,
+        asr: OnlineRecognizer,
+    }
+
     fn run_ears_pipeline(
         rx: std::sync::mpsc::Receiver<Vec<f32>>,
         stop: Arc<AtomicBool>,
         muted: Arc<AtomicBool>,
+        ref_ring: Arc<Mutex<RefRing>>,
         app: tauri::AppHandle,
-        vad: VoiceActivityDetector,
-        kws: KeywordSpotter,
-        asr: OnlineRecognizer,
+        models: EarModels,
     ) {
         use tauri::Emitter;
 
+        let EarModels { vad, kws, asr } = models;
         let kws_stream = kws.create_stream();
         let mut asr_stream = asr.create_stream();
-        let mut echo_canceller = EchoCanceller::new(128, 0.4);
+        let mut echo_canceller = EchoCanceller::new(1024, 0.6);
         let mut buffer = Vec::with_capacity(1024);
         let mut had_speech = false;
         let mut last_partial = String::new();
@@ -529,8 +639,13 @@ HH EY1 K EH1 V OW0 @HEY_KEVO
                         buffer.extend_from_slice(&samples);
                         while buffer.len() >= 512 {
                             let chunk: Vec<f32> = buffer.drain(..512).collect();
+                            // Drain reference samples pushed by the web view's TTS capture.
+                            let ref_chunk: Vec<f32> = {
+                                let mut ring = ref_ring.lock().unwrap_or_else(|e| e.into_inner());
+                                (0..chunk.len()).map(|_| ring.pop()).collect()
+                            };
                             let mut clean = Vec::with_capacity(chunk.len());
-                            echo_canceller.process(&chunk, &[], &mut clean);
+                            echo_canceller.process(&chunk, &ref_chunk, &mut clean);
 
                             vad.accept_waveform(&clean);
                             let is_speech = vad.detected();
@@ -646,6 +761,16 @@ mod stubs {
 
     #[tauri::command]
     pub fn kevo_ears_mute(_muted: bool) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_push_reference(_samples: Vec<f32>) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_clear_reference() -> Result<(), String> {
         Ok(())
     }
 
@@ -868,6 +993,34 @@ mod tests {
         assert!(pass_count >= 9, "Request transcription {pass_count}/10 is below threshold");
     }
 
+    #[cfg(feature = "kevo-ears")]
+    fn simulate_realistic_echo(reference: &[f32], delay_ms: f32, attenuation: f32) -> Vec<f32> {
+        let delay_samples = (delay_ms * RATE as f32 / 1000.0).round() as usize;
+        // Reverb tail: decaying early reflections off walls/desk
+        let r1_delay = delay_samples + (8.0 * RATE as f32 / 1000.0).round() as usize;
+        let r2_delay = delay_samples + (18.0 * RATE as f32 / 1000.0).round() as usize;
+        let r3_delay = delay_samples + (28.0 * RATE as f32 / 1000.0).round() as usize;
+
+        let mut echo = vec![0.0f32; reference.len()];
+        for i in 0..reference.len() {
+            let mut s = 0.0;
+            if i >= delay_samples {
+                s += attenuation * reference[i - delay_samples];
+            }
+            if i >= r1_delay {
+                s += attenuation * 0.25 * reference[i - r1_delay];
+            }
+            if i >= r2_delay {
+                s += attenuation * 0.12 * reference[i - r2_delay];
+            }
+            if i >= r3_delay {
+                s += attenuation * 0.05 * reference[i - r3_delay];
+            }
+            echo[i] = s;
+        }
+        echo
+    }
+
     #[test]
     #[cfg(feature = "kevo-ears")]
     fn barge_in_stops_playback_within_300ms_when_user_speaks_over_kevo() {
@@ -886,16 +1039,19 @@ mod tests {
             .position(|&s| s.abs() > 0.02)
             .unwrap_or(0);
 
-        // Mix user clip over Kevo's speech at offset 16000 (1 second into Kevo's speech)
+        // Realistic echo of Kevo's speech: delayed 30 ms (in 20-60 ms range), attenuated (0.5), with reverb tail
+        let echo = simulate_realistic_echo(&kevo_speech, 30.0, 0.5);
+
+        // Mix user clip over Kevo's echo at offset 16000 (1 second settling period for AEC)
         let mix_offset = 16000;
-        let mut mixed = kevo_speech.clone();
+        let mut mixed = echo.clone();
         for (i, &s) in user_speech.iter().enumerate() {
             if mix_offset + i < mixed.len() {
                 mixed[mix_offset + i] += s;
             }
         }
 
-        let mut aec = EchoCanceller::new(128, 0.4);
+        let mut aec = EchoCanceller::new(1024, 0.6);
         let mut clean_audio = Vec::with_capacity(mixed.len());
         aec.process(&mixed, &kevo_speech, &mut clean_audio);
 
@@ -950,17 +1106,28 @@ mod tests {
         let kws = keyword_spotter(dir).expect("create keyword spotter");
         let vad = voice_activity_detector(dir).expect("create vad");
 
-        // Kevo speaking alone: fed both as mic signal and reference
+        // Realistic echo of Kevo speaking: delayed 30 ms (in 20-60 ms range), attenuated (0.5), with reverb tail
         let kevo_speech = clip("req-black-holes-libritts-3922");
-        let mut aec = EchoCanceller::new(128, 0.4);
-        let mut clean_audio = Vec::with_capacity(kevo_speech.len());
-        aec.process(&kevo_speech, &kevo_speech, &mut clean_audio);
+        let echo = simulate_realistic_echo(&kevo_speech, 30.0, 0.5);
+
+        let mut aec = EchoCanceller::new(1024, 0.6);
+        let mut clean_audio = Vec::with_capacity(echo.len());
+        aec.process(&echo, &kevo_speech, &mut clean_audio);
 
         let kws_stream = kws.create_stream();
         let mut wake_detected = false;
         let mut speech_detected = false;
 
-        for chunk in clean_audio.chunks(512) {
+        // Settling period of 16000 samples (1.0 s) for the AEC filter to adapt,
+        // matching the 1.0 s mix_offset in the barge-in test.
+        let settling_samples = 16000;
+        let eval_audio = if clean_audio.len() > settling_samples {
+            &clean_audio[settling_samples..]
+        } else {
+            &clean_audio[..]
+        };
+
+        for chunk in eval_audio.chunks(512) {
             vad.accept_waveform(chunk);
             if vad.detected() {
                 speech_detected = true;
@@ -983,5 +1150,44 @@ mod tests {
 
         assert!(!wake_detected, "Kevo's own voice woke Kevo!");
         assert!(!speech_detected, "Kevo's own voice triggered VAD stop!");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn ref_ring_handles_pushes_longer_than_2s_without_overwriting_unread_samples() {
+        // A push longer than 2s (e.g. 48,000 samples = 3s @ 16 kHz) sizes to the
+        // clip so unread samples are never overwritten and pop() reads all samples
+        // in order without stale data (Item 4).
+        let mut ring = RefRing::new(32_000);
+        let samples: Vec<f32> = (0..48_000).map(|i| i as f32).collect();
+        ring.push(&samples);
+        assert_eq!(ring.len(), 48_000);
+
+        for i in 0..48_000 {
+            let s = ring.pop();
+            assert_eq!(s, i as f32, "sample at {i} must match pushed value");
+        }
+        assert_eq!(ring.pop(), 0.0);
+        assert!(ring.is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn ref_ring_chunked_streaming_and_clear() {
+        let mut ring = RefRing::new(1024);
+        let chunk1: Vec<f32> = vec![1.0; 512];
+        let chunk2: Vec<f32> = vec![2.0; 512];
+        ring.push(&chunk1);
+        ring.push(&chunk2);
+        assert_eq!(ring.len(), 1024);
+
+        for _ in 0..512 {
+            assert_eq!(ring.pop(), 1.0);
+        }
+        assert_eq!(ring.len(), 512);
+
+        ring.clear();
+        assert_eq!(ring.len(), 0);
+        assert_eq!(ring.pop(), 0.0);
     }
 }

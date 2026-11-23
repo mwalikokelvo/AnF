@@ -621,18 +621,35 @@ pub fn take_sentences(buffer: &mut String) -> Option<String> {
 
 /// Takes complete sentences off the front of `buffer`, ensuring that incomplete
 /// `<tool_call` tags are withheld and never sliced into.
-pub fn take_streamable_sentences(buffer: &mut String) -> Option<String> {
+/// When `first` and no sentence has ended yet, yields at the first clause boundary
+/// (comma, colon or semicolon after 40 bytes) so the first audio starts sooner;
+/// later parts stay whole sentences so the rest of the answer is not choppy.
+pub fn take_streamable_sentences(buffer: &mut String, first: bool) -> Option<String> {
     let limit = buffer.find('<').unwrap_or(buffer.len());
     if limit < 12 {
         return None;
     }
     let slice = &buffer[..limit];
     let bytes = slice.as_bytes();
-    let cut = (0..bytes.len()).rev().find(|&i| {
+
+    let sentence_cut = (0..bytes.len()).rev().find(|&i| {
         matches!(bytes[i], b'.' | b'!' | b'?')
             && (i + 1 == limit || bytes.get(i + 1).is_some_and(|b| b.is_ascii_whitespace()))
             && i >= 10
-    })?;
+    });
+
+    let clause_cut = || {
+        if !first {
+            return None;
+        }
+        (40..bytes.len()).find(|&i| {
+            matches!(bytes[i], b',' | b':' | b';')
+                && (bytes.get(i + 1).is_some_and(|b| b.is_ascii_whitespace())
+                    || (i + 1 == limit && limit < buffer.len()))
+        })
+    };
+    let cut = sentence_cut.or_else(clause_cut)?;
+
     let done = buffer[..=cut].trim().to_string();
     *buffer = buffer[cut + 1..].trim_start().to_string();
     (!done.is_empty()).then_some(done)
@@ -951,16 +968,58 @@ mod tests {
     #[test]
     fn take_streamable_sentences_guards_against_partial_tags() {
         let mut buf = "I will check that for you right away. <tool_call>{\"name\":\"weather\"}".to_string();
-        let s = take_streamable_sentences(&mut buf);
+        let s = take_streamable_sentences(&mut buf, true);
         assert_eq!(s, Some("I will check that for you right away.".to_string()));
         assert_eq!(buf, "<tool_call>{\"name\":\"weather\"}");
 
-        let s2 = take_streamable_sentences(&mut buf);
+        let s2 = take_streamable_sentences(&mut buf, true);
         assert_eq!(s2, None);
 
         let mut buf2 = "First sentence here. Second sentence starts".to_string();
-        let s3 = take_streamable_sentences(&mut buf2);
+        let s3 = take_streamable_sentences(&mut buf2, true);
         assert_eq!(s3, Some("First sentence here.".to_string()));
         assert_eq!(buf2, "Second sentence starts");
+    }
+
+    #[test]
+    fn take_streamable_sentences_splits_long_sentence_at_first_clause_boundary() {
+        // When a sentence runs long without a period, yields at the first clause boundary after ~40 chars
+        let mut buf = "To calculate a 15 percent tip on a 60 dollar restaurant bill step by step, first calculate ten percent which is six dollars".to_string();
+        let s = take_streamable_sentences(&mut buf, true);
+        assert_eq!(
+            s,
+            Some("To calculate a 15 percent tip on a 60 dollar restaurant bill step by step,".to_string())
+        );
+        assert_eq!(buf, "first calculate ten percent which is six dollars");
+
+        // When a clause boundary is too early (< 40 characters), it waits for a sentence end
+        let mut buf2 = "Yes, sir, I am working on it right now.".to_string();
+        let s2 = take_streamable_sentences(&mut buf2, true);
+        assert_eq!(s2, Some("Yes, sir, I am working on it right now.".to_string()));
+        assert_eq!(buf2, "");
+    }
+
+    fn stream_parts(answer: &str) -> Vec<String> {
+        let (mut buf, mut parts) = (String::new(), Vec::new());
+        for token in answer.split_inclusive(' ') {
+            buf.push_str(token);
+            if let Some(part) = take_streamable_sentences(&mut buf, parts.is_empty()) {
+                parts.push(part);
+            }
+        }
+        parts.extend((!buf.trim().is_empty()).then(|| buf.trim().to_string()));
+        parts
+    }
+
+    #[test]
+    fn take_streamable_sentences_cuts_only_the_first_part_at_a_clause_when_streamed() {
+        let parts = stream_parts("The weather in Nairobi today is sunny and warm, with a high of 27 degrees and a light breeze, a chance of rain after six in the evening, and cooler air overnight, so take a jacket.");
+        assert_eq!(parts, vec![
+            "The weather in Nairobi today is sunny and warm,",
+            "with a high of 27 degrees and a light breeze, a chance of rain after six in the evening, and cooler air overnight, so take a jacket.",
+        ]);
+        // Numbers and times are never cut inside.
+        let parts = stream_parts("The total for your trip comes to about 1,000 dollars and the bus leaves at 3:30 pm on Friday, so plan ahead.");
+        assert_eq!(parts[0], "The total for your trip comes to about 1,000 dollars and the bus leaves at 3:30 pm on Friday,");
     }
 }

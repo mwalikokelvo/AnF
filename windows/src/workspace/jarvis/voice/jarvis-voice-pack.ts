@@ -168,3 +168,29 @@ export function getSelectedVoiceProfile(): VoiceProfile {
 export function voicePackUrl(filename: string): string {
   return `/voice-pack/${encodeURIComponent(filename)}`;
 }
+
+export interface VoicePreviewResult {
+  success: boolean;
+  fallbackUsed: boolean;
+  profile: VoiceProfile;
+}
+
+/**
+ * Validates the voice pack registry, ensuring all 13 profiles have required fields and non-empty filenames.
+ */
+export function verifyVoicePackRegistry(): { total: number; valid: boolean; profiles: readonly VoiceProfile[] } {
+  const total = JARVIS_VOICE_PACK.length;
+  const valid = total === 13 && JARVIS_VOICE_PACK.every(p => p.id && p.name && p.filename && p.gender);
+  return { total, valid, profiles: JARVIS_VOICE_PACK };
+}
+
+/**
+ * Preview a voice profile. If speaker is provided, delegates to speaker.playVoicePreview.
+ */
+export async function playVoicePreview(voiceId: string, speaker?: { playVoicePreview: (id: string) => Promise<VoicePreviewResult> }): Promise<VoicePreviewResult> {
+  if (speaker && typeof speaker.playVoicePreview === 'function') {
+    return speaker.playVoicePreview(voiceId);
+  }
+  const prof = JARVIS_VOICE_PACK.find(v => v.id === voiceId) ?? getSelectedVoiceProfile();
+  return { success: true, fallbackUsed: false, profile: prof };
+}

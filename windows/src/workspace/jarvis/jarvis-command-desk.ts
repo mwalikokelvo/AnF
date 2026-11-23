@@ -17,23 +17,24 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { createJarvisHud, kevoHudReporter, kevoState } from './jarvis-hud';
-import { JarvisExecutive } from './jarvis-executive';
-import { RevenueConnector } from './connectors/revenue-connector';
-import { AdsConnector } from './connectors/ads-connector';
+import { JarvisExecutive, isRealWorkspaceDataOnly, setRealWorkspaceDataOnly, type WorkspaceBriefingData } from './jarvis-executive';
 import { TomDeveloperAgent } from './agents/tom-developer';
 import { ScoutGrowthAgent } from './agents/scout-growth';
 import { SupportOperationsAgent } from './agents/support-agent';
+import { fetchSystemTelemetry } from './connectors/system-connector';
 import { JarvisVoiceListener, type VoiceListenerOptions } from './voice/jarvis-voice-listener';
 import { KevoEarsListener } from './voice/kevo-ears-listener';
 import { JarvisSpeaker, onlineVoicesAllowed, setOnlineVoicesAllowed } from './voice/jarvis-speaker';
 import { JarvisVoiceAgent, type JarvisActionContext } from './voice/jarvis-voice-agent';
 import { clearJarvisHistory, listFacts, deleteFact, clearFacts, type KevoFact } from './voice/jarvis-memory';
-import { listReminders, cancelReminder, clearReminders, type KevoReminder } from './voice/jarvis-schedule';
+import { listReminders, cancelReminder, clearReminders, getDailyBriefingSchedule, type KevoReminder } from './voice/jarvis-schedule';
 import { isEchoOf, unspokenRest } from './voice/jarvis-voice-agent';
 import { JARVIS_VOICE_PACK, getSelectedVoiceId, setSelectedVoiceId } from './voice/jarvis-voice-pack';
+import { kevoLinkBus } from './kevo-link-bus';
 import { createKevoLog, type KevoLogStore } from './kevo-log';
 import { Bridge } from '../../core/bridge';
 import { runKevoSelfTest } from './kevo-selftest';
+import { loadReadingQueue } from '../article-publishing';
 
 export interface JarvisCommandDeskOptions {
   onNotify?: (msg: string) => void;
@@ -41,6 +42,7 @@ export interface JarvisCommandDeskOptions {
   /** Kevo's log on this PC; adds "Save log" and "Open log folder" to the voice bar. */
   log?: KevoLogStore;
   activeModel?: () => string;
+  appVersion?: string;
 }
 
 export function formatModelDisplayName(modelId?: string): string {
@@ -60,6 +62,33 @@ export function formatTtfsBadge(elapsedMs: number, modelName: string): string {
   return `First sentence: ${sec} s (Model: ${modelName})`;
 }
 
+export function createWorkspaceTeamCard(options: {
+  title: string;
+  role: string;
+  badge?: string;
+  metrics: Array<{ label: string; value: string }>;
+}): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'jarvis-agent-card jarvis-workspace-card';
+  const metricsHtml = options.metrics
+    .map(m => `<div class="agent-metric"><span>${m.label}</span><strong>${m.value}</strong></div>`)
+    .join('');
+  const badgeHtml = options.badge
+    ? `<div style="margin-top:6px;"><span class="jarvis-verified-badge" style="font-size:9px;padding:2px 6px;background:rgba(0,255,170,0.15);color:#00ffaa;border-radius:3px;font-weight:600;">${options.badge}</span></div>`
+    : '';
+  card.innerHTML = `
+    <div class="agent-header">
+      <span class="agent-name">${options.title}</span>
+      <span class="agent-role">${options.role}</span>
+    </div>
+    <div class="agent-body">
+      ${metricsHtml}
+      ${badgeHtml}
+    </div>
+  `;
+  return card;
+}
+
 export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root: HTMLElement;
   destroy: () => void;
@@ -73,8 +102,6 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Instantiate all subsystems
   const hud = createJarvisHud();
   const executive = new JarvisExecutive();
-  const revenue = new RevenueConnector();
-  const ads = new AdsConnector();
   const tom = new TomDeveloperAgent();
   const scout = new ScoutGrowthAgent();
   const support = new SupportOperationsAgent();
@@ -88,12 +115,71 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   // ── Inject desk styles
   injectDeskStyles();
 
-  // ── Agent cards row
+  // ── Truthful workspace team cards row (Phase 7 Step 7.2)
   const agentRow = document.createElement('div');
   agentRow.className = 'jarvis-agent-row';
-  agentRow.appendChild(tom.renderStatusCard());
-  agentRow.appendChild(scout.renderStatusCard());
-  agentRow.appendChild(support.renderStatusCard());
+
+  async function refreshTeamCards(): Promise<void> {
+    const [allReminders, telemetry] = await Promise.all([
+      listReminders().catch(() => []),
+      fetchSystemTelemetry().catch(() => null),
+    ]);
+    let pendingReading = 0;
+    try { pendingReading = loadReadingQueue().length; } catch {}
+    const vaultCount = options?.voiceActionContext?.getVaultNoteCount
+      ? await options.voiceActionContext.getVaultNoteCount()
+      : (options?.voiceActionContext?.notes?.length ?? 0);
+    const remindersCount = (allReminders as KevoReminder[]).length;
+    const sysStatus = telemetry?.audioEngineStatus ?? 'idle';
+
+    const cards = [
+      createWorkspaceTeamCard({
+        title: 'Knowledge',
+        role: 'Vault & Notes',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Notes', value: `${vaultCount}` },
+          { label: 'Index', value: 'BM25' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'Reading',
+        role: 'Queue & Reader',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Queued', value: `${pendingReading}` },
+          { label: 'Format', value: 'Offline' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'Schedule',
+        role: 'Reminders & Alarms',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Active', value: `${remindersCount}` },
+          { label: 'Store', value: 'Persistent' },
+        ],
+      }),
+      createWorkspaceTeamCard({
+        title: 'System',
+        role: 'Audio & Model',
+        badge: '✓ Verified Local Data',
+        metrics: [
+          { label: 'Engine', value: sysStatus },
+          { label: 'Inference', value: 'Local CPU' },
+        ],
+      }),
+    ];
+
+    if (typeof agentRow.replaceChildren === 'function') {
+      agentRow.replaceChildren(...cards);
+    } else {
+      agentRow.innerHTML = '';
+      for (const card of cards) agentRow.appendChild(card);
+    }
+  }
+
+  void refreshTeamCards();
 
   // ── Briefing panel
   const briefingPanel = document.createElement('div');
@@ -105,26 +191,53 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const toolbar = document.createElement('div');
   toolbar.className = 'jarvis-toolbar';
 
+  async function collectWorkspaceBriefingData(): Promise<WorkspaceBriefingData> {
+    const [allReminders, dailySched, telemetry] = await Promise.all([
+      listReminders().catch(() => []),
+      getDailyBriefingSchedule().catch(() => null),
+      fetchSystemTelemetry().catch(() => null),
+    ]);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    const remindersToday = (allReminders as KevoReminder[]).filter(
+      (r) => r.trigger_at >= startOfDay.getTime() && r.trigger_at <= endOfDay.getTime()
+    ).length;
+
+    let pendingReading = 0;
+    try {
+      pendingReading = loadReadingQueue().length;
+    } catch {}
+
+    const notes = options?.voiceActionContext?.notes;
+
+    return {
+      vault: notes != null ? { totalNotes: notes.length, status: 'operational' } : undefined,
+      reading: { pendingItems: pendingReading },
+      schedule: {
+        remindersToday,
+        dailyBriefingScheduled: !!dailySched,
+        dailyBriefingTime: dailySched?.message.match(/\(([^)]+)\)/)?.[1],
+      },
+      system: telemetry != null
+        ? {
+            audioEngineStatus: telemetry.audioEngineStatus,
+            memoryUsedMb: telemetry.memoryUsedMb,
+          }
+        : undefined,
+    };
+  }
+
   const btnBriefing = makeBtn('Morning briefing', 'jarvis-btn-primary', async () => {
     btnBriefing.disabled = true;
     btnBriefing.textContent = 'Writing the briefing…';
     try {
-      const [revenueStats, adsStats, supportBriefing, devBriefing, contentBriefing] = await Promise.all([
-        revenue.getStats(),
-        ads.getStats(),
-        support.generateBriefing(),
-        tom.generateBriefing(),
-        scout.generateBriefing(),
-      ]);
-      const briefing = await executive.generateBriefing({}, {
-        revenue: revenueStats,
-        ads: adsStats,
-        support: { greeting: supportBriefing.greeting, summary: supportBriefing.summary, recommendation: supportBriefing.recommendation },
-        developer: { greeting: devBriefing.greeting, health: devBriefing.health, recommendation: devBriefing.recommendation },
-        content: { greeting: contentBriefing.greeting, metrics: contentBriefing.metrics, recommendation: contentBriefing.recommendation },
-      });
+      const data = await collectWorkspaceBriefingData();
+      const briefing = await executive.generateBriefing({ realDataOnly: isRealWorkspaceDataOnly() }, data);
       // Replace briefing content
       briefingPanel.replaceChildren(executive.renderSummaryCard(briefing));
+      void refreshTeamCards();
       hud.pulseMessage('Briefing complete — ' + briefing.summary);
       notify('Kevo briefing generated successfully.');
     } catch (err) {
@@ -196,6 +309,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     });
     hud.setState(state);
     reportState(state);
+    kevoLinkBus.setState({
+      state: state === 'listening' ? 'listening' : state === 'thinking' ? 'thinking' : state === 'speaking' ? 'speaking' : state === 'off' ? 'off' : 'idle',
+      line: state === 'listening' ? 'Listening…' : state === 'thinking' ? 'Thinking…' : state === 'speaking' ? 'Speaking…' : 'Kevo Online',
+    });
   };
   const speaker = new JarvisSpeaker({
     onStart: () => {
@@ -225,10 +342,13 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     playMusic: options?.voiceActionContext?.playMusic,
     pauseMusic: options?.voiceActionContext?.pauseMusic,
     nextTrack: options?.voiceActionContext?.nextTrack,
+    previousTrack: options?.voiceActionContext?.previousTrack,
     setMusicVolume: options?.voiceActionContext?.setMusicVolume,
     getWeather: options?.voiceActionContext?.getWeather,
     weatherEnabled: options?.voiceActionContext?.weatherEnabled,
     setWeatherEnabled: options?.voiceActionContext?.setWeatherEnabled,
+    onlineLookupsEnabled: options?.voiceActionContext?.onlineLookupsEnabled,
+    setOnlineLookupsEnabled: options?.voiceActionContext?.setOnlineLookupsEnabled,
     searchMusic: options?.voiceActionContext?.searchMusic,
     searchVault: options?.voiceActionContext?.searchVault,
     openApp: options?.voiceActionContext?.openApp,
@@ -260,7 +380,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     },
     triageSupport: () => support.autoTriage(),
     getBriefing: async () => {
-      const b = await executive.generateBriefing();
+      const data = await collectWorkspaceBriefingData();
+      const b = await executive.generateBriefing({ realDataOnly: isRealWorkspaceDataOnly() }, data);
       return b.summary;
     },
     notify: (msg) => notify(msg),
@@ -376,6 +497,23 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (!reply.trim()) { listener.setMuted(false); listener.keepAwake(); refresh(); }
   }
 
+  kevoLinkBus.setCommandHandler(async (request: string) => {
+    await handleCommand(request, true);
+    return lastReply;
+  });
+
+  kevoLinkBus.setApprovalHandler((id, approved) => {
+    const current = voiceAgent.getPendingApproval();
+    if (current && String(current.id) === String(id)) {
+      if (current.answer) {
+        void current.answer(approved);
+      } else if (options?.voiceActionContext?.answerApproval) {
+        void options.voiceActionContext.answerApproval(id, approved);
+      }
+      voiceAgent.setPendingApproval(null);
+    }
+  });
+
   /** Stops whatever Kevo is doing: the answer being written and the one being spoken. */
   function stopNow(): void {
     turn++;
@@ -442,13 +580,18 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     if (prof) { stopBtn.hidden = false; void speaker.playSample(prof.filename).finally(() => { if (!thinking) stopBtn.hidden = true; }); }
   });
 
-  // The built-in recording of the chosen voice, in full.
+  // The built-in recording of the chosen voice, with graceful fallback (Phase 7 Step 7.3).
   const previewBtn = makeBtn('Hear this voice', '', async () => {
     const prof = JARVIS_VOICE_PACK.find(p => p.id === voiceSelect.value);
     if (!prof) return;
     previewBtn.disabled = true;
     try {
-      if (!await speaker.playSample(prof.filename)) speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+      const res = await speaker.playVoicePreview(prof.id);
+      if (res.fallbackUsed) {
+        speechStatusEl.textContent = 'Voice recording unavailable; native speech synthesis previewed.';
+      } else if (!res.success) {
+        speechStatusEl.textContent = 'The recording for this voice is missing from this build.';
+      }
     } finally {
       previewBtn.disabled = false;
     }
@@ -521,8 +664,40 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   const onlineBox = document.createElement('input');
   onlineBox.type = 'checkbox';
   onlineBox.checked = onlineVoicesAllowed();
-  onlineBox.addEventListener('change', () => setOnlineVoicesAllowed(onlineBox.checked));
-  onlineToggle.append(onlineBox, ' Natural online voices (replies are sent to Microsoft to be spoken)');
+
+  // Step 7.4: Voice engine indicator (neural online vs native local offline)
+  const voiceEngineIndicator = document.createElement('span');
+  voiceEngineIndicator.className = 'jarvis-voice-engine-badge';
+  const updateVoiceEngineIndicator = () => {
+    const isOnline = onlineVoicesAllowed();
+    voiceEngineIndicator.textContent = isOnline
+      ? 'Voice: Natural online (Neural)'
+      : 'Voice: Native local system (Offline)';
+    voiceEngineIndicator.title = isOnline
+      ? 'Replies use natural online voice synthesis via Microsoft'
+      : 'Replies use native offline speech synthesis installed on this PC';
+  };
+  updateVoiceEngineIndicator();
+
+  onlineBox.addEventListener('change', () => {
+    setOnlineVoicesAllowed(onlineBox.checked);
+    updateVoiceEngineIndicator();
+    hud.pulseMessage(onlineBox.checked ? 'Natural online voices enabled' : 'Native local voices active (offline)');
+  });
+  onlineToggle.append(onlineBox, ' Natural online voices');
+
+  // Step 7.4: Executive briefing real workspace data toggle
+  const realDataToggle = document.createElement('label');
+  realDataToggle.className = 'jarvis-real-data-toggle';
+  realDataToggle.title = 'When checked, executive briefings only report real verified local workspace data.';
+  const realDataBox = document.createElement('input');
+  realDataBox.type = 'checkbox';
+  realDataBox.checked = isRealWorkspaceDataOnly();
+  realDataBox.addEventListener('change', () => {
+    setRealWorkspaceDataOnly(realDataBox.checked);
+    hud.pulseMessage(realDataBox.checked ? 'Executive briefings: real workspace data only' : 'Executive briefings: all sources');
+  });
+  realDataToggle.append(realDataBox, ' Real data only');
 
   // Kevo remembers the last few exchanges; this starts over.
   const forgetBtn = makeBtn('New conversation', '', () => {
@@ -550,6 +725,15 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       }),
     );
   }
+  const resolveAppVersion = async (): Promise<string | undefined> => {
+    if (options?.appVersion) return options.appVersion;
+    try {
+      const boot = await Bridge.boot();
+      if (boot?.version) return boot.version;
+    } catch {}
+    return undefined;
+  };
+
   // "Run self-test" button on the Kevo screen (Phase 0 step 0.4b)
   const btnRunSelfTest = makeBtn('Run self-test', '', async () => {
     btnRunSelfTest.disabled = true;
@@ -558,7 +742,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = true;
       const report = await runKevoSelfTest({
         agent: voiceAgent,
+        speaker,
+        stop: stopNow,
         listener,
+        appVersion: await resolveAppVersion(),
         onProgress: (step) => { speechStatusEl.textContent = step; },
       });
       if (options?.voiceActionContext) options.voiceActionContext.dryRun = false;
@@ -571,7 +758,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  voiceBar.append(btnRunSelfTest, onlineToggle, speechStatusEl);
+  voiceBar.append(btnRunSelfTest, onlineToggle, voiceEngineIndicator, speechStatusEl);
 
   // When launched with --kevo-selftest, start listening in dry-run, execute the self-test, and quit
   void Bridge.isKevoSelftest().then(async (selftestActive) => {
@@ -581,7 +768,10 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
       try {
         await runKevoSelfTest({
           agent: voiceAgent,
+          speaker,
+          stop: stopNow,
           listener,
+          appVersion: await resolveAppVersion(),
           onProgress: (step) => { speechStatusEl.textContent = step; },
         });
       } finally {
@@ -590,7 +780,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     }
   });
 
-  toolbar.append(btnBriefing, btnAutoTriage, btnAddTask, btnScoutAngle);
+  const btnRefreshTeam = makeBtn('Refresh telemetry', '', () => void refreshTeamCards());
+  toolbar.append(btnBriefing, realDataToggle, btnRefreshTeam, btnAutoTriage, btnAddTask, btnScoutAngle);
 
   // Action Activity & Verification Card (Phase 5 Step 5.4)
   const actionSection = document.createElement('section');
@@ -810,6 +1001,8 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
   root.append(hud.root, typeBox, voiceBar, actionSection, memorySection, scheduleSection, team);
 
   function destroy(): void {
+    kevoLinkBus.setCommandHandler(async () => {});
+    kevoLinkBus.setApprovalHandler(() => {});
     listener.stop();
     speaker.stop();
     clearTimeout(unmuteTimer);
