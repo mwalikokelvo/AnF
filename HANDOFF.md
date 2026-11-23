@@ -6,6 +6,28 @@ Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file 
 
 Last updated: 2026-11-23 by Antigravity (Deep Layer Extractions & ThingsBook Reader Suites in AnF).
 
+## 2026-11-23 — 100% Exhaustion of All 10 Reference Repositories & Reader Engines (Antigravity on agy/ten-repos-integration)
+
+Completed total, exhaustive extraction across all 10 target repositories (OpenMAIC, Magnitude, VoiceStudio, Paperclip, God's Eye View, Research Skills, Academic Research Skills, MiniMind, Invidious, OpenClaude) and complete cross-porting of ThingsBook's multi-format book reading pipeline into AnF:
+1. **Frontiers 1 to 10 Fully Implemented Across AnF & ThingsBook**:
+   - **Frontier 1 (Magnitude)**: `hardware-benchmarker.ts` / `.js` micro-second synthetic GEMM and memory bandwidth calibration probe.
+   - **Frontier 2 (VoiceStudio)**: `audio-ducker.ts` / `.js` side-chain audio ducking (-12 dB) with smooth attack/release and tanh limiter.
+   - **Frontier 3 (Paperclip)**: `goal-drift-detector.ts` / `.js` vector cosine similarity drift tracking against root goal with safety gate.
+   - **Frontier 4 (God's Eye View)**: `solar-terminator.ts` / `.js` astronomical solar declination, subsolar point, and twilight terminator line.
+   - **Frontier 5 (MiniMind)**: `rope-kernels.ts` / `.js` pure Float32Array RMSNorm, 2D Givens Rotary Positional Embeddings (RoPE), and scaled dot-product attention with softmax.
+   - **Frontier 6 (Invidious)**: `sponsorblock.ts` / `.js` promotional/intro/outro interval merging and playback jump calculations.
+   - **Frontier 7 (OpenClaude)**: `prompt-cache-optimizer.ts` / `.js` automated `ephemeral` cache breakpoint insertion for prompt cost reduction.
+   - **Frontier 8 (OpenMAIC)**: `blackboard-director.ts` / `.js` synchronized SVG chalkboard diagram rendering timed to speech dialogue.
+   - **Frontier 9 (Academic Research)**: `hedging-calibrator.ts` / `.js` epistemic humility and de-jargonizing auditor.
+   - **Frontier 10 (Research Skills)**: `citation-snowball.ts` / `.js` bidirectional literature snowballing and Mermaid citation tree builder.
+2. **Cross-Ported ThingsBook Multi-Format Book Reader Engines into AnF**:
+   - Added `windows/src/workspace/reader/formats/book-formats.ts` supporting CBZ (comic book ZIP with ComicInfo.xml), FB2 (FictionBook2 XML), MOBI/Kindle, DOCX, ODT, RTF (Windows-1252/Unicode), and WebDoc archives.
+   - Added `windows/src/workspace/reader/formats/fsrs-scheduler.ts` (Free Spaced Repetition Scheduler FSRS-4.5) for book highlights and review cards.
+   - Updated `shared/domain/library-data.ts` format detection for all 8 book formats.
+3. **Verification**:
+   - ThingsBook: **35 passed**, 0 failed (`work/run-tests.cjs`).
+   - AnF: **32 passed**, 0 failed (`windows/tests/*.test.ts`).
+
 ## 2026-11-23 — Deep Layer Extractions & Unified Reader Suites (Antigravity on agy/ten-repos-integration)
 
 Extended integration beyond surface features to deep architectural primitives, bringing all ThingsBook reader, narration, and research suites into AnF:
