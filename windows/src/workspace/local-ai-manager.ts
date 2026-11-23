@@ -190,6 +190,73 @@ const resolveProfileId = (id?: string): string => {
 };
 
 /**
+ * MiniMind edge heuristic: Zero-RAM, deterministic categorization & keyword extraction.
+ */
+export function heuristicClassify(
+  text: string,
+  categories: string[]
+): { category: string; confidence: number; keywords: string[] } {
+  if (!text || !categories.length) {
+    return { category: categories[0] || 'Uncategorized', confidence: 0, keywords: [] };
+  }
+  const words = text.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
+  const wordFreq = new Map<string, number>();
+  for (const w of words) wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+
+  let bestCat = categories[0];
+  let bestScore = -1;
+  const matchedKeywords: string[] = [];
+
+  for (const cat of categories) {
+    const catWords = cat.toLowerCase().split(/[\s/_-]+/);
+    let score = 0;
+    for (const cw of catWords) {
+      if (wordFreq.has(cw)) {
+        score += (wordFreq.get(cw) || 0) * 2;
+        if (!matchedKeywords.includes(cw)) matchedKeywords.push(cw);
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestCat = cat;
+    }
+  }
+
+  const confidence = words.length > 0 ? Math.min(1.0, Math.max(0.1, bestScore / (words.length * 0.1 || 1))) : 0;
+  return { category: bestCat, confidence, keywords: matchedKeywords };
+}
+
+/**
+ * MiniMind edge heuristic: Zero-RAM extractive summarization.
+ */
+export function heuristicSummarize(text: string, maxSentences: number = 3): string {
+  if (!text) return '';
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  if (sentences.length <= maxSentences) return text.trim();
+
+  const words = text.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
+  const freq = new Map<string, number>();
+  for (const w of words) freq.set(w, (freq.get(w) || 0) + 1);
+
+  const STOP_WORDS = new Set(['this', 'that', 'with', 'from', 'have', 'were', 'which', 'their', 'there', 'about', 'would', 'could', 'should', 'these', 'those']);
+
+  const scored = sentences.map((s, idx) => {
+    const sWords = s.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
+    let score = 0;
+    for (const w of sWords) {
+      if (!STOP_WORDS.has(w)) score += freq.get(w) || 0;
+    }
+    // Lead bias: earlier sentences in documents carry higher salience
+    const positionWeight = 1.0 + (1.0 / (idx + 1));
+    return { sentence: s.trim(), score: score * positionWeight, idx };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, maxSentences).sort((a, b) => a.idx - b.idx);
+  return top.map(t => t.sentence).join(' ');
+}
+
+/**
  * Factory creating LocalAiManager instance
  */
 export function createLocalAiManager(options?: {

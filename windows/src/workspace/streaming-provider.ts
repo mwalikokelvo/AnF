@@ -79,8 +79,37 @@ export function isYouTubeUrl(input: string): boolean {
   return !!u && (YOUTUBE_HOST.test(u.hostname) || /^youtu\.be$/i.test(u.hostname));
 }
 
-function parseWebUrl(input: string): URL | null {
+const TRACKING_QUERY_PARAMS = new Set([
+  'si', 'feature', 'fbclid', 'gclid', 'igshid', 'mc_cid', 'mc_eid',
+  'ref', 'source', 'spm', 'spm_id', 'yclid', '_hsenc', '_hsmi'
+]);
+
+/**
+ * Invidious privacy filter: Strip tracking, telemetry, and affiliate query params.
+ */
+export function stripTrackingParams(input: string): string {
+  if (!input || typeof input !== 'string') return '';
   const raw = input.trim();
+  try {
+    const isFullUrl = /^[a-z][a-z0-9+.-]*:/i.test(raw);
+    const u = new URL(isFullUrl ? raw : 'https://' + raw);
+    const keys = Array.from(u.searchParams.keys());
+    let modified = false;
+    for (const key of keys) {
+      if (TRACKING_QUERY_PARAMS.has(key.toLowerCase()) || key.toLowerCase().startsWith('utm_')) {
+        u.searchParams.delete(key);
+        modified = true;
+      }
+    }
+    if (!modified) return raw;
+    return isFullUrl ? u.toString() : u.toString().replace(/^https?:\/\//, '');
+  } catch {
+    return raw;
+  }
+}
+
+function parseWebUrl(input: string): URL | null {
+  const raw = stripTrackingParams(input);
   if (!raw) return null;
   try { return new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw); } catch { return null; }
 }
