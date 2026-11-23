@@ -353,9 +353,29 @@ const jarvisActionContext: JarvisActionContext = {
     clearReminders:async()=>clearReminders(),
     getBriefing:async()=>{
       const {JarvisExecutive}=await import('./jarvis/jarvis-executive');
+      const {loadReadingQueue}=await import('./article-publishing');
+      const {fetchSystemTelemetry}=await import('./jarvis/connectors/system-connector');
+      const allReminders=await listReminders().catch(()=>[]);
+      const startOfDay=new Date();startOfDay.setHours(0,0,0,0);
+      const endOfDay=new Date();endOfDay.setHours(23,59,59,999);
+      const remindersToday=allReminders.filter((r:KevoReminder)=>r.trigger_at>=startOfDay.getTime()&&r.trigger_at<=endOfDay.getTime()).length;
+      const dailySched=await getDailyBriefingSchedule().catch(()=>null);
+      let pendingReading=0;
+      try{pendingReading=loadReadingQueue().length;}catch{}
+      const projectList=await invoke<Entry[]>('workspace_list_projects',{query:''}).catch(()=>[]);
+      const telemetry=await fetchSystemTelemetry().catch(()=>null);
       const exec=new JarvisExecutive();
-      const b=await exec.generateBriefing({voiceEnabled:false});
+      const b=await exec.generateBriefing({voiceEnabled:false},{
+        vault:{totalNotes:projectList.length,status:'operational'},
+        reading:{pendingItems:pendingReading},
+        schedule:{remindersToday,dailyBriefingScheduled:!!dailySched,dailyBriefingTime:dailySched?.message.match(/\(([^)]+)\)/)?.[1]},
+        system:{audioEngineStatus:telemetry?.audioEngineStatus??'idle',memoryUsedMb:telemetry?.memoryUsedMb}
+      });
       return `${b.greeting} ${b.summary}`;
+    },
+    getVaultNoteCount:async()=>{
+      const list=await invoke<Entry[]>('workspace_list_projects',{query:''}).catch(()=>[]);
+      return list.length;
     },
     scheduleDailyBriefing:async(timeStr:string)=>scheduleDailyBriefing(timeStr),
     getDailyBriefingSchedule:async()=>getDailyBriefingSchedule(),

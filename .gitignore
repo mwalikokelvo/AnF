@@ -19,6 +19,7 @@ DerivedData/
 .claude/*
 !.claude/agents/
 !.claude/settings.json
+!.claude/skills/
 _prive/
 
 # Local release artifacts and build tools

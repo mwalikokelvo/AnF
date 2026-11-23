@@ -410,7 +410,9 @@ mod tests {
     }
     #[test]
     fn ocr_port_check_reports_offline_on_unused_port() {
-        assert!(!is_port_open(59997));
+        // A port the OS just handed out and released, not a fixed one another process on the runner may hold.
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        assert!(!is_port_open(port));
     }
     #[test]
     fn ocr_backend_only_accepts_the_fixed_exe() {

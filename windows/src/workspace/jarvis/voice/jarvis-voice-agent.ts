@@ -22,6 +22,7 @@ import {
   getDailyBriefingSchedule,
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
+import { kevoLinkBus } from '../kevo-link-bus';
 
 export type JarvisAskAiResult =
   | string
@@ -412,6 +413,11 @@ export class JarvisVoiceAgent {
 
   setPendingApproval(approval: PendingApproval | null): void {
     this.currentApproval = approval;
+    kevoLinkBus.setPendingApproval(approval ? {
+      id: String(approval.id),
+      action: approval.action,
+      summary: approval.summary,
+    } : null);
   }
 
   getPendingApproval(): PendingApproval | null {
