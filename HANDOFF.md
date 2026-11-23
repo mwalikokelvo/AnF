@@ -4,7 +4,36 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-23 by Antigravity (Deep Layer Extractions & ThingsBook Reader Suites in AnF).
+Last updated: 2026-11-23 by Antigravity (Overnight Intelligence & Security Extractions in AnF).
+
+## 2026-11-23 — Overnight Security & Systems Intelligence Extractions (Antigravity on agy/overnight-intelligence-security)
+
+Extracted and verified critical capabilities across requested security repositories and ecosystem frameworks (`claude-code-security-review`, `gitleaks`, `semgrep`, `trivy`, `mcp-scanner`, `security-audit-skill`, `AntennaPod`, `Spotube`, `ViMusic`, `kimi-k3-in-c`, `localsend`):
+1. **Gitleaks-Grade Secret Scanner & Shannon Entropy Detector (`secret-scanner.ts` / `security-suite.js`)**:
+   - High-precision regex detection for Anthropic API keys, OpenAI keys, GitHub tokens, Google AI keys, AWS credentials, and Private Keys.
+   - Shannon entropy calculations (>4.6 threshold) detecting raw high-entropy tokens.
+   - Universal `redactSecrets()` sanitizer protecting vaults, logs, and agent contexts from secret leakage.
+2. **Desktop AST & Code Security Auditor (`code-security-auditor.ts` / `security-suite.js`)**:
+   - Semgrep-style pattern auditor for Tauri/Electron/Webview environments detecting dynamic `innerHTML` XSS, dangerous `eval()`, command injection in child processes, directory traversal escapes, and plaintext token storage.
+3. **Cloudflare Security Audit-Grade CSP & Origin Auditor (`csp-origin-auditor.ts` / `security-suite.js`)**:
+   - Validates webview Content Security Policies, flags `'unsafe-eval'`, `'unsafe-inline'`, and wildcard `'*'` hosts in `connect-src` and `script-src`.
+4. **Trivy-Grade Dependency Vulnerability & SBOM Auditor (`dependency-auditor.ts` / `security-suite.js`)**:
+   - Scans package manifests for known CVEs and malicious packages (e.g. `event-stream`, `node-serialize`), generating structured SBOMs with license classification.
+5. **Cisco AI Defense MCP Security Scanner (`mcp-security-scanner.ts` / `mcp-guard.js`)**:
+   - Scans Model Context Protocol tool definitions for prompt injection, zero-width character evasion, read-only masquerading with destructive parameters, and SSRF private IP risks.
+6. **Claude Code Security Review Agent Tool Guard (`agent-tool-guard.ts` / `mcp-guard.js`)**:
+   - Enforces strict filesystem workspace root boundaries, blocks dangerous shell command patterns (`rm -rf /`, encoded powershell), and redacts tool outputs before context ingestion.
+7. **AntennaPod Podcast RSS & OPML Subscription Manager (`podcast-rss-feed.ts` / `media-engines.js`)**:
+   - Full RSS 2.0 XML podcast enclosure parsing with Podlove chapter extraction and standard OPML 2.0 export/import.
+8. **Spotube & ViMusic Chunked Audio Stream Buffer (`audio-stream-cache.ts` / `media-engines.js`)**:
+   - Sliding-window chunked byte-range cache with LRU eviction and memory budget bounds.
+9. **Kimi K3 / llama.cpp TypedArray Quantized Tensor Engine (`quantized-tensor.ts` / `quantized-tensor.js`)**:
+   - Pure Float32Array/Int8Array Q4_0 and Q8_0 block quantization, vector dot products (`vecDotQ4_0_Q8_0`), half-precision fp16 conversion, SwiGLU, and numerically stable Softmax.
+10. **LocalSend Peer-to-Peer Transfer Protocol (`localsend-protocol.ts` / `localsend-protocol.js`)**:
+    - Multicast UDP discovery beacon format, binary chunk framing (`0x4C534E44`), and transfer request safety evaluation.
+11. **Verification**:
+    - AnF: **1072 passed**, 0 failed (`windows/scripts/test.mjs`).
+    - ThingsBook: **40 passed**, 0 failed, 47 skipped (`work/run-tests.cjs`).
 
 ## 2026-11-23 — 100% Exhaustion of All 10 Reference Repositories & Reader Engines (Antigravity on agy/ten-repos-integration)
 
