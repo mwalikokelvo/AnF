@@ -4,9 +4,23 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-23 by Antigravity (Overnight Intelligence & Security Extractions in AnF).
+Last updated: 2026-11-23 by Antigravity (Bi-Weekly Systems Intelligence & Security Runbook on agy/biweekly-2026-11-23).
 
-## 2026-11-23 — Overnight Security & Systems Intelligence Extractions (Antigravity on agy/overnight-intelligence-security)
+## 2026-11-23 — Bi-Weekly Systems Intelligence & Security Runbook (Antigravity on agy/biweekly-2026-11-23)
+
+Executed the full Bi-Weekly Systems Intelligence & Security Runbook (`docs/BIWEEKLY-INTELLIGENCE-RUNBOOK.md`) across AnF and ThingsBook:
+1. **Security & Integrity Verification**:
+   - `windows/scripts/test.mjs security-suite`: 12/12 tests passed (Gitleaks-grade scanner, Semgrep AST code auditor, Cloudflare CSP auditor, Trivy SBOM/CVE auditor).
+   - `windows/scripts/test.mjs mcp-guard`: 9/9 tests passed (Prompt injection & SSRF defense, agent workspace root confinement, tool output redaction).
+2. **Systems Intelligence Capabilities**:
+   - `windows/scripts/test.mjs media-engines`: 7/7 tests passed (AntennaPod RSS/OPML, Spotube/ViMusic LRU chunk cache).
+   - `windows/scripts/test.mjs quantized-tensor`: 8/8 tests passed (Q4_0/Q8_0 dot products, fp16 conversion, SwiGLU, Softmax).
+   - `windows/scripts/test.mjs localsend-protocol`: 10/10 tests passed (LocalSend beacon, chunk framing, transfer security).
+3. **Hardened Voice Hearing Engine**:
+   - Resolved asynchronous event-binding race condition in `KevoEarsListener` (`windows/src/workspace/jarvis/voice/kevo-ears-listener.ts`), preventing orphaned listeners from intercepting events after unbind.
+4. **Full Regression Verification**:
+   - AnF: **1,072 passed**, 0 failed (`windows/scripts/test.mjs`).
+   - ThingsBook: **40 passed**, 0 failed, 47 skipped (`work/run-tests.cjs`).
 
 Extracted and verified critical capabilities across requested security repositories and ecosystem frameworks (`claude-code-security-review`, `gitleaks`, `semgrep`, `trivy`, `mcp-scanner`, `security-audit-skill`, `AntennaPod`, `Spotube`, `ViMusic`, `kimi-k3-in-c`, `localsend`):
 1. **Gitleaks-Grade Secret Scanner & Shannon Entropy Detector (`secret-scanner.ts` / `security-suite.js`)**:
