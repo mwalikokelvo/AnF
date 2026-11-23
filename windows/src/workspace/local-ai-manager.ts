@@ -34,7 +34,7 @@ export interface ModelStatus {
   file: string;
   size: number;
   sha256: string;
-  slot: 'fast' | 'balanced';
+  slot: 'fast' | 'balanced' | 'default';
   state: 'installed' | 'partial' | 'unverified' | 'absent';
   partial_bytes: number;
   downloading: boolean;
@@ -54,7 +54,7 @@ export type ListenFn = (event: string, handler: (payload: DownloadEvent) => void
 export interface LocalAiAnswer {
   text: string;
   /** Offline runtime slot that served the request. */
-  slot: 'fast' | 'balanced';
+  slot: 'fast' | 'balanced' | 'default';
   /** The model file the runtime loads for that slot. */
   modelFile: string;
   /** Human-readable, truthful label for the answering model. */
@@ -96,110 +96,30 @@ export interface LocalAiManager {
 }
 
 const PROFILE_CATALOG: Array<Omit<ModelWeightProfile, 'downloadStatus'>> = [
-  // --- Latest DeepSeek AI Models (Hugging Face) ---
   {
-    id: 'deepseek-v4.1-flash',
-    name: 'DeepSeek V4.1 Flash (1017)',
+    id: 'deepseek-v4-pro-qwen3.5-9b',
+    name: 'DeepSeek V4 Pro (Qwen3.5 9B Uncensored)',
     family: 'deepseek',
-    architecture: 'Engram · Sparse Attention MoE',
+    architecture: 'Qwen3.5 9B Uncensored · MoE/Dense',
     quant: 'Q4_K_M',
-    sizeBytes: 2_450_000_000,
-    sha256: '',
+    sizeBytes: 5_780_092_768,
+    sha256: 'b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65',
     minRamGb: 8,
-    bucketUrl: '',
-    huggingFaceRepo: 'unsloth/DeepSeek-V4.1-Flash-1017-GGUF',
-    description: 'DeepSeek flagship 1017 Flash update with n-gram lookup tables, sparse attention, and hyper-connections for ultra-fast local inference.',
-    recommendedRole: 'fast',
-  },
-  {
-    id: 'deepseek-v3.2-reasoning',
-    name: 'DeepSeek V3.2 Reasoning (DSA)',
-    family: 'deepseek',
-    architecture: 'DeepSeek Sparse Attention · Hybrid MoE',
-    quant: 'Q4_K_M',
-    sizeBytes: 3_200_000_000,
-    sha256: '',
-    minRamGb: 8,
-    bucketUrl: '',
-    huggingFaceRepo: 'unsloth/DeepSeek-V3.2-GGUF',
-    description: 'DeepSeek V3.2 featuring native DeepSeek Sparse Attention (DSA) and hybrid reasoning with thinking traces.',
-    recommendedRole: 'reasoning',
-  },
-  {
-    id: 'deepseek-r1-distill-qwen-1.5b',
-    name: 'DeepSeek R1 Distill 1.5B (Edge)',
-    family: 'deepseek',
-    architecture: 'Dense Reasoning Distillation',
-    quant: 'Q4_K_M',
-    sizeBytes: 980_000_000,
-    sha256: '',
-    minRamGb: 4,
-    bucketUrl: '',
-    huggingFaceRepo: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
-    description: 'Ultra-compact edge reasoning model distilled from DeepSeek-R1, optimized for lower-RAM laptops and mobile devices.',
-    recommendedRole: 'reasoning',
-  },
-
-  // --- Latest Moonshot Kimi Models (Hugging Face) ---
-  {
-    id: 'kimi-k3-thinking',
-    name: 'Kimi K3 Thinking (KDA · MoE)',
-    family: 'kimi',
-    architecture: 'Kimi Delta Attention · LatentMoE',
-    quant: 'Q4_K_M',
-    sizeBytes: 3_950_000_000,
-    sha256: '',
-    minRamGb: 8,
-    bucketUrl: '',
-    huggingFaceRepo: 'unsloth/Kimi-K3-GGUF',
-    description: 'Moonshot AI flagship Kimi-K3 multimodal agentic model with Kimi Delta Attention (KDA) and step-by-step reasoning.',
-    recommendedRole: 'reasoning',
-  },
-  {
-    id: 'kimi-linear-a3b',
-    name: 'Kimi Linear 48B-A3B (Edge Fast)',
-    family: 'kimi',
-    architecture: 'Linear Attention · 3B Active Weights',
-    quant: 'Q4_K_M',
-    sizeBytes: 1_850_000_000,
-    sha256: '',
-    minRamGb: 4,
-    bucketUrl: '',
-    huggingFaceRepo: 'bartowski/moonshotai_Kimi-Linear-48B-A3B-Instruct-GGUF',
-    description: 'High-throughput Moonshot Kimi Linear hybrid model with only 3B active weights for fast CPU inference.',
-    recommendedRole: 'fast',
-  },
-
-  // --- Lightweight Fallbacks ---
-  {
-    id: 'qwen3-0.6b-fast',
-    name: 'Fast · Qwen3 0.6B',
-    family: 'qwen',
-    architecture: 'Dense Transformer',
-    quant: 'Q8_0',
-    sizeBytes: 639_446_688,
-    sha256: '9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031',
-    minRamGb: 2,
-    bucketUrl: 'https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf',
-    huggingFaceRepo: 'Qwen/Qwen3-0.6B-GGUF',
-    description: 'Ultra-lightweight model (Q8_0, about 0.6 GB download) requiring 2 GB RAM. Apache-2.0.',
-    recommendedRole: 'fast',
-  },
-  {
-    id: 'qwen3-1.7b-balanced',
-    name: 'Balanced · Qwen3 1.7B',
-    family: 'qwen',
-    architecture: 'Dense Transformer',
-    quant: 'Q8_0',
-    sizeBytes: 1_834_426_016,
-    sha256: '061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a',
-    minRamGb: 4,
-    bucketUrl: 'https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf',
-    huggingFaceRepo: 'Qwen/Qwen3-1.7B-GGUF',
-    description: 'Balanced model (Q8_0, about 1.8 GB download) requiring 4 GB RAM. Apache-2.0.',
+    bucketUrl: 'https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF/resolve/main/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf',
+    huggingFaceRepo: 'mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF',
+    description: 'Single unified local model: DeepSeek V4 Pro Qwen3.5 9B Uncensored (5.78 GB, Q4_K_M). Verified SHA-256.',
     recommendedRole: 'chat',
   },
 ];
+
+export function validateHuggingFaceUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === 'huggingface.co' || parsed.hostname === 'www.huggingface.co';
+  } catch {
+    return false;
+  }
+}
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
@@ -236,22 +156,6 @@ export function describeInstall(profile: ModelWeightProfile, status: ModelStatus
   }
 }
 
-/** Profiles served from the runtime's fast slot (mirrors local_ai.rs; the request sends the slot name, which the runtime always accepts). */
-const FAST_SLOT_IDS = new Set(['deepseek-v4.1-flash', 'deepseek-r1-distill-qwen-1.5b', 'kimi-linear-a3b', 'qwen3-0.6b-fast']);
-
-/**
- * Validates that download URL is pinned to the trusted Hugging Face endpoint
- */
-export function validateHuggingFaceUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname === 'huggingface.co' || parsed.hostname === 'www.huggingface.co';
-  } catch {
-    return false;
-  }
-}
-
-/** Evaluates raw host hardware metrics and computes the optimal model tier (Phase 6 Step 6.1). */
 export function evaluateHardwareTier(info: {
   totalRamGb: number;
   availableRamGb?: number;
@@ -260,20 +164,6 @@ export function evaluateHardwareTier(info: {
 }): EvaluatedHardwareTier {
   const ram = info.totalRamGb;
   const avx2 = info.avx2Supported ?? true;
-  let recommendedTier: ModelTier = 'fast';
-  let recommendedModelId = 'qwen3-0.6b-fast';
-
-  if (ram >= 15.5 && avx2) {
-    recommendedTier = 'quality';
-    recommendedModelId = 'qwen3-1.7b-balanced';
-  } else if (ram >= 7.5) {
-    recommendedTier = 'balanced';
-    recommendedModelId = 'qwen3-1.7b-balanced';
-  } else {
-    recommendedTier = 'fast';
-    recommendedModelId = 'qwen3-0.6b-fast';
-  }
-
   const cores = info.cpuCores ?? 4;
   const recommendedThreads = Math.max(1, Math.min(cores, 8));
 
@@ -281,20 +171,23 @@ export function evaluateHardwareTier(info: {
     totalRamGb: ram,
     availableRamGb: info.availableRamGb ?? Math.max(1, Math.round(ram * 0.6)),
     cpuCores: cores,
-    recommendedTier,
-    recommendedModelId,
+    recommendedTier: 'quality',
+    recommendedModelId: 'deepseek-v4-pro-qwen3.5-9b',
     recommendedThreads,
     avx2Supported: avx2,
   };
 }
 
 /** Returns the official recommended profile corresponding to a chosen tier. */
-export function getRecommendedProfileForTier(tier: ModelTier): ModelWeightProfile {
-  if (tier === 'quality' || tier === 'balanced') {
-    return OFFICIAL_PROFILES.find(p => p.id === 'qwen3-1.7b-balanced') || OFFICIAL_PROFILES[0];
-  }
-  return OFFICIAL_PROFILES.find(p => p.id === 'qwen3-0.6b-fast') || OFFICIAL_PROFILES[0];
+export function getRecommendedProfileForTier(_tier: ModelTier): ModelWeightProfile {
+  return OFFICIAL_PROFILES[0];
 }
+
+const resolveProfileId = (id?: string): string => {
+  if (!id || id === 'deepseek-v4-pro-qwen3.5-9b') return 'deepseek-v4-pro-qwen3.5-9b';
+  // Map any old alias profile to the new model without error
+  return 'deepseek-v4-pro-qwen3.5-9b';
+};
 
 /**
  * Factory creating LocalAiManager instance
@@ -306,36 +199,31 @@ export function createLocalAiManager(options?: {
   listenFn?: ListenFn;
 }): LocalAiManager {
   const systemRamGb = options?.systemRamGb ?? 16;
-  let activeProfileId = options?.initialProfileId || 'deepseek-v4.1-flash';
+  let activeProfileId = resolveProfileId(options?.initialProfileId);
 
   return {
     listAvailableProfiles(): ModelWeightProfile[] {
       return OFFICIAL_PROFILES;
     },
 
-    getProfilesByFamily(family: 'deepseek' | 'kimi' | 'qwen'): ModelWeightProfile[] {
-      return OFFICIAL_PROFILES.filter(p => p.family === family);
+    getProfilesByFamily(_family: 'deepseek' | 'kimi' | 'qwen'): ModelWeightProfile[] {
+      return OFFICIAL_PROFILES;
     },
 
     getActiveProfile(): ModelWeightProfile {
-      const found = OFFICIAL_PROFILES.find(p => p.id === activeProfileId);
-      return found || OFFICIAL_PROFILES[0];
+      return OFFICIAL_PROFILES.find(p => p.id === activeProfileId) || OFFICIAL_PROFILES[0];
     },
 
     setActiveProfile(profileId: string): void {
-      const exists = OFFICIAL_PROFILES.some(p => p.id === profileId);
-      if (exists) {
-        activeProfileId = profileId;
-      }
+      activeProfileId = resolveProfileId(profileId);
     },
 
     getHardwareTier(): EvaluatedHardwareTier {
       return evaluateHardwareTier({ totalRamGb: systemRamGb });
     },
 
-    selectTier(tier: ModelTier): void {
-      const rec = getRecommendedProfileForTier(tier);
-      activeProfileId = rec.id;
+    selectTier(_tier: ModelTier): void {
+      activeProfileId = OFFICIAL_PROFILES[0].id;
     },
 
     checkSystemMemory() {
@@ -348,10 +236,8 @@ export function createLocalAiManager(options?: {
     },
 
     async downloadWeights(profileId: string, onProgress: (pct: number) => void, onEvent?: (e: DownloadEvent) => void): Promise<void> {
-      const profile = OFFICIAL_PROFILES.find(p => p.id === profileId);
-      if (!profile) {
-        throw new Error(`Unknown model weight profile: ${profileId}`);
-      }
+      const resolved = resolveProfileId(profileId);
+      const profile = OFFICIAL_PROFILES.find(p => p.id === resolved) || OFFICIAL_PROFILES[0];
 
       if (profile.downloadStatus === 'available' && !validateHuggingFaceUrl(profile.bucketUrl)) {
         throw new Error(`Untrusted model download URL: ${profile.bucketUrl}. Only huggingface.co is permitted.`);
@@ -374,7 +260,7 @@ export function createLocalAiManager(options?: {
       // verifies SHA-256 and renames it into place; this promise settles only after that.
       let lastPct = -1;
       const unlisten = await options.listenFn('local-ai-download', e => {
-        if (e.id !== profileId) return;
+        if (e.id !== profile.id && e.id !== profileId) return;
         onEvent?.(e);
         if (e.phase === 'downloading' && e.total > 0) {
           const pct = Math.min(99, Math.floor((e.done / e.total) * 100));
@@ -384,7 +270,7 @@ export function createLocalAiManager(options?: {
         }
       });
       try {
-        await options.invokeFn('local_ai_download', { id: profileId });
+        await options.invokeFn('local_ai_download', { id: profile.id });
       } finally {
         unlisten();
       }
@@ -392,7 +278,7 @@ export function createLocalAiManager(options?: {
 
     async cancelDownload(profileId: string): Promise<boolean> {
       if (!options?.invokeFn) return false;
-      return (await options.invokeFn('local_ai_download_cancel', { id: profileId })) === true;
+      return (await options.invokeFn('local_ai_download_cancel', { id: resolveProfileId(profileId) })) === true;
     },
 
     async getInstallStatus(): Promise<ModelStatus[]> {
@@ -402,30 +288,26 @@ export function createLocalAiManager(options?: {
     },
 
     async chatCompletionWithSource(request: { messages: Array<{ role: string; content: string }> }): Promise<LocalAiAnswer> {
-      const active = this.getActiveProfile();
       if (!options?.invokeFn) {
         throw new Error('The offline model runtime is not connected, so no answer was generated.');
       }
-      const slot: 'fast' | 'balanced' = FAST_SLOT_IDS.has(active.id) ? 'fast' : 'balanced';
+      const active = OFFICIAL_PROFILES[0];
       const res = await options.invokeFn('workspace_ask', {
         query: request.messages.at(-1)?.content || '',
         history: request.messages.slice(0, -1),
-        model: slot,
+        model: active.id,
       });
       const text = (res as { text?: unknown } | null)?.text;
       if (typeof text !== 'string' || !text.trim()) {
         throw new Error('The offline model returned no text.');
       }
-      // A downloaded model whose SHA-256 Rust verified takes the slot, so only then is its real name shown.
       const verified = await this.getInstallStatus()
-        .then(list => list.find(m => m.slot === slot && m.state === 'installed'))
+        .then(list => list.find(m => m.state === 'installed'))
         .catch(() => undefined);
       if (verified) {
-        return { text, slot, modelFile: verified.file, label: `Offline model · ${verified.file} (SHA-256 verified)` };
+        return { text, slot: 'default', modelFile: verified.file, label: `Offline model · ${verified.file} (SHA-256 verified)` };
       }
-      // model-fast.gguf may be absent, in which case the runtime serves the fast slot from model.gguf.
-      const modelFile = slot === 'fast' ? 'model-fast.gguf (or model.gguf if the fast model is not installed)' : 'model.gguf';
-      return { text, slot, modelFile, label: `Offline model · ${modelFile}` };
+      return { text, slot: 'default', modelFile: active.name, label: `Offline model · ${active.name}` };
     },
 
     async chatCompletion(request: { messages: Array<{ role: string; content: string }> }): Promise<string> {

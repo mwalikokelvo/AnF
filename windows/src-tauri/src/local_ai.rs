@@ -15,10 +15,223 @@ struct Running {
     profile: String,
     context: usize,
 }
+/// The offline pack is the engine (and OCR files); the model is downloaded separately, so it is not part of the check.
 fn pack_available(path: &std::path::Path) -> bool {
     path.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }).is_file()
-        && (path.join("model.gguf").is_file() || path.join("model-fast.gguf").is_file() || crate::model_download::any_verified())
 }
+/// A model `Engine::start` can load: the verified download, or a model file in the offline pack.
+pub(crate) fn model_available(path: &std::path::Path) -> bool {
+    path.join("model.gguf").is_file()
+        || path.join("model-fast.gguf").is_file()
+        || path.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+        || path.join("models").join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+        || crate::model_download::any_verified()
+}
+
+/// Dynamically checks whether the host system has at least one Vulkan physical device available.
+pub fn has_vulkan_device() -> bool {
+    #[cfg(windows)]
+    {
+        extern "system" {
+            fn LoadLibraryA(lpLibFileName: *const u8) -> *mut std::ffi::c_void;
+            fn GetProcAddress(hModule: *mut std::ffi::c_void, lpProcName: *const u8) -> *mut std::ffi::c_void;
+            fn FreeLibrary(hModule: *mut std::ffi::c_void) -> i32;
+        }
+
+        unsafe {
+            let lib = LoadLibraryA(b"vulkan-1.dll\0".as_ptr());
+            if lib.is_null() {
+                return false;
+            }
+
+            type PfnVkCreateInstance = unsafe extern "system" fn(
+                *const VkInstanceCreateInfo,
+                *const std::ffi::c_void,
+                *mut *mut std::ffi::c_void,
+            ) -> i32;
+            type PfnVkDestroyInstance = unsafe extern "system" fn(*mut std::ffi::c_void, *const std::ffi::c_void);
+            type PfnVkEnumeratePhysicalDevices = unsafe extern "system" fn(
+                *mut std::ffi::c_void,
+                *mut u32,
+                *mut *mut std::ffi::c_void,
+            ) -> i32;
+
+            #[repr(C)]
+            struct VkApplicationInfo {
+                s_type: u32,
+                p_next: *const std::ffi::c_void,
+                p_application_name: *const std::ffi::c_char,
+                application_version: u32,
+                p_engine_name: *const std::ffi::c_char,
+                engine_version: u32,
+                api_version: u32,
+            }
+
+            #[repr(C)]
+            struct VkInstanceCreateInfo {
+                s_type: u32,
+                p_next: *const std::ffi::c_void,
+                flags: u32,
+                p_application_info: *const VkApplicationInfo,
+                enabled_layer_count: u32,
+                pp_enabled_layer_names: *const *const std::ffi::c_char,
+                enabled_extension_count: u32,
+                pp_enabled_extension_names: *const *const std::ffi::c_char,
+            }
+
+            let p_create = GetProcAddress(lib, b"vkCreateInstance\0".as_ptr());
+            let p_destroy = GetProcAddress(lib, b"vkDestroyInstance\0".as_ptr());
+            let p_enum = GetProcAddress(lib, b"vkEnumeratePhysicalDevices\0".as_ptr());
+
+            if p_create.is_null() || p_destroy.is_null() || p_enum.is_null() {
+                FreeLibrary(lib);
+                return false;
+            }
+
+            let vk_create_instance: PfnVkCreateInstance = std::mem::transmute(p_create);
+            let vk_destroy_instance: PfnVkDestroyInstance = std::mem::transmute(p_destroy);
+            let vk_enum_physical_devices: PfnVkEnumeratePhysicalDevices = std::mem::transmute(p_enum);
+
+            let app_info = VkApplicationInfo {
+                s_type: 0,
+                p_next: std::ptr::null(),
+                p_application_name: b"AnF\0".as_ptr() as *const std::ffi::c_char,
+                application_version: 1,
+                p_engine_name: b"AnF\0".as_ptr() as *const std::ffi::c_char,
+                engine_version: 1,
+                api_version: 1 << 22,
+            };
+
+            let create_info = VkInstanceCreateInfo {
+                s_type: 1,
+                p_next: std::ptr::null(),
+                flags: 0,
+                p_application_info: &app_info,
+                enabled_layer_count: 0,
+                pp_enabled_layer_names: std::ptr::null(),
+                enabled_extension_count: 0,
+                pp_enabled_extension_names: std::ptr::null(),
+            };
+
+            let mut instance: *mut std::ffi::c_void = std::ptr::null_mut();
+            let res = vk_create_instance(&create_info, std::ptr::null(), &mut instance);
+            if res != 0 || instance.is_null() {
+                FreeLibrary(lib);
+                return false;
+            }
+
+            let mut device_count: u32 = 0;
+            let enum_res = vk_enum_physical_devices(instance, &mut device_count, std::ptr::null_mut());
+            vk_destroy_instance(instance, std::ptr::null());
+            FreeLibrary(lib);
+
+            enum_res == 0 && device_count > 0
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        extern "C" {
+            fn dlopen(filename: *const std::ffi::c_char, flag: std::ffi::c_int) -> *mut std::ffi::c_void;
+            fn dlsym(handle: *mut std::ffi::c_void, symbol: *const std::ffi::c_char) -> *mut std::ffi::c_void;
+            fn dlclose(handle: *mut std::ffi::c_void) -> std::ffi::c_int;
+        }
+
+        unsafe {
+            let lib = dlopen(b"libvulkan.so.1\0".as_ptr() as *const std::ffi::c_char, 1);
+            if lib.is_null() {
+                return false;
+            }
+
+            type PfnVkCreateInstance = unsafe extern "C" fn(
+                *const VkInstanceCreateInfo,
+                *const std::ffi::c_void,
+                *mut *mut std::ffi::c_void,
+            ) -> i32;
+            type PfnVkDestroyInstance = unsafe extern "C" fn(*mut std::ffi::c_void, *const std::ffi::c_void);
+            type PfnVkEnumeratePhysicalDevices = unsafe extern "C" fn(
+                *mut std::ffi::c_void,
+                *mut u32,
+                *mut *mut std::ffi::c_void,
+            ) -> i32;
+
+            #[repr(C)]
+            struct VkApplicationInfo {
+                s_type: u32,
+                p_next: *const std::ffi::c_void,
+                p_application_name: *const std::ffi::c_char,
+                application_version: u32,
+                p_engine_name: *const std::ffi::c_char,
+                engine_version: u32,
+                api_version: u32,
+            }
+
+            #[repr(C)]
+            struct VkInstanceCreateInfo {
+                s_type: u32,
+                p_next: *const std::ffi::c_void,
+                flags: u32,
+                p_application_info: *const VkApplicationInfo,
+                enabled_layer_count: u32,
+                pp_enabled_layer_names: *const *const std::ffi::c_char,
+                enabled_extension_count: u32,
+                pp_enabled_extension_names: *const *const std::ffi::c_char,
+            }
+
+            let p_create = dlsym(lib, b"vkCreateInstance\0".as_ptr() as *const std::ffi::c_char);
+            let p_destroy = dlsym(lib, b"vkDestroyInstance\0".as_ptr() as *const std::ffi::c_char);
+            let p_enum = dlsym(lib, b"vkEnumeratePhysicalDevices\0".as_ptr() as *const std::ffi::c_char);
+
+            if p_create.is_null() || p_destroy.is_null() || p_enum.is_null() {
+                dlclose(lib);
+                return false;
+            }
+
+            let vk_create_instance: PfnVkCreateInstance = std::mem::transmute(p_create);
+            let vk_destroy_instance: PfnVkDestroyInstance = std::mem::transmute(p_destroy);
+            let vk_enum_physical_devices: PfnVkEnumeratePhysicalDevices = std::mem::transmute(p_enum);
+
+            let app_info = VkApplicationInfo {
+                s_type: 0,
+                p_next: std::ptr::null(),
+                p_application_name: b"AnF\0".as_ptr() as *const std::ffi::c_char,
+                application_version: 1,
+                p_engine_name: b"AnF\0".as_ptr() as *const std::ffi::c_char,
+                engine_version: 1,
+                api_version: 1 << 22,
+            };
+
+            let create_info = VkInstanceCreateInfo {
+                s_type: 1,
+                p_next: std::ptr::null(),
+                flags: 0,
+                p_application_info: &app_info,
+                enabled_layer_count: 0,
+                pp_enabled_layer_names: std::ptr::null(),
+                enabled_extension_count: 0,
+                pp_enabled_extension_names: std::ptr::null(),
+            };
+
+            let mut instance: *mut std::ffi::c_void = std::ptr::null_mut();
+            let res = vk_create_instance(&create_info, std::ptr::null(), &mut instance);
+            if res != 0 || instance.is_null() {
+                dlclose(lib);
+                return false;
+            }
+
+            let mut device_count: u32 = 0;
+            let enum_res = vk_enum_physical_devices(instance, &mut device_count, std::ptr::null_mut());
+            vk_destroy_instance(instance, std::ptr::null());
+            dlclose(lib);
+
+            enum_res == 0 && device_count > 0
+        }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        false
+    }
+}
+
 impl Drop for Running {
     fn drop(&mut self) {
         let _ = self.child.kill();
@@ -30,6 +243,7 @@ pub struct Engine {
     directory: Mutex<Option<PathBuf>>,
     process: Mutex<Option<Running>>,
     reply_lock: tokio::sync::Mutex<()>,
+    device: Mutex<Option<String>>,
 }
 impl Engine {
     pub fn configure(&self, directory: PathBuf) {
@@ -52,6 +266,15 @@ impl Engine {
     pub fn shutdown(&self) {
         self.process.lock().unwrap().take();
     }
+    pub fn device(&self) -> String {
+        self.device.lock().unwrap().clone().unwrap_or_else(|| {
+            if has_vulkan_device() {
+                "GPU (Vulkan)".into()
+            } else {
+                "CPU".into()
+            }
+        })
+    }
 
     pub async fn start(&self, profile: &str, context:usize) -> Result<(String, String), String> {
         {
@@ -70,18 +293,28 @@ impl Engine {
         } else {
             "llama-server"
         });
-        let is_fast_slot = matches!(profile, "fast" | "deepseek-v4.1-flash" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-linear-a3b" | "kimi-linear");
-        // A model the user downloaded and whose SHA-256 was verified takes the slot; otherwise the pack's own files.
-        let model = crate::model_download::verified_model(if is_fast_slot { "fast" } else { "balanced" }).unwrap_or_else(|| {
-            directory.join(if is_fast_slot {
-                if directory.join("model-fast.gguf").is_file() { "model-fast.gguf" } else { "model.gguf" }
+        let model = crate::model_download::verified_model(profile).unwrap_or_else(|| {
+            let single = directory.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf");
+            let in_models = directory.join("models").join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf");
+            if single.is_file() {
+                single
+            } else if in_models.is_file() {
+                in_models
+            } else if directory.join("model.gguf").is_file() {
+                directory.join("model.gguf")
             } else {
-                "model.gguf"
-            })
+                directory.join("model-fast.gguf")
+            }
         });
-        if !exe.is_file() || !model.is_file() {
-            return Err(format!("The offline pack in {} is incomplete: {} is missing. Run the full installer again to repair it, then reopen AnF. Your saved projects and settings are kept.", directory.display(), if !exe.is_file() { "the local engine" } else { "the selected model" }));
+        if !exe.is_file() {
+            return Err(format!("The offline pack in {} is incomplete: the local engine is missing. Run the full installer again to repair it, then reopen AnF. Your saved projects and settings are kept.", directory.display()));
         }
+        // The model is not in the installer: it is downloaded once, from Settings.
+        if !model.is_file() {
+            return Err("The local model is not downloaded yet. Download it in Settings → Conversations and AI → Offline models, then ask again.".into());
+        }
+        let use_vulkan = has_vulkan_device();
+        *self.device.lock().unwrap() = Some(if use_vulkan { "GPU (Vulkan)".into() } else { "CPU".into() });
         let key = random_key()?;
         let listener = std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
         let port = listener.local_addr().map_err(|e| e.to_string())?.port();
@@ -105,7 +338,7 @@ impl Engine {
                 "--parallel",
                 "1",
                 "--n-gpu-layers",
-                "0",
+                if use_vulkan { "99" } else { "0" },
                 "--threads",
                 "4",
                 "--no-webui",
@@ -197,7 +430,7 @@ impl Engine {
             .map_err(|e| e.to_string())?;
         let response = client.post(format!("{url}/v1/chat/completions")).bearer_auth(key)
             .json(&json!({"model":"coucou-local","messages":messages,"stream":false,"max_tokens":if long{4096}else if profile=="fast"{768}else{1536},
-                "temperature":0.7,"chat_template_kwargs":{"enable_thinking":false}}))
+                "temperature":0.7,"chat_template_kwargs":{"enable_thinking":long}}))
             .send().await.map_err(|_|"The local model did not respond. Try again or free some memory.".to_string())?;
         if !response.status().is_success() {
             return Err(format!(
@@ -418,6 +651,7 @@ pub fn parse_tool_calls_and_clean_text(raw_content: &str) -> (Option<String>, Ve
 }
 
 /// Parses an OpenAI-compatible /v1/chat/completions response value into KevoAskReply.
+#[allow(dead_code)]
 pub fn parse_kevo_ask_response(value: &Value) -> KevoAskReply {
     let mut tool_calls = Vec::new();
 
@@ -461,7 +695,23 @@ pub fn parse_kevo_ask_response(value: &Value) -> KevoAskReply {
 }
 
 fn supported_profile(profile: &str) -> Result<(), String> {
-    if matches!(profile, "fast" | "balanced" | "deepseek-v4.1-flash" | "deepseek-v3.2-reasoning" | "deepseek-v3.2" | "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" | "kimi-k3-thinking" | "kimi-k3" | "kimi-linear-a3b" | "kimi-linear") {
+    if matches!(
+        profile,
+        "deepseek-v4-pro-qwen3.5-9b"
+            | "default"
+            | "local"
+            | "fast"
+            | "balanced"
+            | "deepseek-v4.1-flash"
+            | "deepseek-v3.2-reasoning"
+            | "deepseek-v3.2"
+            | "deepseek-r1-distill-qwen-1.5b"
+            | "deepseek-r1-distill"
+            | "kimi-k3-thinking"
+            | "kimi-k3"
+            | "kimi-linear-a3b"
+            | "kimi-linear"
+    ) {
         Ok(())
     } else {
         Err("Choose a supported model profile.".into())
@@ -547,6 +797,7 @@ pub struct StreamToolFilter {
 }
 
 impl StreamToolFilter {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -606,6 +857,7 @@ pub fn stream_delta(line: &str) -> Option<String> {
     parse_stream_line(line).and_then(|d| d.content)
 }
 
+#[allow(dead_code)]
 /// Takes the complete sentences off the front of `buffer`, leaving the unfinished remainder in it.
 pub fn take_sentences(buffer: &mut String) -> Option<String> {
     let bytes = buffer.as_bytes();
@@ -753,7 +1005,7 @@ mod tests {
         e.configure(root.clone());
         assert!(!pack_available(&root));
         std::fs::write(root.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }), b"fixture").unwrap();
-        std::fs::write(root.join("model-fast.gguf"), b"fixture").unwrap();
+        // No model yet: the pack is still found, so the missing model can be named and downloaded.
         assert!(pack_available(&e.directory().unwrap()));
         std::fs::remove_dir_all(root).unwrap();
     }

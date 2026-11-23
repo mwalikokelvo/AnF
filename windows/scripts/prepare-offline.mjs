@@ -10,6 +10,9 @@ const root = fileURLToPath(new URL('../local-ai/', import.meta.url));
 const runtime = process.platform === 'linux'
   ? {name:'llama-b11380-bin-ubuntu-x64.tar.gz', file:'runtime.tar.gz', sha256:'466b3378de0e510cc1656c86a75e7908fbf5d23695b9e6179f7303df2bad332d'}
   : {name:'llama-b11380-bin-win-cpu-x64.zip', file:'runtime.zip', sha256:'14745434896a9ffc7acc21f0c11ac95eb7c3d33589def679c7ff1aca3a1dbd4c'};
+const runtimeVulkan = process.platform === 'linux'
+  ? {name:'llama-b11380-bin-ubuntu-vulkan-x64.tar.gz', file:'runtime-vulkan.tar.gz', sha256:'4347177692f02956cce0ede2e436e616b06e42841ea879a509d798429b8b7b63'}
+  : {name:'llama-b11380-bin-win-vulkan-x64.zip', file:'runtime-vulkan.zip', sha256:'6d724af065f6601b60296ba06ec0d34894fc7c67df46aa17d7a43b6e02d83d23'};
 if (!['linux','win32'].includes(process.platform) || process.arch !== 'x64') {
   throw Error('Offline release assets currently support Windows/Linux x64 only.');
 }
@@ -55,15 +58,13 @@ async function download(url, name, expected) {
   console.log(`${name}: download verified`);
 }
 const results = await Promise.allSettled([
-  download(`https://github.com/ggml-org/llama.cpp/releases/download/b11380/${runtime.name}`, runtime.file,runtime.sha256),
-  download('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf', 'model-source.gguf','061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a'),
-  download('https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/Qwen3-0.6B-Q8_0.gguf', 'model-fast.gguf','9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031'),
+  download(`https://github.com/ggml-org/llama.cpp/releases/download/b11380/${runtime.name}`, runtime.file, runtime.sha256),
+  download(`https://github.com/ggml-org/llama.cpp/releases/download/b11380/${runtimeVulkan.name}`, runtimeVulkan.file, runtimeVulkan.sha256),
   download(['https://ocrs-models.s3-accelerate.amazonaws.com/text-detection.rten','https://ocrs-models.s3.amazonaws.com/text-detection.rten','https://raw.githubusercontent.com/baras-app/ocr-models/main/text-detection.rten','https://github.com/StDenis1980/pdfcraft/releases/download/ocr-models-1/text-detection.rten'],'ocr-detection.rten','f15cfb56bd02c4bf478a20343986504a1f01e1665c2b3a0ad66340f054b1b5ca'),
   download(['https://ocrs-models.s3-accelerate.amazonaws.com/text-recognition.rten','https://ocrs-models.s3.amazonaws.com/text-recognition.rten','https://raw.githubusercontent.com/baras-app/ocr-models/main/text-recognition.rten','https://github.com/StDenis1980/pdfcraft/releases/download/ocr-models-1/text-recognition.rten'],'ocr-recognition.rten','e484866d4cce403175bd8d00b128feb08ab42e208de30e42cd9889d8f1735a6e'),
   download('https://huggingface.co/robertknight/ocrs/resolve/df0edd170279ab971b53e094c627255a87e1a503/README.md','OCR-LICENSE.txt','dd8758be23f3c41367104b17936afbd4833bffdefccf76d30b010924e99faea1'),
   download('https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt','OCR-CC-BY-SA-LICENSE.txt'),
   download('https://raw.githubusercontent.com/ggml-org/llama.cpp/b11380/LICENSE','llama-LICENSE.txt'),
-  download('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/LICENSE','Qwen-LICENSE.txt'),
 ]);
 // Name every failed file as a CI annotation, so the cause is visible without the full log.
 const failed = results.filter(r => r.status === 'rejected');
@@ -71,14 +72,12 @@ for (const r of failed) console.log(`::error::${String(r.reason?.message || r.re
 if (failed.length) process.exit(1);
 await writeFile(path.join(root,'NOTICE.txt'), `AnF offline components (0.1.4)
 Runtime: llama.cpp b11380 (MIT), https://github.com/ggml-org/llama.cpp
-Fast: official Qwen3-0.6B Q8_0, unmodified (Apache-2.0), https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
-Balanced: Qwen3-1.7B (Apache-2.0), https://huggingface.co/Qwen/Qwen3-1.7B-GGUF
-Balanced weights were MODIFIED: requantized Q8_0 to Q4_K_M with llama-quantize b11380 --allow-requantize, 4 threads.
-Source SHA256: 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
-Derived model.gguf SHA256: 54c0f1203a724e9f33e76916beab3bdfaffef56cf7b42a93b1bc21319fc0bf97
-Fast SHA256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+Vulkan Runtime: llama.cpp b11380 win-vulkan / ubuntu-vulkan
+Model weights: DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf (5.8 GB) downloaded on first use via verified downloader.
 Runtime archive: ${runtime.name}
 Runtime archive SHA256: ${runtime.sha256}
+Vulkan archive: ${runtimeVulkan.name}
+Vulkan archive SHA256: ${runtimeVulkan.sha256}
 OCR: Robert Knight / Ocrs pre-trained models, unmodified, CC-BY-SA 4.0.
 https://huggingface.co/robertknight/ocrs/tree/df0edd170279ab971b53e094c627255a87e1a503
 https://creativecommons.org/licenses/by-sa/4.0/

@@ -1,0 +1,101 @@
+/* Tonal Glass (dark) and Paper & Forest (light): the owner's visual system, UI pass 1 (Nov 2026).
+   Dark: three surface tiers, #0D0F14 canvas -> #13161F card -> #1A1E2A control, hairline borders and a top highlight.
+   Light: a deep forest rail (#142423) beside a warm paper canvas (#F7F8F6) with white cards.
+   One accent for primary actions; neutral translucent pills for secondary ones. No blur on page panels
+   (blur is kept for small floating overlays: the Ctrl+K palette and Kevo's float). Hover motion is transform-only, 180 ms.
+   Loaded after anf-color.css and scoped to html:not([data-theme-pack]), so a marketplace theme keeps full control. */
+
+/* ---- Tokens ---------------------------------------------------------------------------------- */
+html:not([data-theme-pack]) #workspace-root{
+  --bg:#0D0F14;--side:#13161F;--surface:#13161F;--panel:var(--surface);--input:#1A1E2A;--hover:#1A1E2A;--paper:#13161F;
+  --line:rgba(255,255,255,.07);--ink:#E8ECF2;--muted:#9AA3B2;
+  --accent:#7FD8B2;--accent-ink:#0B2A1F;
+  --pill:rgba(255,255,255,.06);--pill-hover:rgba(255,255,255,.10);
+  --rail:#13161F;--rail-ink:#AEB6C4;--rail-active:#7FD8B2;--rail-active-ink:#0B2A1F;--rail-line:rgba(255,255,255,.07);
+  --highlight:inset 0 1px 0 rgba(255,255,255,.05);
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.25),var(--highlight);
+}
+html:not([data-theme-pack]) #workspace-root[data-theme=light]{
+  --bg:#F7F8F6;--side:#142423;--surface:#FFFFFF;--panel:var(--surface);--input:#EEF1EE;--hover:#EEF1EE;--paper:#FFFFFF;
+  --line:rgba(20,36,35,.09);--ink:#17211F;--muted:#56645F;
+  --accent:#1F6B52;--accent-ink:#FFFFFF;
+  --pill:rgba(20,36,35,.05);--pill-hover:rgba(20,36,35,.09);
+  --rail:#142423;--rail-ink:#B9CCC6;--rail-active:#D8EFE5;--rail-active-ink:#142423;--rail-line:transparent;
+  --highlight:inset 0 1px 0 rgba(255,255,255,.9);
+  --shadow:0 1px 2px rgba(20,36,35,.06),0 6px 18px rgba(20,36,35,.06);
+}
+@media(prefers-color-scheme:light){
+  html:not([data-theme-pack]) #workspace-root[data-theme=system]{
+    --bg:#F7F8F6;--side:#142423;--surface:#FFFFFF;--panel:var(--surface);--input:#EEF1EE;--hover:#EEF1EE;--paper:#FFFFFF;
+    --line:rgba(20,36,35,.09);--ink:#17211F;--muted:#56645F;
+    --accent:#1F6B52;--accent-ink:#FFFFFF;
+    --pill:rgba(20,36,35,.05);--pill-hover:rgba(20,36,35,.09);
+    --rail:#142423;--rail-ink:#B9CCC6;--rail-active:#D8EFE5;--rail-active-ink:#142423;--rail-line:transparent;
+    --highlight:inset 0 1px 0 rgba(255,255,255,.9);
+    --shadow:0 1px 2px rgba(20,36,35,.06),0 6px 18px rgba(20,36,35,.06);
+  }
+}
+/* One cohesive accent: section hues from anf-color.css stay on the eyebrow labels only. */
+html:not([data-theme-pack]) #workspace-root .workspace-layout{--accent:inherit;--accent-ink:inherit}
+
+/* ---- Page and top bar ------------------------------------------------------------------------ */
+html:not([data-theme-pack]) #workspace-root,
+html:not([data-theme-pack]) #workspace-root :is(.workspace-layout,main,.activity-bar){background:var(--bg)}
+html:not([data-theme-pack]) body:not(.music-view) #workspace-root .panel-host{background:var(--bg)}
+html:not([data-theme-pack]) #workspace-root .workspace-header{background:var(--bg);border-bottom:1px solid var(--line);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* ---- Rail ------------------------------------------------------------------------------------ */
+html:not([data-theme-pack]) #workspace-root .glass-rail,
+html:not([data-theme-pack]) #workspace-root .glass-rail[data-rail=collapsed],
+html:not([data-theme-pack]) #workspace-root[data-theme] .glass-rail:not([data-rail=collapsed]){
+  background:var(--rail);border:1px solid var(--rail-line);border-radius:20px;color:var(--rail-ink);
+  box-shadow:0 10px 30px rgba(0,0,0,.22),var(--highlight);backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+html:not([data-theme-pack]) #workspace-root .glass-rail :is(.brand,.brand strong,.offline-badge,.history-heading,.nav-section,h2){color:var(--rail-ink)}
+html:not([data-theme-pack]) #workspace-root .glass-rail .nav-section{color:color-mix(in srgb,var(--rail-ink) 70%,transparent)}
+html:not([data-theme-pack]) #workspace-root .glass-rail .brand-mark{background:var(--rail-active);color:var(--rail-active-ink);box-shadow:none}
+html:not([data-theme-pack]) #workspace-root .glass-rail .rail-pin{color:var(--rail-ink);border-color:rgba(255,255,255,.18)}
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button,
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button svg{color:var(--rail-ink)}
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button{border:0;background:transparent;box-shadow:none}
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button:hover{background:rgba(255,255,255,.07);color:#fff}
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button[aria-current=page],
+html:not([data-theme-pack]) body.music-view #workspace-root .glass-rail .workspace-navigation button[aria-current=page]{background:var(--rail-active);color:var(--rail-active-ink);box-shadow:none}
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button[aria-current=page] svg{color:var(--rail-active-ink)}
+html:not([data-theme-pack]) #workspace-root .glass-rail .workspace-navigation button[aria-current=page]::before{background:var(--rail-active);box-shadow:none}
+html:not([data-theme-pack]) #workspace-root .glass-rail :is(.history-item,>button,input){color:var(--rail-ink);border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04)}
+
+/* ---- Cards (rounded-2xl, hairline border, top highlight, no blur) ---------------------------- */
+html:not([data-theme-pack]) #workspace-root :is(.resume-card,.capture-card,.pomodoro-widget,.vault-health-widget,.habit-matrix,.dashboard-task-drawer,.library-card,.source-card,.composer,.preview-paper,.editor-tools,.workspace-panel>details,.message:not(.user)){
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+html:not([data-theme-pack]) #workspace-root :is(.resume-card,.capture-card){background:var(--surface)}
+html:not([data-theme-pack]) #workspace-root :is(.resume-card,.capture-card,.pomodoro-widget,.vault-health-widget,.library-card,.source-card){transition:transform .18s cubic-bezier(.16,1,.3,1);will-change:transform}
+html:not([data-theme-pack]) #workspace-root :is(.resume-card,.capture-card,.pomodoro-widget,.vault-health-widget,.library-card,.source-card):hover{transform:translateY(-2px)}
+
+/* ---- Buttons: accent for primary, neutral translucent pills for the rest ---------------------- */
+html:not([data-theme-pack]) #workspace-root button{transition:transform .18s cubic-bezier(.16,1,.3,1),opacity .18s ease}
+html:not([data-theme-pack]) #workspace-root .workspace-panel button:not(.primary):not([aria-current]):not([role=tab]){background:var(--pill);border-color:transparent;border-radius:999px}
+html:not([data-theme-pack]) #workspace-root .workspace-panel button:not(.primary):not([aria-current]):not([role=tab]):hover:not(:disabled){background:var(--pill-hover)}
+html:not([data-theme-pack]) #workspace-root button.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;border-radius:999px}
+html:not([data-theme-pack]) #workspace-root button:active:not(:disabled){transform:scale(.98)}
+
+/* ---- Music Hub: Tonal Glass theme ------------------------------------------------------------ */
+.music-hub[data-music-theme="tonal"]{
+  --music-accent:#7FD8B2;--music-accent-glow:rgba(127,216,178,.35);--music-accent-secondary:#E9B38F;
+  --music-bg:#0D0F14;--music-panel:#13161F;--music-card:#1A1E2A;
+  --music-line:rgba(255,255,255,.07);--music-ink:#E8ECF2;--music-muted:#9AA3B2;
+  background:#0D0F14;border:1px solid rgba(255,255,255,.07);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);min-height:calc(100vh - 110px);
+}
+.music-hub[data-music-theme="tonal"] :is(.music-card,.music-recent-track,.music-archive-row){border-radius:16px;border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);transition:transform .18s cubic-bezier(.16,1,.3,1)}
+.music-hub[data-music-theme="tonal"] :is(.music-card,.music-recent-track,.music-archive-row):hover{transform:translateY(-2px)}
+.music-hub[data-music-theme="tonal"] .music-search{border-radius:999px;background:#1A1E2A;border-color:rgba(255,255,255,.07)}
+.music-hub[data-music-theme="tonal"] button{border-radius:999px}
+.music-hub[data-music-theme="tonal"] .music-pill{background:rgba(255,255,255,.06);border-color:transparent}
+.music-hub[data-music-theme="tonal"] .music-pill.active{background:var(--music-accent);color:#0B2A1F;box-shadow:none}
+
+@media(prefers-reduced-motion:reduce){
+  html:not([data-theme-pack]) #workspace-root *,.music-hub[data-music-theme="tonal"] *{transition:none!important}
+  html:not([data-theme-pack]) #workspace-root :hover,.music-hub[data-music-theme="tonal"] :hover{transform:none!important}
+}

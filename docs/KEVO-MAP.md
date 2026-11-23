@@ -24,6 +24,8 @@ Where Kevo lives, how to check it, and what Phase 0 taught. Plan and phases: `do
 | `src/workspace/jarvis/kevo-selftest.ts` | Self-test runner in dry-run mode evaluating clips, recording wake/lookalike counts, request timings, and generating `selftest-<version>.json` |
 | `src-tauri/src/log.rs` | `kevo_log_append` / `kevo_log_save` / `kevo_log_open_folder`: `kevo/kevo-log.jsonl` in AnF's data folder, cut to the newest 2,000 lines past 3,000; never sent anywhere |
 | `src-tauri/src/workspace_commands.rs` | `kevo_ask` / `kevo_cancel`: the local AI call and its system prompt (`KEVO_SYSTEM`) |
+| `src-tauri/src/model_download/policy.rs` | Policy for local model weights: single verified entry DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf (5.78 GB), maps legacy profile aliases to it |
+| `src-tauri/src/local_ai.rs` | Local AI runner (llama-server), dual Vulkan GPU / CPU detection (-ngl 99 with Vulkan device, CPU otherwise), single model execution, chat-template.jinja support |
 | `tests/jarvis-*.test.ts`, `tests/kevo-*.test.ts` | Node tests; `kevo-phase0-session2.test.ts` holds the requests from the owner's recording |
 
 ## Checks

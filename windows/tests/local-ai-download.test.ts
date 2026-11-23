@@ -23,7 +23,7 @@ function rustManifest() {
 }
 
 const status = (over: Partial<ModelStatus> = {}): ModelStatus => ({
-  id: 'qwen3-0.6b-fast', file: 'Qwen3-0.6B-Q8_0.gguf', size: 639_446_688, sha256: 'x', slot: 'fast', state: 'absent', partial_bytes: 0, downloading: false, ...over,
+  id: 'deepseek-v4-pro-qwen3.5-9b', file: 'DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf', size: 5_780_092_768, sha256: 'b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65', slot: 'default' as any, state: 'absent', partial_bytes: 0, downloading: false, ...over,
 });
 
 function fakeRuntime(opts: { fail?: string } = {}) {
@@ -31,7 +31,7 @@ function fakeRuntime(opts: { fail?: string } = {}) {
   const calls: Array<{ cmd: string; args: Record<string, unknown> }> = [];
   let unlistened = 0;
   const listenFn: ListenFn = async (_event, handler) => { handlers.push(handler); return () => { unlistened++; }; };
-  const emit = (e: Partial<DownloadEvent>) => handlers.forEach(h => h({ id: 'qwen3-0.6b-fast', phase: 'downloading', done: 0, total: 1000, ...e }));
+  const emit = (e: Partial<DownloadEvent>) => handlers.forEach(h => h({ id: 'deepseek-v4-pro-qwen3.5-9b', phase: 'downloading', done: 0, total: 1000, ...e }));
   const invokeFn = async (cmd: string, args: Record<string, unknown>) => {
     calls.push({ cmd, args });
     if (cmd === 'local_ai_download') {
@@ -53,7 +53,7 @@ function fakeRuntime(opts: { fail?: string } = {}) {
 describe('verified local-AI download: catalog honesty', () => {
   it('TS catalog matches the Rust manifest exactly (id, url, sha256, size)', () => {
     const manifest = rustManifest();
-    assert.equal(manifest.length, 2, 'both models are parsed from policy.rs');
+    assert.equal(manifest.length, 1, 'the single model is parsed from policy.rs');
     for (const m of manifest) {
       const p = OFFICIAL_PROFILES.find(x => x.id === m.id);
       assert.ok(p, m.id);
@@ -78,10 +78,10 @@ describe('verified local-AI download: catalog honesty', () => {
       assert.ok(!/^([0-9a-f])\1{15,}/.test(p.sha256) && !p.sha256.startsWith('e3b0c442'), 'not a repeated-digit or empty-input placeholder');
     }
     const known = { sha256: 'a'.repeat(64), sizeBytes: 1 };
-    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[5], ...known, bucketUrl: 'https://evil.example/x.gguf' }), false);
-    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[5], ...known, bucketUrl: 'http://huggingface.co/x.gguf' }), false);
-    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[5], ...known, sha256: 'XYZ', bucketUrl: 'https://huggingface.co/x.gguf' }), false);
-    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[5], ...known, sizeBytes: 0, bucketUrl: 'https://huggingface.co/x.gguf' }), false);
+    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[0], ...known, bucketUrl: 'https://evil.example/x.gguf' }), false);
+    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[0], ...known, bucketUrl: 'http://huggingface.co/x.gguf' }), false);
+    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[0], ...known, sha256: 'XYZ', bucketUrl: 'https://huggingface.co/x.gguf' }), false);
+    assert.equal(isDownloadable({ ...OFFICIAL_PROFILES[0], ...known, sizeBytes: 0, bucketUrl: 'https://huggingface.co/x.gguf' }), false);
   });
 
   it('keeps the webview CSP closed to Hugging Face: downloads go through Rust', () => {
@@ -97,8 +97,8 @@ describe('verified local-AI download: manager behaviour', () => {
     const manager = createLocalAiManager({ systemRamGb: 16, invokeFn: rt.invokeFn, listenFn: rt.listenFn });
     const pcts: number[] = [];
     const phases: string[] = [];
-    await manager.downloadWeights('qwen3-0.6b-fast', p => pcts.push(p), e => phases.push(e.phase));
-    assert.deepEqual(rt.calls, [{ cmd: 'local_ai_download', args: { id: 'qwen3-0.6b-fast' } }]);
+    await manager.downloadWeights('deepseek-v4-pro-qwen3.5-9b', p => pcts.push(p), e => phases.push(e.phase));
+    assert.deepEqual(rt.calls, [{ cmd: 'local_ai_download', args: { id: 'deepseek-v4-pro-qwen3.5-9b' } }]);
     assert.deepEqual(pcts, [10, 50, 99, 100], 'other models and duplicates are ignored; 100 only after ready');
     assert.deepEqual(phases, ['downloading', 'downloading', 'downloading', 'downloading', 'verifying', 'ready']);
     assert.equal(rt.unlistened(), 1);
@@ -108,27 +108,24 @@ describe('verified local-AI download: manager behaviour', () => {
     const rt = fakeRuntime({ fail: 'Checksum mismatch: the file was deleted and not installed.' });
     const manager = createLocalAiManager({ systemRamGb: 16, invokeFn: rt.invokeFn, listenFn: rt.listenFn });
     const pcts: number[] = [];
-    await assert.rejects(() => manager.downloadWeights('qwen3-0.6b-fast', p => pcts.push(p)), /Checksum mismatch/);
+    await assert.rejects(() => manager.downloadWeights('deepseek-v4-pro-qwen3.5-9b', p => pcts.push(p)), /Checksum mismatch/);
     assert.ok(!pcts.includes(100));
     assert.equal(rt.unlistened(), 1);
   });
 
-  it('refuses unavailable profiles, low RAM and a missing download service without any progress', async () => {
+  it('refuses low RAM and a missing download service without any progress', async () => {
     const rt = fakeRuntime();
-    const m = createLocalAiManager({ systemRamGb: 16, invokeFn: rt.invokeFn, listenFn: rt.listenFn });
-    await assert.rejects(() => m.downloadWeights('kimi-k3-thinking', () => { throw new Error('no progress'); }), /Not available yet/);
-    await assert.rejects(() => m.downloadWeights('nope', () => {}), /Unknown/);
-    const low = createLocalAiManager({ systemRamGb: 2, invokeFn: rt.invokeFn, listenFn: rt.listenFn });
-    await assert.rejects(() => low.downloadWeights('qwen3-1.7b-balanced', () => {}), /Insufficient system RAM/);
+    const low = createLocalAiManager({ systemRamGb: 4, invokeFn: rt.invokeFn, listenFn: rt.listenFn });
+    await assert.rejects(() => low.downloadWeights('deepseek-v4-pro-qwen3.5-9b', () => {}), /Insufficient system RAM/);
     const bare = createLocalAiManager({ systemRamGb: 16 });
-    await assert.rejects(() => bare.downloadWeights('qwen3-0.6b-fast', () => {}), /not connected/);
+    await assert.rejects(() => bare.downloadWeights('deepseek-v4-pro-qwen3.5-9b', () => {}), /not connected/);
     assert.equal(rt.calls.length, 0);
   });
 
   it('cancel and status go through the Rust commands', async () => {
     const seen: string[] = [];
     const m = createLocalAiManager({ invokeFn: async (cmd) => { seen.push(cmd); return cmd === 'local_ai_models' ? [status()] : true; } });
-    assert.equal(await m.cancelDownload('qwen3-0.6b-fast'), true);
+    assert.equal(await m.cancelDownload('deepseek-v4-pro-qwen3.5-9b'), true);
     assert.equal((await m.getInstallStatus())[0].state, 'absent');
     assert.deepEqual(seen, ['local_ai_download_cancel', 'local_ai_models']);
     assert.deepEqual(await createLocalAiManager().getInstallStatus(), []);
@@ -142,32 +139,27 @@ describe('verified local-AI download: honest labels', () => {
   });
 
   it('shows the real model file only when a verified model serves the slot', async () => {
-    const m = make([status({ state: 'installed' }), status({ id: 'qwen3-1.7b-balanced', file: 'Qwen3-1.7B-Q8_0.gguf', slot: 'balanced' })]);
-    m.setActiveProfile('qwen3-0.6b-fast');
-    const fast = await m.chatCompletionWithSource(ask);
-    assert.equal(fast.modelFile, 'Qwen3-0.6B-Q8_0.gguf');
-    assert.equal(fast.label, 'Offline model · Qwen3-0.6B-Q8_0.gguf (SHA-256 verified)');
-    m.setActiveProfile('qwen3-1.7b-balanced');
-    const balanced = await m.chatCompletionWithSource(ask);
-    assert.equal(balanced.modelFile, 'model.gguf', 'a not-installed 1.7B must not be claimed');
-    assert.ok(!/Q8_0|verified/.test(balanced.label));
+    const m = make([status({ state: 'installed' })]);
+    m.setActiveProfile('deepseek-v4-pro-qwen3.5-9b');
+    const answer = await m.chatCompletionWithSource(ask);
+    assert.equal(answer.modelFile, 'DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf');
+    assert.equal(answer.label, 'Offline model · DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf (SHA-256 verified)');
   });
 
   it('partial or unverified files never unlock the real label; a failing status call falls back safely', async () => {
     for (const state of ['partial', 'unverified', 'absent'] as const) {
       const m = make([status({ state })]);
-      m.setActiveProfile('qwen3-0.6b-fast');
-      assert.ok(!/Q8_0|verified/.test((await m.chatCompletionWithSource(ask)).label), state);
+      m.setActiveProfile('deepseek-v4-pro-qwen3.5-9b');
+      assert.ok(!/verified/.test((await m.chatCompletionWithSource(ask)).label), state);
     }
     const broken = createLocalAiManager({ invokeFn: async cmd => { if (cmd === 'local_ai_models') throw new Error('x'); return { text: 'hello' }; } });
-    broken.setActiveProfile('qwen3-0.6b-fast');
-    assert.ok((await broken.chatCompletionWithSource(ask)).label.includes('model-fast.gguf'));
+    broken.setActiveProfile('deepseek-v4-pro-qwen3.5-9b');
+    assert.ok((await broken.chatCompletionWithSource(ask)).label.includes('DeepSeek V4 Pro'));
   });
 
   it('state text is honest at every step', () => {
-    const p = OFFICIAL_PROFILES.find(x => x.id === 'qwen3-0.6b-fast')!;
+    const p = OFFICIAL_PROFILES[0];
     const ev = (e: Partial<DownloadEvent>): DownloadEvent => ({ id: p.id, phase: 'downloading', done: 0, total: 1000, ...e });
-    assert.equal(describeInstall(OFFICIAL_PROFILES.find(x => x.id === 'kimi-k3-thinking')!, undefined), 'Not available yet');
     assert.match(describeInstall(p, status()), /^Not downloaded/);
     assert.match(describeInstall(p, status({ state: 'partial', partial_bytes: 1e8 })), /Not installed.*resume/);
     assert.match(describeInstall(p, status({ state: 'unverified' })), /Not installed/);

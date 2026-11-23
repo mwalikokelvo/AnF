@@ -39,30 +39,59 @@ describe('Kevo joke', () => {
     await assert.rejects(fetchJoke(async () => { throw new Error('offline'); }), /joke service did not answer/);
   });
 
-  it('tells an online joke only while online lookups are on', async () => {
-    await withFetch('I only know 25 letters of the alphabet. I do not know y.', async (calls) => {
-      const on = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true });
-      const res = await on.processVoiceInput('tell me a joke');
-      assert.equal(res.actionName, 'tell_joke');
-      assert.equal(res.speechReply, 'I only know 25 letters of the alphabet. I do not know y.');
-      assert.equal(calls.filter((c) => c.url.includes('icanhazdadjoke')).length, 1);
-
-      calls.length = 0;
-      const off = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => false });
-      const offline = await off.processVoiceInput('tell me a joke');
-      assert.notEqual(offline.actionName, 'tell_joke');
-      assert.equal(calls.filter((c) => c.url.includes('icanhazdadjoke')).length, 0, 'nothing is sent while online lookups are off');
-    });
+  it('gives up on a joke service that never answers, so the AI can start in time', async () => {
+    const start = Date.now();
+    await assert.rejects(fetchJoke(() => new Promise(() => {}), 50), /joke service did not answer/);
+    assert.ok(Date.now() - start < 1000);
   });
 
-  it('says plainly when the joke service does not answer', async () => {
+  it('says nothing and asks no AI when Stop is pressed while the joke is on its way', async () => {
     const real = globalThis.fetch;
-    globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
+    let release: (r: Response) => void = () => {};
+    globalThis.fetch = (() => new Promise<Response>((r) => { release = r; })) as typeof fetch;
     try {
-      const res = await new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => true }).processVoiceInput('joke');
-      assert.equal(res.actionName, 'tell_joke');
-      assert.equal(res.status, 'failure');
-      assert.match(res.speechReply, /could not get a joke: the joke service did not answer/);
+      let aiAsked = false;
+      const agent = new JarvisVoiceAgent({ switchView: () => {}, askAI: async () => { aiAsked = true; return 'A joke.'; } });
+      const pending = agent.processVoiceInput('tell me a joke');
+      await new Promise((r) => setTimeout(r, 10));
+      agent.abandon();
+      release(new Response(JSON.stringify({ joke: 'Late joke.' }), { status: 200 }));
+      const res = await pending;
+      assert.equal(res.actionName, 'abandoned');
+      assert.equal(res.speechReply, '');
+      assert.equal(aiAsked, false);
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
+  it('tells a joke whether online lookups are on or off', async () => {
+    for (const on of [true, false]) {
+      await withFetch('I only know 25 letters of the alphabet. I do not know y.', async (calls) => {
+        const agent = new JarvisVoiceAgent({ switchView: () => {}, onlineLookupsEnabled: () => on });
+        const res = await agent.processVoiceInput('tell me a joke');
+        assert.equal(res.actionName, 'tell_joke', `online lookups ${on ? 'on' : 'off'}`);
+        assert.equal(res.speechReply, 'I only know 25 letters of the alphabet. I do not know y.');
+        assert.equal(calls.filter((c) => c.url.includes('icanhazdadjoke')).length, 1);
+      });
+    }
+  });
+
+  it('lets the AI tell one when the joke service does not answer', async () => {
+    const real = globalThis.fetch;
+    let asked = 0;
+    globalThis.fetch = (async (url: string) => {
+      if (String(url).includes('icanhazdadjoke')) asked++;
+      throw new Error('offline');
+    }) as typeof fetch;
+    try {
+      let aiAsked = '';
+      const askAI = async (query: string) => { aiAsked = query; return 'Why did the scarecrow win an award? He was outstanding in his field.'; };
+      const res = await new JarvisVoiceAgent({ switchView: () => {}, askAI }).processVoiceInput('joke');
+      assert.equal(asked, 1);
+      assert.notEqual(res.actionName, 'tell_joke');
+      assert.match(aiAsked, /joke/);
+      assert.match(res.speechReply, /outstanding in his field/);
     } finally {
       globalThis.fetch = real;
     }

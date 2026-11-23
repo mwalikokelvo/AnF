@@ -414,12 +414,9 @@ export function createDashboard(a:Adapter){
   document.addEventListener('anf-open-calcom', () => openCalDeskModal());
   document.addEventListener('anf-open-chatwoot', () => openChatwootModal());
   document.addEventListener('anf-open-security', () => openSecurityModal());
+  document.addEventListener('anf-open-swarm', () => launchSwarm.click());
 
   // --- Productivity & Companion Studio Card ---
-  const launchAppFlowy = button('AppFlowy Board', () => openAppFlowyModal());
-  const launchCalDesk = button('Cal.com Schedule', () => openCalDeskModal());
-  const launchSecurity = button('Security Challenge', () => openSecurityModal());
-  const launchChatwoot = button('Community Support', () => openChatwootModal());
   const launchSwarm = button('Swarm Review', async () => {
     const cur = a.current();
     const { openSwarmDialog } = await import('./swarm-dialog');
@@ -433,32 +430,9 @@ export function createDashboard(a:Adapter){
     });
   });
 
-  const openVaultSearch = button('Vault Search (Ctrl+K)', () => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
-  });
-
-  const companionStudioCard = h('article',{class:'companion-hub-card'},
-    h('div',{class:'companion-hub-header'},
-      h('p',{class:'eyebrow',text:'PRODUCTIVITY & COMPANION STUDIO'}),
-      h('h3',{text:'Focus, Vault Health & Developer Hub'}),
-      h('p',{class:'hint',text:'Local Pomodoro focus timer, BM25 vault search, vault wikilink diagnostics, security challenges, and community support triage.'})
-    ),
-    h('div',{class:'companion-grid'},
-      pomodoroCard,
-      vaultHealthCard
-    ),
-    h('div',{class:'row companion-actions'},
-      openVaultSearch,
-      launchAppFlowy,
-      launchCalDesk,
-      toggleView,
-      launchSwarm,
-      launchSecurity,
-      launchChatwoot,
-      exportIcs,
-      exportBrag
-    )
-  );
+  // Home keeps a compact Focus + Vault strip; AppFlowy, Cal.com, Swarm Review, Security Challenge and
+  // Community Support live in the Ctrl+K palette (main.ts dispatches their anf-open-* events).
+  const companionStudioCard = h('div',{class:'bento-strip','aria-label':'Focus timer and vault health'}, pomodoroCard, vaultHealthCard);
 
   const capture=button('Save to today’s log',()=>{if(working||!a.allowed())return;working=true;capture.disabled=true;const value=scratch.value;void a.capture(value).then(()=>{if(scratch.value===value){scratch.value='';try{localStorage.removeItem('coucou-quick-capture');}catch{}}state.textContent='Saved in '+dayName()+'.';void refresh();}).catch(e=>state.textContent=String(e).replace(/^Error: /,'')).finally(()=>{working=false;capture.disabled=false;});});
   try{scratch.value=localStorage.getItem('coucou-quick-capture')||'';}catch{}

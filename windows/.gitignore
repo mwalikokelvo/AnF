@@ -2,7 +2,9 @@ node_modules/
 dist/
 target/
 release/
-local-ai/
+tests/.*.test.mjs
+local-ai/*
+!local-ai/chat-template.jinja
 media/
 *.tsbuildinfo
 

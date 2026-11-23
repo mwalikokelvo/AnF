@@ -29,7 +29,7 @@
  * - tell_date: report today's date
  * - audius_search: search music on Audius
  * - convert_units: length, mass and temperature, offline
- * - wikipedia_summary, define_word, convert_currency: online lookups, off until the owner turns them on
+ * - wikipedia_summary, define_word, convert_currency: online lookups, on unless the owner turns them off
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
@@ -1648,6 +1648,12 @@ export interface KevoAskReply {
   text?: string;
   tool_calls?: KevoToolCall[];
 }
+
+/**
+ * Added after the owner's words when Kevo has already judged them not to be a command ("can you not skip this song?").
+ * It goes after the cached prompt, so the model reads only these few tokens more; any tool call it still makes is not run.
+ */
+export const ANSWER_ONLY_NOTE = '\n\n(This is not a request to act. Reply in words and call no tool.)';
 
 /** Executes a sequence of tool calls in order against a JarvisActionContext. */
 export async function executeKevoToolCalls(

@@ -42,7 +42,32 @@ export interface BriefingOptions {
   includeDeveloper?: boolean;
   includeContent?: boolean;
   includeDemo?: boolean;       // Defaults to false: no made-up numbers in production
+  realDataOnly?: boolean;      // Phase 7.4: When true, forces strictly verified local workspace data only
   voiceEnabled?: boolean;
+}
+
+const REAL_DATA_KEY = 'kevo_briefing_real_workspace_data_only';
+let inMemoryRealDataOnly = false;
+
+/** Returns whether Kevo executive briefings are restricted to verified real workspace data only */
+export function isRealWorkspaceDataOnly(): boolean {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const val = localStorage.getItem(REAL_DATA_KEY);
+      if (val !== null) return val === 'true';
+    } catch {}
+  }
+  return inMemoryRealDataOnly;
+}
+
+/** Configures whether Kevo executive briefings are restricted to verified real workspace data only */
+export function setRealWorkspaceDataOnly(enabled: boolean): void {
+  inMemoryRealDataOnly = enabled;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(REAL_DATA_KEY, String(enabled));
+    } catch {}
+  }
 }
 
 export interface WorkspaceBriefingData {
@@ -101,7 +126,7 @@ function buildSummary(chunks: AgentBriefingChunk[]): string {
   for (const chunk of chunks) {
     if (chunk.agentName.includes('Vault')) {
       const m = chunk.greeting.match(/(\d+)\s+notes?/i);
-      parts.push(`Vault: ${m ? m[1] : '0'}`);
+      parts.push(`Vault: ${m ? m[1] : (chunk.verified ? '0' : 'not available')}`);
     } else if (chunk.agentName.includes('Reading')) {
       const m = chunk.greeting.match(/(\d+)\s+items?/i);
       parts.push(`Reading: ${m ? m[1] : '0'}`);
@@ -110,7 +135,7 @@ function buildSummary(chunks: AgentBriefingChunk[]): string {
       parts.push(`Reminders: ${m ? m[1] : '0'}`);
     } else if (chunk.agentName.includes('System')) {
       const m = chunk.greeting.match(/is\s+([a-z]+)/i);
-      parts.push(`System: ${m ? m[1] : 'OK'}`);
+      parts.push(`System: ${chunk.verified ? (m ? m[1] : 'OK') : 'not available'}`);
     } else if (chunk.agentName === 'Revenue') {
       const m = chunk.greeting.match(/MRR at (\$[0-9,]+)/i);
       parts.push(m ? `MRR ${m[1]}` : 'Revenue');
@@ -148,17 +173,19 @@ export class JarvisExecutive {
     options?: BriefingOptions,
     agentData?: WorkspaceBriefingData,
   ): Promise<ExecutiveBriefing> {
+    const realDataOnly = options?.realDataOnly ?? false;
     const opts: Required<BriefingOptions> = {
       includeVault: options?.includeVault ?? true,
       includeReading: options?.includeReading ?? true,
       includeSchedule: options?.includeSchedule ?? true,
       includeSystem: options?.includeSystem ?? true,
-      includeRevenue: options?.includeRevenue ?? true,
-      includeAds: options?.includeAds ?? true,
-      includeSupport: options?.includeSupport ?? true,
-      includeDeveloper: options?.includeDeveloper ?? true,
-      includeContent: options?.includeContent ?? true,
-      includeDemo: options?.includeDemo ?? false,
+      includeRevenue: realDataOnly ? false : (options?.includeRevenue ?? true),
+      includeAds: realDataOnly ? false : (options?.includeAds ?? true),
+      includeSupport: realDataOnly ? false : (options?.includeSupport ?? true),
+      includeDeveloper: realDataOnly ? false : (options?.includeDeveloper ?? true),
+      includeContent: realDataOnly ? false : (options?.includeContent ?? true),
+      includeDemo: realDataOnly ? false : (options?.includeDemo ?? false),
+      realDataOnly,
       voiceEnabled: options?.voiceEnabled ?? false,
     };
 
@@ -168,25 +195,35 @@ export class JarvisExecutive {
     // 1. Knowledge & Vault Chunk (Verified Local Workspace Capability)
     if (opts.includeVault) {
       const v = agentData?.vault;
-      const totalNotes = v?.totalNotes ?? 0;
-      const recent = v?.recentNotes7d;
-      const status = v?.status ?? 'operational';
-      chunks.push({
-        agentName: 'Knowledge (Vault)',
-        greeting: totalNotes > 0
-          ? `Vault status: ${totalNotes} note${totalNotes === 1 ? '' : 's'} indexed.`
-          : 'Vault status: 0 notes indexed.',
-        details: [
-          recent != null
-            ? `${recent} note${recent === 1 ? '' : 's'} modified in the last 7 days.`
-            : 'Vault index is ready for search.',
-          `Vault health: ${status}.`,
-        ],
-        recommendation: totalNotes === 0
-          ? 'Start by creating or importing your first knowledge note.'
-          : 'Knowledge base is current.',
-        verified: true,
-      });
+      if (v?.totalNotes != null) {
+        const totalNotes = v.totalNotes;
+        const recent = v?.recentNotes7d;
+        const status = v?.status ?? 'operational';
+        chunks.push({
+          agentName: 'Knowledge (Vault)',
+          greeting: totalNotes > 0
+            ? `Vault status: ${totalNotes} note${totalNotes === 1 ? '' : 's'} indexed.`
+            : 'Vault status: 0 notes indexed.',
+          details: [
+            recent != null
+              ? `${recent} note${recent === 1 ? '' : 's'} modified in the last 7 days.`
+              : 'Vault index is ready for search.',
+            `Vault health: ${status}.`,
+          ],
+          recommendation: totalNotes === 0
+            ? 'Start by creating or importing your first knowledge note.'
+            : 'Knowledge base is current.',
+          verified: true,
+        });
+      } else {
+        chunks.push({
+          agentName: 'Knowledge (Vault)',
+          greeting: 'Vault status: not available.',
+          details: ['Vault index not available.'],
+          recommendation: 'Start by creating or importing your first knowledge note.',
+          verified: false,
+        });
+      }
     }
 
     // 2. Reading Queue Chunk (Verified Local Workspace Capability)
@@ -243,24 +280,34 @@ export class JarvisExecutive {
     // 4. System & Audio Chunk (Verified Local Workspace Capability)
     if (opts.includeSystem) {
       const sys = agentData?.system;
-      const audioStatus = sys?.audioEngineStatus ?? 'idle';
-      const activeTrack = sys?.activeTrack;
-      const vol = sys?.volume;
-      const mem = sys?.memoryUsedMb;
-      chunks.push({
-        agentName: 'System & Audio',
-        greeting: activeTrack
-          ? `Now playing: ${activeTrack}.`
-          : `Audio engine is ${audioStatus}.`,
-        details: [
-          vol != null ? `Playback volume: ${Math.round(vol * 100)}%.` : 'Audio output ready.',
-          mem != null ? `Memory footprint: ${mem} MB.` : 'System resources operational.',
-        ],
-        recommendation: audioStatus === 'playing'
-          ? 'Background audio active.'
-          : 'Speech and hearing subsystems standing by.',
-        verified: true,
-      });
+      if (sys?.audioEngineStatus != null || sys?.activeTrack != null) {
+        const audioStatus = sys.audioEngineStatus ?? 'idle';
+        const activeTrack = sys.activeTrack;
+        const vol = sys.volume;
+        const mem = sys.memoryUsedMb;
+        chunks.push({
+          agentName: 'System & Audio',
+          greeting: activeTrack
+            ? `Now playing: ${activeTrack}.`
+            : `Audio engine is ${audioStatus}.`,
+          details: [
+            vol != null ? `Playback volume: ${Math.round(vol * 100)}%.` : 'Audio output ready.',
+            mem != null ? `Memory footprint: ${mem} MB.` : 'System resources operational.',
+          ],
+          recommendation: audioStatus === 'playing'
+            ? 'Background audio active.'
+            : 'Speech and hearing subsystems standing by.',
+          verified: true,
+        });
+      } else {
+        chunks.push({
+          agentName: 'System & Audio',
+          greeting: 'System status: not available.',
+          details: ['Telemetry data not available.'],
+          recommendation: 'Desktop audio and system services are standing by.',
+          verified: false,
+        });
+      }
     }
 
     // 5. External Business Telemetry: Revenue (NO fabricated metrics)

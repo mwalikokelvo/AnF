@@ -72,6 +72,7 @@ export const Bridge = {
   kevoSelftestReadClip: (file: string) => call<number[]>("kevo_selftest_read_clip", { file }),
   kevoSelftestSaveResult: (resultJson: string) => call<string>("kevo_selftest_save_result", { resultJson }),
   kevoGraphicsCard: () => call<string>("kevo_graphics_card"),
+  kevoModelDevice: () => call<string>("kevo_model_device"),
   kevoMeasureIdleCpu: (seconds?: number) => call<number>("kevo_measure_idle_cpu", { seconds }),
   systemStats: () => call<Record<string, unknown>>("system_stats"),
   kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),

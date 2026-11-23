@@ -48,6 +48,14 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
     assert.strictEqual(resTime.actionName, 'tell_time');
     assert.match(resTime.speechReply, /\b\d{1,2}:\d{2}\b/);
 
+    // A place is answered with that place's time, not the local clock.
+    const resTokyo = await agent.processVoiceInput('What time is it in Tokyo?');
+    assert.strictEqual(resTokyo.actionName, 'time_in_place');
+    assert.match(resTokyo.speechReply, /^It is \d{1,2}:\d{2} in Tokyo\.$/);
+    assert.strictEqual((await agent.processVoiceInput("what's the time in new york")).speechReply.endsWith('in New York.'), true);
+    // A place Kevo has no zone for is said so, never answered with the time here.
+    assert.strictEqual((await agent.processVoiceInput('What time is it in Atlantis now?')).speechReply, 'I do not know the time zone for Atlantis yet.');
+
     const resDate = await agent.processVoiceInput("what is today's date?");
     assert.strictEqual(resDate.handled, true);
     assert.strictEqual(resDate.actionName, 'tell_date');
@@ -155,6 +163,28 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
     assert.strictEqual(askedQuery, 'why is the sky blue?');
     assert.match(resWithModel.speechReply, /Rayleigh/);
     agentWithModel.dispose();
+  });
+
+  it('asks the model for words only when a song or clock command is refused (#155)', async () => {
+    const seen: Record<string, boolean | undefined> = {};
+    const agent = new JarvisVoiceAgent(
+      createFastPathContext({
+        askAI: async (query, options) => {
+          seen[query] = options?.answerOnly;
+          return `An answer to: ${query}`;
+        },
+      })
+    );
+    for (const said of ['Can you not skip this song?', "Please don't skip that track", "Please don't ever tell me the time"]) {
+      assert.strictEqual((await agent.processVoiceInput(said)).actionName, 'ai_conversation');
+      assert.strictEqual(seen[said], true, said);
+    }
+    // Not refusals: the model may still act on them.
+    for (const said of ['why is the sky blue?', "Why don't you skip this song?", "Don't forget to tell me the time at noon"]) {
+      await agent.processVoiceInput(said);
+      assert.strictEqual(seen[said], false, said);
+    }
+    agent.dispose();
   });
 
   it('handles remember commands instantly on fast path with no model loaded (Step 3.2)', async () => {

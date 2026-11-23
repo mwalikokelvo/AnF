@@ -236,6 +236,12 @@ pub fn kevo_graphics_card() -> Result<String, String> {
     Ok("Standard Graphics Adapter".into())
 }
 
+/// Returns the active local AI model execution device ("GPU (Vulkan)" or "CPU").
+#[tauri::command]
+pub fn kevo_model_device(chat: tauri::State<'_, crate::Chat>) -> String {
+    chat.local.device()
+}
+
 /// Measures average host CPU usage percentage over `seconds` of idle time (default 60s).
 #[tauri::command]
 pub async fn kevo_measure_idle_cpu(seconds: Option<u64>) -> Result<f32, String> {

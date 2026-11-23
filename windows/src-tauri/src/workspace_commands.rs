@@ -293,18 +293,7 @@ pub async fn ask_local(chat:&Chat,query:String,sources:Vec<Source>,history:Vec<V
     let (messages, trimmed) = local_ai::bounded_messages(&history, &prompt);
     let result = chat.local.reply_sized(&messages,&model,long_response.unwrap_or(false)).await;
     let (text, incomplete) = result?;
-    let mut notice = format!(
-        "Answered locally with {}. Check facts and any source citations.",
-        match model.as_str() {
-            "deepseek-v4.1-flash" => "DeepSeek V4.1 Flash (1017 · Engram)",
-            "deepseek-v3.2-reasoning" | "deepseek-v3.2" => "DeepSeek V3.2 Reasoning (DSA)",
-            "deepseek-r1-distill-qwen-1.5b" | "deepseek-r1-distill" => "DeepSeek R1 Distill 1.5B (Edge)",
-            "kimi-k3-thinking" | "kimi-k3" => "Kimi K3 Thinking (KDA · MoE)",
-            "kimi-linear-a3b" | "kimi-linear" => "Kimi Linear 48B-A3B (Edge Fast)",
-            "fast" => "Fast · Qwen3 0.6B",
-            _ => "Balanced · Qwen3 1.7B",
-        }
-    );
+    let mut notice = "Answered locally with DeepSeek V4 Pro (Qwen3.5 9B Uncensored). Check facts and any source citations.".to_string();
     let web_count=evidence.iter().filter(|e|e.source_name.starts_with("https://")).count();
     notice.push_str(&format!(" Basis: {}.",if evidence.is_empty(){"general model knowledge; no source excerpts used".to_string()}else{format!("{} document excerpts and {} saved web excerpts",evidence.len()-web_count,web_count)}));
     if trimmed {
@@ -392,7 +381,7 @@ pub fn workspace_diagnostics(chat: State<Chat>) -> Value {
     };
     let documents = settings::local_dir().join("documents");
     let _ = crate::platform::ensure_private_dir(&documents);
-    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"fast":ready("model-fast.gguf"),"balanced":ready("model.gguf"),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":target_port().map(|(p,_)|is_port_open(p)).unwrap_or(false),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
+    json!({"version":env!("CARGO_PKG_VERSION"),"runtime":ready("llama-server.exe"),"model":dir.as_deref().is_some_and(local_ai::model_available),"ocr":ready("ocr-detection.rten")&&ready("ocr-recognition.rten"),"ocr_service":target_port().map(|(p,_)|is_port_open(p)).unwrap_or(false),"totalRam":total,"freeRam":free,"documents":documents.to_string_lossy(),"log":settings::local_dir().join("coucou.log").to_string_lossy()})
 }
 
 #[cfg(test)]
@@ -410,7 +399,9 @@ mod tests {
     }
     #[test]
     fn ocr_port_check_reports_offline_on_unused_port() {
-        assert!(!is_port_open(59997));
+        // A port the OS just handed out and released, not a fixed one another process on the runner may hold.
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        assert!(!is_port_open(port));
     }
     #[test]
     fn ocr_backend_only_accepts_the_fixed_exe() {
