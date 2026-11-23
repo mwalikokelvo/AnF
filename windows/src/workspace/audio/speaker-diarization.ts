@@ -69,7 +69,7 @@ export const SpeakerDiarizationCore = {
     samples: Float32Array,
     frameSize = 1024,
     sampleRate = 16000,
-    expectedSpeakers = 2
+    _expectedSpeakers = 2
   ): DiarizedTurn[] {
     if (!samples || samples.length === 0) return [];
 

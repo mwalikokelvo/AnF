@@ -1,8 +1,23 @@
 // Claude Code Security Review-grade Agent Tool Guard & Output Sanitizer.
 // Enforces path boundaries, command execution blacklists, and context leakage sanitization.
 
-import path from 'node:path';
 import { redactSecrets } from './secret-scanner.js';
+
+function normalizePath(p: string): string {
+  const normalized = p.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  const resolvedParts: string[] = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (resolvedParts.length > 0) resolvedParts.pop();
+    } else {
+      resolvedParts.push(part);
+    }
+  }
+  const prefix = normalized.startsWith('/') ? '/' : '';
+  return (prefix + resolvedParts.join('/')).toLowerCase();
+}
 
 export interface ToolGuardOptions {
   allowedWorkspaceRoots: string[];
@@ -32,7 +47,7 @@ export class AgentToolGuard {
   private maxOutputChars: number;
 
   constructor(options: ToolGuardOptions) {
-    this.allowedRoots = (options.allowedWorkspaceRoots || []).map(r => path.resolve(r).toLowerCase());
+    this.allowedRoots = (options.allowedWorkspaceRoots || []).map(r => normalizePath(r));
     this.blockedCommands = options.blockedCommandPatterns || DEFAULT_BLOCKED_COMMANDS;
     this.maxOutputChars = options.maxOutputChars || 64000;
   }
@@ -43,8 +58,8 @@ export class AgentToolGuard {
   public isPathWithinWorkspace(targetPath: string): boolean {
     if (!targetPath) return false;
     try {
-      const resolved = path.resolve(targetPath).toLowerCase();
-      return this.allowedRoots.some(root => resolved === root || resolved.startsWith(root + path.sep));
+      const resolved = normalizePath(targetPath);
+      return this.allowedRoots.some(root => resolved === root || resolved.startsWith(root + '/'));
     } catch {
       return false;
     }

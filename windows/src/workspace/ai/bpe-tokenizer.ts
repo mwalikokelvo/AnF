@@ -133,7 +133,6 @@ export class BpeTokenizer {
    */
   public tokenizeWithSpans(text: string): TokenSpan[] {
     const results: TokenSpan[] = [];
-    let pos = 0;
 
     // Regular expression matching special tokens or words/whitespace
     const specialPattern = /(<\|endoftext\|>|<\|im_start\|>|<\|im_end\|>|<\|pad\|>|<\|unk\|>)/g;

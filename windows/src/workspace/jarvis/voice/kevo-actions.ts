@@ -1106,15 +1106,15 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           handled: true,
           actionName: 'transcribe_video',
           speechReply: 'Please provide a video URL or video ID to transcribe, sir.',
-          status: 'failed',
+          status: 'failure',
           verified: false,
         };
       }
       try {
         const transcript = await fetchInvidiousTranscript(url);
         const md = formatTranscriptMarkdown(transcript);
-        if (args.save_as_note && ctx.createNote) {
-          await ctx.createNote(transcript.title, md);
+        if (args.save_as_note && ctx.saveQuickNote) {
+          await ctx.saveQuickNote(md);
           return {
             handled: true,
             actionName: 'transcribe_video',

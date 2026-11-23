@@ -6,8 +6,8 @@
  * Inspired by iv-org/invidious.
  */
 
-import { onlineLookupsEnabled, safeHttpsUrl } from './online-lookups';
-import { STREAM_INSTANCES, type StreamInstance } from './streaming-provider';
+import { onlineLookupsEnabled } from './online-lookups';
+import { STREAM_INSTANCES } from './streaming-provider';
 
 export interface CaptionTrack {
   label: string;

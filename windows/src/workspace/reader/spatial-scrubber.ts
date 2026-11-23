@@ -62,7 +62,6 @@ export const SpatiotemporalScrubber = {
       };
     }
 
-    const currentChapterWaypoints = chapterLookup.get(activeChapterIndex) || [];
     const visited: NarrativeWaypoint[] = [];
     const upcoming: NarrativeWaypoint[] = [];
 
