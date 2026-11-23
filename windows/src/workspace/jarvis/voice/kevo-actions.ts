@@ -1695,7 +1695,58 @@ export async function executeKevoToolCalls(
 
 /** Parses raw OpenAI-compatible response into KevoAskReply, handling standard tool_calls and inline <tool_call> tags. */
 export function parseKevoAskResponse(response: any): KevoAskReply {
-  const toolCalls: KevoToolCall[] = [];
+  const toolCalls: KevoToolCall[] = [
+  {
+    name: 'get_weather',
+    description: 'Get the current weather for a place or the local area.',
+    parameters: {
+      type: 'object',
+      properties: {
+        place: { type: 'string', description: 'City or place name, optional' },
+      },
+    },
+    execute: async (args, ctx) => {
+      const { getWeather, formatWeather } = await import('./kevo-weather');
+      try {
+        const w = await getWeather(args?.place);
+        return { handled: true, actionName: 'get_weather', speechReply: formatWeather(w), status: 'success', verified: true };
+      } catch (e: any) {
+        return { handled: true, actionName: 'get_weather', speechReply: e.message || 'Could not get weather.', status: 'failure', verified: false };
+      }
+    },
+  },
+  {
+    name: 'add_to_shopping_list',
+    description: 'Add an item to the shopping or to-do list.',
+    parameters: {
+      type: 'object',
+      properties: { item: { type: 'string', description: 'Item to add' } },
+      required: ['item'],
+    },
+    execute: async (args) => {
+      const { addToShoppingList } = await import('./kevo-shopping');
+      return { handled: true, actionName: 'add_to_shopping_list', speechReply: addToShoppingList(args.item), status: 'success', verified: true };
+    },
+  },
+  {
+    name: 'list_shopping_list',
+    description: 'Read out the current shopping list.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const { listShoppingList } = await import('./kevo-shopping');
+      return { handled: true, actionName: 'list_shopping_list', speechReply: listShoppingList(), status: 'success', verified: true };
+    },
+  },
+  {
+    name: 'clear_shopping_list',
+    description: 'Clear the entire shopping list.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const { clearShoppingList } = await import('./kevo-shopping');
+      return { handled: true, actionName: 'clear_shopping_list', speechReply: clearShoppingList(), status: 'success', verified: true };
+    },
+  },
+];
   const choice = response?.choices?.[0]?.message;
   if (!choice) return { text: undefined, tool_calls: [] };
 
