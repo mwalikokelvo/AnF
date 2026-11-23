@@ -10,6 +10,7 @@ import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFet
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
+import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import {
@@ -21,6 +22,7 @@ import {
   getDailyBriefingSchedule,
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
+import { kevoLinkBus } from '../kevo-link-bus';
 
 export type JarvisAskAiResult =
   | string
@@ -420,6 +422,11 @@ export class JarvisVoiceAgent {
 
   setPendingApproval(approval: PendingApproval | null): void {
     this.currentApproval = approval;
+    kevoLinkBus.setPendingApproval(approval ? {
+      id: String(approval.id),
+      action: approval.action,
+      summary: approval.summary,
+    } : null);
   }
 
   getPendingApproval(): PendingApproval | null {
@@ -563,6 +570,13 @@ export class JarvisVoiceAgent {
     const translate = parseTranslateRequest(lower);
     if (translate) return this.online('translate', 'translate that', () => translateFromEnglish(translate.text, translate.code), (said) => `In ${translate.language}, ${translate.text} is: ${said}`);
 
+    // "What time is it in Tokyo" before the local clock, which would otherwise answer it with the time here.
+    const tzPlace = parseTimezoneRequest(lower);
+    if (tzPlace) {
+      const reply = timeInPlace(tzPlace);
+      if (reply) return { handled: true, actionName: 'time_in_place', speechReply: reply, status: 'success', verified: true };
+      return { handled: true, actionName: 'time_in_place', speechReply: `I do not know the time zone for ${placeName(tzPlace)} yet.`, status: 'failure', verified: false, reason: 'UNKNOWN_PLACE' };
+    }
     // Clock / calendar (Phase 2B)
     if (
       lower.includes('what time') ||

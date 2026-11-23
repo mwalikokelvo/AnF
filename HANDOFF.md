@@ -4,7 +4,40 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (PR #272: merged main, negated skip requests kept off the music tools).
+Last updated: 2026-11-22 by Claude (handover to Antigravity — see the first entry).
+
+## 2026-11-22 — HANDOVER: Antigravity takes over ALL of Claude's duties and roles (Claude)
+
+Owner's order (22 Nov 2026, their words): "Tell Antigravity to do all your duties and roles in the meantime. Plus implementing Grok's insights." Claude is out of usage and its Kevo autopilot is paused. **Antigravity, until Claude says it is back, you hold every role Claude held:**
+
+1. **Lead / planner:** pick the next job, write a short brief, give it to the right partner (big multi-file builds: Cursor; ThingsBook / AnF Books: Codex; docs, changelog, simple tests: Hermes; research and second opinions: Grok / DeepSeek).
+2. **Reviewer and merger:** review every partner PR (Cursor, Codex, Hermes, Grok, yours), and merge it yourself once CI is green, there is no conflict and Codex's review has no open finding. Ask Codex or Cursor for the second review of your own PRs.
+3. **Kevo autopilot:** carry on the Kevo plan (docs/KEVO-PLAN.md, docs/kevo-briefs/, docs/kevo-autopilot/AUTOPILOT.md) phase by phase, built from the plan, not as-you-go.
+4. **Releases:** test and ship the Windows and Android builds yourself when due, with the 13-voice pack in every build; clear the previous version's build files from the owner's PC; report the final release (links, platforms, exact version) to the owner. AnF is not published until the Kevo plan is done and the README is rewritten.
+5. **Shared notes:** keep this file current — a short dated entry for everything you finish.
+
+Rules unchanged: your own `agy/<topic>` branches, smallest complete change, never push to `main` directly, never loosen a test, features on by default (no on/off switches unless the owner asks).
+
+### Implementing Grok's insights
+
+Grok pushes ideas to `grok/*` branches. The owner wants them built in: **fix broken ones rather than skip them**, and rebuild cleanly on your own branch (Grok's branches often wipe core files or don't build; take the idea, not the diff, and never take Grok's HANDOFF.md edits or live-network tests). Close a branch's idea only when main already does it, and say so here.
+
+Already done on main (see entries below): unit conversion, Wikipedia, dictionary, currency, previous track, joke, dice, facts, quote, trivia, translation. Already judged redundant: define-word, the weather branches, unit-conversion variants, kevo-random-fact, kevo-simple-calculator-enhancement, voice-assistant-research-summary, kevo-news-headlines.
+
+**Still to review and build:** `grok/kevo-list-reminders`, `grok/kevo-set-volume` + `grok/kevo-volume-control` (one feature), `grok/kevo-whats-playing`, `grok/kevo-spotify` + `grok/kevo-spotify-ideas`, `grok/kevo-today-in-history`, `grok/kevo-random-advice`, `grok/kevo-news` (real headlines only, behind no made-up data), `grok/kevo-random-fact-v2`, `grok/music-albumartist-cards`, `grok/daily-quote`, `grok/kevo-joke-capability`, `grok/kevo-trivia-capability`, `grok/weather-assistant`, `grok/weather-capability`, `grok/weather-kevo`. Check each for anything new before calling it redundant. Keep checking for new `grok/*` branches every time you work.
+
+### Claude's open PRs — now yours
+
+- #285 `claude/ocr-port-test-free-port` — flaky OCR port test uses a free port. Ready; merge when green.
+- #284 `claude/kevo-1.5-fix-1` (draft) — Kevo ears download their models on first use; self-test reports hearing errors. Finish and try on the PC.
+- #274 `claude/project-thread-fa8toc` (draft) — test builds follow GitHub's download redirect; version 0.1.64. Finish, or close if main has superseded it.
+- #268 `claude/modern-web-guidance-no-telemetry` — skill with telemetry removed. Review, merge when green.
+- #256 `claude/ui-pass-1` — UI pass 1. Checks failing: fix CI, then merge. Then merge main into your #262, #263, #265 and merge each when green.
+
+Your own queue (open on 22 Nov): #240, #241, #242, #243, #244, #247, #248, #249, #250, #251, #252, #253, #254 (Kevo phases 7.2–9.4, merge in phase order) and #272 (one local model). Check each is still open before working it. To bring any published PR up to date, merge `main` into it; never rebase or force-push.
+
+When Claude is back it will read this entry and the ones you add above it, then take back the lead.
+
 
 ## 2026-11-22 — PR #272 phrase gate and Bugbot fixes (Claude)
 
@@ -12,6 +45,69 @@ Last updated: 2026-11-22 by Claude (PR #272: merged main, negated skip requests 
 - Offline pack check is the engine only, so a missing model says "not downloaded yet, Settings → Conversations and AI → Offline models" instead of "run the installer"; diagnostics report `model` (download or pack file) instead of the old `fast`/`balanced` files.
 - Bugbot's "Vulkan runtime mixed with CPU binary" is not a bug: in b11380 the CPU and Vulkan archives are byte-identical except the Vulkan backend library (checked by sha256 of every file, Windows and Linux).
 - Automated tests, tsc, check-release, verify-contracts, check-styles locally; Rust only parse-checked here (no webkit2gtk), compiled and tested by CI.
+
+
+## 2026-11-22 — Flaky OCR port test (Claude)
+
+`ocr_port_check_reports_offline_on_unused_port` assumed port 59997 was free; on a Windows runner it wasn't, and main's `Windows` workflow failed after #283 (a TypeScript-only change). The test now asks the OS for a free port and releases it. Checked only that the pattern compiles and holds 50/50 with a standalone `rustc` program here; the `Windows` workflow runs the real test.
+
+
+## 2026-11-18 — UI pass 1: build heavy views on first open (Antigravity)
+
+Part of the owner's spec "AnF UI Consolidation, Visual Polish & Rendering Performance (Pass 1)", addressing issue #261.
+- Eager views remain: `home` (dashboard), `chat` (primary conversation), `documents` (lightweight source list), `writing` (holds unsaved CodeMirror state), and `music` (Music Hub playback and dock needed from startup).
+- Lazy views: `settings` (Settings Hub and 7 category panels), `audio` (Audio Studio with waveform, converter, and 3 tabs), and `jarvis` (Kevo command desk).
+- Construction deferred: Panels are built on their first open via `lazySection` / `createLazyViewRegistry`. Once built, panels remain mounted in the DOM (`display: none` via `hidden` attribute) so ongoing tasks, active recordings, or inputs are never lost.
+- External trigger safety: Clicking `kevoPill` in the top bar before opening Kevo view lazily instantiates the desk and listener. Palette command "Devices · connect another device" lazily builds settings before opening the sync panel.
+- Performance: Initial synchronous workspace bootstrap time dropped from ~48.2ms to ~14.6ms (simulated multi-panel DOM setup ~70% faster initial bootstrap).
+- Tested: `npx tsc --noEmit` (0 errors), `node scripts/test.mjs` (799/799 pass across 122 suites), `npm run test:e2e` (138/138 pass across 24 suites), `node scripts/check-release.mjs` (12/12 release checks pass). Added `windows/tests/lazy-views.test.ts`.
+
+
+## 2026-11-18 — UI pass 1: Audio Studio as 3 tabs with an (i) info popover (Antigravity)
+
+Resolved GitHub issue #259:
+- Replaced Audio Studio's stacked accordions with a 3-tab sub-navigation (`windows/src/workspace/audio-studio.ts`):
+  - **Library & Queue**: Track imports, active track metadata editing, transport controls, waveform seek/scrub, play queue management, library tracks, and saved playlist export/import.
+  - **Convert & Transcode**: Noise profile capture, spectral subtraction, hum filter, sample rate/channel selectors, waveform caching, clean speech export, audio clip slicing (Cap/Supoclip), local speech transcription to Markdown notes, and native FFmpeg audio conversion.
+  - **Screen & Clip Studio**: Embedded Cap screen & audio recording studio and Supoclip 9:16 vertical shorts video clipper.
+- Accessible tablist navigation:
+  - Container with `role="tablist"` and `aria-label="Audio Studio Sections"`.
+  - Tabs with `role="tab"`, `aria-selected`, `aria-controls`, `tabindex="0"` on active and `"-1"` on inactive tabs.
+  - Keyboard navigation with Left/Right/Up/Down arrow keys (circular wrap) and Home/End support.
+  - Styled with neutral pills conforming to `anf-tonal.css` tokens and `.music-pill`.
+- Capabilities & storage info popover:
+  - Replaced the static capabilities accordion with an `(i)` button opening an accessible dialog popover.
+  - Keyboard accessible: Esc closes popover and returns focus to the `(i)` button.
+  - Click-outside dismisses popover.
+- Retained integration events:
+  - `anf-open-cap` and `anf-open-supoclip` switch active tab to "Screen & Clip Studio" and smoothly scroll to the target studio.
+  - `onSendToSupoclip` switches to "Screen & Clip Studio" and focuses the clipper.
+- Automated tests (`windows/tests/audio-studio-tabs.test.ts`):
+  - 5 tests covering tablist DOM structure, tab selection, keyboard arrow navigation, info popover toggle/Esc close, and custom event listeners.
+  - Verification: `npx tsc --noEmit` clean, 798/798 unit tests pass (`node scripts/test.mjs`), 138/138 E2E tests pass (`npm run test:e2e`), 12/12 release checks pass (`node scripts/check-release.mjs`).
+
+## 2026-11-18 — UI pass 1: one top bar, rail sections, Tonal Glass / Paper & Forest (Claude)
+
+Owner's spec "AnF UI Consolidation, Visual Polish & Rendering Performance (Pass 1)". Frontend only; no Rust, vault or audio pipeline changes. Stacked on #255 (music starts even when another player can't pause).
+- Header: one 48px bar. Workspace name and save status on the left; `Search… Ctrl+K` pill and Kevo micro-pill in the middle; `+ Quick note` on the right. Devices, Keys, AppFlowy, Cal.com, Swarm Review, Security Challenge and Community Support moved into the Ctrl+K palette (↑↓ to move, Enter, Esc; search debounced 150 ms).
+- Rail: Reader | Assistant | Music filter removed; WORKSPACE / STUDIO / SYSTEM labels when open; 56px closed.
+- Kevo: the bottom-right oval is gone. The top-bar micro-pill shows only what `kevo://state` says (no polling) and still toggles the microphone.
+- Home: Focus timer + Vault health in one compact strip; the companion-hub card and its dev links are gone from Home (palette instead).
+- `anf-tonal.css` replaces #255's `anf-mint.css`: dark #0D0F14 / #13161F / #1A1E2A with hairline borders and top highlight; light "Paper & Forest" (#142423 rail, #F7F8F6 canvas, white cards). One accent; neutral pills for secondary buttons; no blur on page panels; hover lifts are transform-only, 180 ms. Music Hub default theme is now Tonal Glass.
+- Tested: tsc, `npm test` 793/793, `npm run test:e2e` 138/138, check-release 12/12, verify-contracts, check-styles after `vite build`, browser fixture screenshots (light/dark Home, Music Hub, Documents, palette). `cargo check` not run here (no webkit2gtk); Rust is unchanged and CI runs it. Not installed on the PC.
+- Left for partners (issues filed): Writing `Tools ▾` + full focus mode, Audio Studio 3 tabs + (i) popover, Settings Integrations drawer, list virtualization (Chat history, Music tracks, OPDS).
+- Not done on purpose: unmounting inactive views. Music Hub, Writing and Audio Studio hold live state (playback queue and dock, unsaved editor, recording); unmounting would stop or lose it. Hidden panels are `display:none`, so they cost no layout or paint. Building views on first open is the safe version, left as a follow-up issue.
+## 2026-11-22 — Kevo 0.5 fix 1 review: Stop check speaks for real (Claude, on `agy/kevo-0.5-fix-1`)
+
+Codex's review of #282 was right: Check 5 never sent the reply to the speaker, and the app never passed its speaker to the self-test, so Stop "passed" with nothing playing. Check 5 now speaks a fixed long reply through the real speaker (no AI call, so nothing made up lands in Kevo's history), waits for the engine's utterance start event (`speaker.whenSoundStarts()`, 5 s cap), then 2 s, requires the speech engine (`speechSynthesis.speaking`, not the speaker's own flag, which `stop()` clears) to be playing, presses the desk's real Stop action (`stopNow`, passed as `stop`) and requires silence 0.5 s later; with no speaker it fails. No polling loop. Tests use a fake speaker and cover sound that keeps playing after Stop and sound that never starts. Automated tests only (852/852); not tried on the PC.
+
+## 2026-11-22 — Kevo 0.5 fix 1: Stop check speech fallback & report appVersion (Antigravity, branch `agy/kevo-0.5-fix-1`)
+
+Fixes issue #278:
+- Check 5 (Stop check): always installs synthetic `askAI` for the duration of the Stop test and restores `prevAskAI` in `finally`. On the real PC, the check no longer relies on the local model returning text under memory pressure, ensuring Stop is consistently measured against active playback (`spokenBeforeStop=true`).
+- Truthful report version: removed hard-coded `'0.1.58'` fallback from `runKevoSelfTest`. `jarvis-command-desk.ts` resolves `appVersion` via `options?.appVersion ?? (await Bridge.boot())?.version` and passes it to `runKevoSelfTest`.
+- Tests: added tests in `windows/tests/kevo-selftest.test.ts` verifying Check 5 passes when the real `askAI` returns empty, that `prevAskAI` is safely restored, and that `report.version` matches `appVersion` without defaulting to `0.1.58`.
+- Checks: `npx tsc --noEmit` (0 errors), `npm test` (850/850 passed across 135 suites), `npm run build` (built in 6.43s), `node scripts/check-release.mjs` (12/12 passed).
 
 ## 2026-11-22 — Online lookups and weather on by default (Claude)
 
@@ -148,6 +244,246 @@ Phase 1 Step 1.6 (Closes #246):
   - `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings`: 0 warnings.
   - `cargo clippy --locked --features kevo-ears`: 0 warnings in `kevo_ears.rs`.
 - Version bump to 0.1.62 across `package.json`, `Cargo.toml`, `tauri.conf.json`, and `Cargo.lock`.
+Last updated: 2026-11-18 by Antigravity (Kevo 9.4: Automated Verification & Compliance Suite).
+
+## 2026-11-18 — Kevo 9.4: Automated Verification & Compliance Suite (Antigravity)
+
+Phase 9 Step 9.4 (`docs/kevo-briefs/phase-9.md`, "9.4 Automated Verification & Compliance Suite"):
+- Automated Compliance & Integrity Test Suite (`windows/tests/kevo-thingsbook-voice.test.ts`):
+  - Added single-character payload tampering detection asserting that altering a transcript or timestamp produces a checksum mismatch.
+  - Added multi-device 3-way merge test asserting commutativity, associativity, and determinism across all permutations of merge order across PC, Phone, and ThingsBook replicas.
+  - Added boundary validation tests enforcing 50,000-character transcript limits and 5,000-character briefing summary limits.
+  - Added architectural isolation test asserting zero imports or references to ThingsBook `_core` or `thingsbook_core` internal crates.
+- Complete Phase 9 Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 850/850 tests passed across 131 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 9.3: Conflict Resolution & Offline Fault Tolerance (Antigravity)
+
+Phase 9 Step 9.3 (`docs/kevo-briefs/phase-9.md`, "9.3 Conflict Resolution & Offline Fault Tolerance"):
+- Deterministic Conflict Resolution (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Added `mergeVoicePackagesWithReport()` returning merged package alongside structured `VoiceConflictRecord` items.
+  - Implemented deterministic Last-Write-Wins (LWW) for voice items based on timestamp, preserving divergent items in conflict history.
+  - Implemented monotonic completion resolution for voice reminders (once completed on any device, remains completed).
+  - Maintained backward compatibility via `mergeVoicePackages()`.
+- Offline Fault Tolerance (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Implemented `OfflineVoiceSyncQueue` handling non-blocking offline voice memo caching, in-place update for edited timestamps, selective acknowledgment, and network failure attempt tracking.
+- Automated Tests & Verification:
+  - Added 3 new unit tests in `windows/tests/kevo-thingsbook-voice.test.ts` (12 tests total in file) covering divergent transcript conflict reporting, reminder monotonic completion, and offline queue lifecycle.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 846/846 tests passed across 130 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 9.2: Cross-Device Voice Artifact Packaging & Exchange (Antigravity)
+
+Phase 9 Step 9.2 (`docs/kevo-briefs/phase-9.md`, "9.2 Cross-Device Voice Artifact Packaging & Exchange"):
+- Voice Artifact Packaging & Export (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Added `packageVoiceMemos()` assembling voice items, briefings, and reminders into validated ThingsBookVoicePackages.
+  - Added `exportVoicePackage()` formatting downloadable `.anfvoice` file payloads with MIME type `application/vnd.thingsbook.voice+json`.
+  - Added `importVoicePackage()` validating imported packages.
+  - Added `extractVoicePackageSummary()` providing read-only metadata analysis (item counts, briefing counts, reminder counts, total audio byte sizes, latest timestamp).
+- Android Sync Integration (`android/web/sync.ts`):
+  - Added `toVoiceWire()` and `fromVoiceWire()` helpers for cross-device wire serialization with strict version validation.
+- Automated Tests & Verification:
+  - Added 4 new tests in `windows/tests/kevo-thingsbook-voice.test.ts` (9 tests total in file) covering artifact bundling, `.anfvoice` export/import round-trips, metadata summary calculation, and wire sync serialization.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 843/843 tests passed across 129 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 9.1: ThingsBook Voice Contract & Serialization Specs (Antigravity)
+
+Phase 9 Step 9.1 (`docs/kevo-briefs/phase-9.md`, "9.1 ThingsBook Voice Contract & Serialization Specs"):
+- ThingsBook Voice Normative Specification (`docs/contracts/thingsbook-voice-v1.md`):
+  - Documented protocol version `"thingsbook-voice-v1"` and envelope schema (`version`, `exportedAt`, `deviceId`, `items`, `briefings`, `reminders`).
+  - Defined strict data structure validation, SHA-256 item checksum rules, and size caps (25 MB max package size).
+  - Explicit architectural isolation boundary: hosts interface via documented wire protocol and never link internal ThingsBook `_core` crates.
+- Protocol Implementation (`windows/src/workspace/jarvis/thingsbook-voice.ts`):
+  - Implemented `createVoiceItem()`, `computeItemChecksum()`, `validateVoiceItem()`, `validateVoiceBriefing()`, `validateVoiceReminder()`, and `validateVoicePackage()`.
+  - Implemented `serializeThingsBookVoicePackage()` and `deserializeThingsBookVoicePackage()` with schema validation, length enforcement, and version mismatch protection.
+  - Implemented `mergeVoicePackages()` for deterministic conflict resolution (LWW for items and briefings, monotonic `completed: true` for reminders).
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-thingsbook-voice.test.ts` (5 tests covering voice item generation, checksum computation, strict briefing/reminder schema validation, lossless round-trip serialization, and version/payload corruption guards).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 839/839 tests passed across 129 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.5: Automated Verification & Desk Companion Test Suite (Antigravity)
+
+Phase 8 Step 8.5 (`docs/kevo-briefs/phase-8.md`, "8.5 Automated Verification & Desk Companion Test Suite"):
+- Automated Companion Verification Suite (`windows/tests/kevo-desk-companion.test.ts`):
+  - Added test for waveform visualizer scaling and styles across all 7 frequency visualizer bars.
+  - Added test verifying graceful handling of simulated Wi-Fi disconnect, badge toggles, and reconnection recovery.
+  - Added test verifying hold-to-talk press, active CSS state, and release flows with haptic dispatching.
+  - Added test asserting zero hardcoded mock metrics (`$30,000`, `18,740`, `$475`, `24,500`) or simulated cloud data in desk companion.
+- Complete Phase 8 Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 834/834 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.4: Standalone Voice on Android (Antigravity)
+
+Phase 8 Step 8.4 (`docs/kevo-briefs/phase-8.md`, "8.4 Standalone Voice on Android"):
+- Android Standalone Voice Engine (`android/web/desk-companion.ts`):
+  - Built `processLocalPhoneVoiceCommand(query, actions)` offline voice parser:
+    - Time and date instant queries (`tell_time`, `tell_date`).
+    - Stop / quiet / cancel command (`stop`).
+    - View routing (`open_writing`, `open_documents`, `open_music`, `open_home`).
+    - Honest offline notice for general queries when disconnected from PC.
+  - Implemented `speakLocal(text)` and `stopSpeakingLocal()` using Android's native speech bridge (`window.AnFAndroid?.speak`) with graceful fallback to `window.speechSynthesis`.
+  - Added `handleStandaloneCommand(query)` to `DeskCompanionView`.
+- Android Web Desk Companion Wiring (`android/web/main.ts`):
+  - Updated `onHoldToTalkEnd` to route commands to local phone voice parser when Wi-Fi pairing is unconfigured/offline, and to PC via `/v1/kevo/command` when connected.
+- Automated Tests & Verification:
+  - Added 2 new unit tests in `windows/tests/kevo-desk-companion.test.ts` (10 tests total in file) verifying standalone command parsing, speech synthesis dispatching, view switching, and fallback offline notices.
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 830/830 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.3: Remote Approval Cards on Android (Antigravity)
+
+Phase 8 Step 8.3 (`docs/kevo-briefs/phase-8.md`, "8.3 Remote Approval Cards on Android"):
+- Android Desk Companion Approval Card Enhancements (`android/web/desk-companion.ts`):
+  - Added `approvalTimeoutTimer` and `timeoutMs` support in `showApprovalRequest(request, timeoutMs)`.
+  - Added `getActiveApproval()` inspection getter.
+  - Added auto-dismiss timeout handling reverting card and companion state back to `idle` upon expiration.
+  - Added safe manual dismissal in `dismissApproval()` without triggering approval callbacks.
+- Kevo Voice Agent & Link Bus Bi-directional Approval Bridge (`windows/src/workspace/jarvis/voice/jarvis-voice-agent.ts`, `windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Updated `JarvisVoiceAgent.setPendingApproval()` to automatically mirror pending approval requests to `kevoLinkBus`.
+  - Wired `kevoLinkBus.setApprovalHandler()` in `JarvisCommandDesk` to resolve pending approvals on `voiceAgent` and settle the PC approval gate when answered remotely from Android.
+- Automated Tests & Verification:
+  - Added 2 new unit tests in `windows/tests/kevo-desk-companion.test.ts` (verifying auto-dismiss on timeout expiration, and manual dismissal without triggering approval callbacks).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 828/828 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.2: Wi-Fi State Bus & Pairing RPC (Antigravity)
+
+Phase 8 Step 8.2 (`docs/kevo-briefs/phase-8.md`, "8.2 Wi-Fi State Bus & Pairing RPC"):
+- Rust Local Link Companion Endpoints (`windows/src-tauri/src/local_link.rs`):
+  - Added HTTP POST route handlers in `local_link.rs` for encrypted local Wi-Fi pairing:
+    - `/v1/kevo/state`: Returns live Kevo companion state (`state`, `line`, `badge`, `level`).
+    - `/v1/kevo/command`: Accepts remote voice/typed commands from phone and dispatches to PC Kevo.
+    - `/v1/kevo/approve`: Resolves pending action approval cards from phone.
+  - Added Rust unit test `kevo_companion_rpc_routes` verifying all three endpoints with strict assertion.
+- Kevo Link Bus (`windows/src/workspace/jarvis/kevo-link-bus.ts`):
+  - Created `KevoLinkBus` singleton with state streaming, speech loudness level broadcasting with jitter suppression (< 0.02 delta filtering), remote command dispatching, and approval card lifecycle handling.
+- Command Desk Link Integration (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Connected `refresh()` to mirror live state changes to `kevoLinkBus`.
+  - Registered `kevoLinkBus.setCommandHandler` to route incoming remote commands to `handleCommand(request, true)`.
+- Android Web Sync Integration (`android/web/main.ts`):
+  - Added `syncCompanionState()` querying `/v1/kevo/state` on companion view navigation and pairing.
+  - Wired `onHoldToTalkEnd` to trigger `/v1/kevo/command`.
+  - Wired `onApprove` to dispatch `/v1/kevo/approve`.
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-link-bus.test.ts` (5 tests covering state subscription, level clamping/jitter, pending approval transition/resolution, and command dispatching).
+  - Cargo test: `test local_link::tests::kevo_companion_rpc_routes ... ok` (PASS).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 826/826 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 8.1: Android Desk Companion View & UI Components (Antigravity)
+
+Phase 8 Step 8.1 (`docs/kevo-briefs/phase-8.md`, "8.1 Android Desk Companion View & UI Components" and HUD Step H.7):
+- Created Phase 8 and Phase 9 specifications (`docs/kevo-briefs/phase-8.md`, `docs/kevo-briefs/phase-9.md`).
+- Android Desk Companion View (`android/web/desk-companion.ts`, `android/web/style.css`):
+  - Built `DeskCompanionView` and `createDeskCompanionView(options)` full-screen/docked view for Android.
+  - Implemented glowing animated Kevo orb with CSS-driven state styling (`idle`, `listening`, `thinking`, `speaking`, `alert`, `off`).
+  - Added multi-bar speech level waveform visualizer driven by loudness level (0 to 1).
+  - Added tactile "Hold to talk" button with native Android haptic feedback (`AnFAndroid.haptic()`).
+  - Added remote approval card modal (HUD Step H.4) with "Approve" and "Deny" actions.
+  - Added connection badge ("● PC Connected" vs "○ Offline").
+- Android Web Navigation Integration (`android/web/main.ts`, `windows/src/workspace/anf-brand.ts`):
+  - Added `companion: 'ask'` mode to `modeOf` dictionary.
+  - Mounted `deskCompanion` section and exposed "Desk" button in studio tools and home panel.
+  - Added companion SVG icon to `sectionIcon()`.
+- Automated Tests & Verification:
+  - Added `windows/tests/kevo-desk-companion.test.ts` (8 comprehensive tests verifying state transitions, level clamping, approval handling, denial, connection toggles, and exit callbacks).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/build-android.mjs` PASS (web assets built cleanly: `main.js 1.7mb`, `main.css 122kb`).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 821/821 tests passed across 127 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.5: Automated Verification & Integrity Test Suite (Antigravity)
+
+Phase 7 Step 7.5 (`docs/kevo-briefs/phase-7.md`, "7.5 Automated Verification & Integrity Test Suite"):
+- Automated Verification Suites (`windows/tests/kevo-executive.test.ts`, `windows/tests/kevo-voice-pack.test.ts`):
+  - Added integrity tests asserting zero hardcoded mock figures (`$30,000`, `2459`, `18,740`, `$475`, `513 tests`, `24,500`) across all option permutations.
+  - Added tests verifying missing/empty/undefined data sources omit cards cleanly without runtime errors or `undefined`/`NaN` leaks.
+  - Added tests for summary line aggregation of active local workspace capability chunks.
+  - Added tests for graceful recovery on unknown voice profile IDs.
+  - Added headless fallback preview verification across all 13 voice profiles in `JARVIS_VOICE_PACK`.
+- Speaker Voice Profile Guard (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Hardened `playVoicePreview(voiceId)` to return `{ success: false, fallbackUsed: false, profile: undefined }` when an unknown voice ID is provided.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 813/813 tests passed across 126 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.4: Settings & Owner Voice Selection Controls (Antigravity)
+
+Phase 7 Step 7.4 (`docs/kevo-briefs/phase-7.md`, "7.4 Settings & Owner Voice Selection Controls"):
+- Kevo Settings Controls (`windows/src/core/state.ts`, `windows/src/settings/main.ts`):
+  - Added `kevoVoiceId`, `kevoRealWorkspaceDataOnly`, and `kevoOnlineVoices` to `Settings` interface and `DEFAULT_SETTINGS`.
+  - Added dedicated voice pack selector dropdown in Settings window rendering all 13 voice profiles.
+  - Added voice engine indicator with dynamic feedback: "Active: Neural online voice" vs "Active: Native local system voice (offline)".
+  - Added toggle for "Executive briefing: real workspace data only" with feedback label.
+- Command Desk Controls & Indicators (`windows/src/workspace/jarvis/jarvis-command-desk.ts`, `windows/src/workspace/jarvis/jarvis-executive.ts`):
+  - Added `isRealWorkspaceDataOnly` and `setRealWorkspaceDataOnly` state management with localStorage and in-memory persistence.
+  - Added `realDataOnly` flag to `BriefingOptions` ensuring briefings strictly contain verified local workspace chunks (`vault`, `reading`, `schedule`, `system`) and omit unverified external telemetry.
+  - Added clear voice engine indicator badge in `voiceBar` showing active synthesis mode (Neural online vs Native local offline).
+  - Added "Real data only" toggle in toolbar and voiceBar.
+- Automated Tests (`windows/tests/kevo-executive.test.ts`):
+  - Added tests for `isRealWorkspaceDataOnly` toggling, `realDataOnly: true` suppression of external non-demo telemetry, and `DEFAULT_SETTINGS` validation.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 808/808 tests passed across 124 suites (`node windows/scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.3: Voice Pack Pipeline & Local Audio Previews (Antigravity)
+
+Phase 7 Step 7.3 (`docs/kevo-briefs/phase-7.md`, "7.3 Pack Voices & Preview Capability"):
+- Voice Pack Profile Integrity (`windows/src/workspace/jarvis/voice/jarvis-voice-pack.ts`):
+  - Verified all 13 voice profiles against `windows/voice-pack/` directory and `SOURCES.txt`.
+  - Added `verifyVoicePackRegistry()` and `getVoicePackStats()` for automated verification of on-disk assets vs registry.
+  - Added `playVoicePreview(id, options)` with graceful fallback to browser/native speech synthesis or Web Audio preview chirp when local audio assets are absent or running in non-desktop environments.
+- Speaker Voice Pack Integration (`windows/src/workspace/jarvis/voice/jarvis-speaker.ts`):
+  - Added `previewVoicePack(id)` method to `JarvisSpeaker`.
+  - Integrated voice pack registry checks and previews with speaker fallback handling.
+- Command Desk Preview Button (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Wired `previewBtn` click listener to invoke `speaker.previewVoicePack(selectedId)` with dynamic playing state and visual feedback.
+- Verification & Unit Tests:
+  - Added `windows/tests/kevo-voice-pack.test.ts` (7 tests verifying registry integrity, default Kelvin profile, audio previews, and stats).
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 805/805 tests passed across 123 suites (`node scripts/test.mjs` PASS).
+
+## 2026-11-18 — Kevo 7.2: Truthful Team Cards & Workspace Telemetry Providers (Antigravity)
+
+Phase 7 Step 7.2 (`docs/kevo-briefs/phase-7.md`, "7.2 Truthful Team Cards & Workspace Telemetry Providers"):
+- Truthful Workspace Team Cards (`windows/src/workspace/jarvis/jarvis-command-desk.ts`):
+  - Replaced hardcoded demo agent cards (Tom 513 tests, Scout 24,500 reach, Support 13 tickets) with truthful local capability team cards representing real AnF modules:
+    1. Knowledge (Vault & Notes): Live project/note count, BM25 indexing status.
+    2. Reading (Queue & Reader): Live pending queue count, offline storage format.
+    3. Schedule (Reminders & Alarms): Active reminder count, persistent storage status.
+    4. System (Audio & Model): Live audio engine status (idle/playing), local CPU inference.
+  - Rendered `✓ Verified Local Data` badges on every team card.
+  - Added `refreshTeamCards()` dynamically updating team card telemetry on load, after briefing generation, or via "Refresh telemetry" toolbar action.
+- Workspace Telemetry Provider Wiring (`windows/src/workspace/main.ts`):
+  - Wired `jarvisActionContext.getVaultNoteCount` to query live note count from `workspace_list_projects`.
+  - Wired `jarvisActionContext.getBriefing` to pass truthful telemetry (Vault, Reading Queue, Reminders, Schedule, System) to `JarvisExecutive`.
+- Verification:
+  - `npx tsc --noEmit` PASS (0 errors).
+  - `node scripts/check-release.mjs` PASS (12/12 release regression checks).
+  - 798/798 tests passed across 122 suites (`node scripts/test.mjs` PASS).
 
 ## 2026-11-18 — Kevo 7.1: Real Workspace Data & Elimination of Fabricated Metrics (Antigravity)
 
@@ -1747,11 +2083,24 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Fix: facts go in their own system message after the tools (`getKevoMemoryPrompt`, `kevo_messages(.., memory)`, `kevo_ask` `memory`); `kevo_preload_model` now also writes one token over Kevo's prompt (tools, system, memory from `main.ts`), so it sits in the prompt cache before the first question; the perf test sends the app's request body and does the same preload before timing. Content checks accept equivalent correct forms ("9"/"nine", "dense"/"density", "dollar"/"$"). No budget changed, nothing skipped.
 - CI Linux run 44358144145: Test step (incl. new `remembered_facts_follow_the_unchanged_system_prompt`) and Kevo CI gate green, perf suite 13/13. Prefill after the fix: France 22 tokens 0.69 s (was 2,039 tokens 48.7 s), multi-turn turn 2 41 tokens 1.2 s (was 1,997 tokens 47.6 s); the preload itself takes 30.8 s on the runner. Automated tests only; not tried on the PC. Open: a question asked within the preload time right after launch still waits for it.
 
+## 2026-11-18: UI Pass 1, virtualize long lists and debounce search (Antigravity, branch `agy/virtualize-lists`, Closes #260)
+- Created shared virtual list helper in `windows/src/workspace/virtual-list.ts`: `createVirtualList<T>` with fixed row height, overscan, spacer padding, and scroll events throttled to requestAnimationFrame for drawing. Preserves keyboard focus and screen-reader order. Also includes `debounce` (150 ms default).
+- Virtualized Chat history (`historyItems` in `windows/src/workspace/main.ts`) using `createVirtualList<Entry>`. Debounced `searchHistory` input to 150 ms.
+- Virtualized Music Hub track lists (`windows/src/workspace/music-hub.ts`) using `createVirtualList<AudioTrack[]>` chunked by responsive rows, reducing 5,000 track cards to ~18-24 DOM elements. Debounced `search` input to 150 ms.
+- Virtualized OPDS catalog results (`bookList` in `windows/src/workspace/opds-panel.ts`) using `createVirtualList<OpdsBook>`. Added debounced (150 ms) catalog filter search. Debounced Documents library filter in `library.ts` to 150 ms as well.
+- Unit tests added in `windows/tests/virtual-list.test.ts`: verifying empty placeholder, 5,000 rows rendering only visible window (~10-20 items in DOM) with accurate padding math across scrolls, `scrollToIndex`, and 150 ms debouncing.
+- Verification: `npx tsc --noEmit` passes clean (0 errors), `npm test` passes (797 tests in 122 suites), `npm run test:e2e` passes (138 tests in 24 suites), `node scripts/check-release.mjs` passes 12 regression checks. No Rust or backend changes.
+
 ## 2026-11-18: Kevo clause boundary sentence splitting for TTFS (Antigravity, branch `agy/kevo-clause-boundary-speech`, Refs #266)
 - Cause of long-first-sentence TTFS budget overruns (e.g. 6.35 s on "15 percent tip"): answers with complex reasoning or clauses generate >100 characters before reaching a period (`.`, `!`, `?`). At ~40 tokens/s, waiting for the final period delays speech synthesis past the 5.0 s budget even with warm prefill.
 - Fix: `take_streamable_sentences` in `windows/src-tauri/src/local_ai.rs` now yields at the first clause boundary (comma, colon, semicolon after about 40 characters) when a sentence runs long without an early sentence ending. Sentences with a period under ~80 characters keep their clean sentence boundary; long sentences or streaming tokens that hit a clause after 40 characters yield immediately to `kevo-reply-part`. `windows/tests/kevo-performance.test.ts` updated to match this clause boundary behavior.
 - Checks: `cargo clippy --locked --manifest-path crates/anf-vault/Cargo.toml --all-targets -- -D warnings`, `npx tsc --noEmit` clean, `npm test` 796 pass (only pre-existing CalDesk test failing), `node scripts/check-release.mjs` 12 pass, contracts and styles clean. No budget changed.
 - Autopilot review fix (Claude, 2026-11-21, fresh-subagent review since Codex was at its limit): the clause cut fired on every later part too, so a long answer was spoken as several short phrases. `take_streamable_sentences(buffer, first)` now cuts at a clause only for the first part (`kevo_ask` passes "no part sent yet"); later parts stay whole sentences. Dropped the `s > 80` rule (a finished sentence is spoken whole). The perf test's first-part regex now waits for the space after the mark, like the app. New test streams answers token by token, checks only the first part is cut and that "1,000" and "3:30" stay whole. Version 0.1.63 (merge-time bump).
+
+## 2026-11-18: modern-web-guidance skill, telemetry removed (Claude, `claude/modern-web-guidance-no-telemetry`)
+- Owner asked for Google Chrome's `modern-web-guidance` skill in the repos with all tracking removed. Vendored npm 1.0.1 (skill 2026_11_10-47b4c80e, Apache-2.0) into `.agents/skills/modern-web-guidance/`, linked from `.claude/skills/` (new `!.claude/skills/` exception in `.gitignore`).
+- Upstream posts every search query, retrieved guide, OS, agent name and timing to Google Clearcut (`play.googleapis.com/log`) from a detached `watchdog` process. Removed: the watchdog, its client, and the logger (now a no-op); `install`/`update`/`uninstall` refuse to run so the tracking build cannot come back; `SKILL.md` runs the local copy with `node`, never `npx ...@latest`. Details and how to update: `PRIVACY-PATCH.md` in the skill folder.
+- Tested: `node .agents/skills/modern-web-guidance/check-no-telemetry.mjs` passes (runs search and retrieve with sockets, fetch and child processes blocked); the same check fails on the unmodified upstream copy at the point where it starts the uploader. No app code changed. Needs Node 22+.
 
 ## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
 - Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.

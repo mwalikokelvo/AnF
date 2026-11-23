@@ -166,6 +166,7 @@ export class JarvisSpeaker {
   private utteranceToken = 0;
   private cue: Promise<void> = Promise.resolve();
   private streamWake: (() => void) | null = null;
+  private soundStartWaiters: (() => void)[] = [];
 
   constructor(options?: JarvisSpeakerOptions) {
     this.onStart = options?.onStart;
@@ -199,6 +200,11 @@ export class JarvisSpeaker {
     } catch {
       /* ignore */
     }
+  }
+
+  /** Resolves when sound actually starts: the speech engine's start event for the next sentence spoken. */
+  whenSoundStarts(): Promise<void> {
+    return new Promise((resolve) => this.soundStartWaiters.push(resolve));
   }
 
   /** Speak a phrase out loud. */
@@ -269,6 +275,7 @@ export class JarvisSpeaker {
           }
           utterance.rate = tone.rate;
           utterance.pitch = tone.pitch;
+          utterance.onstart = () => { const waiting = this.soundStartWaiters; this.soundStartWaiters = []; for (const w of waiting) w(); };
           utterance.onend = () => resolve();
           utterance.onerror = () => resolve();
           window.speechSynthesis.speak(utterance);
@@ -307,6 +314,46 @@ export class JarvisSpeaker {
     const played = await this.playMp3Snippet(voicePackUrl(filename), 20000);
     if (token === this.utteranceToken) this.finishSpeaking();
     return played;
+  }
+
+  /**
+   * Preview a voice profile by ID.
+   * Plays the voice-pack MP3 if available. If missing or playback fails,
+   * falls back gracefully to native TTS introduction or Web Audio chirp.
+   */
+  async playVoicePreview(voiceId: string): Promise<{ success: boolean; fallbackUsed: boolean; profile?: VoiceProfile }> {
+    const { JARVIS_VOICE_PACK } = await import('./jarvis-voice-pack');
+    const prof = JARVIS_VOICE_PACK.find((v) => v.id === voiceId);
+    if (!prof) {
+      return { success: false, fallbackUsed: false, profile: undefined };
+    }
+    const token = ++this.utteranceToken;
+    this.duckAudio?.(true);
+    this.isSpeaking = true;
+    this.onStart?.();
+
+    let played = false;
+    try {
+      played = await this.playMp3Snippet(voicePackUrl(prof.filename), 20000);
+    } catch {
+      played = false;
+    }
+
+    let fallbackUsed = false;
+    if (!played && token === this.utteranceToken) {
+      fallbackUsed = true;
+      try {
+        const sampleIntro = `Hello, I am ${prof.name.replace(/\s*\(.*$/, '')}. Voice preview active.`;
+        await this.speak(sampleIntro);
+        played = true;
+      } catch {
+        await this.playChirpCue();
+        played = true;
+      }
+    }
+
+    if (token === this.utteranceToken) this.finishSpeaking();
+    return { success: played, fallbackUsed, profile: prof };
   }
 
   private playMp3Snippet(url: string, maxMs: number): Promise<boolean> {

@@ -1,4 +1,5 @@
 import { h } from '../views/dom';
+import { createVirtualList, debounce } from './virtual-list';
 import { hasSafeFetch, safeFetchDocument, safeFetchText } from './safe-fetch';
 import {
   traverseOpds,
@@ -144,8 +145,50 @@ export function createOpdsPanel(opts: OpdsPanelOptions) {
     'aria-label': 'OPDS catalog address',
   }) as HTMLInputElement;
   const catalogList = h('ul', { class: 'opds-catalog-list' });
-  const bookList = h('div', { class: 'opds-book-list' });
+  const bookSearch = h('input', {
+    type: 'search',
+    placeholder: 'Filter catalog titles…',
+    'aria-label': 'Filter catalog titles',
+    class: 'opds-search',
+    style: 'display: none; margin: 8px 0;',
+    maxlength: 200,
+  }) as HTMLInputElement;
+
+  let allBooks: OpdsBook[] = [];
+
+  const virtualBookList = createVirtualList<OpdsBook>({
+    itemHeight: 96,
+    overscan: 4,
+    className: 'opds-book-list',
+    maxHeight: '520px',
+    role: 'feed',
+    ariaLabel: 'Catalog book results',
+    renderItem: (book) => {
+      const open = h('button', { type: 'button', text: 'Open link' });
+      open.disabled = !book.acquisitionUrl;
+      open.addEventListener('click', () => void openAcquisition(book));
+      return h('article', { class: 'source', style: 'margin-bottom: 8px;' },
+        h('h3', { text: book.title || book.id }),
+        book.acquisitionUrl ? h('p', { class: 'hint', text: book.acquisitionUrl }) : h('p', { class: 'hint', text: 'No acquisition link in this entry.' }),
+        h('div', { class: 'row' }, open),
+      );
+    },
+  });
+
+  const bookList = virtualBookList.root;
   const browseStatus = h('p', { class: 'hint', role: 'status', text: '' });
+
+  function filterAndDisplayBooks() {
+    const q = bookSearch.value.trim().toLowerCase();
+    const filtered = q
+      ? allBooks.filter((b) => (b.title && b.title.toLowerCase().includes(q)) || (b.id && b.id.toLowerCase().includes(q)))
+      : allBooks;
+    virtualBookList.setItems(filtered);
+  }
+
+  bookSearch.addEventListener('input', debounce(() => {
+    filterAndDisplayBooks();
+  }, 150));
 
   let catalogs: string[] = [];
   let busy = false;
@@ -191,19 +234,13 @@ export function createOpdsPanel(opts: OpdsPanelOptions) {
   }
 
   function renderBooks(books: OpdsBook[], stopped: string, pages: number) {
+    allBooks = books;
     browseStatus.textContent = books.length
       ? `Showing ${books.length} title${books.length === 1 ? '' : 's'} from ${pages} catalog page${pages === 1 ? '' : 's'} (${stopped}).`
       : `No books found (${stopped}).`;
-    bookList.replaceChildren(...books.map((book) => {
-      const open = h('button', { type: 'button', text: 'Open link' });
-      open.disabled = !book.acquisitionUrl;
-      open.addEventListener('click', () => void openAcquisition(book));
-      return h('article', { class: 'source' },
-        h('h3', { text: book.title || book.id }),
-        book.acquisitionUrl ? h('p', { class: 'hint', text: book.acquisitionUrl }) : h('p', { class: 'hint', text: 'No acquisition link in this entry.' }),
-        h('div', { class: 'row' }, open),
-      );
-    }));
+    bookSearch.style.display = books.length ? 'block' : 'none';
+    bookSearch.value = '';
+    virtualBookList.setItems(books);
   }
 
   async function openAcquisition(book: OpdsBook) {
@@ -240,7 +277,9 @@ export function createOpdsPanel(opts: OpdsPanelOptions) {
     }
     busy = true;
     browseStatus.textContent = 'Loading catalog…';
-    bookList.replaceChildren();
+    bookSearch.style.display = 'none';
+    allBooks = [];
+    virtualBookList.setItems([]);
     const controls = [allowBox, catalogInput, ...catalogList.querySelectorAll('button')];
     controls.forEach((el) => { (el as HTMLButtonElement).disabled = true; });
     try {
@@ -285,6 +324,7 @@ export function createOpdsPanel(opts: OpdsPanelOptions) {
     h('div', { class: 'row' }, catalogInput, addCatalog),
     catalogList,
     browseStatus,
+    bookSearch,
     bookList,
   );
 

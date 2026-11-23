@@ -112,6 +112,10 @@ export interface SelfTestDeps {
   agent: JarvisVoiceAgent;
   listener: JarvisVoiceListener | KevoEarsListener;
   speaker?: JarvisSpeaker;
+  /** The Stop button's own action; Check 5 presses it. Defaults to abandoning the answer and stopping the speaker. */
+  stop?: () => void;
+  /** Whether sound is really coming out (the browser's speech engine, not the speaker's own flag). */
+  isAudioPlaying?: () => boolean;
   playClipAudio?: (filename: string) => Promise<void>;
   appVersion?: string;
   onProgress?: (step: string) => void;
@@ -154,6 +158,11 @@ export async function defaultPlayClip(filename: string): Promise<void> {
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
+
+/** Long enough to still be speaking 2 s in, so Check 5 can press Stop mid-sentence. */
+const STOP_CHECK_REPLY =
+  'Black holes are regions of spacetime where gravity is so strong that nothing, including light or other electromagnetic waves, has enough energy to escape it. ' +
+  'They form when very massive stars collapse at the end of their lives, and they can keep growing by pulling in gas, dust and even other stars.';
 
 /** Decodes standard 16-bit little-endian mono PCM WAV bytes to normalized Float32 samples (-1.0 to 1.0). */
 export function pcm16WavToFloat32(bytes: number[]): number[] {
@@ -341,32 +350,25 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
     let spokenBeforeStop = false;
     let spokenAfterStop = false;
 
-    // Simulate query that generates a longer reply
-    const originalContext = (agent as any).context;
-    const prevAskAI = originalContext?.askAI;
-    if (!originalContext?.askAI && originalContext) {
-      originalContext.askAI = async () =>
-        'Black holes are regions of spacetime where gravity is so strong that nothing, including light or other electromagnetic waves, has enough energy to escape it.';
-    }
-
-    try {
-      const res = await agent.processVoiceInput('Kevo, tell me about black holes');
-      if (res.actionName === 'ai_conversation' || res.handled || res.speechReply) {
-        spokenBeforeStop = true;
-        // 2 seconds into reply, stop is invoked
-        await sleep(100);
-        agent.abandon();
-        speaker?.stop();
-
-        // Ensure speech ended within 0.5s
-        await sleep(600);
-        spokenAfterStop = Boolean(speaker?.getIsSpeaking());
-        stopPassed = spokenBeforeStop && !spokenAfterStop;
+    // Speak a long fixed reply through the real speaker, so the check never depends on the
+    // local model answering and never writes a made-up exchange into Kevo's history (#278).
+    // Whether sound is playing is read from the speech engine, never from the flag stop() clears.
+    const playing = deps.isAudioPlaying ?? (() => typeof window !== 'undefined' && Boolean(window.speechSynthesis?.speaking));
+    const pressStop = deps.stop ?? (() => { agent.abandon(); speaker?.stop(); });
+    if (speaker) {
+      const soundStarted = speaker.whenSoundStarts().then(() => true);
+      void speaker.speak(STOP_CHECK_REPLY).catch(() => {});
+      if (await Promise.race([soundStarted, sleep(5000).then(() => false)])) {
+        await sleep(2000); // Stop is pressed 2 s into the reply
+        spokenBeforeStop = playing();
       }
-    } finally {
-      if (!prevAskAI && originalContext) {
-        delete originalContext.askAI;
+      if (spokenBeforeStop) {
+        pressStop();
+        await sleep(500); // sound must have ended within 0.5 s
+        spokenAfterStop = playing() || speaker.getIsSpeaking();
+        stopPassed = !spokenAfterStop;
       }
+      speaker.stop();
     }
 
     results.push({
@@ -374,7 +376,9 @@ export async function runFivePhase0Checks(deps: SelfTestDeps): Promise<Phase0Che
       passed: stopPassed,
       details: stopPassed
         ? 'Speech stopped within 0.5s and nothing more was said'
-        : `Stop failed: spokenBeforeStop=${spokenBeforeStop}, spokenAfterStop=${spokenAfterStop}`,
+        : !speaker
+          ? 'Stop failed: no speaker was given to the self-test'
+          : `Stop failed: spokenBeforeStop=${spokenBeforeStop}, spokenAfterStop=${spokenAfterStop}`,
     });
   } catch (err) {
     results.push({
@@ -550,7 +554,7 @@ export async function runKevoSelfTest(deps: SelfTestDeps): Promise<KevoSelfTestR
   }
 
   const report: KevoSelfTestReport = {
-    version: deps.appVersion ?? '0.1.58',
+    version: deps.appVersion ?? '',
     timestamp: new Date().toISOString(),
     result: 'pass',
     systemStats: sysStats,

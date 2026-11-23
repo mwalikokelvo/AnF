@@ -17,11 +17,14 @@ import {libraryCard,refreshLibrary,libraryControls} from './library';
 import {createDashboard,foldGuidance} from './dashboard';
 import {captureText,dayName} from './dashboard-data';
 import {createReader} from './reader';
+import {createVirtualList,debounce} from './virtual-list';
+import {createLazyViewRegistry} from './lazy-views';
 import {neuralSpeechEnabled,neuralSpeechToggleAvailable,setNeuralSpeechEnabled} from './neural-speech';
 import {clipText,type ReadingState} from './reader-data';
 import './workspace.css';
 import './anf-design.css';
 import './anf-color.css';
+import './anf-tonal.css';
 import {attachNavRail} from './nav-rail';
 import {appCatalogPanel} from './apps-catalog';
 import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
@@ -52,13 +55,15 @@ import {
 } from './jarvis/voice/jarvis-schedule';
 import {createCloudBackupPanel} from './cloud-backup-panel';
 
+const workspaceStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
 type Turn={role:'user'|'assistant';content:{text:string}[]};
 type Source={reading?:ReadingState|null;name:string;text:string;pages:{number:number;text:string;ocr:boolean}[];path:string|null};
 type Evidence={id:number;sourceName:string;page:number|null;text:string;ocr:boolean};
 type Project={revision?:string;id:string;name:string;title:string;question:string;draft:string;history:Turn[];sources:Source[];memory:string;model:string};
 type Entry={id:string;name:string;updated:number;snippet?:string};
 let writing:ReturnType<typeof createWritingEditor>|undefined;
-let searchRequest=0,searchTimer:ReturnType<typeof setTimeout>|undefined;
+let searchRequest=0;
 const progress=h('span',{class:'progress-text'}),diagnosticDetails=h('pre',{class:'diagnostic-details'});
 let lastSavedSignature='';
 let projectRevision:string|undefined;
@@ -69,10 +74,27 @@ const root=document.getElementById('workspace-root')!;
 const shell=h('div',{class:'workspace-layout'}),sidebar=h('aside',{class:'history-sidebar'}),main=h('main',{class:'workspace-content'});
 const searchHistory=h('input',{type:'search',placeholder:'Search conversations…','aria-label':'Search saved conversations','data-keep-enabled':true,maxlength:256}) as HTMLInputElement;
 const historyItems=h('nav',{'aria-label':'Conversation history'});
+const virtualHistoryList=createVirtualList<Entry>({
+  itemHeight:54,
+  overscan:4,
+  scrollContainer:sidebar,
+  role:'none',
+  renderItem:e=>{
+    const b=h('button',{class:'history-item',title:e.name+' · '+new Date(e.updated).toLocaleString(),'aria-current':e.id===projectId?'true':'false'},
+      h('strong',{text:e.name}),
+      h('time',{datetime:new Date(e.updated).toISOString(),text:historyDate(e.updated)}),
+      showPreviews.checked&&e.snippet?h('small',{text:e.snippet}):null
+    ) as HTMLButtonElement;
+    b.disabled=busy;
+    b.addEventListener('click',()=>{selector.value=e.id;selector.dispatchEvent(new Event('change'));});
+    return b;
+  }
+});
+historyItems.append(virtualHistoryList.root);
 shell.append(sidebar,main);root.replaceChildren(shell);
 sidebar.append(h('h2',{text:'History'}),searchHistory,historyItems);
 const status=h('p',{class:'hint',role:'status',text:'Starting workspace…'});
-const saved=h('p',{class:'hint',role:'status',text:'Projects stay on this computer.'});
+const saved=h('p',{class:'hint',role:'status',text:'On this computer'});
 // UI-04: bringing the workspace to the front folds an open island so it does not cover the work, unless the person keeps it open.
 const keepIsland=h('input',{type:'checkbox','data-keep-enabled':true}) as HTMLInputElement;
 // UI-05: previews can show private text in the sidebar, so they can be turned off.
@@ -140,9 +162,19 @@ async function run(action:(active:number)=>Promise<unknown>,label='Working'){
 function button(label:string,action:(active:number)=>Promise<unknown>,progress=label):HTMLButtonElement{const b=h('button',{text:label}) as HTMLButtonElement;b.addEventListener('click',()=>void run(action,progress));return b;}
 function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:'deepseek-v4-pro-qwen3.5-9b'};}
 async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});selector.replaceChildren(h('option',{value:'',text:'Choose a saved project…'}),...entries.map(e=>h('option',{value:e.id,text:e.name})));selector.value=projectId;if(searchHistory.value.trim())await searchProjects();else renderProjectHistory(entries);}
-function renderProjectHistory(entries:Entry[]){historyItems.replaceChildren(...entries.map(e=>{const b=h('button',{class:'history-item',title:e.name+' · '+new Date(e.updated).toLocaleString(),'aria-current':e.id===projectId?'true':'false'},h('strong',{text:e.name}),h('time',{datetime:new Date(e.updated).toISOString(),text:historyDate(e.updated)}),showPreviews.checked&&e.snippet?h('small',{text:e.snippet}):null);b.disabled=busy;b.addEventListener('click',()=>{selector.value=e.id;selector.dispatchEvent(new Event('change'));});return b;}));if(!entries.length)historyItems.append(h('p',{class:'hint',text:searchHistory.value?'No matching conversations.':'Start a conversation. It will be saved here.'}));}
+function renderProjectHistory(entries:Entry[]){
+  if(!entries.length){
+    virtualHistoryList.setItems([]);
+    historyItems.replaceChildren(h('p',{class:'hint',text:searchHistory.value?'No matching conversations.':'Start a conversation. It will be saved here.'}));
+  }else{
+    if(!historyItems.contains(virtualHistoryList.root)){
+      historyItems.replaceChildren(virtualHistoryList.root);
+    }
+    virtualHistoryList.setItems(entries);
+  }
+}
 async function searchProjects(){const request=++searchRequest;try{const entries=await invoke<Entry[]>('workspace_list_projects',{query:searchHistory.value});if(request===searchRequest)renderProjectHistory(entries);}catch(e){if(request===searchRequest)status.textContent=String(e);}}
-searchHistory.addEventListener('input',()=>{searchRequest++;if(searchTimer)clearTimeout(searchTimer);searchTimer=setTimeout(()=>void searchProjects(),220);});
+searchHistory.addEventListener('input',debounce(()=>{searchRequest++;void searchProjects();},150));
 function saveProject():Promise<void>{if(saveTimer)clearTimeout(saveTimer);saveTimer=undefined;const p=snapshot();const current=projectGeneration;saveQueue=saveQueue.catch(()=>{}).then(async()=>{try{if(current===projectGeneration)p.id=projectId;const signature=JSON.stringify(p);if(current===projectGeneration&&signature===lastSavedSignature){saved.textContent='Saved locally. No changes to save.';saveAlert.saved();return;}const result=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:current===projectGeneration?projectRevision:undefined});if(current===projectGeneration){if(projectId&&projectId!==result.id){name.value=result.name;status.textContent='Both devices changed this conversation. Your work was kept as a conflict copy; the other version is in History.';}projectId=result.id;projectRevision=result.revision;lastSavedSignature=JSON.stringify({...p,id:result.id,name:result.name});saved.textContent='Saved locally. Full conversation and loaded source text are retained.';}saveAlert.saved();if(current===projectGeneration)await refreshProjects().catch(e=>{status.textContent=`Saved, but the history list could not refresh: ${String(e)}`;});}catch(e){saved.textContent=`Could not save: ${String(e)}`;saveAlert.failed(e);throw e;}});return saveQueue;}
 function autosave(){if(saveTimer)clearTimeout(saveTimer);saved.textContent='Unsaved changes…';saveTimer=setTimeout(()=>void saveProject().catch(()=>{}),800);}
 let shownMessages=40;
@@ -219,15 +251,12 @@ actionFiles.addEventListener('change',()=>void run(async(active)=>{organizedPath
 writing=createWritingEditor(draft,autosave,text=>{status.textContent=text;});
 const panels=new Map<string,HTMLElement>(),navigation=h('nav',{class:'workspace-navigation','aria-label':'Workspace sections'}),viewTitle=h('h1',{text:'Chat'});
 const panelHost=h('div',{class:'panel-host'});
-const modeOf:Record<string,'read'|'ask'|'listen'|'keep'>={home:'read',documents:'read',writing:'read',chat:'ask',jarvis:'ask',music:'listen',audio:'listen',settings:'keep'};
-const modeLabels={read:'Reader',ask:'Assistant',listen:'Music'} as const;
-let workspaceMode:'read'|'ask'|'listen'='ask';
-const modeRail=h('div',{class:'mode-rail',role:'tablist','aria-label':'Workspace modes'});
-function paintModes(){for(const b of modeRail.querySelectorAll('button'))b.setAttribute('aria-selected',b.getAttribute('data-mode')===workspaceMode?'true':'false');for(const b of navigation.querySelectorAll('button'))b.hidden=false;}
-function showView(id:string){const group=modeOf[id];if(group&&group!=='keep'&&group!==workspaceMode){workspaceMode=group;paintModes();}document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id==='jarvis'?'Kevo':id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
+const lazyRegistry=createLazyViewRegistry();
+function ensureViewBuilt(id:string){const panel=panels.get(id);if(panel&&!lazyRegistry.isBuilt(id))lazyRegistry.build(id,panel);}
+function showView(id:string){ensureViewBuilt(id);document.body.classList.toggle('music-view',id==='music');if(id==='home')void dashboard.refresh();for(const [key,panel] of panels)panel.hidden=key!==id;for(const b of navigation.querySelectorAll('button'))b.setAttribute('aria-current',b.getAttribute('data-view')===id?'page':'false');viewTitle.textContent=id==='jarvis'?'Kevo':id.charAt(0).toUpperCase()+id.slice(1);document.dispatchEvent(new Event('anf-view-changed'));}
 document.addEventListener('anf-switch-view',(e:Event)=>{const target=(e as CustomEvent<string>).detail;if(typeof target==='string'&&panels.has(target))showView(target);});
-function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-mode':modeOf[id]||'keep','data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);paintModes();}
-for(const id of ['read','ask','listen'] as const){const tab=h('button',{type:'button',role:'tab',text:modeLabels[id],'data-mode':id,'aria-selected':id==='ask'?'true':'false'});tab.addEventListener('click',()=>showView(id==='read'?'documents':id==='ask'?'chat':'music'));modeRail.append(tab);}
+function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);}
+function lazySection(id:string,label:string,builder:(panel:HTMLElement)=>void){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label});panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);lazyRegistry.register(id,p=>{builder(p);foldGuidance(p);});const nav=h('button',{text:label,'data-view':id,'data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);}
 const captureDaily=async (text:string)=>{let failure:unknown;await run(async()=>{try{await saveProject();const entries=await invoke<Entry[]>('workspace_list_projects',{query:''}),entry=entries.find(p=>p.name===dayName());const p=entry?await invoke<Project>('workspace_load_project',{id:entry.id}):{id:'',name:dayName(),title:dayName(),draft:'',question:'',history:[],sources:[],memory:'',model:'deepseek-v4-pro-qwen3.5-9b'} as Project;p.draft=captureText(p.draft,text);const savedDaily=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:p.revision});if(savedDaily.id===projectId){draft.value=savedDaily.draft;projectRevision=savedDaily.revision;lastSavedSignature=JSON.stringify(snapshot());writing?.refresh(projectId);}await refreshProjects();}catch(e){failure=e;throw e;}},'Saving quick capture');if(failure)throw failure;};
 const quickNote=quickCapture(captureDaily,()=>!busy);
 const dashboard=createDashboard({current:()=>({id:projectId,name:name.value,draft:draft.value,sources}),allowed:()=>!busy,notify:t=>status.textContent=t,
@@ -237,7 +266,7 @@ const dashboard=createDashboard({current:()=>({id:projectId,name:name.value,draf
 });
 section('home','Home',dashboard.root);
 const newProject=button('New conversation',async()=>{await saveProject();projectGeneration++;replyDraft.reset();projectId='';projectRevision=undefined;lastSavedSignature='';name.value='New project';title.value='My document';question.value='';draft.value='';memory.value='';history=[];sources=[];renderSources();renderHistory();evidenceList.replaceChildren();await saveProject();showView('chat');status.textContent='New conversation ready.';},'New project');
-sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored on this computer'}),modeRail,navigation,newProject,h('h2',{class:'history-heading',text:'Conversations'}),searchHistory,button('Refresh history',async()=>{await refreshProjects();status.textContent='History refreshed. Open a conversation to see its latest saved version.';}),historyItems);
+sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored on this computer'}),navigation,newProject,h('h2',{class:'history-heading',text:'Conversations'}),searchHistory,button('Refresh history',async()=>{await refreshProjects();status.textContent='History refreshed. Open a conversation to see its latest saved version.';}),historyItems);
 attachNavRail(sidebar,shell);
 const attach=h('button',{text:'Attach documents',type:'button'});attach.addEventListener('click',()=>file.click());
 section('chat','Chat',workflowButtons(()=>({sources,draft:draft.value}),(text,scope)=>{question.value=text;contextScope.value=scope;updateQuestionCount();autosave();},text=>status.textContent=text,()=>!busy),h('div',{class:'section-heading'},h('h2',{text:'Chat'}),h('p',{class:'hint',text:'Ask, explore your documents, or start a draft. This workspace runs on your computer.'})),conversation,h('div',{class:'quick-tasks'},button('Summarize PDF',a=>task(a,'Summarize the loaded document excerpts. List main points and cite sources. Say that this covers selected excerpts.',1)),button('Write a letter',a=>task(a,`Write a clear letter about: ${question.value.trim()||'my request'}. Use placeholders for unknown names or dates.`)),button('Compare documents',a=>task(a,'Compare the loaded documents. Cite evidence from each and identify gaps.',2))),followupHost,h('div',{class:'composer'},contextScope,question,questionCount,replyLength,h('p',{class:'hint',text:'Questions: up to 10,000 UTF-8 bytes. Long responses aim for 1,700 words; actual length varies. Long mode uses more memory and can take several minutes. Continue appends the next part to your draft.'}),h('div',{class:'row'},attach,button('Ask local AI',ask,'Thinking locally'),button('Continue to next part',async a=>{if(!history.length)throw Error('Start a conversation first.');question.value='Continue the previous answer with the next part. Pick up from its ending without repeating earlier material.';await ask(a,true);},'Continuing locally'),button('Export chat',async()=>{if(!history.length)throw Error('Start a conversation first.');const {serializeChatToMarkdown}=await import('./chat-export');const md=serializeChatToMarkdown(name.value||'Conversation',history,sources);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(name.value.trim()||'Conversation').replace(/[\\/:*?"<>|]/g,'_')}-notes.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);status.textContent='Exported conversation as Markdown note.';}))),h('p',{class:'hint',text:'Ctrl+Enter to send · Sources and citations appear below each answer.'}),evidenceList);
@@ -346,9 +375,29 @@ const jarvisActionContext: JarvisActionContext = {
     clearReminders:async()=>clearReminders(),
     getBriefing:async()=>{
       const {JarvisExecutive}=await import('./jarvis/jarvis-executive');
+      const {loadReadingQueue}=await import('./article-publishing');
+      const {fetchSystemTelemetry}=await import('./jarvis/connectors/system-connector');
+      const allReminders=await listReminders().catch(()=>[]);
+      const startOfDay=new Date();startOfDay.setHours(0,0,0,0);
+      const endOfDay=new Date();endOfDay.setHours(23,59,59,999);
+      const remindersToday=allReminders.filter((r:KevoReminder)=>r.trigger_at>=startOfDay.getTime()&&r.trigger_at<=endOfDay.getTime()).length;
+      const dailySched=await getDailyBriefingSchedule().catch(()=>null);
+      let pendingReading=0;
+      try{pendingReading=loadReadingQueue().length;}catch{}
+      const projectList=await invoke<Entry[]>('workspace_list_projects',{query:''}).catch(()=>[]);
+      const telemetry=await fetchSystemTelemetry().catch(()=>null);
       const exec=new JarvisExecutive();
-      const b=await exec.generateBriefing({voiceEnabled:false});
+      const b=await exec.generateBriefing({voiceEnabled:false},{
+        vault:{totalNotes:projectList.length,status:'operational'},
+        reading:{pendingItems:pendingReading},
+        schedule:{remindersToday,dailyBriefingScheduled:!!dailySched,dailyBriefingTime:dailySched?.message.match(/\(([^)]+)\)/)?.[1]},
+        system:{audioEngineStatus:telemetry?.audioEngineStatus??'idle',memoryUsedMb:telemetry?.memoryUsedMb}
+      });
       return `${b.greeting} ${b.summary}`;
+    },
+    getVaultNoteCount:async()=>{
+      const list=await invoke<Entry[]>('workspace_list_projects',{query:''}).catch(()=>[]);
+      return list.length;
     },
     scheduleDailyBriefing:async(timeStr:string)=>scheduleDailyBriefing(timeStr),
     getDailyBriefingSchedule:async()=>getDailyBriefingSchedule(),
@@ -358,13 +407,25 @@ const jarvisActionContext: JarvisActionContext = {
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
 };
-const jarvisCommandDesk=createJarvisCommandDesk({
-  onNotify:msg=>{status.textContent=msg;},
-  // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
-  log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
-  voiceActionContext:jarvisActionContext,
-  activeModel: () => 'DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)',
-});
+let jarvisDesk:ReturnType<typeof createJarvisCommandDesk>|undefined;
+function getJarvisCommandDesk():ReturnType<typeof createJarvisCommandDesk>{
+  if(!jarvisDesk){
+    jarvisDesk=createJarvisCommandDesk({
+      onNotify:msg=>{status.textContent=msg;},
+      // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
+      log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
+      voiceActionContext:jarvisActionContext,
+      activeModel: () => 'DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)',
+    });
+    jarvisDesk.listener.addStateListener((listening:boolean)=>{
+      if(listening) preloadKevoModel();
+    });
+    if(jarvisDesk.listener.getListeningState()){
+      preloadKevoModel();
+    }
+  }
+  return jarvisDesk;
+}
 void listen<KevoReminder>('kevo://reminder-triggered', async (event) => {
   const rem = event.payload;
   if (rem && rem.message && rem.message.toLowerCase().includes('briefing')) {
@@ -380,32 +441,25 @@ void listen<{ title: string; message: string }>('kevo://reminder-alert', (event)
     status.textContent = `${alert.title || 'Reminder'}: ${alert.message}`;
   }
 });
-section('jarvis','Kevo',jarvisCommandDesk.root);
+lazySection('jarvis','Kevo',panel=>{panel.append(getJarvisCommandDesk().root);});
 section('documents','Documents',h('h2',{text:'Your source material'}),h('p',{class:'hint',text:'Add PDFs, EPUB books, Word documents, text, or images. Up to four sources. PDFs support 600 pages, 50 MB per file, and 2 MB of extracted text. Saved web pages keep the article and leave out menus, banners, and footers. Answers use selected excerpts; scanned text may contain OCR errors.'}),file,webResearch,h('div',{class:'row'},url,button('Read webpage',async active=>{await addWebSource(url.value,active);})),opds.root,libraryControls(sourceList),sourceList);
 section('writing','Writing',h('h2',{text:'Writing'}),title,writing.root,h('div',{class:'row'},button('Improve clarity and flow',a=>task(a,'Edit the current draft for clarity and natural flow. Preserve facts, meaning, and the writer’s voice.')),button('Review writing style',a=>task(a,'Review the current draft. Identify vague, repetitive, impersonal, or unsupported language. Suggest specific improvements.'))),h('p',{class:'hint',text:'For long drafts, select a section of up to about 500 words. Suggestions never replace your draft until you accept them.'}),h('div',{class:'export-tools'},exportFormat,button('Export writing',async()=>{if(!draft.value.trim()){status.textContent='Write or generate text first.';return;}if(exportFormat.value==='pdf'){printDraftPdf();return;}if(exportFormat.value==='article-html'){const {parseFrontmatter,exportArticleHtml}=await import('./article-publishing');const {metadata,body}=parseFrontmatter(draft.value);if(!metadata.title||metadata.title==='Untitled Draft')metadata.title=title.value||'Untitled Draft';const html=exportArticleHtml({id:projectId||'draft',metadata,markdown:body,updatedAt:Date.now()});status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:(metadata.title||title.value)+'-article',text:html,format:'html'})}`;return;}if(exportFormat.value==='article-rss'){const {parseFrontmatter,exportArticleRss}=await import('./article-publishing');const {metadata,body}=parseFrontmatter(draft.value);if(!metadata.title||metadata.title==='Untitled Draft')metadata.title=title.value||'Untitled Draft';const rss=exportArticleRss({title:name.value||'My Publication',link:'https://localhost/publications',description:'Published from AnF Workspace',author:metadata.author},[{id:projectId||'draft',metadata,markdown:body,updatedAt:Date.now()}]);status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:(name.value||'publication')+'-feed',text:rss,format:'xml'})}`;return;}status.textContent=`Saved: ${await invoke<string>('workspace_save',{title:title.value,text:draft.value,format:exportFormat.value})}`;}),button('Open saved documents',async()=>{await invoke('workspace_launch',{app:'documents'});})),h('details',{},h('summary',{text:'Read this draft aloud'}),speechVoice,button('Read aloud',async()=>readAloud()),button('Stop reading',async()=>stopReading())));
-audioStudio=createAudioStudio(message=>{status.textContent=message;},undefined,{convert:async(id,blob,format,preset)=>{if(blob.size>16_000_000)throw Error('Native conversion accepts files up to 16 MB.');return invoke<string>('audio_convert',{id,bytes:Array.from(new Uint8Array(await blob.arrayBuffer())),format,preset});},cancel:async id=>{await invoke('audio_conversion_cancel',{id});}},async()=>{musicHub.suspend();await nativeMusic?.suspend();await invoke('music_pause');},async(name,content)=>{try{const savedPath=await invoke<string>('workspace_save',{title:name.replace(/\.md$/,''),text:content,format:'md'});status.textContent=`Transcript saved to documents: ${savedPath}`;}catch{await captureDaily(`\n\n${content}`);status.textContent=`Transcript appended to daily note (${name}).`;}});
-void attachDesktopSpotube(musicHub.root,()=>{musicHub.suspend();audioStudio.stop();audioStudio.hideDock();},text=>{status.textContent=text;},()=>showView('music')).then(player=>{nativeMusic=player;}).catch(e=>{status.textContent=String(e);});
-section('music','Music Hub',musicHub.root);
-section('audio','Audio Studio',audioStudio.root);
-
-// Global floating Kevo Voice Companion pill
-const globalJarvisPill=document.createElement('div');
-globalJarvisPill.className='jarvis-global-pill';
-globalJarvisPill.title='Kevo: click to turn the microphone on or off, then say "Kevo"';
-const pillMic=document.createElement('button');
-pillMic.className='jarvis-global-pill-mic';
-pillMic.setAttribute('aria-label','Turn Kevo’s microphone on or off');
-const pillStatus=document.createElement('span');
-pillStatus.className='jarvis-global-pill-status';
-pillStatus.textContent='Kevo';
-globalJarvisPill.append(pillMic,pillStatus);
-shell.append(globalJarvisPill);
-
-function updateGlobalPill(listening:boolean){
- globalJarvisPill.classList.toggle('active',listening);
- pillMic.classList.toggle('active',listening);
- pillStatus.textContent=listening?'Listening…':'Kevo';
+function getAudioStudio():ReturnType<typeof createAudioStudio>{
+  if(!audioStudio){
+    audioStudio=createAudioStudio(message=>{status.textContent=message;},undefined,{convert:async(id,blob,format,preset)=>{if(blob.size>16_000_000)throw Error('Native conversion accepts files up to 16 MB.');return invoke<string>('audio_convert',{id,bytes:Array.from(new Uint8Array(await blob.arrayBuffer())),format,preset});},cancel:async id=>{await invoke('audio_conversion_cancel',{id});}},async()=>{musicHub.suspend();await nativeMusic?.suspend();await invoke('music_pause');},async(name,content)=>{try{const savedPath=await invoke<string>('workspace_save',{title:name.replace(/\.md$/,''),text:content,format:'md'});status.textContent=`Transcript saved to documents: ${savedPath}`;}catch{await captureDaily(`\n\n${content}`);status.textContent=`Transcript appended to daily note (${name}).`;}});
+  }
+  return audioStudio;
 }
+void attachDesktopSpotube(musicHub.root,()=>{musicHub.suspend();audioStudio?.stop();audioStudio?.hideDock();},text=>{status.textContent=text;},()=>showView('music')).then(player=>{nativeMusic=player;}).catch(e=>{status.textContent=String(e);});
+section('music','Music Hub',musicHub.root);
+lazySection('audio','Audio Studio',panel=>{panel.append(getAudioStudio().root);});
+
+// Kevo micro-pill in the top bar. It shows only what Rust's `kevo://state` event says (AGENTS.md rule 4:
+// no polling); clicking turns Kevo's microphone on or off, as on the Kevo view.
+const kevoPillLabel=h('span',{class:'kevo-micro-label',text:'Kevo'});
+const kevoPill=h('button',{type:'button',class:'kevo-micro-pill','data-state':'off','aria-label':'Kevo: turn the microphone on or off',title:'Kevo: click to turn the microphone on or off, then say "Kevo"'},h('span',{class:'kevo-micro-dot','aria-hidden':'true'}),kevoPillLabel) as HTMLButtonElement;
+const kevoPillText:Record<string,string>={off:'Kevo',sleeping:'Kevo',idle:'Kevo · ready',listening:'Listening…',thinking:'Thinking…',speaking:'Speaking…',alert:'Kevo · needs you'};
+void listen<{state:string}>('kevo://state',event=>{const state=event.payload?.state;if(!state||!(state in kevoPillText))return;kevoPill.dataset.state=state;kevoPillLabel.textContent=kevoPillText[state];}).catch(()=>{});
 
 // Kevo's fixed instructions and tool list (about 2,000 tokens) come first and never change, so llama-server
 // keeps them in its prompt cache; remembered facts follow in their own message.
@@ -419,21 +473,13 @@ function preloadKevoModel(){
  void kevoPrompt().then(p=>invoke('kevo_preload_model',{model:model.value,...p})).catch(()=>{});
 }
 
-jarvisCommandDesk.listener.addStateListener((listening:boolean)=>{
- updateGlobalPill(listening);
- if(listening) preloadKevoModel();
-});
-
-if(jarvisCommandDesk.listener.getListeningState()){
- preloadKevoModel();
-}
-
-pillMic.addEventListener('click',()=>{
- if(jarvisCommandDesk.listener.getListeningState()){
-  jarvisCommandDesk.listener.stop();
-  jarvisCommandDesk.speaker.stop(); // as on the Kevo view: microphone off also stops Kevo talking
+kevoPill.addEventListener('click',()=>{
+ const desk=getJarvisCommandDesk();
+ if(desk.listener.getListeningState()){
+  desk.listener.stop();
+  desk.speaker.stop(); // as on the Kevo view: microphone off also stops Kevo talking
  }else{
-  jarvisCommandDesk.listener.start();
+  desk.listener.start();
  }
 });
 const appearance=h('select',{'aria-label':'Appearance'},h('option',{value:'dark',text:'Dark'}),h('option',{value:'light',text:'Light'}),h('option',{value:'system',text:'Follow Windows'})) as HTMLSelectElement;
@@ -441,199 +487,220 @@ const textSize=h('select',{'aria-label':'Text size'},h('option',{value:'normal',
 function applyAppearance(){root.setAttribute('data-theme',appearance.value);root.setAttribute('data-text-size',textSize.value);try{window.localStorage.setItem('coucou-appearance',JSON.stringify({theme:appearance.value,size:textSize.value}));}catch{}}
 try{const prefs=JSON.parse(window.localStorage.getItem('coucou-appearance')||'{}');appearance.value=['dark','light','system'].includes(prefs.theme)?prefs.theme:'system';textSize.value=prefs.size==='large'?'large':'normal';}catch{appearance.value='system';textSize.value='normal';}
 appearance.addEventListener('change',applyAppearance);textSize.addEventListener('change',applyAppearance);applyAppearance();
-const koreaderSettings=loadKoreaderSettings();
-const koreaderServer=h('input',{type:'url','aria-label':'KOReader sync server URL',placeholder:'https://sync.example.com',value:koreaderSettings.serverUrl}) as HTMLInputElement;
-const koreaderUsername=h('input',{'aria-label':'KOReader sync username',placeholder:'Username',value:koreaderSettings.username,maxlength:128}) as HTMLInputElement;
-const koreaderUserkey=h('input',{type:'password','aria-label':'KOReader user key',placeholder:'User key (stored in the system secret store)',autocomplete:'new-password',maxlength:512}) as HTMLInputElement;
-const koreaderDevice=h('input',{'aria-label':'KOReader device name',placeholder:'Device name shown on the sync server',value:koreaderSettings.deviceName,maxlength:128}) as HTMLInputElement;
-const koreaderEnable=h('input',{type:'checkbox','aria-label':'Enable KOReader progress sync'}) as HTMLInputElement;
-koreaderEnable.checked=koreaderSettings.enabled;
-const koreaderKeyHint=h('p',{class:'hint',text:'User key is saved with the system secret store, not in your project files.'});
-function persistKoreader(){saveKoreaderSettings({enabled:koreaderEnable.checked,serverUrl:koreaderServer.value,username:koreaderUsername.value,deviceName:koreaderDevice.value});}
-koreaderEnable.addEventListener('change',persistKoreader);
-koreaderServer.addEventListener('change',persistKoreader);
-koreaderUsername.addEventListener('change',persistKoreader);
-koreaderDevice.addEventListener('change',persistKoreader);
-const koreaderPanel=h('details',{},h('summary',{text:'KOReader progress sync'}),h('p',{class:'hint',text:'Sync reading position with a KOReader kosync server (HTTPS). Bookmarks and highlights stay on this device unless you share document text between devices.'}),koreaderServer,koreaderUsername,koreaderUserkey,koreaderKeyHint,h('div',{class:'row'},button('Save user key',async()=>{await invoke('secret_set',{key:'koreader-userkey',value:koreaderUserkey.value});koreaderUserkey.value='';status.textContent='KOReader user key saved in the system secret store.';}),button('Clear user key',async()=>{await invoke('secret_clear',{key:'koreader-userkey'});status.textContent='KOReader user key cleared.';})),h('label',{class:'check-row'},koreaderEnable,' Enable progress sync'),koreaderDevice,h('p',{class:'hint',text:`Device id (stable on this install): ${koreaderSettings.deviceId}`}));
-const subsonicSettings=loadSubsonicSettings();
-const subsonicServer=h('input',{type:'url','aria-label':'Subsonic server address',placeholder:'https://music.example.com',value:subsonicSettings.server}) as HTMLInputElement;
-const subsonicUser=h('input',{'aria-label':'Subsonic username',placeholder:'Username',value:subsonicSettings.username,maxlength:128}) as HTMLInputElement;
-const subsonicPassword=h('input',{type:'password','aria-label':'Subsonic password',placeholder:'Password (stored in the system secret store)',autocomplete:'new-password',maxlength:512}) as HTMLInputElement;
-const subsonicHint=h('p',{class:'hint',text:'Connect your own Subsonic or Navidrome server. Search and streaming run in Rust; the password stays in the system secret store and never enters the page.'});
-const subsonicPanel=h('details',{},h('summary',{text:'Subsonic / Navidrome'}),subsonicHint,subsonicServer,subsonicUser,subsonicPassword,h('div',{class:'row'},button('Save password',async()=>{saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});await saveSubsonicPassword(subsonicPassword.value);subsonicPassword.value='';subsonicHint.textContent='Password saved. Use Test connection, then search in Music Hub → Subsonic.';}),button('Test connection',async()=>{const saved=saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});subsonicHint.textContent=await testSubsonic(saved.server,saved.username);}),button('Use Public Demo',async()=>{await connectDemoSubsonic();const cur=loadSubsonicSettings();subsonicServer.value=cur.server;subsonicUser.value=cur.username;subsonicHint.textContent='Connected to official Navidrome public demo (demo.navidrome.org).';})));
-subsonicServer.addEventListener('change',()=>saveSubsonicSettings({server:subsonicServer.value}));
-subsonicUser.addEventListener('change',()=>saveSubsonicSettings({username:subsonicUser.value}));
-const neuralReadAloud=h('input',{type:'checkbox','aria-label':'Use neural read-aloud in Reader'}) as HTMLInputElement;
-const neuralReadAloudHint=h('p',{class:'hint',text:'Requires an offline neural voice model. Not available yet.'});
-function refreshNeuralReadAloudSettings(){const available=neuralSpeechToggleAvailable();neuralReadAloud.disabled=!available;if(!available){neuralReadAloud.checked=false;neuralReadAloudHint.textContent='An offline neural voice model is not installed yet. This toggle unlocks when a Piper/Kokoro provider is registered (Phase 5).';}else{neuralReadAloud.checked=neuralSpeechEnabled();neuralReadAloudHint.textContent='Reader read-aloud uses cached neural audio when enabled. Falls back to the system voice if synthesis fails.';}}
-neuralReadAloud.addEventListener('change',()=>setNeuralSpeechEnabled(neuralReadAloud.checked));refreshNeuralReadAloudSettings();
 const linkAddress=h('input',{'aria-label':'This PC Wi-Fi IPv4 address',placeholder:'PC Wi-Fi IPv4 address, e.g. 192.168.1.20'});
-const phoneAI=h('input',{type:'checkbox','aria-label':'Allow Android to use offline AI'});
-const linkCode=h('textarea',{'aria-label':'Private pairing code',readonly:true,placeholder:'Sharing is off.'});
 const linkNotice=h('p',{class:'hint',text:'Same Wi-Fi only. Find your IPv4 address in Windows Settings → Network & internet → Wi-Fi → Properties. Keep the pairing code private: it grants access to saved conversations.'});
-const linkPanel=h('details',{},h('summary',{text:'Connect Android over Wi-Fi'}),linkNotice,linkAddress,h('label',{},phoneAI,' Allow Android to use this PC’s offline AI (applies when sharing starts)'),h('div',{class:'row'},button('Start sharing',async()=>{await saveProject();linkCode.value=await invoke<string>('link_start',{address:linkAddress.value,allowAi:phoneAI.checked});linkNotice.textContent='Sharing is on. Enter this code in Android Settings → Connect to Windows. Allow AnF on your private home network if Windows Firewall asks. Sync sends encrypted conversation data directly between your devices; no cloud account is needed.';}),button('Stop sharing',async()=>{await invoke('link_stop');linkCode.value='';linkNotice.textContent='Sharing stopped. All pairing codes from this session are revoked.';})),linkCode,button('Copy pairing code',async()=>{if(!linkCode.value)throw Error('Start sharing to create a pairing code.');await navigator.clipboard.writeText(linkCode.value);status.textContent='Pairing code copied. Paste it only on your own Android device.';}),h('p',{class:'hint',text:'On Android choose whether to include document text, then press Sync now. Saved work stays local when sharing stops. Reopen a conversation from History to see changes from your other device. Export important work as a backup.'}));
-const backups=backupTools({allowed:()=>!busy,collect:async all=>{await saveProject();const entries=all?await invoke<Entry[]>('workspace_list_projects',{query:''}):[{id:projectId}];if(entries.length>200)throw Error('Export up to 200 conversations per backup.');const projects:Project[]=[];let bytes=0;for(const entry of entries){const p=await invoke<Project>('workspace_load_project',{id:entry.id});p.sources=p.sources.map(source=>({...source,path:null}));bytes+=new TextEncoder().encode(JSON.stringify(p)).length;if(bytes>10_000_000)throw Error('Backup exceeds 10 MB. Export individual conversations.');projects.push(p);}return{kind:'coucou-windows-backup',version:1,projects};},export:async text=>{const path=await invoke<string>('workspace_export_pack',{text});status.textContent='Encrypted backup saved: '+path;return 'Saved: '+path;},restore:async value=>{await saveProject();const count=await invoke<number>('workspace_restore_pack',{text:JSON.stringify(value)});await refreshProjects();return count;}});
-const vault=vaultPanel({platform:'windows',allowed:()=>!busy,status:()=>invoke<VaultStatus>('workspace_vault_status'),enable:async()=>{let result:VaultStatus|undefined;await run(async()=>{await saveProject();result=await invoke<VaultStatus>('workspace_vault_enable');await refreshProjects();},'Encrypting saved conversations');if(!result)throw Error('Migration did not complete. See the workspace status.');return result;},key:()=>invoke<string>('workspace_vault_recovery_key'),recover:key=>invoke<void>('workspace_vault_recover',{key}),export:async text=>'Saved: '+await invoke<string>('workspace_export_pack',{text})});
-let snapshotOwner='';
-const versions=snapshotPanel({allowed:()=>!busy,list:async()=>{snapshotOwner=projectId;return{title:name.value,versions:await invoke<SavedVersion[]>('workspace_vault_versions',{id:snapshotOwner})};},restore:async seq=>{await invoke('workspace_vault_restore',{id:snapshotOwner,seq});await refreshProjects();}});
+let linkPanelEl:HTMLDetailsElement|undefined;
 const settingsCatBtns=new Map<string,HTMLButtonElement>();
 const settingsPanels=new Map<string,HTMLElement>();
 function selectSettingsCategory(catId:string){
+  ensureViewBuilt('settings');
   for(const [id,btn] of settingsCatBtns)btn.setAttribute('aria-selected',id===catId?'true':'false');
   for(const [id,p] of settingsPanels)p.hidden=id!==catId;
 }
 
-const generalPanel=h('div',{class:'settings-panel-view'},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Appearance and reading'}),
-    h('div',{class:'row'},appearance,textSize),
-    h('label',{class:'check-row'},keepIsland,' Keep the island open while I use this workspace'),
-    h('label',{class:'check-row'},showPreviews,' Show message previews in the history list'),
-    h('h3',{text:'Desktop companion (Windows)'}),
-    h('p',{class:'hint',text:'A small always-on-top helper with volume and media buttons. It never listens. It looks at your screen only when you press Screen, shows you the shot first, and sends it to your AI provider only after you press Send.'}),
-    h('div',{class:'row'},button('Open companion',async()=>{await invoke('companion_open');status.textContent='Companion opened.';}),button('Close companion',async()=>{await invoke('companion_close');}))
-  )
-);
-settingsPanels.set('general',generalPanel);
+lazySection('settings','Settings',panel=>{
+  const koreaderSettings=loadKoreaderSettings();
+  const koreaderServer=h('input',{type:'url','aria-label':'KOReader sync server URL',placeholder:'https://sync.example.com',value:koreaderSettings.serverUrl}) as HTMLInputElement;
+  const koreaderUsername=h('input',{'aria-label':'KOReader sync username',placeholder:'Username',value:koreaderSettings.username,maxlength:128}) as HTMLInputElement;
+  const koreaderUserkey=h('input',{type:'password','aria-label':'KOReader user key',placeholder:'User key (stored in the system secret store)',autocomplete:'new-password',maxlength:512}) as HTMLInputElement;
+  const koreaderDevice=h('input',{'aria-label':'KOReader device name',placeholder:'Device name shown on the sync server',value:koreaderSettings.deviceName,maxlength:128}) as HTMLInputElement;
+  const koreaderEnable=h('input',{type:'checkbox','aria-label':'Enable KOReader progress sync'}) as HTMLInputElement;
+  koreaderEnable.checked=koreaderSettings.enabled;
+  const koreaderKeyHint=h('p',{class:'hint',text:'User key is saved with the system secret store, not in your project files.'});
+  function persistKoreader(){saveKoreaderSettings({enabled:koreaderEnable.checked,serverUrl:koreaderServer.value,username:koreaderUsername.value,deviceName:koreaderDevice.value});}
+  koreaderEnable.addEventListener('change',persistKoreader);
+  koreaderServer.addEventListener('change',persistKoreader);
+  koreaderUsername.addEventListener('change',persistKoreader);
+  koreaderDevice.addEventListener('change',persistKoreader);
+  const koreaderPanel=h('details',{},h('summary',{text:'KOReader progress sync'}),h('p',{class:'hint',text:'Sync reading position with a KOReader kosync server (HTTPS). Bookmarks and highlights stay on this device unless you share document text between devices.'}),koreaderServer,koreaderUsername,koreaderUserkey,koreaderKeyHint,h('div',{class:'row'},button('Save user key',async()=>{await invoke('secret_set',{key:'koreader-userkey',value:koreaderUserkey.value});koreaderUserkey.value='';status.textContent='KOReader user key saved in the system secret store.';}),button('Clear user key',async()=>{await invoke('secret_clear',{key:'koreader-userkey'});status.textContent='KOReader user key cleared.';})),h('label',{class:'check-row'},koreaderEnable,' Enable progress sync'),koreaderDevice,h('p',{class:'hint',text:`Device id (stable on this install): ${koreaderSettings.deviceId}`}));
+  const subsonicSettings=loadSubsonicSettings();
+  const subsonicServer=h('input',{type:'url','aria-label':'Subsonic server address',placeholder:'https://music.example.com',value:subsonicSettings.server}) as HTMLInputElement;
+  const subsonicUser=h('input',{'aria-label':'Subsonic username',placeholder:'Username',value:subsonicSettings.username,maxlength:128}) as HTMLInputElement;
+  const subsonicPassword=h('input',{type:'password','aria-label':'Subsonic password',placeholder:'Password (stored in the system secret store)',autocomplete:'new-password',maxlength:512}) as HTMLInputElement;
+  const subsonicHint=h('p',{class:'hint',text:'Connect your own Subsonic or Navidrome server. Search and streaming run in Rust; the password stays in the system secret store and never enters the page.'});
+  const subsonicPanel=h('details',{},h('summary',{text:'Subsonic / Navidrome'}),subsonicHint,subsonicServer,subsonicUser,subsonicPassword,h('div',{class:'row'},button('Save password',async()=>{saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});await saveSubsonicPassword(subsonicPassword.value);subsonicPassword.value='';subsonicHint.textContent='Password saved. Use Test connection, then search in Music Hub → Subsonic.';}),button('Test connection',async()=>{const saved=saveSubsonicSettings({server:subsonicServer.value,username:subsonicUser.value});subsonicHint.textContent=await testSubsonic(saved.server,saved.username);}),button('Use Public Demo',async()=>{await connectDemoSubsonic();const cur=loadSubsonicSettings();subsonicServer.value=cur.server;subsonicUser.value=cur.username;subsonicHint.textContent='Connected to official Navidrome public demo (demo.navidrome.org).';})));
+  subsonicServer.addEventListener('change',()=>saveSubsonicSettings({server:subsonicServer.value}));
+  subsonicUser.addEventListener('change',()=>saveSubsonicSettings({username:subsonicUser.value}));
+  const neuralReadAloud=h('input',{type:'checkbox','aria-label':'Use neural read-aloud in Reader'}) as HTMLInputElement;
+  const neuralReadAloudHint=h('p',{class:'hint',text:'Requires an offline neural voice model. Not available yet.'});
+  function refreshNeuralReadAloudSettings(){const available=neuralSpeechToggleAvailable();neuralReadAloud.disabled=!available;if(!available){neuralReadAloud.checked=false;neuralReadAloudHint.textContent='An offline neural voice model is not installed yet. This toggle unlocks when a Piper/Kokoro provider is registered (Phase 5).';}else{neuralReadAloud.checked=neuralSpeechEnabled();neuralReadAloudHint.textContent='Reader read-aloud uses cached neural audio when enabled. Falls back to the system voice if synthesis fails.';}}
+  neuralReadAloud.addEventListener('change',()=>setNeuralSpeechEnabled(neuralReadAloud.checked));refreshNeuralReadAloudSettings();
+  const phoneAI=h('input',{type:'checkbox','aria-label':'Allow Android to use offline AI'});
+  const linkCode=h('textarea',{'aria-label':'Private pairing code',readonly:true,placeholder:'Sharing is off.'});
+  const linkPanel=h('details',{},h('summary',{text:'Connect Android over Wi-Fi'}),linkNotice,linkAddress,h('label',{},phoneAI,' Allow Android to use this PC’s offline AI (applies when sharing starts)'),h('div',{class:'row'},button('Start sharing',async()=>{await saveProject();linkCode.value=await invoke<string>('link_start',{address:linkAddress.value,allowAi:phoneAI.checked});linkNotice.textContent='Sharing is on. Enter this code in Android Settings → Connect to Windows. Allow AnF on your private home network if Windows Firewall asks. Sync sends encrypted conversation data directly between your devices; no cloud account is needed.';}),button('Stop sharing',async()=>{await invoke('link_stop');linkCode.value='';linkNotice.textContent='Sharing stopped. All pairing codes from this session are revoked.';})),linkCode,button('Copy pairing code',async()=>{if(!linkCode.value)throw Error('Start sharing to create a pairing code.');await navigator.clipboard.writeText(linkCode.value);status.textContent='Pairing code copied. Paste it only on your own Android device.';}),h('p',{class:'hint',text:'On Android choose whether to include document text, then press Sync now. Saved work stays local when sharing stops. Reopen a conversation from History to see changes from your other device. Export important work as a backup.'})) as HTMLDetailsElement;
+  linkPanelEl=linkPanel;
+  const backups=backupTools({allowed:()=>!busy,collect:async all=>{await saveProject();const entries=all?await invoke<Entry[]>('workspace_list_projects',{query:''}):[{id:projectId}];if(entries.length>200)throw Error('Export up to 200 conversations per backup.');const projects:Project[]=[];let bytes=0;for(const entry of entries){const p=await invoke<Project>('workspace_load_project',{id:entry.id});p.sources=p.sources.map(source=>({...source,path:null}));bytes+=new TextEncoder().encode(JSON.stringify(p)).length;if(bytes>10_000_000)throw Error('Backup exceeds 10 MB. Export individual conversations.');projects.push(p);}return{kind:'coucou-windows-backup',version:1,projects};},export:async text=>{const path=await invoke<string>('workspace_export_pack',{text});status.textContent='Encrypted backup saved: '+path;return 'Saved: '+path;},restore:async value=>{await saveProject();const count=await invoke<number>('workspace_restore_pack',{text:JSON.stringify(value)});await refreshProjects();return count;}});
+  const vault=vaultPanel({platform:'windows',allowed:()=>!busy,status:()=>invoke<VaultStatus>('workspace_vault_status'),enable:async()=>{let result:VaultStatus|undefined;await run(async()=>{await saveProject();result=await invoke<VaultStatus>('workspace_vault_enable');await refreshProjects();},'Encrypting saved conversations');if(!result)throw Error('Migration did not complete. See the workspace status.');return result;},key:()=>invoke<string>('workspace_vault_recovery_key'),recover:key=>invoke<void>('workspace_vault_recover',{key}),export:async text=>'Saved: '+await invoke<string>('workspace_export_pack',{text})});
+  let snapshotOwner='';
+  const versions=snapshotPanel({allowed:()=>!busy,list:async()=>{snapshotOwner=projectId;return{title:name.value,versions:await invoke<SavedVersion[]>('workspace_vault_versions',{id:snapshotOwner})};},restore:async seq=>{await invoke('workspace_vault_restore',{id:snapshotOwner,seq});await refreshProjects();}});
 
-const aiPanel=h('div',{class:'settings-panel-view',hidden:true},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Conversations and AI'}),
-    selector,
-    button('Save project',async()=>{await saveProject();status.textContent='Conversation saved.';}),
-    model,
-    h('p',{class:'hint',text:'Answers come from the offline model files installed on this computer. Single unified local model: DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB).' }),
-    offlineModelsPanel(),
-    h('details',{},
-      h('summary',{text:'Conversation memory'}),
-      memory,
-      button('Summarize conversation into memory',async active=>{
-        if(!history.length)throw Error('Start a conversation first.');
-        const input=history.slice(-20).map(t=>`${t.role}: ${compact(t.content[0].text,700)}`).join('\n');
-        const reply=await invoke<{text:string}>('workspace_ask',{job,query:'Summarize goals, preferences, decisions and unfinished tasks. Keep notes under 150 words. Do not invent facts.',sources:[{name:'Recent conversation',text:input,pages:[],path:null}],history:[],memory:memory.value,model:model.value});
-        if(active!==operation)return;
-        memory.value=reply.text.slice(0,12000);
-        await saveProject();
-        status.textContent='Memory updated. Review the notes above.';
-      },'Summarizing conversation')
+  const generalPanel=h('div',{class:'settings-panel-view'},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Appearance and reading'}),
+      h('div',{class:'row'},appearance,textSize),
+      h('label',{class:'check-row'},keepIsland,' Keep the island open while I use this workspace'),
+      h('label',{class:'check-row'},showPreviews,' Show message previews in the history list'),
+      h('h3',{text:'Desktop companion (Windows)'}),
+      h('p',{class:'hint',text:'A small always-on-top helper with volume and media buttons. It never listens. It looks at your screen only when you press Screen, shows you the shot first, and sends it to your AI provider only after you press Send.'}),
+      h('div',{class:'row'},button('Open companion',async()=>{await invoke('companion_open');status.textContent='Companion opened.';}),button('Close companion',async()=>{await invoke('companion_close');}))
     )
-  )
-);
-settingsPanels.set('ai',aiPanel);
+  );
+  settingsPanels.set('general',generalPanel);
 
-const mediaPanel=h('div',{class:'settings-panel-view',hidden:true},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Music, Streaming & Speech'}),
-    subsonicPanel,
-    h('details',{},
-      h('summary',{text:'Neural read-aloud (experimental)'}),
-      neuralReadAloudHint,
-      h('label',{class:'check-row'},neuralReadAloud,' Use neural read-aloud in Reader')
+  const aiPanel=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Conversations and AI'}),
+      selector,
+      button('Save project',async()=>{await saveProject();status.textContent='Conversation saved.';}),
+      model,
+      h('p',{class:'hint',text:'Answers come from the offline model files installed on this computer. Single unified local model: DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB).' }),
+      offlineModelsPanel(),
+      h('details',{},
+        h('summary',{text:'Conversation memory'}),
+        memory,
+        button('Summarize conversation into memory',async active=>{
+          if(!history.length)throw Error('Start a conversation first.');
+          const input=history.slice(-20).map(t=>`${t.role}: ${compact(t.content[0].text,700)}`).join('\n');
+          const reply=await invoke<{text:string}>('workspace_ask',{job,query:'Summarize goals, preferences, decisions and unfinished tasks. Keep notes under 150 words. Do not invent facts.',sources:[{name:'Recent conversation',text:input,pages:[],path:null}],history:[],memory:memory.value,model:model.value});
+          if(active!==operation)return;
+          memory.value=reply.text.slice(0,12000);
+          await saveProject();
+          status.textContent='Memory updated. Review the notes above.';
+        },'Summarizing conversation')
+      )
     )
-  )
-);
-settingsPanels.set('media',mediaPanel);
+  );
+  settingsPanels.set('ai',aiPanel);
 
-const syncPanel=h('div',{class:'settings-panel-view',hidden:true},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Cross-Device Sync & Reading Position'}),
-    koreaderPanel,
-    linkPanel
-  )
-);
-settingsPanels.set('sync',syncPanel);
+  const mediaPanel=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Music, Streaming & Speech'}),
+      subsonicPanel,
+      h('details',{},
+        h('summary',{text:'Neural read-aloud (experimental)'}),
+        neuralReadAloudHint,
+        h('label',{class:'check-row'},neuralReadAloud,' Use neural read-aloud in Reader')
+      )
+    )
+  );
+  settingsPanels.set('media',mediaPanel);
 
-const cloudBackup=createCloudBackupPanel({
-  notify:msg=>{status.textContent=msg;},
-  listVaultFiles:async()=>{
-    const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});
-    const files:{path:string;size:number;mtime:number}[]=[];
-    for(const entry of entries.slice(0,200)){
-      const p=entry.id===projectId
-        ?{id:projectId,name:name.value,draft:draft.value,updated:Date.now()}
-        :await invoke<Project&{updated?:number}>('workspace_load_project',{id:entry.id});
-      const bytes=new TextEncoder().encode(p.draft||'').length;
-      files.push({
-        path:`notes/${(p.name||entry.name||entry.id).replace(/[\\/:*?"<>|]/g,'_')}.md`,
-        size:bytes,
-        mtime:typeof (p as {updated?:number}).updated==='number'?(p as {updated:number}).updated:entry.updated||Date.now(),
-      });
-    }
-    return files;
-  },
+  const syncPanel=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Cross-Device Sync & Reading Position'}),
+      koreaderPanel,
+      linkPanel
+    )
+  );
+  settingsPanels.set('sync',syncPanel);
+
+  const cloudBackup=createCloudBackupPanel({
+    notify:msg=>{status.textContent=msg;},
+    listVaultFiles:async()=>{
+      const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});
+      const files:{path:string;size:number;mtime:number}[]=[];
+      for(const entry of entries.slice(0,200)){
+        const p=entry.id===projectId
+          ?{id:projectId,name:name.value,draft:draft.value,updated:Date.now()}
+          :await invoke<Project&{updated?:number}>('workspace_load_project',{id:entry.id});
+        const bytes=new TextEncoder().encode(p.draft||'').length;
+        files.push({
+          path:`notes/${(p.name||entry.name||entry.id).replace(/[\\/:*?"<>|]/g,'_')}.md`,
+          size:bytes,
+          mtime:typeof (p as {updated?:number}).updated==='number'?(p as {updated:number}).updated:entry.updated||Date.now(),
+        });
+      }
+      return files;
+    },
+  });
+  const vaultPanelEl=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Data, Privacy and Vault Recovery'}),
+      vault,
+      versions,
+      backups,
+      cloudBackup.root
+    )
+  );
+  settingsPanels.set('vault',vaultPanelEl);
+
+  const extPanel=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Appearance Themes'}),
+      marketplacePanel(),
+      h('h3',{text:'Verified Companion Apps'}),
+      appCatalogPanel(url=>invoke('open_url',{url}))
+    )
+  );
+  settingsPanels.set('extensions',extPanel);
+
+  const sysPanel=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Files, Tools & System Diagnostics'}),
+      h('details',{},
+        h('summary',{text:'File and app actions'}),
+        h('p',{class:'hint',text:'Preview each action before applying it. Organizing makes copies and preserves originals.'}),
+        folder,folderName,button('Preview creating folder',()=>preview('folder')),
+        openPath,button('Preview opening document',()=>preview('open')),
+        button('Preview draft in Notepad',()=>preview('notepad')),
+        actionFiles,button('Preview organization',()=>preview('organize')),
+        actionDescription,apply
+      ),
+      h('details',{},
+        h('summary',{text:'Optional websites'}),
+        h('p',{class:'hint',text:'These open separate browser accounts. Website limits apply; answers stay in your browser.'}),
+        h('div',{class:'row'},...Object.values(BROWSER_APPS).map(app=>button(app.label,async()=>{await invoke('open_url',{url:app.url});status.textContent=`Opened ${app.label} in your browser.`;})))
+      ),
+      updatesPanel(),
+      h('details',{},
+        h('summary',{text:'Installation details'}),
+        button('Check installation',async()=>diagnostics()),
+        diagnosticDetails
+      )
+    )
+  );
+  settingsPanels.set('system',sysPanel);
+
+  const settingsNav=h('nav',{class:'settings-nav','aria-label':'Settings Categories'});
+  const categories=[
+    ['general','General'],
+    ['ai','AI Models'],
+    ['media','Audio & Media'],
+    ['sync','Devices & Sync'],
+    ['vault','Vault & Privacy'],
+    ['extensions','Themes & Apps'],
+    ['system','System & Health']
+  ] as const;
+
+  for(const [id,label] of categories){
+    const btn=h('button',{type:'button',class:'settings-nav-btn',text:label,'aria-selected':id==='general'?'true':'false',onclick:()=>selectSettingsCategory(id)}) as HTMLButtonElement;
+    settingsCatBtns.set(id,btn);
+    settingsNav.append(btn);
+  }
+
+  const settingsHub=h('div',{class:'settings-hub'},settingsNav,h('div',{class:'settings-content'},...settingsPanels.values()));
+  panel.append(settingsHub);
 });
-const vaultPanelEl=h('div',{class:'settings-panel-view',hidden:true},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Data, Privacy and Vault Recovery'}),
-    vault,
-    versions,
-    backups,
-    cloudBackup.root
-  )
-);
-settingsPanels.set('vault',vaultPanelEl);
-
-const extPanel=h('div',{class:'settings-panel-view',hidden:true},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Appearance Themes'}),
-    marketplacePanel(),
-    h('h3',{text:'Verified Companion Apps'}),
-    appCatalogPanel(url=>invoke('open_url',{url}))
-  )
-);
-settingsPanels.set('extensions',extPanel);
-
-const sysPanel=h('div',{class:'settings-panel-view',hidden:true},
-  h('div',{class:'settings-card'},
-    h('h3',{text:'Files, Tools & System Diagnostics'}),
-    h('details',{},
-      h('summary',{text:'File and app actions'}),
-      h('p',{class:'hint',text:'Preview each action before applying it. Organizing makes copies and preserves originals.'}),
-      folder,folderName,button('Preview creating folder',()=>preview('folder')),
-      openPath,button('Preview opening document',()=>preview('open')),
-      button('Preview draft in Notepad',()=>preview('notepad')),
-      actionFiles,button('Preview organization',()=>preview('organize')),
-      actionDescription,apply
-    ),
-    h('details',{},
-      h('summary',{text:'Optional websites'}),
-      h('p',{class:'hint',text:'These open separate browser accounts. Website limits apply; answers stay in your browser.'}),
-      h('div',{class:'row'},...Object.values(BROWSER_APPS).map(app=>button(app.label,async()=>{await invoke('open_url',{url:app.url});status.textContent=`Opened ${app.label} in your browser.`;})))
-    ),
-    updatesPanel(),
-    h('details',{},
-      h('summary',{text:'Installation details'}),
-      button('Check installation',async()=>diagnostics()),
-      diagnosticDetails
-    )
-  )
-);
-settingsPanels.set('system',sysPanel);
-
-const settingsNav=h('nav',{class:'settings-nav','aria-label':'Settings Categories'});
-const categories=[
-  ['general','General'],
-  ['ai','AI Models'],
-  ['media','Audio & Media'],
-  ['sync','Devices & Sync'],
-  ['vault','Vault & Privacy'],
-  ['extensions','Themes & Apps'],
-  ['system','System & Health']
-] as const;
-
-for(const [id,label] of categories){
-  const btn=h('button',{type:'button',class:'settings-nav-btn',text:label,'aria-selected':id==='general'?'true':'false',onclick:()=>selectSettingsCategory(id)}) as HTMLButtonElement;
-  settingsCatBtns.set(id,btn);
-  settingsNav.append(btn);
-}
-
-const settingsHub=h('div',{class:'settings-hub'},settingsNav,h('div',{class:'settings-content'},...settingsPanels.values()));
-section('settings','Settings',settingsHub);
 const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{query:''}),load:id=>invoke<Project>('workspace_load_project',{id}),current:()=>snapshot(),allowed:()=>!busy,view:showView,
  open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
- append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
-const studioTools=h('div',{class:'studio-header-tools'},h('button',{text:'Quick note',onclick:()=>quickNote.open()}),h('button',{text:'Devices',class:'studio-status','aria-label':'Connect another device',onclick:()=>{showView('settings');selectSettingsCategory('sync');linkPanel.open=true;}}),h('button',{text:'Search (Ctrl+K)','aria-label':'Search and commands (Ctrl+K)',onclick:()=>void studio.open()}),h('button',{text:'Keys',title:'Keyboard Shortcuts (?)',onclick:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())}),h('button',{text:'Settings',onclick:()=>showView('settings')}));
-main.replaceChildren(h('header',{class:'workspace-header'},h('div',{},viewTitle,h('span',{class:'hint',text:'Private workspace · Saved on this computer'})),h('div',{class:'project-title'},name,saved),studioTools),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress,saveAlert.root,replyDraft.bar),cancel));
+ append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},commands:()=>{const open=(name:string)=>()=>document.dispatchEvent(new Event(name));return [
+ {label:'Quick note',run:()=>quickNote.open()},
+ {label:'Devices · connect another device',run:()=>{showView('settings');selectSettingsCategory('sync');if(linkPanelEl)linkPanelEl.open=true;}},
+ {label:'Keys · keyboard shortcuts',run:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())},
+ {label:'AppFlowy board',run:open('anf-open-appflowy')},
+ {label:'Cal.com schedule',run:open('anf-open-calcom')},
+ {label:'Swarm review',run:open('anf-open-swarm')},
+ {label:'Security challenge',run:open('anf-open-security')},
+ {label:'Community support',run:open('anf-open-chatwoot')}];},
+ health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
+const searchPill=h('button',{type:'button',class:'topbar-search','aria-label':'Search and commands (Ctrl+K)',onclick:()=>void studio.open()},h('span',{text:'Search…'}),h('kbd',{text:'Ctrl+K'}));
+const quickNoteButton=h('button',{type:'button',class:'primary topbar-quick',text:'+ Quick note',onclick:()=>quickNote.open()});
+viewTitle.classList.add('visually-hidden');
+const navSection=(text:string)=>h('p',{class:'nav-section',text});
+navigation.querySelector('[data-view=home]')?.before(navSection('Workspace'));
+navigation.querySelector('[data-view=music]')?.before(navSection('Studio'));
+navigation.querySelector('[data-view=settings]')?.before(navSection('System'));
+main.replaceChildren(h('header',{class:'workspace-header anf-topbar'},viewTitle,h('div',{class:'project-title'},name,saved),h('div',{class:'topbar-center'},searchPill,kevoPill),quickNoteButton),panelHost,h('footer',{class:'activity-bar'},h('div',{},status,progress,saveAlert.root,replyDraft.bar),cancel));
 window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){const active=document.activeElement as HTMLElement|null;if(!active?.closest('input,textarea,select')&&!active?.isContentEditable){event.preventDefault();void studio.open();return;}}if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();if(!busy)void run(ask,'Thinking locally');}if(event.ctrlKey&&event.key.toLowerCase()==='s'){event.preventDefault();if(!busy)void saveProject().catch(()=>{});}if(event.ctrlKey&&event.key.toLowerCase()==='f'){event.preventDefault();searchHistory.focus();}
   if((event.key==='?'&&!((event.target as HTMLElement)?.closest('input,textarea,select')||(event.target as HTMLElement)?.isContentEditable))||(event.ctrlKey&&event.key==='/')){
     event.preventDefault();
@@ -642,6 +709,15 @@ window.addEventListener('keydown',e=>{const event=e as KeyboardEvent;if((event.c
 
 foldGuidance(panelHost);showView('home');
 renderSources();setBusy(true);cancel.disabled=true;
+const startupDuration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - workspaceStartTime;
+try {
+  if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+    performance.mark('anf-workspace-startup');
+  }
+} catch {}
+console.log(`[anf-perf] Workspace initial synchronous bootstrap: ${startupDuration.toFixed(2)}ms`);
+(window as unknown as {__anfLazyRegistry?:typeof lazyRegistry;__anfStartupTime?:number}).__anfLazyRegistry = lazyRegistry;
+(window as unknown as {__anfLazyRegistry?:typeof lazyRegistry;__anfStartupTime?:number}).__anfStartupTime = startupDuration;
 async function diagnostics(){try{if(!linkAddress.value)linkAddress.value=await invoke<string>('link_address')||'';if(await invoke<boolean>('link_status'))linkNotice.textContent='Sharing is currently on. Stop sharing to revoke the existing code, or start again to display a new pairing code.';}catch{}const d=await invoke<{runtime:boolean;model:boolean;ocr:boolean;totalRam:number;freeRam:number;documents:string;log:string;version:string}>('workspace_diagnostics');if(!folder.value)folder.value=d.documents;diagnosticDetails.textContent=`AnF ${d.version} · Runtime ${d.runtime?'ready':'missing'} · Model ${d.model?'ready':'not downloaded'} · OCR ${d.ocr?'ready':'missing'}${d.freeRam?` · ${(d.freeRam/1073741824).toFixed(1)} GB free RAM`:''}\nStartup log: ${d.log}`;status.textContent=!d.runtime?'Some offline files are missing. Open Settings → Check installation for details.':d.model?'Ready · Offline AI is available.':'Download the local model in Settings → Conversations and AI → Offline models to use offline AI.';}
 void (async()=>{try{await refreshProjects();await diagnostics();const entries=await invoke<Entry[]>('workspace_list_projects');if(entries.length){const p=await invoke<Project>('workspace_load_project',{id:entries[0].id});projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());selector.value=p.id;renderHistory();renderSources();saved.textContent='Reopened your most recent project.';}else await saveProject();await invoke('log_line',{message:'workspace ready'});}catch(e){status.textContent=`Workspace initialization failed: ${String(e)}. Check installation and the startup log.`;}finally{setBusy(false);void dashboard.refresh();}})();
 

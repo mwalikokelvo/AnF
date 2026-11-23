@@ -102,6 +102,9 @@ export interface Settings {
   kevoAutoTest: boolean;
   /** Custom model directory (e.g. on external drive). */
   modelFolder?: string;
+  kevoVoiceId?: string;
+  kevoRealWorkspaceDataOnly?: boolean;
+  kevoOnlineVoices?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -125,6 +128,9 @@ export const DEFAULT_SETTINGS: Settings = {
   kevoHearing: "pc",
   kevoAutoTest: false,
   modelFolder: "",
+  kevoVoiceId: "kelvin-mwamburi",
+  kevoRealWorkspaceDataOnly: true,
+  kevoOnlineVoices: true,
 };
 
 type Listener = () => void;
