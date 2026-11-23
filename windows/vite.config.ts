@@ -7,7 +7,7 @@ import { resolve, join, extname } from "node:path";
 // The 28 WAVs live in the macOS app and are NOT duplicated in the repo; when they
 // move to `shared/sounds/`, change this single line.
 export const SOUNDS_DIR = resolve(__dirname, "../NotchBuddy/Resources/sounds");
-/** JARVIS voice-pack MP3s live in-repo under windows/voice-pack/ (see SOURCES.txt). */
+/** Kevo voice-pack MP3s live in-repo under windows/voice-pack/ (see SOURCES.txt). */
 export const VOICE_PACK_DIR = resolve(__dirname, "voice-pack");
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ function sharedSounds(): Plugin {
 
 /**
  * Serves VOICE_PACK_DIR at /voice-pack/*.mp3 in dev and copies into dist/voice-pack on build.
- * Missing samples are non-fatal — JARVIS falls back to Web Speech + Web Audio chirp.
+ * Missing samples are non-fatal — Kevo falls back to Web Speech + Web Audio chirp.
  */
 function voicePack(): Plugin {
   const prefix = "/voice-pack/";
@@ -66,7 +66,7 @@ function voicePack(): Plugin {
     closeBundle() {
       const out = resolve(__dirname, "dist/voice-pack");
       if (!existsSync(VOICE_PACK_DIR)) {
-        this.warn(`voice-pack not found at ${VOICE_PACK_DIR} — JARVIS ships without MP3 identity cues`);
+        this.warn(`voice-pack not found at ${VOICE_PACK_DIR} — Kevo ships without MP3 identity cues`);
         return;
       }
       mkdirSync(out, { recursive: true });
@@ -107,6 +107,7 @@ export default defineConfig({
         settings: resolve(__dirname, "settings.html"),
         workspace: resolve(__dirname, "workspace.html"),
         companion: resolve(__dirname, "companion.html"),
+        "kevo-float": resolve(__dirname, "kevo-float.html"),
       },
     },
   },

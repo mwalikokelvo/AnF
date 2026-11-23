@@ -29,6 +29,16 @@ export interface BootInfo {
   cursorPoll: boolean;
 }
 
+export interface KevoHardwareProfile {
+  totalRamGb: number;
+  availableRamGb: number;
+  cpuCores: number;
+  arch: string;
+  recommendedTier: 'fast' | 'balanced' | 'quality';
+  recommendedThreads: number;
+  avx2Supported: boolean;
+}
+
 export const Bridge = {
   boot: () => call<BootInfo>("boot"),
 
@@ -55,6 +65,60 @@ export const Bridge = {
   openInVSCode: (path: string | null) => call<boolean>("open_in_vscode", { path }),
 
   quit: () => call<void>("quit_app"),
+  quitApp: () => call<void>("quit_app"),
+
+  isKevoSelftest: () => call<boolean>("is_kevo_selftest"),
+  kevoSelftestGetClips: () => call<string>("kevo_selftest_get_clips"),
+  kevoSelftestReadClip: (file: string) => call<number[]>("kevo_selftest_read_clip", { file }),
+  kevoSelftestSaveResult: (resultJson: string) => call<string>("kevo_selftest_save_result", { resultJson }),
+  kevoGraphicsCard: () => call<string>("kevo_graphics_card"),
+  kevoModelDevice: () => call<string>("kevo_model_device"),
+  kevoMeasureIdleCpu: (seconds?: number) => call<number>("kevo_measure_idle_cpu", { seconds }),
+  systemStats: () => call<Record<string, unknown>>("system_stats"),
+  kevoHudSet: (state: string, line?: string, level?: number) => call<void>("kevo_hud_set", { state, line, level }),
+  kevoHudAnswer: (id: number | string, approved: boolean) => call<void>("kevo_hud_answer", { id, approved }),
+  kevoAsk: (id: number, query: string, history: unknown[], model: string, tools?: unknown[], system?: string, memory?: string) =>
+    call<unknown>("kevo_ask", { id, query, history, model, tools, system, memory }),
+  kevoCancel: () => call<void>("kevo_cancel"),
+  kevoPreloadModel: (model?: string, tools?: unknown[], system?: string, memory?: string) =>
+    call<void>("kevo_preload_model", { model, tools, system, memory }),
+  kevoMemoryRememberFact: (fact: string, category?: string) =>
+    call<{ id: string; fact: string; category: string; created_at: number; updated_at: number }>("kevo_memory_remember_fact", { fact, category }),
+  kevoMemoryListFacts: (query?: string) =>
+    call<Array<{ id: string; fact: string; category: string; created_at: number; updated_at: number }>>("kevo_memory_list_facts", { query }),
+  kevoMemoryDeleteFact: (id: string) =>
+    call<boolean>("kevo_memory_delete_fact", { id }),
+  kevoMemoryClearFacts: () =>
+    call<boolean>("kevo_memory_clear_facts"),
+  kevoMemoryLoadHistory: (limit?: number) =>
+    call<Array<{ id: string; role: 'user' | 'assistant'; text: string; at: number }>>("kevo_memory_load_history", { limit }),
+  kevoMemorySaveTurn: (role: string, text: string) =>
+    call<void>("kevo_memory_save_turn", { role, text }),
+  kevoMemoryClearHistory: () =>
+    call<boolean>("kevo_memory_clear_history"),
+
+  kevoScheduleCreateReminder: (message: string, trigger_at: number, recurring?: string) =>
+    call<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>(
+      "kevo_schedule_create_reminder",
+      { message, trigger_at, recurring }
+    ),
+  kevoScheduleListReminders: (include_fired?: boolean) =>
+    call<Array<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>>(
+      "kevo_schedule_list_reminders",
+      { include_fired }
+    ),
+  kevoScheduleCancelReminder: (id: string) =>
+    call<boolean>("kevo_schedule_cancel_reminder", { id }),
+  kevoScheduleClearReminders: () =>
+    call<boolean>("kevo_schedule_clear_reminders"),
+  kevoScheduleCheckDue: () =>
+    call<Array<{ id: string; message: string; trigger_at: number; created_at: number; fired: boolean; recurring?: string }>>(
+      "kevo_schedule_check_due"
+    ),
+  kevoScheduleTriggerAlert: (title: string, message: string) =>
+    call<void>("kevo_schedule_trigger_alert", { title, message }),
+
+  kevoHardwareProfile: () => call<KevoHardwareProfile>("kevo_hardware_profile"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
   openWorkspaceWindow: () => call<void>("open_workspace_window"),
@@ -79,6 +143,18 @@ export const Bridge = {
   approvalAck: (requestId: string) => call<void>("approval_ack", { requestId }),
   /** "Nobody can act on this" — Claude Code asks in the terminal right away. */
   approvalDecline: (requestId: string) => call<void>("approval_decline", { requestId }),
+
+  // ── Kevo Ears (Phase 1 listening pipeline) ──────────────────────────────
+  kevoEarsStart: () => callOrThrow<void>("kevo_ears_start"),
+  kevoEarsStop: () => call<void>("kevo_ears_stop"),
+  kevoEarsMute: (muted: boolean) => call<void>("kevo_ears_mute", { muted }),
+  kevoEarsStatus: () => call<{ running: boolean; muted: boolean }>("kevo_ears_status"),
+  kevoEarsModelsInstalled: () => call<boolean>("kevo_ears_models_installed"),
+  kevoEarsInstallModels: () => call<void>("kevo_ears_install_models"),
+  /** Push TTS playback samples (f32 mono 16 kHz) to the echo canceller reference ring. */
+  kevoEarsPushReference: (samples: number[]) => call<void>("kevo_ears_push_reference", { samples }),
+  /** Clear queued TTS playback reference samples. */
+  kevoEarsClearReference: () => call<void>("kevo_ears_clear_reference"),
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */

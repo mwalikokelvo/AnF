@@ -30,6 +30,15 @@ mod files;
 mod hooks;
 mod integrations;
 mod island;
+// Public: the gate has no caller until Phase 5's actions, and pub keeps it from reading as dead code.
+pub mod kevo_approval;
+mod kevo_float;
+mod kevo_hud;
+mod kevo_system;
+mod kevo_ears;
+pub mod kevo_autotest;
+pub mod kevo_memory;
+pub mod kevo_schedule;
 mod log;
 mod pipe;
 mod platform;
@@ -464,6 +473,9 @@ pub fn run() {
         .manage(Pending::default())
         .manage(Chat::default())
         .manage(Jobs::default())
+        .manage(KevoTurn::default())
+        .manage(kevo_hud::KevoHud::default())
+        .manage(kevo_approval::Approvals::default())
         .manage(projects::Store::default())
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
@@ -512,6 +524,27 @@ pub fn run() {
             workspace_save,
             workspace_launch,
             workspace_ask,
+            kevo_ask,
+            kevo_cancel,
+            kevo_preload_model,
+            kevo_float::kevo_float_open,kevo_float::kevo_float_close,kevo_float::kevo_float_resize,kevo_float::kevo_float_compact,
+            kevo_hud::kevo_hud_set,
+            kevo_hud::kevo_hud_set_badge,
+            kevo_approval::kevo_hud_answer,
+            kevo_memory::kevo_memory_remember_fact,
+            kevo_memory::kevo_memory_list_facts,
+            kevo_memory::kevo_memory_delete_fact,
+            kevo_memory::kevo_memory_clear_facts,
+            kevo_memory::kevo_memory_load_history,
+            kevo_memory::kevo_memory_save_turn,
+            kevo_memory::kevo_memory_clear_history,
+            kevo_schedule::kevo_schedule_create_reminder,
+            kevo_schedule::kevo_schedule_list_reminders,
+            kevo_schedule::kevo_schedule_cancel_reminder,
+            kevo_schedule::kevo_schedule_clear_reminders,
+            kevo_schedule::kevo_schedule_check_due,
+            kevo_schedule::kevo_schedule_trigger_alert,
+            log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,
             workspace_save_project,
@@ -525,6 +558,20 @@ pub fn run() {
             local_link::link_stop,
             local_link::link_address,
             local_link::link_status,
+            // shell_exec and app_control stay unregistered: any script in an AnF window could call them to run
+            // arbitrary commands without a prompt. Re-add only behind an explicit per-command confirmation.
+            kevo_system::system_stats,
+            kevo_system::diagnostics,
+            kevo_system::open_installed_app,
+            kevo_system::kevo_hardware_profile,
+            kevo_ears::kevo_ears_start,
+            kevo_ears::kevo_ears_stop,
+            kevo_ears::kevo_ears_mute,
+            kevo_ears::kevo_ears_push_reference,
+            kevo_ears::kevo_ears_clear_reference,
+            kevo_ears::kevo_ears_status,
+            kevo_ears::kevo_ears_models_installed,
+            kevo_ears::kevo_ears_install_models,
             workspace_load_project,
             workspace_list_projects,
             workspace_preview_action,
@@ -535,14 +582,38 @@ pub fn run() {
             ocr_request,
             ocr_configure_external,
             set_paused,
+            kevo_autotest::is_kevo_selftest,
+            kevo_autotest::kevo_selftest_get_clips,
+            kevo_autotest::kevo_selftest_read_clip,
+            kevo_autotest::kevo_selftest_save_result,
+            kevo_autotest::kevo_graphics_card,
+            kevo_autotest::kevo_model_device,
+            kevo_autotest::kevo_measure_idle_cpu,
+            kevo_autotest::kevo_autotest_check_now,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
+            let is_selftest = kevo_autotest::is_kevo_selftest();
+            let installed_ai = if is_selftest {
+                let installed = settings::local_dir().join("local-ai");
+                if installed.join("model.gguf").is_file()
+                    || installed.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+                    || crate::model_download::any_verified()
+                {
+                    Some(installed)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let resource = app.path().resource_dir().ok().map(|p| p.join("local-ai"));
             let portable = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|p| p.join("local-ai")));
-            if let Some(resource) = resource.filter(|p| p.join("model.gguf").is_file()) {
+            if let Some(installed) = installed_ai {
+                app.state::<Chat>().local.configure(installed);
+            } else if let Some(resource) = resource.filter(|p| p.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }).is_file()) {
                 app.state::<Chat>().local.configure(resource);
             } else if let Some(path) = portable {
                 app.state::<Chat>().local.configure(path);
@@ -626,6 +697,8 @@ pub fn run() {
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
+            kevo_autotest::spawn_autotest_loop(handle.clone());
+            kevo_schedule::spawn_schedule_ticker(handle.clone());
             Ok(())
         })
         .build(tauri::generate_context!());

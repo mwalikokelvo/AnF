@@ -1,0 +1,17 @@
+# Same list as .cursorignore. Claude Code itself reads the deny list in .claude/settings.json; this file is for tools that look for .claudeignore.
+target/
+node_modules/
+dist/
+graphify-out/
+.codebase-memory/
+continuations/
+archive/
+windows/local-ai/
+windows/media/
+*.onnx
+*.gguf
+*.safetensors
+*.epub
+*.db
+*.sqlite
+*.wav

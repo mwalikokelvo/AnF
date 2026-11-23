@@ -72,3 +72,20 @@ export function fromWire(s:Snapshot,previous:Project|undefined,documents:boolean
   });
   return {...previous,id:previous?.id||newId(),name:p.name,draft:p.draft,prompt:p.question,notes,sources:documents?p.sources.map(source=>({name:source.name,text:source.text,pages:source.pages,...(source.reading?{reading:readingState(source.reading,source.text)}:{})})):previous?.sources||[],updated:Date.now(),sync:{...previous?.sync,id:p.id,title:p.title,memory:p.memory,model:p.model,[documents?'documents':'chat']:s.revision}};
 }
+
+/** Serialize ThingsBook voice package for cross-device wire sync (Step 9.2) */
+export function toVoiceWire(pkg: any): string {
+  if (pkg?.version !== 'thingsbook-voice-v1') {
+    throw Error('Invalid ThingsBook voice package version.');
+  }
+  return JSON.stringify(pkg);
+}
+
+/** Deserialize ThingsBook voice package from wire sync payload (Step 9.2) */
+export function fromVoiceWire(payload: string): any {
+  const parsed = JSON.parse(payload);
+  if (parsed?.version !== 'thingsbook-voice-v1') {
+    throw Error('Invalid ThingsBook voice package version.');
+  }
+  return parsed;
+}

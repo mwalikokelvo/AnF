@@ -1,5 +1,5 @@
 /**
- * JARVIS Integration tests — exercises all subsystems together.
+ * Kevo Integration tests — exercises all subsystems together.
  * DOM-independent: tests only the pure-logic paths.
  */
 import { describe, it } from 'node:test';
@@ -12,7 +12,7 @@ import { ScoutGrowthAgent } from '../src/workspace/jarvis/agents/scout-growth';
 import { SupportOperationsAgent } from '../src/workspace/jarvis/agents/support-agent';
 import { fetchSystemTelemetry } from '../src/workspace/jarvis/connectors/system-connector';
 
-describe('JARVIS Full Integration', () => {
+describe('Kevo Full Integration', () => {
   it('all agents generate briefings without throwing', async () => {
     const tom = new TomDeveloperAgent();
     const scout = new ScoutGrowthAgent();
@@ -62,7 +62,7 @@ describe('JARVIS Full Integration', () => {
     });
 
     assert.ok(briefing.chunks.length >= 5, `expected 5 chunks, got ${briefing.chunks.length}`);
-    assert.ok(briefing.fullText.includes('JARVIS') || briefing.fullText.includes('sir'));
+    assert.ok(briefing.fullText.includes('Kevo') || briefing.fullText.includes('sir'));
     assert.strictEqual(exec.getLastBriefing()?.timestamp, briefing.timestamp);
   });
 

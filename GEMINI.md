@@ -1,10 +1,5 @@
-# AnF — Gemini & Antigravity Guidelines
+# AnF — Gemini and Antigravity
 
-Refer to [AGENTS.md](./AGENTS.md) for full project rules, autonomous skill execution policies, and platform constraints.
+**Right now (from 22 Nov 2026): you hold all of Claude's duties and roles while Claude is out of usage. Read the HANDOVER entry at the top of [HANDOFF.md](HANDOFF.md) first.**
 
-Key directives:
-1. **Autonomous Skill Execution**: Proactively execute matching skills from `.agents/skills/` and roles from `.agents/agency-agents/` without waiting for explicit prompt triggers.
-2. **Codebase Navigation via Graphify**: Always check `graphify-out/graph.json` using `graphify query "<question>"` or `graphify path "<A>" "<B>"` before reading raw files. Run `graphify update .` after code edits.
-3. **Ponytail Dev Standard**: Smallest complete change, zero speculative boilerplate, never skip tests or security.
-4. **NotchBuddy Contracts**: Never rename pill IDs in `NotchBuddy/Sources/App/PillCatalog.swift`.
-5. **App Store Preservation**: Never restyle existing shipped views in `main`.
+Read and follow [AGENTS.md](AGENTS.md), the one rulebook for every assistant, before changing anything. Your branch prefix is `agy/`; run at most one Rust build on the owner's PC at a time.

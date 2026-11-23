@@ -86,13 +86,17 @@ if (process.platform === 'win32') {
     copyFileSync(join(root,'target/release',binary),join(portable,binary));
   }
   mkdirSync(join(portable,'local-ai'), {recursive:true});
-  const required = ['llama-server.exe','model.gguf','model-fast.gguf','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt'];
+  const required = ['llama-server.exe','chat-template.jinja','ocr-detection.rten','ocr-recognition.rten','NOTICE.txt'];
   const dlls = readdirSync(join(root,'local-ai')).filter(name=>name.endsWith('.dll'));
   if (!dlls.length) throw Error('Portable release has no native runtime DLLs.');
   for(const name of new Set([...required,...dlls,...readdirSync(join(root,'local-ai')).filter(name=>name.includes('LICENSE'))])) {
     copyFileSync(join(root,'local-ai',name),join(portable,'local-ai',name));
   }
   cpSync(join(root,'media'),join(portable,'media'),{recursive:true});
+  // Kevo's self-test reads its clips next to AnF.exe (kevo_autotest::find_selftest_resource_dir).
+  const selftest=join(root,'src-tauri/resources/kevo-selftest');
+  if(!statSync(join(selftest,'clips.json')).isFile())throw Error('Kevo self-test clips are missing.');
+  cpSync(selftest,join(portable,'resources','kevo-selftest'),{recursive:true});
   if(process.argv.includes('--with-spotube')) {
     const music=join(root,'spotube-native/build/windows/x64/runner/Release');
     if(!statSync(join(music,'spotube.exe')).isFile())throw Error('Embedded music executable is missing.');

@@ -8,6 +8,9 @@ license.workspace = true
 
 [features]
 embedded-music = []
+# Kevo's ears (Phase 1): on-PC hearing with sherpa-onnx, linked statically.
+# On in release builds (`npm run pack`) and in the Windows and Linux CI tests.
+kevo-ears = ["dep:sherpa-onnx", "dep:cpal"]
 
 [lib]
 name = "coucou_lib"
@@ -22,6 +25,7 @@ tauri = { version = "2", features = ["tray-icon", "custom-protocol"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
+sysinfo = "0.31"
 serde_json = { version = "1", features = ["preserve_order"] }
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
@@ -36,6 +40,14 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 sha2 = "0.11"
 md-5 = "0.10"
 ring = "0.17"
+# Exact pin: its build script downloads the matching prebuilt static libraries
+# from github.com/k2-fsa/sherpa-onnx/releases (see src/kevo_ears.rs).
+sherpa-onnx = { version = "=2.0.1", optional = true }
+cpal = { version = "0.15", optional = true }
+
+[dev-dependencies]
+# Paused test clock for the approval gate's 60 s timeout (kevo_approval tests).
+tokio = { version = "1", features = ["test-util"] }
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }

@@ -162,3 +162,23 @@ by current editor/media dependencies.
 Review exact artifact versions, checksum files, signatures and platform smoke
 results before publishing. Actions artifacts expire after seven days. Keep the
 Android production key and Apple signing credentials outside artifacts and Git.
+
+## Archived Android upgrade baseline
+
+When an Actions baseline has expired, use the pinned legacy archive:
+
+```sh
+gh workflow run android.yml --ref main -f baseline_archive=legacy-0.1.22
+```
+
+Choose either `baseline_run` or `baseline_archive`. The archived path downloads
+only the known 0.1.22 APK from the existing draft review release, verifies its
+pinned SHA256, actual SDK signature and `com.coucou.workspace` identity, then
+records provenance. It does not rebuild or replace the historical release.
+The normal unsigned-artifact baseline path remains supported.
+
+The installation test re-signs baseline, candidate and instrumentation APKs with
+one disposable emulator key. Its results establish installed behavior/data
+retention under that key; production certificate matching is a separate check.
+This archive choice covers the legacy identity, not the `com.anf.workspace`
+0.1.41 lineage. A passing job does not complete the broader release gates.

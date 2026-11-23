@@ -1,0 +1,42 @@
+name: Spotube build tool invocation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/spotube/tool-process.mjs'
+      - 'integrations/spotube/storage-patches.mjs'
+      - 'integrations/spotube/prepare.mjs'
+      - 'integrations/spotube/build-android.mjs'
+      - 'scripts/check-spotube-tool-process.mjs'
+      - 'scripts/check-spotube-storage-patches.mjs'
+      - '.github/workflows/spotube-build-tools.yml'
+  pull_request:
+    paths:
+      - 'integrations/spotube/tool-process.mjs'
+      - 'integrations/spotube/storage-patches.mjs'
+      - 'integrations/spotube/prepare.mjs'
+      - 'integrations/spotube/build-android.mjs'
+      - 'scripts/check-spotube-tool-process.mjs'
+      - 'scripts/check-spotube-storage-patches.mjs'
+      - '.github/workflows/spotube-build-tools.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tool-process:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - run: node scripts/check-spotube-tool-process.mjs
+      - run: node scripts/check-spotube-storage-patches.mjs
+      - run: node --check integrations/spotube/prepare.mjs
+      - run: node --check integrations/spotube/build-android.mjs

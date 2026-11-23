@@ -77,8 +77,11 @@ pub fn id_valid(id: &str) -> bool {
 fn is_valid_model(m: &str) -> bool {
     matches!(
         m,
-        "fast"
+        "deepseek-v4-pro-qwen3.5-9b"
+            | "fast"
             | "balanced"
+            | "default"
+            | "local"
             | "deepseek-v4.1-flash"
             | "deepseek-v3.2-reasoning"
             | "deepseek-v3.2"
@@ -112,7 +115,10 @@ pub fn validate(p: &Project) -> Result<(), String> {
             || t.content.len() != 1
             || t.content[0].text.len() > 2_000_000
             || !matches!(t.label.as_deref(), None | Some("pc") | Some("browser"))
-    }) || p.sources.iter().any(|s| s.text.len() > 2_000_000 || s.name.len() > 2000)
+    }) || p
+        .sources
+        .iter()
+        .any(|s| s.text.len() > 2_000_000 || s.name.len() > 2000)
     {
         return Err("Project contains invalid conversation or sources.".into());
     }

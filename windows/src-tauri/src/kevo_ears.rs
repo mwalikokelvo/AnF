@@ -1,0 +1,1224 @@
+//! Kevo's ears (Phase 1, `docs/kevo-briefs/phase-1.md`): hearing on this PC
+//! with sherpa-onnx, statically linked behind the `kevo-ears` feature. Its build
+//! script downloads the prebuilt static libraries for the pinned crate version
+//! from github.com/k2-fsa/sherpa-onnx/releases (or takes them from
+//! `SHERPA_ONNX_ARCHIVE_DIR` / `SHERPA_ONNX_LIB_DIR`).
+//!
+//! Step 1.2 pins the three models. Step 1.3 wires the live listening pipeline:
+//! cpal 16 kHz mono microphone capture -> Silero VAD -> Keyword Spotter ->
+//! streaming ASR, emitting kevo-ears-* events to the webview.
+
+#[cfg(feature = "kevo-ears")]
+pub use ears_impl::*;
+
+#[cfg(not(feature = "kevo-ears"))]
+pub use stubs::*;
+
+#[cfg(feature = "kevo-ears")]
+mod ears_impl {
+    use crate::model_download::{self, policy::ModelSpec, store};
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+    use sherpa_onnx::{
+        KeywordSpotter, KeywordSpotterConfig, OnlineModelConfig, OnlineRecognizer, OnlineRecognizerConfig,
+        OnlineTransducerModelConfig, SileroVadModelConfig, VadModelConfig, VoiceActivityDetector,
+    };
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    pub const RATE: i32 = 16_000;
+
+    /// The owner's Hugging Face mirror of k2-fsa's phone-based keyword spotter
+    /// `kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2`
+    /// (32,885,699 bytes, SHA-256 68447f4fbc67e70eee3a93961f36e81e98f47aef73ce7e7ca00885c6cd3616a6),
+    /// which k2-fsa publishes only as a GitHub release. The commit is written once, here.
+    macro_rules! kws_mirror {
+        ($file:literal) => {
+            concat!(
+                "https://huggingface.co/mwalikokelvo/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/resolve/",
+                "c2bcb01bdac46ff111a9302205e5a2f8f337c9f5",
+                "/kevo-wake-model/",
+                $file
+            )
+        };
+    }
+
+    /// Every downloaded file. Sizes and hashes were checked against the files
+    /// themselves; the KWS files are byte-identical to the chunk-16 files of
+    /// k2-fsa's release archive above.
+    pub static MODELS: [ModelSpec; 7] = [
+        // Silero VAD v4.0 (MIT), byte-identical to github.com/snakers4/silero-vad v4.0 files/silero_vad.onnx.
+        ModelSpec {
+            id: "kevo-vad",
+            file: "silero_vad_v4.onnx",
+            url: "https://huggingface.co/csukuangfj/vad/resolve/fba88cd2e921609e7675c3aaf51e0b9b295da4bc/silero_vad.onnx",
+            sha256: "a35ebf52fd3ce5f1469b2a36158dba761bc47b973ea3382b3186ca15b1f5af28",
+            size: 1_807_522,
+        },
+        // Keyword spotter: sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20 (Apache-2.0). English is
+        // modelled as CMU-dictionary phones, so "Kevo" is written by how it is said.
+        ModelSpec {
+            id: "kevo-kws-encoder",
+            file: "kws-encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx",
+            url: kws_mirror!("encoder-epoch-13-avg-2-chunk-16-left-64.int8.onnx"),
+            sha256: "408bbd740838c42d5bf6d1c5b80b3c88b616c7860b92d980328b5b068c76ae48",
+            size: 4_599_656,
+        },
+        ModelSpec {
+            id: "kevo-kws-decoder",
+            file: "kws-decoder-epoch-13-avg-2-chunk-16-left-64.onnx",
+            url: kws_mirror!("decoder-epoch-13-avg-2-chunk-16-left-64.onnx"),
+            sha256: "63a22dd60f40fff082ac3e09afa507f6787da36df76ded2fbe145fa233e22c21",
+            size: 759_829,
+        },
+        ModelSpec {
+            id: "kevo-kws-joiner",
+            file: "kws-joiner-epoch-13-avg-2-chunk-16-left-64.int8.onnx",
+            url: kws_mirror!("joiner-epoch-13-avg-2-chunk-16-left-64.int8.onnx"),
+            sha256: "190d4067b4cc20b72a42a1916e69d92052000fb7051a427ebb1bc72a69207dc1",
+            size: 86_629,
+        },
+        // Transcription: sherpa-onnx-streaming-zipformer-en-2023-06-26 (Apache-2.0, trained on LibriSpeech).
+        ModelSpec {
+            id: "kevo-asr-encoder",
+            file: "asr-encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            url: "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/672fbf1b30579d6585301139bb363f42a0ad4a24/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            sha256: "563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1",
+            size: 71_083_163,
+        },
+        ModelSpec {
+            id: "kevo-asr-decoder",
+            file: "asr-decoder-epoch-99-avg-1-chunk-16-left-128.onnx",
+            url: "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/672fbf1b30579d6585301139bb363f42a0ad4a24/decoder-epoch-99-avg-1-chunk-16-left-128.onnx",
+            sha256: "7bf787f90b194b307e5a4ad6a34fadb4e748304c35f78a8d66358a05b13ee6ef",
+            size: 2_092_621,
+        },
+        ModelSpec {
+            id: "kevo-asr-joiner",
+            file: "asr-joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            url: "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/672fbf1b30579d6585301139bb363f42a0ad4a24/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            sha256: "d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297",
+            size: 259_335,
+        },
+    ];
+
+    const KWS_TOKENS: &[u8] = include_bytes!("../resources/kevo-ears/kws-tokens.txt");
+    const ASR_TOKENS: &[u8] = include_bytes!("../resources/kevo-ears/asr-tokens.txt");
+
+    /// The owner's two ways of saying the name, KEE-vo and KEH-vo, alone and after "Hey".
+    pub const KEYWORDS: &str = "\
+K IY1 V OW0 @KEVO
+K EH1 V OW0 @KEVO
+HH EY1 K IY1 V OW0 @HEY_KEVO
+HH EY1 K EH1 V OW0 @HEY_KEVO
+";
+
+    pub fn models_dir() -> PathBuf {
+        crate::platform::local_dir().join("kevo-ears").join("models")
+    }
+
+    fn path(dir: &Path, id: &str) -> String {
+        let spec = MODELS.iter().find(|m| m.id == id).expect("pinned model id");
+        store::final_path(dir, spec).to_string_lossy().into_owned()
+    }
+
+    /// Download and verify every model not yet installed in `dir`.
+    pub async fn install<F: FnMut(&'static str, &'static str, u64) + Send>(
+        dir: &Path,
+        cancel: &Arc<AtomicBool>,
+        emit: &mut F,
+    ) -> Result<(), String> {
+        for spec in &MODELS {
+            model_download::download(spec, dir, cancel, &mut |phase, done| emit(spec.id, phase, done)).await?;
+        }
+        Ok(())
+    }
+
+    /// True when every model is installed in `dir`.
+    pub fn installed(dir: &Path) -> bool {
+        MODELS.iter().all(|m| store::installed(dir, m))
+    }
+
+    pub fn voice_activity_detector(dir: &Path) -> Option<VoiceActivityDetector> {
+        let config = VadModelConfig {
+            silero_vad: SileroVadModelConfig {
+                model: Some(path(dir, "kevo-vad")),
+                threshold: 0.5,
+                min_silence_duration: 0.25,
+                min_speech_duration: 0.15,
+                window_size: 512,
+                max_speech_duration: 20.0,
+            },
+            sample_rate: RATE,
+            num_threads: 1,
+            provider: Some("cpu".into()),
+            ..Default::default()
+        };
+        VoiceActivityDetector::create(&config, 30.0)
+    }
+
+    fn transducer(dir: &Path, part: &str, tokens: &[u8]) -> OnlineModelConfig {
+        OnlineModelConfig {
+            transducer: OnlineTransducerModelConfig {
+                encoder: Some(path(dir, &format!("kevo-{part}-encoder"))),
+                decoder: Some(path(dir, &format!("kevo-{part}-decoder"))),
+                joiner: Some(path(dir, &format!("kevo-{part}-joiner"))),
+            },
+            tokens_buf: Some(tokens.to_vec()),
+            num_threads: 1,
+            provider: Some("cpu".into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn keyword_spotter(dir: &Path) -> Option<KeywordSpotter> {
+        KeywordSpotter::create(&KeywordSpotterConfig {
+            model_config: transducer(dir, "kws", KWS_TOKENS),
+            keywords_buf: Some(KEYWORDS.into()),
+            // Step 1.4 tuning on the self-test clips and 14 remakes of them (HANDOFF.md, 2026-11-18):
+            // 16 search paths keep a name said a little unclearly alive; the low threshold costs no
+            // false wakes on 150 look-alike clips. keywords_score stays at the default 1.0.
+            max_active_paths: 16,
+            keywords_threshold: 0.05,
+            ..Default::default()
+        })
+    }
+
+    pub fn recognizer(dir: &Path) -> Option<OnlineRecognizer> {
+        OnlineRecognizer::create(&OnlineRecognizerConfig {
+            model_config: transducer(dir, "asr", ASR_TOKENS),
+            decoding_method: Some("greedy_search".into()),
+            ..Default::default()
+        })
+    }
+
+    /// Linear sample rate converter for streaming audio frames.
+    pub struct LinearResampler {
+        in_rate: f64,
+        out_rate: f64,
+        pos: f64,
+        /// Last sample of the previous frame; `None` before the first frame.
+        last_sample: Option<f32>,
+    }
+
+    impl LinearResampler {
+        pub fn new(in_rate: u32, out_rate: u32) -> Self {
+            Self {
+                in_rate: in_rate as f64,
+                out_rate: out_rate as f64,
+                pos: 0.0,
+                last_sample: None,
+            }
+        }
+
+        pub fn process(&mut self, input: &[f32], output: &mut Vec<f32>) {
+            if (self.in_rate - self.out_rate).abs() < 1e-3 {
+                output.extend_from_slice(input);
+                if let Some(&s) = input.last() {
+                    self.last_sample = Some(s);
+                }
+                return;
+            }
+
+            let ratio = self.in_rate / self.out_rate;
+            let mut in_idx = 0;
+            let n = input.len();
+
+            while in_idx < n {
+                if self.pos < in_idx as f64 + 1.0 {
+                    let frac = (self.pos - in_idx as f64) as f32;
+                    let curr = input[in_idx];
+                    let prev = if in_idx == 0 { self.last_sample.unwrap_or(curr) } else { input[in_idx - 1] };
+                    let val = prev + (curr - prev) * frac.clamp(0.0, 1.0);
+                    output.push(val);
+                    self.pos += ratio;
+                } else {
+                    in_idx += 1;
+                }
+            }
+            self.pos -= n as f64;
+            if let Some(&s) = input.last() {
+                self.last_sample = Some(s);
+            }
+        }
+    }
+
+    /// Acoustic Echo Canceller using Normalized Least Mean Squares (NLMS) with
+    /// Residual Echo Suppression (RES) (Phase 1, Step 1.6).
+    /// Subtracts speaker audio / Kevo's speech from the microphone signal.
+    pub struct EchoCanceller {
+        filter_len: usize,
+        weights: Vec<f32>,
+        history: Vec<f32>,
+        history_idx: usize,
+        mu: f32,
+        eps: f32,
+        echo_power: f32,
+        err_power: f32,
+    }
+
+    impl EchoCanceller {
+        pub fn new(filter_len: usize, step_size: f32) -> Self {
+            let len = filter_len.max(16).next_power_of_two();
+            let weights = vec![0.0; len];
+            Self {
+                filter_len: len,
+                weights,
+                history: vec![0.0; len],
+                history_idx: 0,
+                mu: step_size,
+                eps: 1e-4,
+                echo_power: 0.0,
+                err_power: 0.0,
+            }
+        }
+
+        pub fn process_sample(&mut self, mic_sample: f32, ref_sample: f32) -> f32 {
+            self.history[self.history_idx] = ref_sample;
+            let mut est_echo = 0.0;
+            let mut norm_sq = 0.0;
+            let mask = self.filter_len - 1;
+
+            for i in 0..self.filter_len {
+                let idx = (self.history_idx + self.filter_len - i) & mask;
+                let x = self.history[idx];
+                est_echo += self.weights[i] * x;
+                norm_sq += x * x;
+            }
+
+            let raw_err = mic_sample - est_echo;
+
+            if norm_sq > self.eps {
+                let factor = self.mu / (self.eps + norm_sq);
+                for i in 0..self.filter_len {
+                    let idx = (self.history_idx + self.filter_len - i) & mask;
+                    self.weights[i] += factor * raw_err * self.history[idx];
+                    self.weights[i] = self.weights[i].clamp(-2.0, 2.0);
+                }
+            }
+
+            self.history_idx = (self.history_idx + 1) & mask;
+
+            // Track smoothed energy of estimated echo and raw error
+            let alpha = 0.98;
+            self.echo_power = alpha * self.echo_power + (1.0 - alpha) * est_echo * est_echo;
+            self.err_power = alpha * self.err_power + (1.0 - alpha) * raw_err * raw_err;
+
+            // Residual echo suppression (RES):
+            // When Kevo's echo is active and raw error power is low relative to echo power,
+            // this is single-talk (Kevo speaking alone). Suppress residual echo leakage so
+            // Kevo's own voice never triggers VAD or KWS.
+            // When the user speaks over Kevo, err_power rises sharply, echo_ratio exceeds 0.8,
+            // and the user's voice passes through unattenuated.
+            let mut out = raw_err;
+            if self.echo_power > 1e-5 {
+                let echo_ratio = self.err_power / (self.echo_power + 1e-6);
+                if echo_ratio < 0.8 {
+                    let suppression = (echo_ratio / 0.8).clamp(0.01, 1.0);
+                    out *= suppression;
+                }
+            }
+            out
+        }
+
+        pub fn process(&mut self, mic: &[f32], reference: &[f32], output: &mut Vec<f32>) {
+            output.clear();
+            output.reserve(mic.len());
+            for i in 0..mic.len() {
+                let ref_s = if i < reference.len() { reference[i] } else { 0.0 };
+                output.push(self.process_sample(mic[i], ref_s));
+            }
+        }
+    }
+
+    /// Ring buffer for TTS reference samples pushed from the web view.
+    /// The echo canceller drains this to subtract Kevo's own speech from the
+    /// microphone signal (Step 1.6: push, not polling).
+    pub struct RefRing {
+        queue: std::collections::VecDeque<f32>,
+    }
+
+    impl RefRing {
+        pub fn new(capacity: usize) -> Self {
+            Self {
+                queue: std::collections::VecDeque::with_capacity(capacity),
+            }
+        }
+
+        /// Push TTS playback samples into the ring buffer, sizing to the clip.
+        /// Unread samples are never overwritten and pop() never reads stale data.
+        pub fn push(&mut self, samples: &[f32]) {
+            self.queue.reserve(samples.len());
+            self.queue.extend(samples.iter().copied());
+        }
+
+        /// Pop the next reference sample, or 0.0 when no TTS audio is queued.
+        pub fn pop(&mut self) -> f32 {
+            self.queue.pop_front().unwrap_or(0.0)
+        }
+
+        /// Clear unread samples when playback stops or microphone un-mutes.
+        pub fn clear(&mut self) {
+            self.queue.clear();
+        }
+
+        #[allow(dead_code)]
+        pub fn len(&self) -> usize {
+            self.queue.len()
+        }
+
+        #[allow(dead_code)]
+        pub fn is_empty(&self) -> bool {
+            self.queue.is_empty()
+        }
+    }
+
+    /// The microphone stream (`cpal::Stream`) is not `Send` on Windows, so it
+    /// lives on the pipeline thread and is dropped when that thread ends.
+    struct EarsHandle {
+        stop_flag: Arc<AtomicBool>,
+        muted: Arc<AtomicBool>,
+        ref_ring: Arc<Mutex<RefRing>>,
+    }
+
+    static EARS: OnceLock<Mutex<Option<EarsHandle>>> = OnceLock::new();
+    /// Bumped by every stop, so a start still downloading the models when the mic is switched off never opens it.
+    static STOPS: AtomicU64 = AtomicU64::new(0);
+
+    pub(crate) fn stops_now() -> u64 {
+        STOPS.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn stopped_since(at: u64) -> bool {
+        stops_now() != at
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_models_installed() -> bool {
+        installed(&models_dir())
+    }
+
+    #[tauri::command]
+    pub async fn kevo_ears_install_models(app: tauri::AppHandle) -> Result<(), String> {
+        use tauri::Emitter;
+        let dir = models_dir();
+        let cancel = Arc::new(AtomicBool::new(false));
+        install(&dir, &cancel, &mut |id, phase, done| {
+            let _ = app.emit("kevo-ears-download-progress", serde_json::json!({ "id": id, "phase": phase, "done": done }));
+        }).await
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_status() -> Result<serde_json::Value, String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            Ok(serde_json::json!({
+                "running": true,
+                "muted": handle.muted.load(Ordering::Relaxed),
+            }))
+        } else {
+            Ok(serde_json::json!({
+                "running": false,
+                "muted": false,
+            }))
+        }
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_stop() -> Result<(), String> {
+        STOPS.fetch_add(1, Ordering::SeqCst);
+        let mut state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.take() {
+            handle.stop_flag.store(true, Ordering::Relaxed);
+        }
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_mute(muted: bool) -> Result<(), String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            handle.muted.store(muted, Ordering::Relaxed);
+            if !muted {
+                if let Ok(mut ring) = handle.ref_ring.lock() {
+                    ring.clear();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Clear all queued reference samples.
+    #[tauri::command]
+    pub fn kevo_ears_clear_reference() -> Result<(), String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            if let Ok(mut ring) = handle.ref_ring.lock() {
+                ring.clear();
+            }
+        }
+        Ok(())
+    }
+
+    /// Push TTS playback samples into the echo canceller's reference ring.
+    /// Called by the web view whenever SpeechSynthesisUtterance produces audio
+    /// (via a ScriptProcessorNode / AudioWorklet capture). The samples are
+    /// f32 mono at 16 kHz — the same rate as the microphone pipeline.
+    #[tauri::command]
+    pub fn kevo_ears_push_reference(samples: Vec<f32>) -> Result<(), String> {
+        let state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        if let Some(handle) = state.as_ref() {
+            if let Ok(mut ring) = handle.ref_ring.lock() {
+                ring.push(&samples);
+            }
+        }
+        Ok(())
+    }
+
+    /// One first-use download at a time, so two starts never write the same files.
+    static INSTALLING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+    #[tauri::command]
+    pub async fn kevo_ears_start(app: tauri::AppHandle) -> Result<(), String> {
+        let stops_at_start = stops_now();
+        let dir = models_dir();
+        // The models are downloaded on first use (phase-1 brief); nothing else ever fetched them (#279).
+        {
+            let _installing = INSTALLING.lock().await;
+            if !installed(&dir) {
+                kevo_ears_install_models(app.clone())
+                    .await
+                    .map_err(|e| format!("Kevo hearing models could not be downloaded: {e}"))?;
+            }
+        }
+
+        let mut state = EARS.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
+        // Checked under the EARS lock: a stop after this point finds the handle and closes it.
+        if state.is_some() || stopped_since(stops_at_start) {
+            return Ok(());
+        }
+
+        let vad = voice_activity_detector(&dir).ok_or_else(|| "Failed to create VAD".to_string())?;
+        let kws = keyword_spotter(&dir).ok_or_else(|| "Failed to create keyword spotter".to_string())?;
+        let asr = recognizer(&dir).ok_or_else(|| "Failed to create recognizer".to_string())?;
+
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let muted = Arc::new(AtomicBool::new(false));
+        // 2 seconds of 16 kHz mono — enough to absorb a TTS push/consume timing mismatch.
+        let ref_ring = Arc::new(Mutex::new(RefRing::new(32_000)));
+        let worker_stop = Arc::clone(&stop_flag);
+        let worker_muted = Arc::clone(&muted);
+        let worker_ref = Arc::clone(&ref_ring);
+        let own_stop = Arc::clone(&stop_flag);
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel::<Result<(), String>>(1);
+
+        std::thread::Builder::new()
+            .name("kevo-ears-pipeline".into())
+            .spawn(move || {
+                let (stream, rx) = match open_microphone(&app) {
+                    Ok(opened) => opened,
+                    Err(e) => {
+                        let _ = ready_tx.send(Err(e));
+                        return;
+                    }
+                };
+                let _ = ready_tx.send(Ok(()));
+                let models = EarModels { vad, kws, asr };
+                run_ears_pipeline(rx, worker_stop, worker_muted, worker_ref, app.clone(), models);
+                drop(stream);
+                // Ended without kevo_ears_stop (the microphone went away): forget this
+                // handle so the status is honest and kevo_ears_start works again.
+                if let Ok(mut state) = EARS.get_or_init(|| Mutex::new(None)).lock() {
+                    if state.as_ref().is_some_and(|h| Arc::ptr_eq(&h.stop_flag, &own_stop)) {
+                        *state = None;
+                        use tauri::Emitter;
+                        let _ = app.emit("kevo-ears-error", "Kevo stopped listening: the microphone stream ended");
+                    }
+                }
+            })
+            .map_err(|e| format!("Failed to spawn pipeline thread: {e}"))?;
+
+        ready_rx.recv().map_err(|_| "Kevo hearing stopped while starting".to_string())??;
+        *state = Some(EarsHandle { stop_flag, muted, ref_ring });
+        Ok(())
+    }
+
+    /// Opens the default microphone as 16 kHz mono and starts it playing.
+    fn open_microphone(app: &tauri::AppHandle) -> Result<(cpal::Stream, std::sync::mpsc::Receiver<Vec<f32>>), String> {
+        let host = cpal::default_host();
+        let device = host.default_input_device().ok_or_else(|| "No default microphone input device found".to_string())?;
+        let config = device.default_input_config().map_err(|e| format!("Failed to read microphone config: {e}"))?;
+
+        let channels = config.channels() as usize;
+        let sample_rate = config.sample_rate().0;
+        let sample_format = config.sample_format();
+
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(200);
+
+        let err_app = app.clone();
+        let err_fn = move |err: cpal::StreamError| {
+            use tauri::Emitter;
+            let _ = err_app.emit("kevo-ears-error", err.to_string());
+        };
+
+        let stream = match sample_format {
+            cpal::SampleFormat::F32 => {
+                let mut resampler = LinearResampler::new(sample_rate, RATE as u32);
+                let tx = tx.clone();
+                device.build_input_stream(
+                    &config.into(),
+                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                        let mut mono = Vec::with_capacity(data.len() / channels);
+                        for frame in data.chunks(channels) {
+                            mono.push(frame.iter().sum::<f32>() / channels as f32);
+                        }
+                        let mut resampled = Vec::with_capacity(mono.len());
+                        resampler.process(&mono, &mut resampled);
+                        if !resampled.is_empty() {
+                            let _ = tx.try_send(resampled);
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            cpal::SampleFormat::I16 => {
+                let mut resampler = LinearResampler::new(sample_rate, RATE as u32);
+                let tx = tx.clone();
+                device.build_input_stream(
+                    &config.into(),
+                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                        let mut mono = Vec::with_capacity(data.len() / channels);
+                        for frame in data.chunks(channels) {
+                            mono.push(frame.iter().map(|&s| s as f32 / 32768.0).sum::<f32>() / channels as f32);
+                        }
+                        let mut resampled = Vec::with_capacity(mono.len());
+                        resampler.process(&mono, &mut resampled);
+                        if !resampled.is_empty() {
+                            let _ = tx.try_send(resampled);
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            cpal::SampleFormat::U16 => {
+                let mut resampler = LinearResampler::new(sample_rate, RATE as u32);
+                let tx = tx.clone();
+                device.build_input_stream(
+                    &config.into(),
+                    move |data: &[u16], _: &cpal::InputCallbackInfo| {
+                        let mut mono = Vec::with_capacity(data.len() / channels);
+                        for frame in data.chunks(channels) {
+                            mono.push(frame.iter().map(|&s| (s as f32 - 32768.0) / 32768.0).sum::<f32>() / channels as f32);
+                        }
+                        let mut resampled = Vec::with_capacity(mono.len());
+                        resampler.process(&mono, &mut resampled);
+                        if !resampled.is_empty() {
+                            let _ = tx.try_send(resampled);
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            _ => return Err(format!("Unsupported audio sample format: {sample_format:?}")),
+        }.map_err(|e| format!("Failed to build input stream: {e}"))?;
+
+        stream.play().map_err(|e| format!("Failed to start audio stream: {e}"))?;
+        Ok((stream, rx))
+    }
+
+    struct EarModels {
+        vad: VoiceActivityDetector,
+        kws: KeywordSpotter,
+        asr: OnlineRecognizer,
+    }
+
+    fn run_ears_pipeline(
+        rx: std::sync::mpsc::Receiver<Vec<f32>>,
+        stop: Arc<AtomicBool>,
+        muted: Arc<AtomicBool>,
+        ref_ring: Arc<Mutex<RefRing>>,
+        app: tauri::AppHandle,
+        models: EarModels,
+    ) {
+        use tauri::Emitter;
+
+        let EarModels { vad, kws, asr } = models;
+        let kws_stream = kws.create_stream();
+        let mut asr_stream = asr.create_stream();
+        let mut echo_canceller = EchoCanceller::new(1024, 0.6);
+        let mut buffer = Vec::with_capacity(1024);
+        let mut had_speech = false;
+        let mut last_partial = String::new();
+
+        while !stop.load(Ordering::Relaxed) {
+            match rx.recv_timeout(std::time::Duration::from_millis(50)) {
+                Ok(samples) => {
+                    if muted.load(Ordering::Relaxed) {
+                        // While Kevo speaks, microphone keeps listening through echo cancellation (Step 1.6)
+                        buffer.extend_from_slice(&samples);
+                        while buffer.len() >= 512 {
+                            let chunk: Vec<f32> = buffer.drain(..512).collect();
+                            // Drain reference samples pushed by the web view's TTS capture.
+                            let ref_chunk: Vec<f32> = {
+                                let mut ring = ref_ring.lock().unwrap_or_else(|e| e.into_inner());
+                                (0..chunk.len()).map(|_| ring.pop()).collect()
+                            };
+                            let mut clean = Vec::with_capacity(chunk.len());
+                            echo_canceller.process(&chunk, &ref_chunk, &mut clean);
+
+                            vad.accept_waveform(&clean);
+                            let is_speech = vad.detected();
+                            while !vad.is_empty() {
+                                vad.pop();
+                            }
+
+                            kws_stream.accept_waveform(RATE, &clean);
+                            let mut barge_in = false;
+                            while kws.is_ready(&kws_stream) {
+                                kws.decode(&kws_stream);
+                                if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                                        barge_in = true;
+                                        let _ = app.emit("kevo-ears-wake", &hit.keyword);
+                                    }
+                                    kws.reset(&kws_stream);
+                                }
+                            }
+
+                            if is_speech || barge_in {
+                                let _ = app.emit("kevo-ears-barge-in", ());
+                            }
+                        }
+                        if had_speech {
+                            asr_stream = asr.create_stream();
+                            had_speech = false;
+                            last_partial.clear();
+                        }
+                        continue;
+                    }
+                    buffer.extend_from_slice(&samples);
+                    while buffer.len() >= 512 {
+                        let chunk: Vec<f32> = buffer.drain(..512).collect();
+                        vad.accept_waveform(&chunk);
+                        let is_speech = vad.detected();
+                        // Only the live flag is used; drop finished segments so the queue stays empty.
+                        while !vad.is_empty() {
+                            vad.pop();
+                        }
+
+                        // Keyword spotter runs continuously on audio frames
+                        kws_stream.accept_waveform(RATE, &chunk);
+                        while kws.is_ready(&kws_stream) {
+                            kws.decode(&kws_stream);
+                            if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                                let kw = hit.keyword.clone();
+                                kws.reset(&kws_stream);
+                                let _ = app.emit("kevo-ears-wake", &kw);
+                            }
+                        }
+
+                        // Transcription runs only while VAD hears speech
+                        if is_speech {
+                            had_speech = true;
+                            asr_stream.accept_waveform(RATE, &chunk);
+                            while asr.is_ready(&asr_stream) {
+                                asr.decode(&asr_stream);
+                            }
+                            if let Some(res) = asr.get_result(&asr_stream) {
+                                let text = res.text.trim();
+                                if !text.is_empty() && text != last_partial {
+                                    last_partial = text.to_string();
+                                    let _ = app.emit("kevo-ears-partial", &last_partial);
+                                }
+                            }
+                        } else if had_speech {
+                            asr_stream.input_finished();
+                            while asr.is_ready(&asr_stream) {
+                                asr.decode(&asr_stream);
+                            }
+                            let final_text = asr.get_result(&asr_stream).map(|r| r.text.trim().to_string()).unwrap_or_default();
+                            if !final_text.is_empty() {
+                                let _ = app.emit("kevo-ears-final", &final_text);
+                            }
+                            asr_stream = asr.create_stream();
+                            last_partial.clear();
+                            had_speech = false;
+                        }
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "kevo-ears"))]
+mod stubs {
+    #[tauri::command]
+    pub fn kevo_ears_models_installed() -> bool {
+        false
+    }
+
+    #[tauri::command]
+    pub async fn kevo_ears_install_models(_app: tauri::AppHandle) -> Result<(), String> {
+        Err("kevo-ears feature not enabled".into())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_status() -> Result<serde_json::Value, String> {
+        Ok(serde_json::json!({
+            "running": false,
+            "muted": false,
+        }))
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_stop() -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_mute(_muted: bool) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_push_reference(_samples: Vec<f32>) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_clear_reference() -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn kevo_ears_start(_app: tauri::AppHandle) -> Result<(), String> {
+        Err("kevo-ears feature not enabled".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "kevo-ears")]
+    use super::ears_impl::*;
+    #[cfg(feature = "kevo-ears")]
+    use crate::model_download::policy::is_sha256_hex;
+    #[cfg(feature = "kevo-ears")]
+    use sherpa_onnx::{VoiceActivityDetector, Wave};
+    #[cfg(feature = "kevo-ears")]
+    use std::path::{Path, PathBuf};
+    #[cfg(feature = "kevo-ears")]
+    use std::sync::atomic::AtomicBool;
+    #[cfg(feature = "kevo-ears")]
+    use std::sync::{Arc, OnceLock};
+
+    #[cfg(feature = "kevo-ears")]
+    #[test]
+    fn switching_the_mic_off_cancels_a_start_still_downloading() {
+        let at = stops_now();
+        kevo_ears_stop().unwrap();
+        assert!(stopped_since(at), "a start that began before the stop must not open the microphone");
+        assert!(!stopped_since(stops_now()));
+    }
+
+    #[test]
+    fn linear_resampler_resamples_from_48k_to_16k_accurately() {
+        #[cfg(feature = "kevo-ears")]
+        {
+            let mut resampler = LinearResampler::new(48_000, 16_000);
+            let input = vec![0.5f32; 4800];
+            let mut output = Vec::new();
+            resampler.process(&input, &mut output);
+            assert_eq!(output.len(), 1600);
+            for s in output {
+                assert!((s - 0.5).abs() < 1e-4);
+            }
+        }
+    }
+
+    #[cfg(feature = "kevo-ears")]
+    fn clip(name: &str) -> Vec<f32> {
+        let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/kevo-selftest").join(format!("{name}.wav"));
+        let wave = Wave::read(&file.to_string_lossy()).unwrap_or_else(|| panic!("read {}", file.display()));
+        assert_eq!(wave.sample_rate(), RATE);
+        wave.samples().to_vec()
+    }
+
+    #[cfg(feature = "kevo-ears")]
+    fn test_models() -> &'static Path {
+        static DIR: OnceLock<PathBuf> = OnceLock::new();
+        DIR.get_or_init(|| {
+            let dir = std::env::temp_dir().join("anf-kevo-ears-models");
+            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            runtime.block_on(install(&dir, &Arc::new(AtomicBool::new(false)), &mut |_, _, _| {})).expect("download and verify the pinned Kevo models");
+            assert!(installed(&dir));
+            dir
+        })
+    }
+
+    #[cfg(feature = "kevo-ears")]
+    fn segments(vad: &VoiceActivityDetector, samples: &[f32]) -> Vec<(i64, i32)> {
+        for window in samples.chunks(512) {
+            vad.accept_waveform(window);
+        }
+        vad.flush();
+        let mut found = Vec::new();
+        while let Some(segment) = vad.front() {
+            found.push((segment.start(), segment.n()));
+            vad.pop();
+        }
+        found
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn every_model_is_pinned_to_a_hub_commit_with_size_and_hash() {
+        for m in &MODELS {
+            assert!(m.url.starts_with("https://huggingface.co/") && m.url.contains("/resolve/"), "{}", m.id);
+            let commit = m.url.split("/resolve/").nth(1).and_then(|r| r.split('/').next()).unwrap_or_default();
+            assert!(commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()), "{} must name a commit, not a branch", m.id);
+            assert!(is_sha256_hex(m.sha256) && m.size > 0, "{}", m.id);
+            assert!(!m.file.contains(['/', '\\']), "{}", m.id);
+        }
+        let mut files: Vec<_> = MODELS.iter().map(|m| m.file).collect();
+        files.sort_unstable();
+        files.dedup();
+        assert_eq!(files.len(), MODELS.len(), "file names must not collide in one folder");
+        assert!(MODELS.iter().map(|m| m.size).sum::<u64>() < 100_000_000, "keep the first-use download small");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn silero_vad_hears_the_request_in_a_selftest_clip_and_nothing_in_silence() {
+        let dir = test_models();
+        let found = segments(&voice_activity_detector(dir).expect("create the VAD"), &clip("req-time-ljspeech"));
+        assert!(!found.is_empty(), "no speech found");
+        let start = found[0].0 as f32 / RATE as f32;
+        let heard: i32 = found.iter().map(|s| s.1).sum();
+        assert!((0.1..0.8).contains(&start), "speech should start near 0.3 s, VAD said {start:.2} s");
+        assert!(heard as f32 / RATE as f32 > 0.8, "VAD heard only {heard} samples of a 1.7 s request: {found:?}");
+        let silence = vec![0.0; 3 * RATE as usize];
+        assert!(segments(&voice_activity_detector(dir).unwrap(), &silence).is_empty(), "silence must not count as speech");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn keyword_spotter_and_recognizer_load_and_run_on_selftest_clips() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create the keyword spotter with KEVO / HEY KEVO");
+        let tail = vec![0.0; RATE as usize / 2];
+        let mut woke = Vec::new();
+        for n in 1..=20 {
+            let stream = kws.create_stream();
+            stream.accept_waveform(RATE, &clip(&format!("wake-{n:02}")));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            while kws.is_ready(&stream) {
+                kws.decode(&stream);
+                if let Some(hit) = kws.get_result(&stream).filter(|r| !r.keyword.is_empty()) {
+                    woke.push(hit.keyword);
+                    kws.reset(&stream);
+                }
+            }
+        }
+        assert!(woke.iter().all(|k| k == "KEVO" || k == "HEY_KEVO"), "{woke:?}");
+
+        let asr = recognizer(dir).expect("create the streaming recognizer");
+        let stream = asr.create_stream();
+        stream.accept_waveform(RATE, &clip("req-time-ljspeech"));
+        stream.accept_waveform(RATE, &tail);
+        stream.input_finished();
+        while asr.is_ready(&stream) {
+            asr.decode(&stream);
+        }
+        let text = asr.get_result(&stream).map(|r| r.text).unwrap_or_default();
+        assert!(text.contains("WHAT TIME IS IT"), "heard {text:?} for \"Kevo, what time is it?\"");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn audio_tests_in_ci_verifies_pipeline_offline_from_wav() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create keyword spotter");
+        let asr = recognizer(dir).expect("create streaming recognizer");
+        let tail = vec![0.0; RATE as usize / 2];
+
+        // 1. Wake clips: test all 20 synthetic wake clips across voices
+        let mut wake_count = 0;
+        for n in 1..=20 {
+            let stream = kws.create_stream();
+            stream.accept_waveform(RATE, &clip(&format!("wake-{n:02}")));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            let mut detected = false;
+            while kws.is_ready(&stream) {
+                kws.decode(&stream);
+                if let Some(hit) = kws.get_result(&stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        detected = true;
+                    }
+                    kws.reset(&stream);
+                }
+            }
+            if detected {
+                wake_count += 1;
+            }
+        }
+        // Step 1.4 target: wake rate >= 19/20
+        assert!(wake_count >= 19, "Wake rate {wake_count}/20 is below the 19/20 target");
+
+        // 2. Look-alike clips: test 10 look-alike words
+        let mut false_wakes = 0;
+        for n in 1..=10 {
+            let stream = kws.create_stream();
+            stream.accept_waveform(RATE, &clip(&format!("lookalike-{n:02}")));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            while kws.is_ready(&stream) {
+                kws.decode(&stream);
+                if let Some(hit) = kws.get_result(&stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        false_wakes += 1;
+                    }
+                    kws.reset(&stream);
+                }
+            }
+        }
+        // Step 1.4 target: false wakes <= 1 in 10
+        assert!(false_wakes <= 1, "False wakes {false_wakes}/10 exceeded the target of at most 1");
+
+        // 3. Requests transcription against Phase 0 synthetic clips (2 voices each)
+        let requests = [
+            ("req-time-ljspeech", "TIME"),
+            ("req-time-libritts-3922", "TIME"),
+            ("req-help-ljspeech", "WHAT"),
+            ("req-help-libritts-3922", "WHAT"),
+            ("req-timer-ljspeech", "TIMER"),
+            ("req-timer-libritts-3922", "TIMER"),
+            ("req-open-brave-ljspeech", "BRAVE"),
+            ("req-open-brave-libritts-3922", "BRAVE"),
+            ("req-black-holes-ljspeech", "BLACK"),
+            ("req-black-holes-libritts-3922", "BLACK"),
+        ];
+
+        let mut pass_count = 0;
+        for (name, expected) in requests {
+            let stream = asr.create_stream();
+            stream.accept_waveform(RATE, &clip(name));
+            stream.accept_waveform(RATE, &tail);
+            stream.input_finished();
+            while asr.is_ready(&stream) {
+                asr.decode(&stream);
+            }
+            let text = asr.get_result(&stream).map(|r| r.text).unwrap_or_default();
+            if text.contains(expected) {
+                pass_count += 1;
+            }
+        }
+        // Step 1.4 target: at least 9 of 10 requests accurately transcribed
+        assert!(pass_count >= 9, "Request transcription {pass_count}/10 is below threshold");
+    }
+
+    #[cfg(feature = "kevo-ears")]
+    fn simulate_realistic_echo(reference: &[f32], delay_ms: f32, attenuation: f32) -> Vec<f32> {
+        let delay_samples = (delay_ms * RATE as f32 / 1000.0).round() as usize;
+        // Reverb tail: decaying early reflections off walls/desk
+        let r1_delay = delay_samples + (8.0 * RATE as f32 / 1000.0).round() as usize;
+        let r2_delay = delay_samples + (18.0 * RATE as f32 / 1000.0).round() as usize;
+        let r3_delay = delay_samples + (28.0 * RATE as f32 / 1000.0).round() as usize;
+
+        let mut echo = vec![0.0f32; reference.len()];
+        for i in 0..reference.len() {
+            let mut s = 0.0;
+            if i >= delay_samples {
+                s += attenuation * reference[i - delay_samples];
+            }
+            if i >= r1_delay {
+                s += attenuation * 0.25 * reference[i - r1_delay];
+            }
+            if i >= r2_delay {
+                s += attenuation * 0.12 * reference[i - r2_delay];
+            }
+            if i >= r3_delay {
+                s += attenuation * 0.05 * reference[i - r3_delay];
+            }
+            echo[i] = s;
+        }
+        echo
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn barge_in_stops_playback_within_300ms_when_user_speaks_over_kevo() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create keyword spotter");
+        let vad = voice_activity_detector(dir).expect("create vad");
+
+        // Reference: Kevo speaking ("tell me about black holes")
+        let kevo_speech = clip("req-black-holes-libritts-3922");
+        // User speaking: "Kevo, what time is it?"
+        let user_speech = clip("req-time-ljspeech");
+
+        // The user clip starts with ~0.3s of silence. Find first non-silent sample.
+        let first_user_speech_idx = user_speech
+            .iter()
+            .position(|&s| s.abs() > 0.02)
+            .unwrap_or(0);
+
+        // Realistic echo of Kevo's speech: delayed 30 ms (in 20-60 ms range), attenuated (0.5), with reverb tail
+        let echo = simulate_realistic_echo(&kevo_speech, 30.0, 0.5);
+
+        // Mix user clip over Kevo's echo at offset 16000 (1 second settling period for AEC)
+        let mix_offset = 16000;
+        let mut mixed = echo.clone();
+        for (i, &s) in user_speech.iter().enumerate() {
+            if mix_offset + i < mixed.len() {
+                mixed[mix_offset + i] += s;
+            }
+        }
+
+        let mut aec = EchoCanceller::new(1024, 0.6);
+        let mut clean_audio = Vec::with_capacity(mixed.len());
+        aec.process(&mixed, &kevo_speech, &mut clean_audio);
+
+        let kws_stream = kws.create_stream();
+        let mut stop_sample_idx = None;
+
+        // Feed in 512-sample chunks
+        for (chunk_idx, chunk) in clean_audio.chunks(512).enumerate() {
+            vad.accept_waveform(chunk);
+            let speech_detected = vad.detected();
+            while !vad.is_empty() {
+                vad.pop();
+            }
+
+            kws_stream.accept_waveform(RATE, chunk);
+            let mut kw_hit = false;
+            while kws.is_ready(&kws_stream) {
+                kws.decode(&kws_stream);
+                if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        kw_hit = true;
+                    }
+                    kws.reset(&kws_stream);
+                }
+            }
+
+            let current_sample_idx = (chunk_idx + 1) * 512;
+            let speech_start_global = mix_offset + first_user_speech_idx;
+
+            if current_sample_idx >= speech_start_global && (speech_detected || kw_hit) {
+                stop_sample_idx = Some(current_sample_idx);
+                break;
+            }
+        }
+
+        assert!(stop_sample_idx.is_some(), "Barge-in / stop was never triggered when user spoke over Kevo");
+        let stop_idx = stop_sample_idx.unwrap();
+        let speech_start_global = mix_offset + first_user_speech_idx;
+        let delay_samples = stop_idx.saturating_sub(speech_start_global);
+        let delay_ms = (delay_samples as f64 / RATE as f64) * 1000.0;
+
+        assert!(
+            delay_ms <= 300.0,
+            "Barge-in stop delay {delay_ms:.1} ms exceeded the 300 ms target"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn kevos_own_speech_alone_gives_no_wake_and_no_stop() {
+        let dir = test_models();
+        let kws = keyword_spotter(dir).expect("create keyword spotter");
+        let vad = voice_activity_detector(dir).expect("create vad");
+
+        // Realistic echo of Kevo speaking: delayed 30 ms (in 20-60 ms range), attenuated (0.5), with reverb tail
+        let kevo_speech = clip("req-black-holes-libritts-3922");
+        let echo = simulate_realistic_echo(&kevo_speech, 30.0, 0.5);
+
+        let mut aec = EchoCanceller::new(1024, 0.6);
+        let mut clean_audio = Vec::with_capacity(echo.len());
+        aec.process(&echo, &kevo_speech, &mut clean_audio);
+
+        let kws_stream = kws.create_stream();
+        let mut wake_detected = false;
+        let mut speech_detected = false;
+
+        // Settling period of 16000 samples (1.0 s) for the AEC filter to adapt,
+        // matching the 1.0 s mix_offset in the barge-in test.
+        let settling_samples = 16000;
+        let eval_audio = if clean_audio.len() > settling_samples {
+            &clean_audio[settling_samples..]
+        } else {
+            &clean_audio[..]
+        };
+
+        for chunk in eval_audio.chunks(512) {
+            vad.accept_waveform(chunk);
+            if vad.detected() {
+                speech_detected = true;
+            }
+            while !vad.is_empty() {
+                vad.pop();
+            }
+
+            kws_stream.accept_waveform(RATE, chunk);
+            while kws.is_ready(&kws_stream) {
+                kws.decode(&kws_stream);
+                if let Some(hit) = kws.get_result(&kws_stream).filter(|r| !r.keyword.is_empty()) {
+                    if hit.keyword == "KEVO" || hit.keyword == "HEY_KEVO" {
+                        wake_detected = true;
+                    }
+                    kws.reset(&kws_stream);
+                }
+            }
+        }
+
+        assert!(!wake_detected, "Kevo's own voice woke Kevo!");
+        assert!(!speech_detected, "Kevo's own voice triggered VAD stop!");
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn ref_ring_handles_pushes_longer_than_2s_without_overwriting_unread_samples() {
+        // A push longer than 2s (e.g. 48,000 samples = 3s @ 16 kHz) sizes to the
+        // clip so unread samples are never overwritten and pop() reads all samples
+        // in order without stale data (Item 4).
+        let mut ring = RefRing::new(32_000);
+        let samples: Vec<f32> = (0..48_000).map(|i| i as f32).collect();
+        ring.push(&samples);
+        assert_eq!(ring.len(), 48_000);
+
+        for i in 0..48_000 {
+            let s = ring.pop();
+            assert_eq!(s, i as f32, "sample at {i} must match pushed value");
+        }
+        assert_eq!(ring.pop(), 0.0);
+        assert!(ring.is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "kevo-ears")]
+    fn ref_ring_chunked_streaming_and_clear() {
+        let mut ring = RefRing::new(1024);
+        let chunk1: Vec<f32> = vec![1.0; 512];
+        let chunk2: Vec<f32> = vec![2.0; 512];
+        ring.push(&chunk1);
+        ring.push(&chunk2);
+        assert_eq!(ring.len(), 1024);
+
+        for _ in 0..512 {
+            assert_eq!(ring.pop(), 1.0);
+        }
+        assert_eq!(ring.len(), 512);
+
+        ring.clear();
+        assert_eq!(ring.len(), 0);
+        assert_eq!(ring.pop(), 0.0);
+    }
+}

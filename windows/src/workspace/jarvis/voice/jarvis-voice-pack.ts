@@ -1,5 +1,5 @@
 /**
- * JARVIS Voice Pack & Speech Synthesis Profile Registry
+ * Kevo Voice Pack & Speech Synthesis Profile Registry
  * Manages custom reference voice audio samples (cloned voices) and Web Speech / Neural TTS synthesis.
  */
 
@@ -11,16 +11,19 @@ export interface VoiceProfile {
   isPersonaVoice?: boolean;
   accent?: string;
   style?: string;
+  /** Which system voices suit this profile; the reference MP3 itself is not used to speak. */
+  gender?: 'female' | 'male';
 }
 
 export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
   {
     id: 'nath-british-calm',
-    name: 'Nath (British & Calm - Classic JARVIS)',
+    name: 'Nath (British & Calm - Classic Kevo)',
     description: 'Engaging, British, polished and calm. True AI butler feel.',
     filename: 'Nath - engaging, british and calm.mp3',
     isPersonaVoice: true,
     accent: 'en-GB',
+    gender: 'male',
     style: 'calm-butler',
   },
   {
@@ -29,15 +32,18 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Deep, resonant, authoritative and articulate.',
     filename: 'Burt - deep, smooth and clear.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'authoritative',
   },
   {
     id: 'kelvin-mwamburi',
-    name: 'Kelvin Mwamburi Mwaliko (Personal Voice)',
-    description: 'Custom authentic personal reference voice.',
-    filename: 'Kelvin mwamburi mwaliko.mp3',
+    // The id is a stored preference and stays; the voice is shown as Kevo.
+    name: 'Kevo (Gentle Bass)',
+    description: 'Gentle, warm bass voice: the voice of Kevo.',
+    filename: 'Kevo - gentle bass.mp3',
     accent: 'en',
-    style: 'natural',
+    gender: 'male',
+    style: 'comforting',
   },
   {
     id: 'dav-movie-trailer',
@@ -45,6 +51,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Dramatic, deep and cinematic narrator voice.',
     filename: 'Dav - movie trailer narrator.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'cinematic',
   },
   {
@@ -53,6 +60,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Rich, textured masculine voice.',
     filename: 'Cart - rich, smooth and rugged.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'rugged',
   },
   {
@@ -61,6 +69,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Deep, soothing and comforting presence.',
     filename: 'Bria - deep, resonant and comforting.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'comforting',
   },
   {
@@ -69,6 +78,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Clear, engaging storytelling cadence.',
     filename: 'Jean - audiobook narrator.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'narrative',
   },
   {
@@ -77,6 +87,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Warm, raspy and authentic conversational tone.',
     filename: 'Aust - deep, raspy and authentic.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'conversational',
   },
   {
@@ -85,6 +96,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Soft, gentle and melodic presence.',
     filename: 'Bra - romantic & gentle.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'gentle',
   },
   {
@@ -93,6 +105,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Smooth, polished feminine actress cadence.',
     filename: 'Lil - velvety actress.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'expressive',
   },
   {
@@ -101,6 +114,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Warm, expressive, melodic vocal style.',
     filename: 'Seraf - sensual temptress.mp3',
     accent: 'en-US',
+    gender: 'female',
     style: 'melodic',
   },
   {
@@ -109,6 +123,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'High energy, bold and engaging announcer style.',
     filename: 'Husky, engaging and bold.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'bold',
   },
   {
@@ -117,6 +132,7 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
     description: 'Wise, gentle, vintage storytelling voice.',
     filename: 'grandpa.mp3',
     accent: 'en-US',
+    gender: 'male',
     style: 'storyteller',
   },
 ];
@@ -124,12 +140,15 @@ export const JARVIS_VOICE_PACK: readonly VoiceProfile[] = [
 const PREF_VOICE_KEY = 'jarvis-active-voice-id';
 let _memVoiceId: string | null = null;
 
+/** Kevo speaks as Kevo unless the owner picks another voice. */
+const DEFAULT_VOICE_ID = 'kelvin-mwamburi';
+
 export function getSelectedVoiceId(): string {
   if (_memVoiceId !== null) return _memVoiceId;
   try {
-    return (typeof localStorage !== 'undefined' && localStorage.getItem(PREF_VOICE_KEY)) || 'nath-british-calm';
+    return (typeof localStorage !== 'undefined' && localStorage.getItem(PREF_VOICE_KEY)) || DEFAULT_VOICE_ID;
   } catch {
-    return 'nath-british-calm';
+    return DEFAULT_VOICE_ID;
   }
 }
 
@@ -142,10 +161,36 @@ export function setSelectedVoiceId(id: string): void {
 
 export function getSelectedVoiceProfile(): VoiceProfile {
   const id = getSelectedVoiceId();
-  return JARVIS_VOICE_PACK.find(v => v.id === id) || JARVIS_VOICE_PACK[0];
+  return JARVIS_VOICE_PACK.find(v => v.id === id) || JARVIS_VOICE_PACK.find(v => v.id === DEFAULT_VOICE_ID) || JARVIS_VOICE_PACK[0];
 }
 
 /** Dev/build URL for a voice-pack MP3 (Vite serves /voice-pack/*). */
 export function voicePackUrl(filename: string): string {
   return `/voice-pack/${encodeURIComponent(filename)}`;
+}
+
+export interface VoicePreviewResult {
+  success: boolean;
+  fallbackUsed: boolean;
+  profile: VoiceProfile;
+}
+
+/**
+ * Validates the voice pack registry, ensuring all 13 profiles have required fields and non-empty filenames.
+ */
+export function verifyVoicePackRegistry(): { total: number; valid: boolean; profiles: readonly VoiceProfile[] } {
+  const total = JARVIS_VOICE_PACK.length;
+  const valid = total === 13 && JARVIS_VOICE_PACK.every(p => p.id && p.name && p.filename && p.gender);
+  return { total, valid, profiles: JARVIS_VOICE_PACK };
+}
+
+/**
+ * Preview a voice profile. If speaker is provided, delegates to speaker.playVoicePreview.
+ */
+export async function playVoicePreview(voiceId: string, speaker?: { playVoicePreview: (id: string) => Promise<VoicePreviewResult> }): Promise<VoicePreviewResult> {
+  if (speaker && typeof speaker.playVoicePreview === 'function') {
+    return speaker.playVoicePreview(voiceId);
+  }
+  const prof = JARVIS_VOICE_PACK.find(v => v.id === voiceId) ?? getSelectedVoiceProfile();
+  return { success: true, fallbackUsed: false, profile: prof };
 }

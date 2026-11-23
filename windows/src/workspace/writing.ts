@@ -120,7 +120,16 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
     const dialog=h('dialog',{class:'music-dialog bionic-dialog','aria-label':'Bionic Speed Reader'});
     const closeBtn=h('button',{text:'Close',type:'button',onclick:()=>{dialog.close();dialog.remove();}});
     const content=h('div',{class:'bionic-content'});
-    content.innerHTML=bionicHtml.replace(/\n\n/g,'<p></p>').replace(/\n/g,'<br/>');
+    // Built as DOM nodes, never innerHTML: the draft is the user's text (often pasted or imported), so only the
+    // bionic <b> fixations become elements and everything else, including any HTML in the draft, stays text.
+    for(const paragraph of bionicHtml.split('\n\n')){
+      const p=h('p');
+      paragraph.split('\n').forEach((line,i)=>{
+        if(i)p.append(h('br'));
+        for(const part of line.split(/(<b>[^<]*<\/b>)/)){const bold=/^<b>([^<]*)<\/b>$/.exec(part);p.append(bold?h('b',{text:bold[1]}):document.createTextNode(part));}
+      });
+      content.append(p);
+    }
     dialog.append(
       h('div',{class:'bionic-header'},
         h('h3',{text:'Bionic Speed Reader'}),
