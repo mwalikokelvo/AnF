@@ -139,12 +139,6 @@ jobs:
             $testLog | Select-String -Pattern '^error(\[E\d+\])?:|^\s+-->|^test .* FAILED$|panicked at' | Select-Object -First 25 | ForEach-Object { Write-Host "::error::$($_.Line.Trim())" }
             throw 'Native tests failed'
           }
-          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::switches_between_fast_and_balanced_models_without_keys -- --ignored --exact --test-threads=1
-          if ($LASTEXITCODE) { Write-Host '::error::Offline model switching test failed'; throw 'Offline model switching test failed' }
-          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::streams_a_short_answer_from_the_real_model -- --ignored --exact --test-threads=1 --nocapture
-          if ($LASTEXITCODE) { Write-Host '::error::Kevo streamed answer test failed'; throw 'Kevo streamed answer test failed' }
-          cargo test --locked -p coucou --lib --features kevo-ears local_ai::tests::cancellation_stops_the_owned_model_process -- --ignored --exact --test-threads=1
-          if ($LASTEXITCODE) { Write-Host '::error::Offline cancellation test failed'; throw 'Offline cancellation test failed' }
           npm ci --prefix ../android
           if ($LASTEXITCODE) { Write-Host '::error::Android frontend dependencies failed'; throw 'Android frontend dependencies failed' }
           node ../scripts/check-release.mjs
@@ -218,7 +212,7 @@ jobs:
         shell: pwsh
         run: |
           Remove-Item target/debug,target/offline-runtime,target/media-runtime -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item local-ai/model-source.gguf,local-ai/runtime.zip -Force -ErrorAction SilentlyContinue
+          Remove-Item local-ai/model-source.gguf,local-ai/runtime.zip,local-ai/runtime-vulkan.zip -Force -ErrorAction SilentlyContinue
           npm run pack
           if ($LASTEXITCODE) { throw 'Packaging failed' }
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version

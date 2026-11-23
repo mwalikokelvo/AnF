@@ -28,12 +28,15 @@ const extracted=await files(extract);
 for(const file of extracted.filter(f=>/^lib.*\.so(?:\..*)?$/.test(path.basename(f)) || path.basename(f)==='llama-server')) {
   await cp(file,path.join(local,path.basename(file)),{dereference:false,verbatimSymlinks:true});
 }
-const quantizer=extracted.find(f=>path.basename(f)==='llama-quantize');
-if(!quantizer)throw Error('Verified runtime has no quantizer.');
+if(await stat(path.join(local,'runtime-vulkan.tar.gz')).catch(()=>null)) {
+  const vulkanExtract=path.join(root,'target/offline-runtime-vulkan-linux');
+  await mkdir(vulkanExtract,{recursive:true});
+  run('tar',['-xzf',path.join(local,'runtime-vulkan.tar.gz'),'-C',vulkanExtract]);
+  const vulkanFiles=await files(vulkanExtract);
+  for(const file of vulkanFiles.filter(f=>/^lib.*\.so(?:\..*)?$/.test(path.basename(f)))) {
+    await cp(file,path.join(local,path.basename(file)),{dereference:false,verbatimSymlinks:true});
+  }
+}
 const env={...process.env,LD_LIBRARY_PATH:local+(process.env.LD_LIBRARY_PATH?':'+process.env.LD_LIBRARY_PATH:'')};
-const model=path.join(local,'model.gguf');
-if(!(await stat(model).catch(()=>null)))run(quantizer,['--allow-requantize',path.join(local,'model-source.gguf'),model,'Q4_K_M','4'],env);
-const hash=createHash('sha256');for await(const part of createReadStream(model))hash.update(part);
-if(hash.digest('hex')!=='54c0f1203a724e9f33e76916beab3bdfaffef56cf7b42a93b1bc21319fc0bf97')throw Error('Balanced model checksum mismatch; refusing to package it.');
 await chmod(path.join(local,'llama-server'),0o755);
 run(path.join(local,'llama-server'),['--version'],env);

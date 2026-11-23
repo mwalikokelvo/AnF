@@ -13,6 +13,7 @@ import {
   getKevoSystemPrompt,
   executeKevoToolCalls,
   parseKevoAskResponse,
+  ANSWER_ONLY_NOTE,
 } from '../src/workspace/jarvis/voice/kevo-actions';
 
 type Phrase = { say: string; expect: string; source: 'session 1' | 'session 2' | 'session 3' | 'variant'; before?: string[]; fixed?: string };
@@ -50,7 +51,7 @@ function freshAgent(): JarvisVoiceAgent {
       const messages = [
         { role: 'system', content: system },
         ...(options?.history ?? []).map((t: any) => ({ role: t.role, content: t.text })),
-        { role: 'user', content: q },
+        { role: 'user', content: options?.answerOnly ? q + ANSWER_ONLY_NOTE : q },
       ];
 
       const resp = await fetch(`${serverUrl}/v1/chat/completions`, {
@@ -72,7 +73,7 @@ function freshAgent(): JarvisVoiceAgent {
 
       const data = await resp.json();
       const reply = parseKevoAskResponse(data);
-      if (reply.tool_calls && reply.tool_calls.length > 0) {
+      if (reply.tool_calls && reply.tool_calls.length > 0 && !options?.answerOnly) {
         const executed = await executeKevoToolCalls(reply.tool_calls, context, options?.onPart);
         return { text: executed.speechReply || reply.text || '', actionName: executed.actionName };
       }

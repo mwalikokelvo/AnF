@@ -587,6 +587,7 @@ pub fn run() {
             kevo_autotest::kevo_selftest_read_clip,
             kevo_autotest::kevo_selftest_save_result,
             kevo_autotest::kevo_graphics_card,
+            kevo_autotest::kevo_model_device,
             kevo_autotest::kevo_measure_idle_cpu,
             kevo_autotest::kevo_autotest_check_now,
         ])
@@ -595,7 +596,10 @@ pub fn run() {
             let is_selftest = kevo_autotest::is_kevo_selftest();
             let installed_ai = if is_selftest {
                 let installed = settings::local_dir().join("local-ai");
-                if installed.join("model.gguf").is_file() {
+                if installed.join("model.gguf").is_file()
+                    || installed.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf").is_file()
+                    || crate::model_download::any_verified()
+                {
                     Some(installed)
                 } else {
                     None
@@ -609,7 +613,7 @@ pub fn run() {
                 .and_then(|p| p.parent().map(|p| p.join("local-ai")));
             if let Some(installed) = installed_ai {
                 app.state::<Chat>().local.configure(installed);
-            } else if let Some(resource) = resource.filter(|p| p.join("model.gguf").is_file()) {
+            } else if let Some(resource) = resource.filter(|p| p.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" }).is_file()) {
                 app.state::<Chat>().local.configure(resource);
             } else if let Some(path) = portable {
                 app.state::<Chat>().local.configure(path);

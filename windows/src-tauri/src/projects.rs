@@ -69,8 +69,11 @@ fn id_valid(id: &str) -> bool {
 fn is_valid_model(m: &str) -> bool {
     matches!(
         m,
-        "fast"
+        "deepseek-v4-pro-qwen3.5-9b"
+            | "fast"
             | "balanced"
+            | "default"
+            | "local"
             | "deepseek-v4.1-flash"
             | "deepseek-v3.2-reasoning"
             | "deepseek-v3.2"

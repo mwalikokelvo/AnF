@@ -41,7 +41,7 @@ import {paginatedResponse} from './response-pages';
 import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
-import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,getKevoMemoryPrompt,type KevoAskReply} from './jarvis/voice/kevo-actions';
+import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,getKevoMemoryPrompt,ANSWER_ONLY_NOTE,type KevoAskReply} from './jarvis/voice/kevo-actions';
 import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
 import {
   createReminder,
@@ -113,21 +113,9 @@ const replyDraft=createReplyToDraft({draft:()=>draft.value,setDraft:text=>{draft
 const name=h('input',{value:'My project','aria-label':'Project name',maxlength:160}) as HTMLInputElement;
 const selector=h('select',{'aria-label':'Saved project'}) as HTMLSelectElement;
 const model=h('select',{'aria-label':'Local model'},
-  h('optgroup',{label:'Installed Offline Models'},
-    h('option',{value:'fast',text:'Fast · Qwen3 0.6B (Default)'}),
-    h('option',{value:'balanced',text:'Balanced · Qwen3 1.7B'}),
-  ),
-  h('optgroup',{label:'DeepSeek AI (Hugging Face)'},
-    h('option',{value:'deepseek-v4.1-flash',text:'DeepSeek V4.1 Flash (1017 · Engram)'}),
-    h('option',{value:'deepseek-v3.2-reasoning',text:'DeepSeek V3.2 Reasoning (DSA · MoE)'}),
-    h('option',{value:'deepseek-r1-distill-qwen-1.5b',text:'DeepSeek R1 Distill 1.5B (Edge)'}),
-  ),
-  h('optgroup',{label:'Moonshot Kimi (Hugging Face)'},
-    h('option',{value:'kimi-k3-thinking',text:'Kimi K3 Thinking (KDA · MoE)'}),
-    h('option',{value:'kimi-linear-a3b',text:'Kimi Linear 48B-A3B (Edge Fast)'}),
-  )
+  h('option',{value:'deepseek-v4-pro-qwen3.5-9b',text:'DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)'}),
 ) as HTMLSelectElement;
-model.value='fast';
+model.value='deepseek-v4-pro-qwen3.5-9b';
 const contextScope=h('select',{'aria-label':'AI context'},...[["loaded","Loaded documents"],["document","First document"],["draft","Active draft"],["none","General - no saved context"]].map(([value,text])=>h('option',{value,text})));
 const replyLength=h('select',{'aria-label':'Response length'},h('option',{value:'standard',text:'Standard response'}),h('option',{value:'long',text:'Long response · aim for 1,700 words'})) as HTMLSelectElement;
 const question=h('textarea',{rows:3,placeholder:'Ask a question, request a draft, or ask about loaded sources…','aria-label':'Your question'}) as HTMLTextAreaElement;
@@ -172,7 +160,7 @@ async function run(action:(active:number)=>Promise<unknown>,label='Working'){
   finally{clearInterval(ticker);if(active===operation){job=0;setBusy(false);}}
 }
 function button(label:string,action:(active:number)=>Promise<unknown>,progress=label):HTMLButtonElement{const b=h('button',{text:label}) as HTMLButtonElement;b.addEventListener('click',()=>void run(action,progress));return b;}
-function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:model.value||'fast'};}
+function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:'deepseek-v4-pro-qwen3.5-9b'};}
 async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});selector.replaceChildren(h('option',{value:'',text:'Choose a saved project…'}),...entries.map(e=>h('option',{value:e.id,text:e.name})));selector.value=projectId;if(searchHistory.value.trim())await searchProjects();else renderProjectHistory(entries);}
 function renderProjectHistory(entries:Entry[]){
   if(!entries.length){
@@ -226,7 +214,7 @@ function printDraftPdf(){
   status.textContent='Choose Microsoft Print to PDF in the print dialog to save a PDF copy.';
 }
 function compact(text:string,max=1900){const encoded=new TextEncoder();let result='';let n=0;for(const char of Array.from(text).reverse()){const size=encoded.encode(char).length;if(n+size>max)break;result=char+result;n+=size;}return result;}
-async function ask(active:number,continuePart=false){const query=question.value.trim();if(!query){status.textContent='Enter a question first.';return;}updateQuestionCount();if(new TextEncoder().encode(query).length>10000)throw Error('This question exceeds 10,000 bytes. Attach longer background material as a document.');if(needsClarification(query)){status.textContent='What would you like to do with this material: summarize it, explain a section, compare sources, or draft something? Please include your audience or purpose.';return;}if(!history.length&&['My project','New project'].includes(name.value))name.value=Array.from(query).slice(0,35).join('');await saveProject();const recent=history.slice(-10).map(t=>({role:t.role,content:[{text:compact(t.content[0].text)}]}));const askModel=model.value;let reply:{text:string;notice:string;evidence:Evidence[]};try{reply=await invoke<{text:string;notice:string;evidence:Evidence[]}>('workspace_ask',{job,query,sources:contextScope.value==='none'?[]:contextScope.value==='draft'?[{name:title.value||'Active draft',text:draft.value,pages:[],path:null}]:contextScope.value==='document'?sources.slice(0,1):sources,history:contextScope.value==='none'?[]:recent,memory:contextScope.value==='none'?'':memory.value,model:askModel,longResponse:replyLength.value==='long'});}catch(err){const safeSlot=['fast','deepseek-v4.1-flash','deepseek-r1-distill-qwen-1.5b','kimi-linear-a3b'].includes(askModel)?'fast':'balanced';reply=await invoke<{text:string;notice:string;evidence:Evidence[]}>('workspace_ask',{job,query,sources:contextScope.value==='none'?[]:contextScope.value==='draft'?[{name:title.value||'Active draft',text:draft.value,pages:[],path:null}]:contextScope.value==='document'?sources.slice(0,1):sources,history:contextScope.value==='none'?[]:recent,memory:contextScope.value==='none'?'':memory.value,model:safeSlot,longResponse:replyLength.value==='long'});}if(active!==operation)return;const combined=continuePart?draft.value+'\n\n## Part '+(history.filter(t=>t.role==='assistant').length+1)+'\n\n'+reply.text:reply.text;const draftFull=new TextEncoder().encode(combined).length>200000;
+async function ask(active:number,continuePart=false){const query=question.value.trim();if(!query){status.textContent='Enter a question first.';return;}updateQuestionCount();if(new TextEncoder().encode(query).length>10000)throw Error('This question exceeds 10,000 bytes. Attach longer background material as a document.');if(needsClarification(query)){status.textContent='What would you like to do with this material: summarize it, explain a section, compare sources, or draft something? Please include your audience or purpose.';return;}if(!history.length&&['My project','New project'].includes(name.value))name.value=Array.from(query).slice(0,35).join('');await saveProject();const recent=history.slice(-10).map(t=>({role:t.role,content:[{text:compact(t.content[0].text)}]}));const askModel='deepseek-v4-pro-qwen3.5-9b';let reply:{text:string;notice:string;evidence:Evidence[]};try{reply=await invoke<{text:string;notice:string;evidence:Evidence[]}>('workspace_ask',{job,query,sources:contextScope.value==='none'?[]:contextScope.value==='draft'?[{name:title.value||'Active draft',text:draft.value,pages:[],path:null}]:contextScope.value==='document'?sources.slice(0,1):sources,history:contextScope.value==='none'?[]:recent,memory:contextScope.value==='none'?'':memory.value,model:askModel,longResponse:replyLength.value==='long'});}catch(err){reply=await invoke<{text:string;notice:string;evidence:Evidence[]}>('workspace_ask',{job,query,sources:contextScope.value==='none'?[]:contextScope.value==='draft'?[{name:title.value||'Active draft',text:draft.value,pages:[],path:null}]:contextScope.value==='document'?sources.slice(0,1):sources,history:contextScope.value==='none'?[]:recent,memory:contextScope.value==='none'?'':memory.value,model:'deepseek-v4-pro-qwen3.5-9b',longResponse:replyLength.value==='long'});}if(active!==operation)return;const combined=continuePart?draft.value+'\n\n## Part '+(history.filter(t=>t.role==='assistant').length+1)+'\n\n'+reply.text:reply.text;const draftFull=new TextEncoder().encode(combined).length>200000;
   // An answer fills an empty draft, or continues a long answer; it never overwrites writing the person already has.
   const intoDraft=!draftFull&&(continuePart||!draft.value.trim());if(intoDraft){draft.value=combined;writing?.refresh(projectId);}history.push({role:'user',content:[{text:query}]},{role:'assistant',content:[{text:reply.text}]});renderHistory();renderEvidence(reply.evidence);status.textContent=reply.notice+(draftFull?" This part is saved in conversation history; the writing draft has reached its size limit.":intoDraft?"":" Your draft was left as it is; use Add to draft under the answer to include it.");await saveProject();
   if(contextScope.value!=='none'&&history.length>=10&&history.length%10===0){
@@ -269,11 +257,11 @@ function showView(id:string){ensureViewBuilt(id);document.body.classList.toggle(
 document.addEventListener('anf-switch-view',(e:Event)=>{const target=(e as CustomEvent<string>).detail;if(typeof target==='string'&&panels.has(target))showView(target);});
 function section(id:string,label:string,...children:Node[]){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label},...children);panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);const nav=h('button',{text:label,'data-view':id,'data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);}
 function lazySection(id:string,label:string,builder:(panel:HTMLElement)=>void){const panel=h('section',{class:'workspace-panel',id:'panel-'+id,'aria-label':label});panel.hidden=id!=='chat';panels.set(id,panel);panelHost.append(panel);lazyRegistry.register(id,p=>{builder(p);foldGuidance(p);});const nav=h('button',{text:label,'data-view':id,'data-keep-enabled':true,'aria-current':id==='chat'?'page':'false'});nav.replaceChildren(sectionIcon(id),h('span',{text:label}));nav.addEventListener('click',()=>showView(id));navigation.append(nav);}
-const captureDaily=async (text:string)=>{let failure:unknown;await run(async()=>{try{await saveProject();const entries=await invoke<Entry[]>('workspace_list_projects',{query:''}),entry=entries.find(p=>p.name===dayName());const p=entry?await invoke<Project>('workspace_load_project',{id:entry.id}):{id:'',name:dayName(),title:dayName(),draft:'',question:'',history:[],sources:[],memory:'',model:'fast'} as Project;p.draft=captureText(p.draft,text);const savedDaily=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:p.revision});if(savedDaily.id===projectId){draft.value=savedDaily.draft;projectRevision=savedDaily.revision;lastSavedSignature=JSON.stringify(snapshot());writing?.refresh(projectId);}await refreshProjects();}catch(e){failure=e;throw e;}},'Saving quick capture');if(failure)throw failure;};
+const captureDaily=async (text:string)=>{let failure:unknown;await run(async()=>{try{await saveProject();const entries=await invoke<Entry[]>('workspace_list_projects',{query:''}),entry=entries.find(p=>p.name===dayName());const p=entry?await invoke<Project>('workspace_load_project',{id:entry.id}):{id:'',name:dayName(),title:dayName(),draft:'',question:'',history:[],sources:[],memory:'',model:'deepseek-v4-pro-qwen3.5-9b'} as Project;p.draft=captureText(p.draft,text);const savedDaily=await invoke<Project>('workspace_save_project',{project:p,expectedRevision:p.revision});if(savedDaily.id===projectId){draft.value=savedDaily.draft;projectRevision=savedDaily.revision;lastSavedSignature=JSON.stringify(snapshot());writing?.refresh(projectId);}await refreshProjects();}catch(e){failure=e;throw e;}},'Saving quick capture');if(failure)throw failure;};
 const quickNote=quickCapture(captureDaily,()=>!busy);
 const dashboard=createDashboard({current:()=>({id:projectId,name:name.value,draft:draft.value,sources}),allowed:()=>!busy,notify:t=>status.textContent=t,
  list:()=>invoke<Entry[]>('workspace_list_projects',{query:''}),load:id=>invoke<Project>('workspace_load_project',{id}),read:source=>reader.open(source),write:()=>showView('writing'),
- open:async(id,line)=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value=p.model;lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');if(line!==undefined)writing?.reveal(draft.value.split('\n').slice(0,line).join('\n').length+(line?1:0));},'Opening draft');},
+ open:async(id,line)=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');if(line!==undefined)writing?.reveal(draft.value.split('\n').slice(0,line).join('\n').length+(line?1:0));},'Opening draft');},
  capture:captureDaily
 });
 section('home','Home',dashboard.root);
@@ -354,13 +342,13 @@ const jarvisActionContext: JarvisActionContext = {
       try{
         const res = await invoke<KevoAskReply | string>('kevo_ask',{
           id,
-          query,
+          query:options?.answerOnly?query+ANSWER_ONLY_NOTE:query,
           history:options?.history??[],
           model:model.value,
           ...await kevoPrompt(),
         });
         if (typeof res === 'string') return res;
-        if (res.tool_calls && res.tool_calls.length > 0) {
+        if (res.tool_calls && res.tool_calls.length > 0 && !options?.answerOnly) {
           const executed = await executeKevoToolCalls(res.tool_calls, jarvisActionContext, options?.onPart);
           const fullText = [res.text, executed.speechReply].filter(Boolean).join(' ').trim();
           return {
@@ -414,7 +402,7 @@ const jarvisActionContext: JarvisActionContext = {
     scheduleDailyBriefing:async(timeStr:string)=>scheduleDailyBriefing(timeStr),
     getDailyBriefingSchedule:async()=>getDailyBriefingSchedule(),
     cancelDailyBriefing:async()=>cancelDailyBriefingSchedule(),
-    getActiveModel: () => model.value === 'fast' ? 'Qwen 0.6B Q8' : 'Qwen 1.7B Q8',
+    getActiveModel: () => 'DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)',
     setFloatBadge: (badge: string) => { void invoke('kevo_hud_set_badge', { badge }).catch(() => {}); },
     searchWeb:async query=>{await invoke('open_url',{url:'https://www.google.com/search?q='+encodeURIComponent(query)});},
     openUrl:async url=>{await invoke('open_url',{url});}
@@ -427,7 +415,7 @@ function getJarvisCommandDesk():ReturnType<typeof createJarvisCommandDesk>{
       // Kevo's log: a file in AnF's data folder on this PC, never sent anywhere.
       log:{append:entry=>invoke('kevo_log_append',{entry}),save:()=>invoke<string>('kevo_log_save'),openFolder:()=>invoke('kevo_log_open_folder')},
       voiceActionContext:jarvisActionContext,
-      activeModel: () => model.value === 'fast' ? 'Qwen 0.6B Q8' : 'Qwen 1.7B Q8',
+      activeModel: () => 'DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)',
     });
     jarvisDesk.listener.addStateListener((listening:boolean)=>{
       if(listening) preloadKevoModel();
@@ -565,7 +553,7 @@ lazySection('settings','Settings',panel=>{
       selector,
       button('Save project',async()=>{await saveProject();status.textContent='Conversation saved.';}),
       model,
-      h('p',{class:'hint',text:'Answers come from the offline model files installed on this computer. Only the Qwen3 models can be downloaded and verified (see Offline models below); the other listed models are not available yet.'}),
+      h('p',{class:'hint',text:'Answers come from the offline model files installed on this computer. Single unified local model: DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB).' }),
       offlineModelsPanel(),
       h('details',{},
         h('summary',{text:'Conversation memory'}),
@@ -694,7 +682,7 @@ lazySection('settings','Settings',panel=>{
   panel.append(settingsHub);
 });
 const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{query:''}),load:id=>invoke<Project>('workspace_load_project',{id}),current:()=>snapshot(),allowed:()=>!busy,view:showView,
- open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value=p.model;lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
+ open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
  append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},commands:()=>{const open=(name:string)=>()=>document.dispatchEvent(new Event(name));return [
  {label:'Quick note',run:()=>quickNote.open()},
  {label:'Devices · connect another device',run:()=>{showView('settings');selectSettingsCategory('sync');if(linkPanelEl)linkPanelEl.open=true;}},
@@ -730,7 +718,7 @@ try {
 console.log(`[anf-perf] Workspace initial synchronous bootstrap: ${startupDuration.toFixed(2)}ms`);
 (window as unknown as {__anfLazyRegistry?:typeof lazyRegistry;__anfStartupTime?:number}).__anfLazyRegistry = lazyRegistry;
 (window as unknown as {__anfLazyRegistry?:typeof lazyRegistry;__anfStartupTime?:number}).__anfStartupTime = startupDuration;
-async function diagnostics(){try{if(!linkAddress.value)linkAddress.value=await invoke<string>('link_address')||'';if(await invoke<boolean>('link_status'))linkNotice.textContent='Sharing is currently on. Stop sharing to revoke the existing code, or start again to display a new pairing code.';}catch{}const d=await invoke<{runtime:boolean;fast:boolean;balanced:boolean;ocr:boolean;totalRam:number;freeRam:number;documents:string;log:string;version:string}>('workspace_diagnostics');if(!folder.value)folder.value=d.documents;diagnosticDetails.textContent=`AnF ${d.version} · Runtime ${d.runtime?'ready':'missing'} · Fast ${d.fast?'ready':'missing'} · Balanced ${d.balanced?'ready':'missing'} · OCR ${d.ocr?'ready':'missing'}${d.freeRam?` · ${(d.freeRam/1073741824).toFixed(1)} GB free RAM`:''}\nStartup log: ${d.log}`;status.textContent=d.runtime&&d.fast?'Ready · Offline AI is available.':'Some offline files are missing. Open Settings → Check installation for details.';}
-void (async()=>{try{await refreshProjects();await diagnostics();const entries=await invoke<Entry[]>('workspace_list_projects');if(entries.length){const p=await invoke<Project>('workspace_load_project',{id:entries[0].id});projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value=p.model;lastSavedSignature=JSON.stringify(snapshot());selector.value=p.id;renderHistory();renderSources();saved.textContent='Reopened your most recent project.';}else await saveProject();await invoke('log_line',{message:'workspace ready'});}catch(e){status.textContent=`Workspace initialization failed: ${String(e)}. Check installation and the startup log.`;}finally{setBusy(false);void dashboard.refresh();}})();
+async function diagnostics(){try{if(!linkAddress.value)linkAddress.value=await invoke<string>('link_address')||'';if(await invoke<boolean>('link_status'))linkNotice.textContent='Sharing is currently on. Stop sharing to revoke the existing code, or start again to display a new pairing code.';}catch{}const d=await invoke<{runtime:boolean;model:boolean;ocr:boolean;totalRam:number;freeRam:number;documents:string;log:string;version:string}>('workspace_diagnostics');if(!folder.value)folder.value=d.documents;diagnosticDetails.textContent=`AnF ${d.version} · Runtime ${d.runtime?'ready':'missing'} · Model ${d.model?'ready':'not downloaded'} · OCR ${d.ocr?'ready':'missing'}${d.freeRam?` · ${(d.freeRam/1073741824).toFixed(1)} GB free RAM`:''}\nStartup log: ${d.log}`;status.textContent=!d.runtime?'Some offline files are missing. Open Settings → Check installation for details.':d.model?'Ready · Offline AI is available.':'Download the local model in Settings → Conversations and AI → Offline models to use offline AI.';}
+void (async()=>{try{await refreshProjects();await diagnostics();const entries=await invoke<Entry[]>('workspace_list_projects');if(entries.length){const p=await invoke<Project>('workspace_load_project',{id:entries[0].id});projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());selector.value=p.id;renderHistory();renderSources();saved.textContent='Reopened your most recent project.';}else await saveProject();await invoke('log_line',{message:'workspace ready'});}catch(e){status.textContent=`Workspace initialization failed: ${String(e)}. Check installation and the startup log.`;}finally{setBusy(false);void dashboard.refresh();}})();
 
 writing?.setNoteProvider(()=>invoke<Entry[]>('workspace_list_projects',{query:''}));

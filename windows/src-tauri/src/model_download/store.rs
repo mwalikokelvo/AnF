@@ -112,6 +112,43 @@ pub fn finalize(dir: &Path, spec: &ModelSpec, digest: &[u8], source: Source) -> 
     write.map_err(|e| format!("Could not record the verification: {e}"))
 }
 
+/// Deletes old Qwen models, old bundled weights, and leftover part files across model directories.
+/// Only called AFTER the new model has been verified. Never deletes the verified model or its sidecar.
+/// Returns total bytes freed.
+pub fn cleanup_old_models(models_dirs: &[PathBuf]) -> u64 {
+    let mut total_freed: u64 = 0;
+    for dir in models_dirs {
+        if !dir.is_dir() {
+            continue;
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                // Never delete the new model or its sidecar
+                if name.starts_with("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic") {
+                    continue;
+                }
+                let is_old_qwen = name.starts_with("Qwen3-") && (name.ends_with(".gguf") || name.ends_with(".sha256") || name.contains(".part"));
+                let is_old_bundle = matches!(name, "model.gguf" | "model-fast.gguf" | "model-source.gguf");
+                let is_leftover_part = name.ends_with(".part") || name.ends_with(".partial") || name.ends_with(".sha256.tmp");
+                if is_old_qwen || is_old_bundle || is_leftover_part {
+                    if let Ok(meta) = fs::metadata(&path) {
+                        let len = meta.len();
+                        if fs::remove_file(&path).is_ok() {
+                            total_freed += len;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    total_freed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,5 +282,32 @@ mod tests {
         assert_eq!(part_len(&d, &TINY), Some(0));
         discard_part(&d, &TINY);
         assert_eq!(part_len(&d, &TINY), None);
+    }
+
+    #[test]
+    fn cleanup_old_models_removes_old_qwen_and_bundle_weights_preserving_new_model() {
+        let d = tmp();
+        let new_model = d.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf");
+        let new_sidecar = d.join("DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf.sha256");
+        let old_qwen = d.join("Qwen3-1.7B-Q8_0.gguf");
+        let old_sidecar = d.join("Qwen3-1.7B-Q8_0.gguf.sha256");
+        let old_bundle = d.join("model.gguf");
+        let leftover_part = d.join("random_old.gguf.part");
+
+        fs::write(&new_model, b"new-model-bytes").unwrap();
+        fs::write(&new_sidecar, b"new-hash").unwrap();
+        fs::write(&old_qwen, b"12345").unwrap();
+        fs::write(&old_sidecar, b"old-hash").unwrap();
+        fs::write(&old_bundle, b"bundle").unwrap();
+        fs::write(&leftover_part, b"part").unwrap();
+
+        let freed = cleanup_old_models(&[d.clone()]);
+        assert_eq!(freed, 5 + 8 + 6 + 4);
+        assert!(new_model.is_file(), "new model must never be deleted");
+        assert!(new_sidecar.is_file(), "new sidecar must never be deleted");
+        assert!(!old_qwen.is_file(), "old qwen model deleted");
+        assert!(!old_sidecar.is_file(), "old qwen sidecar deleted");
+        assert!(!old_bundle.is_file(), "old bundle deleted");
+        assert!(!leftover_part.is_file(), "leftover part deleted");
     }
 }

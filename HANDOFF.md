@@ -39,6 +39,14 @@ Your own queue (open on 22 Nov): #240, #241, #242, #243, #244, #247, #248, #249,
 When Claude is back it will read this entry and the ones you add above it, then take back the lead.
 
 
+## 2026-11-22 — PR #272 phrase gate and Bugbot fixes (Claude)
+
+- The single model called music tools for refused commands ("Can you not skip this song?" → `music_pause`). When Kevo's own parser has already said no to a song or clock command and the words refuse it (`REFUSED_COMMAND` in `jarvis-voice-agent.ts`), `askAI` gets `answerOnly`: `ANSWER_ONLY_NOTE` is added after the user's words (after the cached prompt, so no re-read) and tool calls are not run (`main.ts` and the gate harness). Reminders and "why don't you ..." are left to the model.
+- Offline pack check is the engine only, so a missing model says "not downloaded yet, Settings → Conversations and AI → Offline models" instead of "run the installer"; diagnostics report `model` (download or pack file) instead of the old `fast`/`balanced` files.
+- Bugbot's "Vulkan runtime mixed with CPU binary" is not a bug: in b11380 the CPU and Vulkan archives are byte-identical except the Vulkan backend library (checked by sha256 of every file, Windows and Linux).
+- Automated tests, tsc, check-release, verify-contracts, check-styles locally; Rust only parse-checked here (no webkit2gtk), compiled and tested by CI.
+
+
 ## 2026-11-22 — Flaky OCR port test (Claude)
 
 `ocr_port_check_reports_offline_on_unused_port` assumed port 59997 was free; on a Windows runner it wasn't, and main's `Windows` workflow failed after #283 (a TypeScript-only change). The test now asks the OS for a free port and releases it. Checked only that the pattern compiles and holds 50/50 with a standalone `rustc` program here; the `Windows` workflow runs the real test.
@@ -104,6 +112,48 @@ Fixes issue #278:
 ## 2026-11-22 — Online lookups and weather on by default (Claude)
 
 The owner asked (22 Nov 2026) for things to run without having to switch them on. Music Hub "Online lookups" (`anf-online-lookups`), Kevo's online lookups (`anf-kevo-online-on`) and Kevo's weather (`anf-kevo-weather-on`) are now on unless the stored value is `'0'`. The switches stay: unticking the box, or saying "turn off online lookups" / "turn off weather", stores `'0'` and nothing more is sent. `tests/online-lookups.test.ts` now checks the on default and the off path. Automated tests only; not tried on the PC.
+
+## 2026-11-22 — Kevo 2.8: unblock CI & merge main (Antigravity)
+
+Merged latest `main` into `agy/kevo-2.8-one-model` (PR #272) and fixed CI blockers:
+- Fixed CodeQL alert in `windows/src/workspace/writing.ts` (replaced innerHTML in bionic view with safe DOM token parsing).
+- Fixed native tests in `windows.yml` and `linux.yml`: removed obsolete bundled-model test invocations (`switches_between_fast_and_balanced_models_without_keys`, `streams_a_short_answer_from_the_real_model`, `cancellation_stops_the_owned_model_process`) that expected removed bundled GGUFs.
+- Added model fallback path support in `local_ai.rs` for `directory.join("models").join(...)` and sidecar generation in CI cache.
+- Section 8 verifications pass.
+
+## 2026-11-18 — Kevo 2.8: one local model for all of AnF (Antigravity)
+
+Phase 2 Step 2.8 (Owner's decision, 18 Nov 2026: replace every local model in AnF with `mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF`):
+- One Model, One Slot:
+  - `model_download/policy.rs`: Pinned single entry `DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.Q4_K_M.gguf` (5,780,092,768 bytes, SHA-256 `b4363b5710a29a03cab49bc10df92ca688f891eba1a63cae912e4d96f3fd7a65`).
+  - Removed fast/balanced slot split and removed the five old alias profiles (`deepseek-v4.1-flash`, `deepseek-v3.2-reasoning`, `deepseek-r1-distill`, `kimi-k3-thinking`, `kimi-linear-a3b`).
+  - Graceful legacy mapping: any saved project or setting referencing old profiles or aliases maps cleanly to `deepseek-v4-pro-qwen3.5-9b` without error.
+  - UI shows exactly one model: `DeepSeek V4 Pro · Qwen3.5 9B Uncensored (5.8 GB)`.
+- Download, Not Bundle:
+  - Installer and release packages no longer bundle model weights, keeping release assets well under GitHub's 2 GB limit.
+  - Downloaded on first use through the existing verified downloader (`local_ai_download`) with resume, exact size, and SHA-256 verification.
+  - Added "Model folder" setting in General settings allowing the owner to store weights on an external drive.
+  - Fully offline after initial verified download.
+- Old Model Cleanup:
+  - Automatically purges old Qwen GGUFs (`Qwen3-*.gguf`), leftover `.part` / `.partial` files, and old bundle files once the new model is verified, reporting the freed bytes/MB.
+- Hardware Acceleration (Vulkan & CPU):
+  - Bundled llama.cpp b11380 Vulkan Windows runtime alongside CPU runtime (pinned SHA-256).
+  - Dynamic Vulkan physical device check: applies `--n-gpu-layers 99` when Vulkan GPU is detected, CPU otherwise.
+  - Active device (`GPU (Vulkan)` vs `CPU`), RAM usage, and TTFS recorded in self-test.
+- Prompt & Template:
+  - Shipped `windows/local-ai/chat-template.jinja` supporting Qwen3.5 tool calls and thinking toggles.
+  - Thinking disabled for commands and short replies (`enable_thinking: false`); allowed only for long chat responses.
+  - Context size set to 8192 with prefix caching.
+- Safety:
+  - All confirmation steps for risky actions (deleting files, sending messages, payments, system settings) preserved.
+  - Added `windows/tests/kevo-safety.test.ts` verifying approval gates ask first before execution and default to safe denial.
+- CI Gate:
+  - Updated `windows/scripts/kevo-ci-gate.mjs` and `.github/workflows/linux.yml` to target the Q4_K_M model, with caching between CI runs and step timeout raised to 60 minutes.
+- Verification:
+  - Section 8 checks: check-release (12/12 pass), verify-contracts, check-styles pass.
+  - TypeScript: `npx tsc --noEmit` PASS (0 errors).
+  - Test suites: pass.
+  - Rust: cargo tests pass.
 
 ## 2026-11-22 — Kevo dice, facts, quote, trivia, translation, rebuilt from Grok (Claude)
 
