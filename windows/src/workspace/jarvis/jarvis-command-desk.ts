@@ -344,6 +344,7 @@ export function createJarvisCommandDesk(options?: JarvisCommandDeskOptions): {
     pauseMusic: options?.voiceActionContext?.pauseMusic,
     nextTrack: options?.voiceActionContext?.nextTrack,
     previousTrack: options?.voiceActionContext?.previousTrack,
+    getCurrentTrack: options?.voiceActionContext?.getCurrentTrack,
     setMusicVolume: options?.voiceActionContext?.setMusicVolume,
     getWeather: options?.voiceActionContext?.getWeather,
     weatherEnabled: options?.voiceActionContext?.weatherEnabled,

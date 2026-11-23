@@ -3262,6 +3262,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   getState:()=>playbackState,
   getError:()=>playbackError,
   step,
+  getCurrentTrack: () => (current ? { title: current.title, artist: current.artist, album: current.album } : null),
   searchAndPlay: async (query: string): Promise<boolean> => {
    const q = query.trim();
    if (!q) return false;

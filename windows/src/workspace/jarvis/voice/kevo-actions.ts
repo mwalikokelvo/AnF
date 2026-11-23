@@ -28,8 +28,10 @@
  * - tell_time: report current time
  * - tell_date: report today's date
  * - audius_search: search music on Audius
+ * - whats_playing: report currently playing track
  * - convert_units: length, mass and temperature, offline
- * - wikipedia_summary, define_word, convert_currency: online lookups, on unless the owner turns them off
+ * - random_advice: life advice and tips (online/offline)
+ * - today_in_history, wikipedia_summary, define_word, convert_currency: online lookups, on unless the owner turns them off
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
@@ -39,6 +41,9 @@ import { ONLINE_LOOKUPS_OFF } from './kevo-online';
 import { wikipediaSummary } from './kevo-wikipedia';
 import { lookupWord, formatDefinition } from './kevo-dictionary';
 import { currencyCode, convertCurrency, formatConversion } from './kevo-currency';
+import { formatWhatsPlaying } from './kevo-whats-playing';
+import { todayInHistory } from './kevo-history';
+import { randomAdvice } from './kevo-advice';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
   createReminder,
@@ -555,6 +560,26 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
   },
   {
+    name: 'whats_playing',
+    description: 'Reports the title, artist, and album of the currently playing music track.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      const track = ctx.getCurrentTrack ? ctx.getCurrentTrack() : null;
+      const speechReply = formatWhatsPlaying(track);
+      return {
+        handled: true,
+        actionName: 'whats_playing',
+        speechReply,
+        status: 'success',
+        verified: true,
+        verificationDetails: track ? `Track: ${track.title}` : 'Nothing playing',
+      };
+    },
+  },
+  {
     name: 'timer_set',
     description: 'Sets a countdown timer for a specified duration in seconds.',
     parameters: {
@@ -1006,6 +1031,59 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       } catch (err: any) {
         return lookupFailed('convert_currency', `I could not get the exchange rate: ${err?.message || String(err)}`);
       }
+    },
+  },
+  {
+    name: 'today_in_history',
+    description: 'Looks up major historical events that happened on this day in history from Wikipedia (online, when online lookups are on).',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('today_in_history');
+      try {
+        const events = await todayInHistory();
+        if (!events) {
+          return {
+            handled: true,
+            actionName: 'today_in_history',
+            speechReply: 'I could not find any recorded historical events for today, sir.',
+            status: 'success',
+            verified: true,
+          };
+        }
+        return {
+          handled: true,
+          actionName: 'today_in_history',
+          speechReply: `On this day in history: ${events}`,
+          status: 'success',
+          verified: true,
+          data: { events },
+        };
+      } catch (err: any) {
+        return lookupFailed('today_in_history', `I could not check today in history: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'random_advice',
+    description: 'Shares a piece of life advice or a helpful tip, online or offline.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      const online = ctx.onlineLookupsEnabled?.() ?? true;
+      const advice = await randomAdvice(online);
+      return {
+        handled: true,
+        actionName: 'random_advice',
+        speechReply: advice,
+        status: 'success',
+        verified: true,
+        data: { advice },
+      };
     },
   },
   {
