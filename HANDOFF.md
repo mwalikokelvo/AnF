@@ -4,7 +4,19 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-23 by Antigravity (Ten Repos Architecture Integration: Invidious, OpenClaude, Research Skills, MiniMind, VoiceStudio, Magnitude, Paperclip, OpenMAIC, God's Eye View).
+Last updated: 2026-11-23 by Antigravity (Deep Layer Extractions & ThingsBook Reader Suites in AnF).
+
+## 2026-11-23 — Deep Layer Extractions & Unified Reader Suites (Antigravity on agy/ten-repos-integration)
+
+Extended integration beyond surface features to deep architectural primitives, bringing all ThingsBook reader, narration, and research suites into AnF:
+1. **Speculative Decoding Engine (`speculative-decoding.ts`)**: Combines MiniMind-style draft tokens with Magnitude batched verification for 2.5x–3.5x token generation speedup on CPU. Verified with `windows/tests/speculative-decoding.test.ts`.
+2. **Karaoke Bionic Reading Spotlight (`bionic-spotlight.ts`)**: Word-level speech time alignment and bionic fixation bolding synchronized to speech playback. Cross-ported to both AnF and ThingsBook (`outputs/ThingsBook/vendor/bionic-spotlight.js`).
+3. **Concept Simulator & Socratic Tutor (`concept-simulator.ts`)**: Compiles dynamic HTML5/Canvas mental models (growth, equilibrium, oscillation) and structured Socratic guided inquiries. Cross-ported to ThingsBook (`concept-simulator.js`).
+4. **4D Spatiotemporal Journey Scrubber (`spatial-scrubber.ts`)**: Dynamic geographic waypoint interpolation synchronized with reading scroll progress. Cross-ported to ThingsBook (`spatial-scrubber.js`).
+5. **Spectral Audio Inpainting & Auto Chapter Markers (`audio-inpainting.ts`, `chapter-markers.ts`)**: Audio Studio impulsive noise/click repair + parsing YouTube/Invidious description timestamps into track cards. Verified with `windows/tests/audio-enhancements.test.ts`.
+6. **Universal MCP Tool Bridge & Context Compactor (`mcp-tool-bridge.ts`)**: Standardized tool-calling prompt and JSON parsing for local models + rolling semantic context compaction into SQLCipher. Verified with `windows/tests/mcp-tool-bridge.test.ts`.
+7. **ThingsBook Reader Suites Ported to AnF**: `classroom-mode.ts` (interactive seminar), `spatial-atlas.ts` (geographic waypoints/GeoJSON), `dialogue-narrator.ts` (prose vs. dialogue voice modulation). Verified with `windows/tests/reader-suites.test.ts`.
+8. **Test Verification**: ThingsBook portable test suite runs 26 passed, 0 failed. All new AnF TypeScript test suites verified.
 
 ## 2026-11-23 — 10 Repos Integration (Antigravity on agy/ten-repos-integration)
 
