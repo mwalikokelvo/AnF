@@ -2,7 +2,8 @@
 // windows/release/, with the names they ship under. Used by `npm run pack` and
 // by the release workflows, so both produce exactly the same file names.
 
-import { readFileSync, mkdirSync, copyFileSync, readdirSync, statSync, cpSync } from "node:fs";
+import { readFileSync, mkdirSync, copyFileSync, readdirSync, statSync, cpSync, rmSync, existsSync, lstatSync } from "node:fs";
+import * as fs from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -92,11 +93,21 @@ if (process.platform === 'win32') {
   for(const name of new Set([...required,...dlls,...readdirSync(join(root,'local-ai')).filter(name=>name.includes('LICENSE'))])) {
     copyFileSync(join(root,'local-ai',name),join(portable,'local-ai',name));
   }
-  cpSync(join(root,'media'),join(portable,'media'),{recursive:true});
+  // media is a symlink to /c/Users/mwali/AppData/Local/Coucou/media — copy contents, not the link
+  const mediaSrc = join(root, 'media');
+  const mediaDest = join(portable, 'media');
+  if (existsSync(mediaSrc)) {
+    if (lstatSync(mediaSrc).isSymbolicLink()) {
+      rmSync(mediaDest, { recursive: true, force: true });
+      cpSync(mediaSrc, mediaDest, { recursive: true });
+    } else {
+      cpSync(mediaSrc, mediaDest, { recursive: true });
+    }
+  }
   // Kevo's self-test reads its clips next to AnF.exe (kevo_autotest::find_selftest_resource_dir).
-  const selftest=join(root,'src-tauri/resources/kevo-selftest');
-  if(!statSync(join(selftest,'clips.json')).isFile())throw Error('Kevo self-test clips are missing.');
-  cpSync(selftest,join(portable,'resources','kevo-selftest'),{recursive:true});
+  const selftest = join(root, 'src-tauri/resources/kevo-selftest');
+  if (!statSync(join(selftest, 'clips.json')).isFile()) throw Error('Kevo self-test clips are missing.');
+  cpSync(selftest, join(portable, 'resources', 'kevo-selftest'), { recursive: true });
   if(process.argv.includes('--with-spotube')) {
     const music=join(root,'spotube-native/build/windows/x64/runner/Release');
     if(!statSync(join(music,'spotube.exe')).isFile())throw Error('Embedded music executable is missing.');
