@@ -10,6 +10,9 @@ import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFet
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
+import { isCoinFlipRequest, flipCoin, parseNumberPickRequest, pickNumber } from './kevo-randomizer';
+import { parseSpellingRequest, spellWord, phoneticSpelling } from './kevo-spelling';
+import { parseSleepTimerRequest, setSleepTimer, getSleepTimer, cancelSleepTimer } from './kevo-sleep-timer';
 import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
@@ -131,6 +134,7 @@ export interface ActionResult {
   handled: boolean;
   actionName: string;
   speechReply: string;
+  data?: unknown;
   status?: KevoActionStatus;
   verified?: boolean;
   error?: string;
@@ -366,6 +370,24 @@ export class JarvisVoiceAgent {
       return done('voice_changed', `Voice changed to ${chosen}. This is how I sound now.`);
     }
 
+    const sleepTimer = parseSleepTimerRequest(lower);
+    if (sleepTimer) {
+      if (sleepTimer.action === 'cancel') {
+        const res = cancelSleepTimer();
+        return done('cancel_sleep_timer', res.speech);
+      }
+      if (sleepTimer.action === 'get') {
+        const res = getSleepTimer();
+        return done('get_sleep_timer', res.speech);
+      }
+      if (sleepTimer.action === 'set' && sleepTimer.minutes) {
+        const res = setSleepTimer(sleepTimer.minutes, () => {
+          if (this.context.pauseMusic) this.context.pauseMusic();
+        });
+        return done('set_sleep_timer', res.speech);
+      }
+    }
+
     if (/\b(cancel|stop|clear)\b.*\btimers?\b/.test(lower)) {
       const count = this.timers.size;
       this.timers.forEach(clearTimeout);
@@ -377,7 +399,7 @@ export class JarvisVoiceAgent {
     // "Not five minutes" is not an answer, and "play five minutes" is another command: only a length, with filler words.
     const timerLength = this.lastAction === 'timer_unclear' && lower.split(/\s+/).length <= 4 && parseDuration(lower) !== null && !/\b(?:not|don'?t|do not|never)\b/.test(lower)
       && /^(?:(?:um|uh|oh|ok|okay|so|just|maybe|about|around|for|in|make it|like)\b[\s,]*)*(?:(?:is fine|is good|will do|works|from now)\b[\s,]*)?$/.test(lower.replace(DURATION, ' ').replace(/[,.!?]|\b(?:please|thanks)\b/g, ' ').replace(/\s+/g, ' ').trim());
-    if (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower)) {
+    if (!/\bsleep timer\b/.test(lower) && (timerLength || /\b(set|start|create|begin|make|put on)\b.*\btimer\b|\btimer for\b|\bremind me in\b/.test(lower))) {
       const duration = parseDuration(lower);
       if (!duration) return done('timer_unclear', 'For how long? Say, for example, set a timer for five minutes.');
       if (!this.context.announce) return done('timer_unavailable', 'Timers are not available here.');
@@ -772,6 +794,38 @@ export class JarvisVoiceAgent {
     }
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
     if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
+
+    if (isCoinFlipRequest(lower)) {
+      const coin = flipCoin();
+      return { handled: true, actionName: 'flip_coin', speechReply: coin.speech, status: 'success', verified: true, data: { outcome: coin.outcome } };
+    }
+    const numPick = parseNumberPickRequest(lower);
+    if (numPick) {
+      const res = pickNumber(numPick.min, numPick.max);
+      return { handled: true, actionName: 'pick_number', speechReply: res.speech, status: 'success', verified: true, data: res };
+    }
+    const spelling = parseSpellingRequest(lower);
+    if (spelling) {
+      const res = spelling.phonetic ? phoneticSpelling(spelling.word) : spellWord(spelling.word);
+      return { handled: true, actionName: 'spell_word', speechReply: res.speech, status: 'success', verified: true, data: res };
+    }
+    const sleepTimerReq = parseSleepTimerRequest(lower);
+    if (sleepTimerReq) {
+      if (sleepTimerReq.action === 'cancel') {
+        const res = cancelSleepTimer();
+        return { handled: true, actionName: 'cancel_sleep_timer', speechReply: res.speech, status: 'success', verified: true };
+      }
+      if (sleepTimerReq.action === 'get') {
+        const res = getSleepTimer();
+        return { handled: true, actionName: 'get_sleep_timer', speechReply: res.speech, status: 'success', verified: true, data: res };
+      }
+      if (sleepTimerReq.action === 'set' && sleepTimerReq.minutes) {
+        const res = setSleepTimer(sleepTimerReq.minutes, () => {
+          if (this.context.pauseMusic) this.context.pauseMusic();
+        });
+        return { handled: res.ok, actionName: 'set_sleep_timer', speechReply: res.speech, status: res.ok ? 'success' : 'failure', verified: res.ok, data: res.timer };
+      }
+    }
 
     // Online, behind the online lookups switch: trivia (Open Trivia DB). The old question goes first, so a failed or
     // blocked request leaves nothing for the next reply to answer.
