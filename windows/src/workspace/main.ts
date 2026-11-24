@@ -42,6 +42,7 @@ import {createZimReader,extractZimArticleText} from './zim-reader';
 import {createJarvisCommandDesk} from './jarvis/jarvis-command-desk';
 import {fetchWeather,type JarvisActionContext} from './jarvis/voice/jarvis-voice-agent';
 import {getOpenAITools,executeKevoToolCalls,getKevoSystemPrompt,getKevoMemoryPrompt,ANSWER_ONLY_NOTE,type KevoAskReply} from './jarvis/voice/kevo-actions';
+import {kevoCommands} from './kevo-commands';
 import {listFacts,rememberFact,deleteFact,clearFacts} from './jarvis/voice/jarvis-memory';
 import {
   createReminder,
@@ -691,7 +692,8 @@ const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{q
  {label:'Cal.com schedule',run:open('anf-open-calcom')},
  {label:'Swarm review',run:open('anf-open-swarm')},
  {label:'Security challenge',run:open('anf-open-security')},
- {label:'Community support',run:open('anf-open-chatwoot')}];},
+ {label:'Community support',run:open('anf-open-chatwoot')},
+  ...kevoCommands(jarvisActionContext).map((c)=>({label:c.label,run:c.run}))];},
  health:()=>linkNotice.textContent+'\n'+saved.textContent+'\nStored projects and backups are not encrypted at rest.\nModel readiness: run Check installation in Settings.'});root.append(studio.root);void restoreTheme();
 const searchPill=h('button',{type:'button',class:'topbar-search','aria-label':'Search and commands (Ctrl+K)',onclick:()=>void studio.open()},h('span',{text:'Search…'}),h('kbd',{text:'Ctrl+K'}));
 const quickNoteButton=h('button',{type:'button',class:'primary topbar-quick',text:'+ Quick note',onclick:()=>quickNote.open()});
