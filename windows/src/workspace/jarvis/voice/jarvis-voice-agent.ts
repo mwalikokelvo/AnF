@@ -23,6 +23,9 @@ import {
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
 import { kevoLinkBus } from '../kevo-link-bus';
+import { fetchLyrics, parseLyricsRequest } from './kevo-lyrics';
+import { searchPodcasts, parsePodcastRequest } from './kevo-podcast';
+import { recommendSimilar, parseRecommendRequest } from './kevo-recommend';
 
 export type JarvisAskAiResult =
   | string
@@ -408,6 +411,22 @@ export class JarvisVoiceAgent {
 
     const sum = solveArithmetic(lower);
     if (sum) return done('arithmetic', sum);
+
+    // New capabilities: lyrics, podcasts, recommendations
+    const lyricsReq = parseLyricsRequest(text);
+    if (lyricsReq) {
+      // Note: quickAnswer is sync; real call would be async in processVoiceInput.
+      // For now return a placeholder that processVoiceInput can expand.
+      return done('lyrics_lookup', `Looking up lyrics for ${lyricsReq.title}${lyricsReq.artist ? ' by ' + lyricsReq.artist : ''}.`);
+    }
+    const podReq = parsePodcastRequest(text);
+    if (podReq) {
+      return done('podcast_search', `Searching podcasts about ${podReq}.`);
+    }
+    const recReq = parseRecommendRequest(text);
+    if (recReq) {
+      return done('music_recommend', `Finding music similar to ${recReq}.`);
+    }
 
     return null;
   }
