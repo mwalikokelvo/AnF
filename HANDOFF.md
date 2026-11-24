@@ -4,7 +4,24 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (handover to Antigravity — see the first entry).
+Last updated: 2026-11-24 by Antigravity (Grok shopping list additions on agy/grok-shopping-list).
+
+## 2026-11-24 — Grok additions: Local Shopping List Capability (Antigravity on agy/grok-shopping-list)
+
+- Rebuilt and integrated Grok's shopping list capability from `grok/kevo-weather-list-music`:
+  1. **Shopping List Engine (`kevo-shopping.ts`)**:
+     - `addToShoppingList(item)`: Adds item (checks for duplicates, case-insensitive).
+     - `listShoppingList()`: Reads back current items or reports empty.
+     - `clearShoppingList()`: Empties the list and reports count cleared.
+     - `removeFromShoppingList(item)`: Removes item or informs user if item not found.
+     - Persists to `localStorage` when in desktop app, falls back to memory in headless/tests.
+  2. **Kevo Actions (`kevo-actions.ts`)**:
+     - Registered 4 tool actions: `add_to_shopping_list`, `list_shopping_list`, `clear_shopping_list`, and `remove_from_shopping_list`.
+  3. **Voice Agent Intent Routing (`jarvis-voice-agent.ts`)**:
+     - Fast-path regex matching for "add X to my shopping list", "what's on my shopping list", "clear the shopping list", and "remove X from my shopping list".
+  4. **Verification**:
+     - `windows/tests/kevo-shopping.test.ts`: 3 test suites covering direct operations, `executeKevoAction` tool executions, and voice intent processing (all pass).
+     - `npx tsc --noEmit`: 0 errors.
 
 ## 2026-11-22 — HANDOVER: Antigravity takes over ALL of Claude's duties and roles (Claude)
 

@@ -22,6 +22,12 @@ import {
   getDailyBriefingSchedule,
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
+import {
+  addToShoppingList,
+  listShoppingList,
+  clearShoppingList,
+  removeFromShoppingList,
+} from './kevo-shopping';
 import { kevoLinkBus } from '../kevo-link-bus';
 
 export type JarvisAskAiResult =
@@ -700,6 +706,30 @@ export class JarvisVoiceAgent {
           verified: true,
         };
       }
+    }
+
+    // Fast path for shopping / grocery list
+    const addShopMatch = /^(?:please\s+)?(?:add\s+(.+?)\s+to\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list)$/i.exec(text.trim());
+    if (addShopMatch) {
+      const item = addShopMatch[1].trim();
+      const reply = addToShoppingList(item);
+      return { handled: true, actionName: 'add_to_shopping_list', speechReply: reply, status: 'success', verified: true };
+    }
+    const listShopMatch = /^(?:please\s+)?(?:what(?:'s|\s+is)\s+on\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list|(?:list|read|show|check)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list)$/i.exec(text.trim());
+    if (listShopMatch) {
+      const reply = listShoppingList();
+      return { handled: true, actionName: 'list_shopping_list', speechReply: reply, status: 'success', verified: true };
+    }
+    const clearShopMatch = /^(?:please\s+)?(?:clear|empty)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(text.trim());
+    if (clearShopMatch) {
+      const reply = clearShoppingList();
+      return { handled: true, actionName: 'clear_shopping_list', speechReply: reply, status: 'success', verified: true };
+    }
+    const removeShopMatch = /^(?:please\s+)?(?:remove|delete)\s+(.+?)\s+from\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(text.trim());
+    if (removeShopMatch) {
+      const item = removeShopMatch[1].trim();
+      const reply = removeFromShoppingList(item);
+      return { handled: true, actionName: 'remove_from_shopping_list', speechReply: reply, status: 'success', verified: true };
     }
 
     // Right after an app was not found, a short name on its own ("Brave browser") is the app to open.
