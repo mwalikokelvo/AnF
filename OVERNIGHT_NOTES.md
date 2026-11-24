@@ -11,6 +11,7 @@
 | Repo | Branch | What It Unlocks | Verification |
 |------|--------|-----------------|--------------|
 | AnF | `grok/kevo-voice-suite-2026` | Coin flip, spelling assistant, audio sleep timer | `tsc --noEmit` clean, 948/948 tests pass |
+| AnF | `grok/ui-command-palette-kevo` | Kevo commands wired into global Ctrl+K palette (commit `8bd9135d`) | `tsc` clean, **940/940 tests pass**, vite build green, check-release pass, ponytail-review **Ship** |
 | ThingsBook | `grok/library-pace-and-activity` | Reading pace, streak, bookmark snippet helpers | 28 tests pass, 0 failed |
 
 ### In Progress Branches
