@@ -13,12 +13,12 @@ export interface PaletteCommand {
 }
 
 /** Voice commands the owner can fire from the global command palette. All are safe no-ops without context. */
-export function kevoCommands(ctx: JarvisActionContext): PaletteCommand[] {
-  const playMusic = () => ctx.playMusic?.();
-  const pauseMusic = () => ctx.pauseMusic?.();
-  const nextTrack = () => ctx.nextTrack?.();
-  const previousTrack = () => ctx.previousTrack?.();
-  const switchTo = (view: string) => () => { ctx.switchView?.(view); };
+export function kevoCommands(ctx?: JarvisActionContext | null): PaletteCommand[] {
+  const playMusic = () => ctx?.playMusic?.();
+  const pauseMusic = () => ctx?.pauseMusic?.();
+  const nextTrack = () => ctx?.nextTrack?.();
+  const previousTrack = () => ctx?.previousTrack?.();
+  const switchTo = (view: string) => () => { ctx?.switchView?.(view); };
   return [
     { label: 'Kevo · play music', run: () => { playMusic(); } },
     { label: 'Kevo · pause music', run: () => { pauseMusic(); } },

@@ -67,4 +67,26 @@ describe('Kevo Command Palette', () => {
       assert.doesNotThrow(() => c.run());
     }
   });
+
+  it('is safe when the context is null or undefined', () => {
+    for (const ctx of [null, undefined]) {
+      const commands = kevoCommands(ctx);
+      assert.equal(commands.length, 6);
+      for (const c of commands) assert.doesNotThrow(() => c.run());
+    }
+  });
+
+  it('survives a partially built context and rapid repeated runs', () => {
+    let lastView = '';
+    const partial = { switchView: (view: string) => { lastView = view; } } as JarvisActionContext;
+    const commands = kevoCommands(partial);
+    for (let i = 0; i < 20; i++) for (const c of commands) c.run();
+    assert.equal(lastView, 'jarvis');
+  });
+
+  it('does not swallow a real failure from the action context', () => {
+    const ctx = { playMusic: () => { throw new Error('music service down'); } } as unknown as JarvisActionContext;
+    const play = kevoCommands(ctx).find((c) => c.label === 'Kevo · play music')!;
+    assert.throws(() => play.run(), /music service down/);
+  });
 });
