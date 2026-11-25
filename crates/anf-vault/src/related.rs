@@ -80,8 +80,10 @@ pub fn note_terms(text: &str) -> Vec<String> {
 }
 
 fn push_term(out: &mut Vec<String>, term: &str) {
-    let cjk = term.chars().any(|c| matches!(c as u32,
-        0x3040..=0x30ff | 0x3400..=0x4dbf | 0x4e00..=0x9fff | 0xac00..=0xd7af));
+    let cjk = term.chars().any(|c| {
+        matches!(c as u32,
+        0x3040..=0x30ff | 0x3400..=0x4dbf | 0x4e00..=0x9fff | 0xac00..=0xd7af)
+    });
     if (term.chars().count() > 1 || cjk) && !STOP.contains(&term) {
         out.push(term.to_string());
     }
@@ -118,7 +120,9 @@ pub fn related_notes(source: &NoteInput, notes: &[NoteInput], limit: usize) -> V
             *df.entry(term).or_insert(0) += 1;
         }
     }
-    let idf = |term: &str| ((1 + docs.len()) as f64 / (1 + df.get(term).copied().unwrap_or(0)) as f64).ln() + 1.0;
+    let idf = |term: &str| {
+        ((1 + docs.len()) as f64 / (1 + df.get(term).copied().unwrap_or(0)) as f64).ln() + 1.0
+    };
 
     let source_vector = vector(source);
     let mut norm = 0.0;
@@ -155,8 +159,12 @@ pub fn related_notes(source: &NoteInput, notes: &[NoteInput], limit: usize) -> V
             })
         })
         .collect();
-    found.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
-        .then_with(|| a.title.cmp(&b.title)));
+    found.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.title.cmp(&b.title))
+    });
     found.truncate(cap);
     found
 }
@@ -191,7 +199,14 @@ pub fn find_note_backlinks(
             || (title_lower.len() >= 3 && body_lower.contains(&title_lower))
             || (!target_id.trim().is_empty() && note.text.contains(target_id));
         if matched {
-            let snippet: String = note.text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(120).collect();
+            let snippet: String = note
+                .text
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .chars()
+                .take(120)
+                .collect();
             out.push(NoteBacklink {
                 id: note.id.clone(),
                 title: note.title.clone(),
@@ -213,17 +228,22 @@ pub struct VaultTagCount {
 
 /// Extract `#hashtag` tokens across vault notes, grouped and sorted by frequency.
 pub fn extract_vault_tags(notes: &[NoteInput]) -> Vec<VaultTagCount> {
-    let mut map: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+    let mut map: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
     for note in notes {
         if note.id.trim().is_empty() {
             continue;
         }
         let mut seen_in_note = std::collections::HashSet::new();
         for token in note.text.split_whitespace() {
-            let trimmed = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '#' && c != '_' && c != '-');
+            let trimmed = token
+                .trim_matches(|c: char| !c.is_alphanumeric() && c != '#' && c != '_' && c != '-');
             if let Some(rest) = trimmed.strip_prefix('#') {
-                let clean = rest.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
-                if clean.len() < 2 || clean.chars().all(|c| c.is_ascii_hexdigit()) && clean.len() == 6 {
+                let clean =
+                    rest.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
+                if clean.len() < 2
+                    || clean.chars().all(|c| c.is_ascii_hexdigit()) && clean.len() == 6
+                {
                     continue;
                 }
                 if !clean.chars().next().is_some_and(|c| c.is_alphabetic()) {
@@ -289,7 +309,11 @@ pub fn find_broken_wiki_links(notes: &[NoteInput]) -> Vec<BrokenWikiLink> {
             }
         }
     }
-    broken.sort_by(|a, b| a.source_title.cmp(&b.source_title).then_with(|| a.target.cmp(&b.target)));
+    broken.sort_by(|a, b| {
+        a.source_title
+            .cmp(&b.source_title)
+            .then_with(|| a.target.cmp(&b.target))
+    });
     broken
 }
 
@@ -337,10 +361,8 @@ pub fn find_orphan_notes(notes: &[NoteInput]) -> Vec<OrphanNote> {
     }
 
     // Build a set of note titles so we can test membership.
-    let titles: std::collections::HashMap<String, &NoteInput> = notes
-        .iter()
-        .map(|n| (n.title.to_lowercase(), n))
-        .collect();
+    let titles: std::collections::HashMap<String, &NoteInput> =
+        notes.iter().map(|n| (n.title.to_lowercase(), n)).collect();
 
     // A note is an orphan if its title does not appear in `referenced`.
     titles
@@ -400,7 +422,11 @@ mod tests {
     use super::*;
 
     fn note(id: &str, title: &str, text: &str) -> NoteInput {
-        NoteInput { id: id.into(), title: title.into(), text: text.into() }
+        NoteInput {
+            id: id.into(),
+            title: title.into(),
+            text: text.into(),
+        }
     }
 
     #[test]
@@ -415,7 +441,11 @@ mod tests {
 
     #[test]
     fn ranks_by_shared_distinctive_terms() {
-        let source = note("a", "Gardens in spring", "pruning roses and soil with compost");
+        let source = note(
+            "a",
+            "Gardens in spring",
+            "pruning roses and soil with compost",
+        );
         let notes = vec![
             note("b", "Rose pruning", "pruning roses with sharp shears"),
             note("c", "Ocean tides", "waves and salt water at the shore"),
@@ -430,7 +460,11 @@ mod tests {
     #[test]
     fn common_words_do_not_win() {
         let source = note("a", "Notes about the", "the and with for are in on at by");
-        let notes = vec![note("b", "The and with", "the and with for are in on at by")];
+        let notes = vec![note(
+            "b",
+            "The and with",
+            "the and with for are in on at by",
+        )];
         assert!(related_notes(&source, &notes, 5).is_empty());
     }
 
@@ -451,7 +485,10 @@ mod tests {
     fn empty_and_malformed_input_is_safe() {
         assert!(related_notes(&note("a", "", ""), &[note("b", "text", "words")], 5).is_empty());
         assert!(related_notes(&note("a", "hello", "world"), &[], 5).is_empty());
-        let notes = vec![note("", "no id", "hello world"), note("b", "plain", "hello world")];
+        let notes = vec![
+            note("", "no id", "hello world"),
+            note("b", "plain", "hello world"),
+        ];
         let found = related_notes(&note("a", "hello", "world"), &notes, 5);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].id, "b");
@@ -459,10 +496,7 @@ mod tests {
 
     #[test]
     fn summarizes_vault_health_counts() {
-        let notes = vec![
-            note("1", "Alpha", "rust audio engine"),
-            note("2", "", ""),
-        ];
+        let notes = vec![note("1", "Alpha", "rust audio engine"), note("2", "", "")];
         let summary = summarize_vault_notes(&notes);
         assert_eq!(summary.total_notes, 2);
         assert_eq!(summary.total_words, 3);
@@ -476,7 +510,7 @@ mod tests {
             note("n1", "Index", "See [[Rust Audio]] and [[DSP Notes]]"),
             note("n2", "Rust Audio", "Details about silence trimming"),
             note("n3", "DSP Notes", "Fourier transforms"),
-            note("n4", "Cooking Tips", "Tomato soup"),  // nobody links here
+            note("n4", "Cooking Tips", "Tomato soup"), // nobody links here
         ];
         let orphans = find_orphan_notes(&notes);
         assert_eq!(orphans.len(), 2); // "Index" and "Cooking Tips" are orphans
@@ -527,7 +561,11 @@ mod tests {
 
     #[test]
     fn compute_note_reading_stats_counts_words_headings_and_links() {
-        let n = note("n1", "Title", "# Heading\nBody with [[Link One]] and [[Link Two]].");
+        let n = note(
+            "n1",
+            "Title",
+            "# Heading\nBody with [[Link One]] and [[Link Two]].",
+        );
         let stats = compute_note_reading_stats(&n, 200);
         assert_eq!(stats.word_count, 9);
         assert_eq!(stats.reading_minutes, 1);
