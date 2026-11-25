@@ -4,7 +4,26 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-23 by Antigravity (Release readiness execution on agy/biweekly-2026-11-23).
+Last updated: 2026-11-25 by OpenCode (0.1.67: Kevo voice suite + command palette released).
+
+## 2026-11-25 - 0.1.67 release: both Kevo branches landed (OpenCode)
+
+- `main` already carried the 30-commit vault/audio/Kevo stack (PR #301, `74f97489`) and shipped as **0.1.66**. Two Kevo branches were still unmerged, so 0.1.67 folds them into one release instead of rewriting the published tag.
+- Branch `release/0.1.67-kevo-extras`, merged in this order:
+  - `grok/kevo-voice-suite-2026` (`2f5695f6`): coin flip, number pick, spelling and sleep-timer voice actions (`kevo-randomizer.ts`, `kevo-spelling.ts`, `kevo-sleep-timer.ts`) plus the `flip_coin` / `pick_number` / `spell_word` tool handlers in `jarvis-voice-agent.ts`.
+  - `grok/adversarial-kevo-palette` (`38ab930b`): `kevo-commands.ts` puts music and view commands in the Ctrl/Cmd+K palette, running through the same `JarvisActionContext` the voice agent uses, so typed and spoken commands share one path; new `docs/REA-COMPETITIVE-MATRIX.md` and `windows/tests/kevo-command-palette.test.ts`.
+- Conflict resolutions kept both sides: `jarvis-voice-agent.ts` keeps main's today-in-history block and adds the branch handlers (the branch's duplicate sleep-timer block was dropped because main handles sleep timers earlier in `quickAnswer()`); `HANDOFF.md` and `OVERNIGHT_NOTES.md` are unions of main's structure and the branch's reports.
+- Bug fixed while verifying: the voice-suite test set a real 20-minute sleep timer and left it running, so `node --test` never exited. The test now calls `cancelSleepTimer()`; the suite finishes in about a second.
+- Verified: `npx tsc --noEmit` clean; full suite **1,100 passed, 0 failed, 177 suites**; `check-release.mjs` (12 checks), `verify-contracts.mjs` and `check-styles.mjs` pass; `cargo metadata --locked --no-deps` reports `coucou`/`coucou-hook` 0.1.67.
+- Version bumped to **0.1.67** in `windows/Cargo.toml`, `windows/package.json`, `windows/src-tauri/tauri.conf.json` and `windows/Cargo.lock`. Releasing as another preview with the same unsigned-installer warning as 0.1.66 (Defender flags the unsigned setup as `Trojan:Win32/Watacat!ml`); general publishing stays paused until signing.
+
+## 2026-11-24 - Overnight shift: Kevo command palette wired, REA competitive matrix drafted (Grok)
+
+- Branch `grok/ui-command-palette-kevo` (created from locked `main`): new `windows/src/workspace/kevo-commands.ts` exports `kevoCommands(ctx)` — a Kevo group for the global Ctrl/Cmd+K palette, routed through the same `JarvisActionContext` the voice agent uses, so typed and spoken commands share one execution path. Includes play/pause/next/previous music and "open Music Hub" / "open Kevo desk" view commands; view commands no-op safely when the context is absent.
+- Verified before commit: `npx tsc --noEmit` clean; full suite `npm test` **940/940 pass**; `npm run build` green (prebuild coucou-hook compiled, vite build ok, only pre-existing chunk-size warnings); `node scripts/check-release.mjs` pass. Ponytail review: verdict **Ship**.
+- Committed `8bd9135d` on `grok/ui-command-palette-kevo`.
+- REA connected and doctor healthy; competitive behavioral matrix drafted at `docs/REA-COMPETITIVE-MATRIX.md` (Siri/App Intents, Google Assistant, Alexa, Copilot, OVOS, Raycast, Spotify, Audacity, Pocket Casts, ElevenReader, Readwise, KOReader, Apple Books — with per-domain delta sections).
+- REA background analysis subagent hit the free-model daily rate limit once; relaunched with reduced scope and completed the matrix.
 
 ## 2026-11-23 — Release Readiness Execution: Regression Verification, README Rewrite, Compilation Fixes (Antigravity on agy/biweekly-2026-11-23)
 
@@ -2251,6 +2270,16 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Owner asked for Google Chrome's `modern-web-guidance` skill in the repos with all tracking removed. Vendored npm 1.0.1 (skill 2026_11_10-47b4c80e, Apache-2.0) into `.agents/skills/modern-web-guidance/`, linked from `.claude/skills/` (new `!.claude/skills/` exception in `.gitignore`).
 - Upstream posts every search query, retrieved guide, OS, agent name and timing to Google Clearcut (`play.googleapis.com/log`) from a detached `watchdog` process. Removed: the watchdog, its client, and the logger (now a no-op); `install`/`update`/`uninstall` refuse to run so the tracking build cannot come back; `SKILL.md` runs the local copy with `node`, never `npx ...@latest`. Details and how to update: `PRIVACY-PATCH.md` in the skill folder.
 - Tested: `node .agents/skills/modern-web-guidance/check-no-telemetry.mjs` passes (runs search and retrieve with sockets, fetch and child processes blocked); the same check fails on the unmodified upstream copy at the point where it starts the uploader. No app code changed. Needs Node 22+.
+
+## 2026-11-24: Night shift — Kevo voice suite (branch `grok/kevo-voice-suite-2026`)
+
+- Added the Kevo voice suite: coin flip / number picker, spelling with NATO phonetic alphabet, and an audio
+  sleep timer, wired into `KEVO_ACTIONS` and `JarvisVoiceAgent`, with tests in `tests/kevo-voice-suite.test.ts`.
+- Two type fixes carried by the same commit: `ActionResult.data` and `ReturnType<typeof setTimeout>`.
+- Checks: `npx tsc --noEmit` clean; full suite `node scripts/test.mjs` 948/948 pass, 0 fail (153 suites).
+- Gateway: OmniRoute (`omniroute serve`) was down at session start, restarted; now healthy (v3.8.54). Web-search
+  routing verified through OmniRoute for research.
+- Branch pushed to origin as `grok/kevo-voice-suite-2026`; never pushed to `main`.
 
 ## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
 - Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.

@@ -37,6 +37,9 @@
 import type { JarvisActionContext } from './jarvis-voice-agent';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
 import { convertUnits } from './kevo-unit-convert';
+import { flipCoin, pickNumber } from './kevo-randomizer';
+import { spellWord, phoneticSpelling } from './kevo-spelling';
+import { setSleepTimer, getSleepTimer, cancelSleepTimer } from './kevo-sleep-timer';
 import { ONLINE_LOOKUPS_OFF } from './kevo-online';
 import { wikipediaSummary } from './kevo-wikipedia';
 import { lookupWord, formatDefinition } from './kevo-dictionary';
@@ -962,6 +965,135 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         status: result.ok ? 'success' : 'failure',
         verified: result.ok,
         data: result.ok ? { value: result.value, from: result.from, to: result.to } : undefined,
+      };
+    },
+  },
+  {
+    name: 'flip_coin',
+    description: 'Flips a virtual coin and returns heads or tails (offline).',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: Record<string, never>, _ctx: JarvisActionContext) => {
+      const res = flipCoin();
+      return {
+        handled: true,
+        actionName: 'flip_coin',
+        speechReply: res.speech,
+        status: 'success',
+        verified: true,
+        data: { outcome: res.outcome },
+      };
+    },
+  },
+  {
+    name: 'pick_number',
+    description: 'Picks a random integer between min and max inclusive (offline).',
+    parameters: {
+      type: 'object',
+      properties: {
+        min: { type: 'number', description: 'Minimum number in range' },
+        max: { type: 'number', description: 'Maximum number in range' },
+      },
+      required: ['min', 'max'],
+    },
+    execute: async (args: { min: number; max: number }, _ctx: JarvisActionContext) => {
+      const res = pickNumber(Number(args?.min ?? 1), Number(args?.max ?? 100));
+      return {
+        handled: true,
+        actionName: 'pick_number',
+        speechReply: res.speech,
+        status: 'success',
+        verified: true,
+        data: { value: res.value, min: res.min, max: res.max },
+      };
+    },
+  },
+  {
+    name: 'spell_word',
+    description: 'Spells a word letter by letter or gives its NATO phonetic alphabet translation (offline).',
+    parameters: {
+      type: 'object',
+      properties: {
+        word: { type: 'string', description: 'The word to spell' },
+        phonetic: { type: 'boolean', description: 'Set to true for NATO phonetic alphabet' },
+      },
+      required: ['word'],
+    },
+    execute: async (args: { word: string; phonetic?: boolean }, _ctx: JarvisActionContext) => {
+      const res = args?.phonetic ? phoneticSpelling(args.word || '') : spellWord(args?.word || '');
+      return {
+        handled: true,
+        actionName: 'spell_word',
+        speechReply: res.speech,
+        status: 'success',
+        verified: true,
+        data: res,
+      };
+    },
+  },
+  {
+    name: 'set_sleep_timer',
+    description: 'Sets a sleep timer to automatically pause music playback after specified minutes (offline).',
+    parameters: {
+      type: 'object',
+      properties: {
+        minutes: { type: 'number', description: 'Duration in minutes until playback stops' },
+      },
+      required: ['minutes'],
+    },
+    execute: async (args: { minutes: number }, ctx: JarvisActionContext) => {
+      const mins = Number(args?.minutes ?? 15);
+      const res = setSleepTimer(mins, () => {
+        if (ctx.pauseMusic) {
+          ctx.pauseMusic();
+        }
+      });
+      return {
+        handled: res.ok,
+        actionName: 'set_sleep_timer',
+        speechReply: res.speech,
+        status: res.ok ? 'success' : 'failure',
+        verified: res.ok,
+        data: res.timer,
+      };
+    },
+  },
+  {
+    name: 'get_sleep_timer',
+    description: 'Checks remaining time on the active audio sleep timer (offline).',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: Record<string, never>, _ctx: JarvisActionContext) => {
+      const res = getSleepTimer();
+      return {
+        handled: true,
+        actionName: 'get_sleep_timer',
+        speechReply: res.speech,
+        status: 'success',
+        verified: true,
+        data: { active: res.active, remainingMinutes: res.remainingMinutes },
+      };
+    },
+  },
+  {
+    name: 'cancel_sleep_timer',
+    description: 'Cancels the active audio sleep timer (offline).',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: Record<string, never>, _ctx: JarvisActionContext) => {
+      const res = cancelSleepTimer();
+      return {
+        handled: true,
+        actionName: 'cancel_sleep_timer',
+        speechReply: res.speech,
+        status: 'success',
+        verified: true,
       };
     },
   },
