@@ -240,6 +240,16 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
 // "don't forget to tell me the time at noon") and "why don't you skip this song?" are not refusals: the model may act.
 const REFUSED_COMMAND = /\b(?:not|don'?t|never)\b[^.;!?]*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track)|tell me the (?:current )?time)\b/;
 const NOT_A_REFUSAL = /\b(?:remind|remember|forget)\b|\bwhy don'?t you\b/;
+// Questions about whether the user/assistant should/did skip a track ("Should I skip this song?", "Did you skip the song?").
+const NON_REQUEST_SKIP_QUESTION = /^(?:(?:should|can|could|may|might|must|do|did|will|would) (?:i|we)\b.*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track))|did you\b.*\bskip(?: (?:this|the|that))? (?:song|track))\b/;
+
+/** True when a sentence quotes a command after a lead-in like "did you say, ..." or "imagine I say, ...". */
+function isQuotedCommand(lower: string): boolean {
+  return (lower.match(/[^.;!?]+[.;!?]*/g) ?? []).some((sentence) => {
+    const parts = sentence.replace(/[.;!?]+$/, '').split(',').map((p) => p.trim());
+    return parts.slice(0, -1).some((part) => QUOTE_LEAD.test(part));
+  });
+}
 
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind|forget|remind me)\b/i;
 
@@ -1009,6 +1019,55 @@ export class JarvisVoiceAgent {
 
     // 4. Note taking & Quick Capture Commands
     if (
+      lower.startsWith('capture claim') ||
+      lower.startsWith('highlight that') ||
+      lower.startsWith('socratic note') ||
+      lower.startsWith('capture quote')
+    ) {
+      const claimText = text
+        .replace(/^(capture claim(:|\s+that)?|highlight that(:|\s+and challenge it)?|socratic note(:|\s+that)?|capture quote(:|\s+that)?)\s*/i, '')
+        .trim();
+      if (claimText && (this.context.saveQuickNote || this.context.dryRun)) {
+        try {
+          const firstSentence = claimText.split(/(?<=[.?!])\s+/)[0] || claimText;
+          const words = claimText.match(/\b[A-Za-z]{4,}\b/g) || [];
+          const freq: Record<string, number> = {};
+          for (const w of words) { const l = w.toLowerCase(); freq[l] = (freq[l] || 0) + 1; }
+          const topWords = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(e=>e[0]);
+          const topic = topWords.length ? topWords.join(', ') : 'this concept';
+          const inquiry = `What core principle connects "${firstSentence.slice(0, 100)}..." to ${topic}, and what would challenge it?`;
+          const boundary = `Under what boundary conditions would this assertion fail?`;
+          const check = `Self-explanation: In one sentence, state the direct consequence of ${topic}.`;
+
+          const socraticNote = `## Socratic Capture: ${topic}\n\n**Source Claim**:\n> ${claimText}\n\n**Critical Inquiry**:\n- ${inquiry}\n- **Boundary Test**: ${boundary}\n- **Recall Check**: ${check}\n\n*Captured via Kevo Voice Second Brain*`;
+
+          if (!this.context.dryRun) {
+            await this.context.saveQuickNote!(socraticNote);
+          }
+          return {
+            handled: true,
+            actionName: 'capture_socratic_claim',
+            speechReply: `Socratic claim captured on ${topic}.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Saved Socratic note for topic: ${topic}`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'capture_socratic_claim',
+            speechReply: `Could not capture claim: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
+      }
+    }
+
+    if (
       lower.startsWith('take a note') ||
       lower.startsWith('note that') ||
       lower.startsWith('write this down')
@@ -1078,8 +1137,11 @@ export class JarvisVoiceAgent {
             release.forEach(onPart);
           });
         };
-        // Kevo already said no to the command it heard here: the model must not act on it either.
-        const answerOnly = REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower);
+        // Kevo already said no to the command (or quotation/question) it heard here: the model must not act on it either.
+        const answerOnly =
+          (REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower)) ||
+          isQuotedCommand(lower) ||
+          NON_REQUEST_SKIP_QUESTION.test(lower);
         let aiResult = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding(), answerOnly });
         let aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
         let aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';
