@@ -43,6 +43,17 @@ export async function fetchNoteBacklinks(
   });
 }
 
+export type VaultTagCount = {
+  tag: string;
+  count: number;
+  noteIds: string[];
+};
+
+export async function fetchVaultTags(notes: RelatedNoteInput[]): Promise<VaultTagCount[]> {
+  if (notes.length === 0) return [];
+  return invoke<VaultTagCount[]>('workspace_vault_tags', { notes });
+}
+
 /**
  * Queries the Rust `workspace_related_notes` Tauri command (`anf_vault::related`)
  * to rank related notes on-device via IDF-weighted cosine similarity.

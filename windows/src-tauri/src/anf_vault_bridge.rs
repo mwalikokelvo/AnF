@@ -2,8 +2,8 @@
 //! Host storage (SQLCipher) stays in `vault.rs`. Not ThingsBook / `_core`.
 use anf_vault::{
     related::{
-        find_note_backlinks, related_notes, summarize_vault_notes, NoteBacklink, NoteInput,
-        RelatedNote, VaultHealthSummary,
+        extract_vault_tags, find_note_backlinks, related_notes, summarize_vault_notes,
+        NoteBacklink, NoteInput, RelatedNote, VaultHealthSummary, VaultTagCount,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -53,6 +53,12 @@ pub fn workspace_note_backlinks(
     notes: Vec<NoteInput>,
 ) -> Vec<NoteBacklink> {
     find_note_backlinks(&target_id, &target_title, &notes)
+}
+
+/// Extract `#hashtag` counts across vault notes on-device.
+#[tauri::command]
+pub fn workspace_vault_tags(notes: Vec<NoteInput>) -> Vec<VaultTagCount> {
+    extract_vault_tags(&notes)
 }
 
 #[cfg(test)]

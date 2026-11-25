@@ -203,6 +203,51 @@ pub fn find_note_backlinks(
     out
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultTagCount {
+    pub tag: String,
+    pub count: usize,
+    pub note_ids: Vec<String>,
+}
+
+/// Extract `#hashtag` tokens across vault notes, grouped and sorted by frequency.
+pub fn extract_vault_tags(notes: &[NoteInput]) -> Vec<VaultTagCount> {
+    let mut map: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+    for note in notes {
+        if note.id.trim().is_empty() {
+            continue;
+        }
+        let mut seen_in_note = std::collections::HashSet::new();
+        for token in note.text.split_whitespace() {
+            let trimmed = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '#' && c != '_' && c != '-');
+            if let Some(rest) = trimmed.strip_prefix('#') {
+                let clean = rest.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
+                if clean.len() < 2 || clean.chars().all(|c| c.is_ascii_hexdigit()) && clean.len() == 6 {
+                    continue;
+                }
+                if !clean.chars().next().is_some_and(|c| c.is_alphabetic()) {
+                    continue;
+                }
+                let tag = clean.to_lowercase();
+                if seen_in_note.insert(tag.clone()) {
+                    map.entry(tag).or_default().push(note.id.clone());
+                }
+            }
+        }
+    }
+    let mut out: Vec<VaultTagCount> = map
+        .into_iter()
+        .map(|(tag, note_ids)| VaultTagCount {
+            tag,
+            count: note_ids.len(),
+            note_ids,
+        })
+        .collect();
+    out.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.tag.cmp(&b.tag)));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,5 +334,18 @@ mod tests {
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].id, "n2");
         assert!(links[0].snippet.contains("LUFS"));
+    }
+
+    #[test]
+    fn extract_vault_tags_groups_hashtags_and_ignores_hex_colors() {
+        let notes = vec![
+            note("n1", "A", "Working on #Rust and #Audio with color #ff00aa"),
+            note("n2", "B", "More #rust tips and #12345"),
+        ];
+        let tags = extract_vault_tags(&notes);
+        assert_eq!(tags.len(), 2);
+        assert_eq!(tags[0].tag, "rust");
+        assert_eq!(tags[0].count, 2);
+        assert_eq!(tags[1].tag, "audio");
     }
 }
