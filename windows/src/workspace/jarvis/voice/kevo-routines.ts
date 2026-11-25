@@ -149,3 +149,17 @@ export async function detectShortcutConflicts(
     customBindings,
   });
 }
+
+export type KevoRecallMatch = {
+  kind: 'fact' | 'turn' | string;
+  id: string;
+  text: string;
+  categoryOrRole: string;
+  score: number;
+  at: number;
+};
+
+export async function recallKevoMemory(query: string, limit = 8): Promise<KevoRecallMatch[]> {
+  if (!query.trim()) return [];
+  return invoke<KevoRecallMatch[]>('kevo_memory_recall', { query, limit });
+}

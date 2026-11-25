@@ -427,6 +427,84 @@ pub fn kevo_detect_shortcut_conflicts(
     detect_shortcut_conflicts(custom_bindings.unwrap_or_default())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRecallMatch {
+    pub kind: String,
+    pub id: String,
+    pub text: String,
+    pub category_or_role: String,
+    pub score: f64,
+    pub at: u64,
+}
+
+pub fn recall_memory_in(
+    path: &Path,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<KevoRecallMatch>, String> {
+    let _guard = MEMORY_LOCK.lock().map_err(|e| e.to_string())?;
+    let clean = query.trim().to_lowercase();
+    if clean.is_empty() {
+        return Ok(Vec::new());
+    }
+    let tokens: Vec<&str> = clean.split_whitespace().collect();
+    let store = load_store(path);
+    let mut matches = Vec::new();
+    let score_text = |text: &str| -> f64 {
+        let lower = text.to_lowercase();
+        if lower.contains(&clean) {
+            1.0
+        } else {
+            let hits = tokens.iter().filter(|t| lower.contains(**t)).count();
+            if hits == 0 {
+                0.0
+            } else {
+                (hits as f64) / (tokens.len().max(1) as f64) * 0.8
+            }
+        }
+    };
+    for fact in &store.facts {
+        let s = score_text(&fact.fact);
+        if s > 0.0 {
+            matches.push(KevoRecallMatch {
+                kind: "fact".into(),
+                id: fact.id.clone(),
+                text: fact.fact.clone(),
+                category_or_role: fact.category.clone(),
+                score: s + 0.1,
+                at: fact.created_at,
+            });
+        }
+    }
+    for turn in &store.turns {
+        let s = score_text(&turn.text);
+        if s > 0.0 {
+            matches.push(KevoRecallMatch {
+                kind: "turn".into(),
+                id: turn.id.clone(),
+                text: turn.text.clone(),
+                category_or_role: turn.role.clone(),
+                score: s,
+                at: turn.at,
+            });
+        }
+    }
+    matches.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.at.cmp(&a.at))
+    });
+    matches.truncate(limit.clamp(1, 50));
+    Ok(matches)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn kevo_memory_recall(query: String, limit: Option<usize>) -> Result<Vec<KevoRecallMatch>, String> {
+    recall_memory_in(&memory_file_path(), &query, limit.unwrap_or(8))
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -930,5 +1008,18 @@ mod tests {
         assert_eq!(conflicts[0].normalized_shortcut, "ctrl+shift+s");
         assert!(conflicts[0].command_ids.contains(&"kevo.study_mode".to_string()));
         assert!(conflicts[0].command_ids.contains(&"audio.normalize_lufs".to_string()));
+    }
+
+    #[test]
+    fn recall_memory_ranks_facts_and_turns_by_relevance() {
+        let path = test_file("recall");
+        let _ = std::fs::remove_file(&path);
+        remember_fact_in(&path, "Favorite mic is Shure SM7B".into(), Some("audio".into())).unwrap();
+        save_turn_in(&path, "user".into(), "Check microphone gain levels".into()).unwrap();
+        let hits = recall_memory_in(&path, "Shure SM7B", 5).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].kind, "fact");
+        assert!(hits[0].score > 1.0);
+        let _ = std::fs::remove_file(&path);
     }
 }

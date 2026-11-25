@@ -553,6 +553,7 @@ pub fn run() {
             kevo_memory::kevo_push_context_entity,
             kevo_memory::kevo_resolve_contextual_utterance,
             kevo_memory::kevo_detect_shortcut_conflicts,
+            kevo_memory::kevo_memory_recall,
             kevo_schedule::kevo_schedule_create_reminder,
             kevo_schedule::kevo_schedule_list_reminders,
             kevo_schedule::kevo_schedule_cancel_reminder,
