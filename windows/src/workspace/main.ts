@@ -11,6 +11,7 @@ import {updatesPanel} from './updates';
 import {offlineModelsPanel} from './offline-models';
 import {createStudio} from './studio';
 import {appendDraft} from './knowledge-data';
+import {fetchRelatedNotes,renderRelatedNotes} from './related-notes';
 import {createReplyToDraft} from './reply-to-draft';
 import {createSaveAlert} from './save-alert';
 import {libraryCard,refreshLibrary,libraryControls} from './library';
@@ -74,6 +75,7 @@ const root=document.getElementById('workspace-root')!;
 const shell=h('div',{class:'workspace-layout'}),sidebar=h('aside',{class:'history-sidebar'}),main=h('main',{class:'workspace-content'});
 const searchHistory=h('input',{type:'search',placeholder:'Search conversations…','aria-label':'Search saved conversations','data-keep-enabled':true,maxlength:256}) as HTMLInputElement;
 const historyItems=h('nav',{'aria-label':'Conversation history'});
+const relatedSection=h('section',{'aria-label':'Related notes'});
 const virtualHistoryList=createVirtualList<Entry>({
   itemHeight:54,
   overscan:4,
@@ -161,7 +163,18 @@ async function run(action:(active:number)=>Promise<unknown>,label='Working'){
 }
 function button(label:string,action:(active:number)=>Promise<unknown>,progress=label):HTMLButtonElement{const b=h('button',{text:label}) as HTMLButtonElement;b.addEventListener('click',()=>void run(action,progress));return b;}
 function snapshot():Project{return{id:projectId,name:name.value.trim()||'My project',title:title.value,question:question.value,draft:draft.value,history:structuredClone(history),sources:structuredClone(sources),memory:memory.value,model:'deepseek-v4-pro-qwen3.5-9b'};}
-async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});selector.replaceChildren(h('option',{value:'',text:'Choose a saved project…'}),...entries.map(e=>h('option',{value:e.id,text:e.name})));selector.value=projectId;if(searchHistory.value.trim())await searchProjects();else renderProjectHistory(entries);}
+async function refreshRelatedNotes(entries:Entry[]){
+  if(!projectId){renderRelatedNotes(relatedSection,[],()=>{});return;}
+  const source={id:projectId,title:title.value||name.value,text:[question.value,draft.value,memory.value].filter(Boolean).join(' ')};
+  const notes=entries.filter(e=>e.id!==projectId).map(e=>({id:e.id,title:e.name,text:e.snippet??''}));
+  try{
+    const related=await fetchRelatedNotes(source,notes,5);
+    renderRelatedNotes(relatedSection,related,id=>{selector.value=id;selector.dispatchEvent(new Event('change'));});
+  }catch{
+    renderRelatedNotes(relatedSection,[],()=>{});
+  }
+}
+async function refreshProjects(){const entries=await invoke<Entry[]>('workspace_list_projects',{query:''});selector.replaceChildren(h('option',{value:'',text:'Choose a saved project…'}),...entries.map(e=>h('option',{value:e.id,text:e.name})));selector.value=projectId;if(searchHistory.value.trim())await searchProjects();else renderProjectHistory(entries);void refreshRelatedNotes(entries);}
 function renderProjectHistory(entries:Entry[]){
   if(!entries.length){
     virtualHistoryList.setItems([]);
@@ -266,7 +279,7 @@ const dashboard=createDashboard({current:()=>({id:projectId,name:name.value,draf
 });
 section('home','Home',dashboard.root);
 const newProject=button('New conversation',async()=>{await saveProject();projectGeneration++;replyDraft.reset();projectId='';projectRevision=undefined;lastSavedSignature='';name.value='New project';title.value='My document';question.value='';draft.value='';memory.value='';history=[];sources=[];renderSources();renderHistory();evidenceList.replaceChildren();await saveProject();showView('chat');status.textContent='New conversation ready.';},'New project');
-sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored on this computer'}),navigation,newProject,h('h2',{class:'history-heading',text:'Conversations'}),searchHistory,button('Refresh history',async()=>{await refreshProjects();status.textContent='History refreshed. Open a conversation to see its latest saved version.';}),historyItems);
+sidebar.replaceChildren(wordmark(),h('p',{class:'offline-badge',text:'● Stored on this computer'}),navigation,newProject,h('h2',{class:'history-heading',text:'Conversations'}),searchHistory,button('Refresh history',async()=>{await refreshProjects();status.textContent='History refreshed. Open a conversation to see its latest saved version.';}),historyItems,relatedSection);
 attachNavRail(sidebar,shell);
 const attach=h('button',{text:'Attach documents',type:'button'});attach.addEventListener('click',()=>file.click());
 section('chat','Chat',workflowButtons(()=>({sources,draft:draft.value}),(text,scope)=>{question.value=text;contextScope.value=scope;updateQuestionCount();autosave();},text=>status.textContent=text,()=>!busy),h('div',{class:'section-heading'},h('h2',{text:'Chat'}),h('p',{class:'hint',text:'Ask, explore your documents, or start a draft. This workspace runs on your computer.'})),conversation,h('div',{class:'quick-tasks'},button('Summarize PDF',a=>task(a,'Summarize the loaded document excerpts. List main points and cite sources. Say that this covers selected excerpts.',1)),button('Write a letter',a=>task(a,`Write a clear letter about: ${question.value.trim()||'my request'}. Use placeholders for unknown names or dates.`)),button('Compare documents',a=>task(a,'Compare the loaded documents. Cite evidence from each and identify gaps.',2))),followupHost,h('div',{class:'composer'},contextScope,question,questionCount,replyLength,h('p',{class:'hint',text:'Questions: up to 10,000 UTF-8 bytes. Long responses aim for 1,700 words; actual length varies. Long mode uses more memory and can take several minutes. Continue appends the next part to your draft.'}),h('div',{class:'row'},attach,button('Ask local AI',ask,'Thinking locally'),button('Continue to next part',async a=>{if(!history.length)throw Error('Start a conversation first.');question.value='Continue the previous answer with the next part. Pick up from its ending without repeating earlier material.';await ask(a,true);},'Continuing locally'),button('Export chat',async()=>{if(!history.length)throw Error('Start a conversation first.');const {serializeChatToMarkdown}=await import('./chat-export');const md=serializeChatToMarkdown(name.value||'Conversation',history,sources);const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(name.value.trim()||'Conversation').replace(/[\\/:*?"<>|]/g,'_')}-notes.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);status.textContent='Exported conversation as Markdown note.';}))),h('p',{class:'hint',text:'Ctrl+Enter to send · Sources and citations appear below each answer.'}),evidenceList);

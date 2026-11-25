@@ -6,6 +6,8 @@
 //!
 //! **Not ThingsBook.** Do not depend on `_core`.
 
+pub mod related;
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

@@ -6,6 +6,7 @@ mod screen_help;
 mod addons;
 mod updates;
 mod ai;
+mod anf_vault_bridge;
 mod audio_native;
 mod music_native;
 mod claude;
@@ -574,6 +575,7 @@ pub fn run() {
             kevo_ears::kevo_ears_install_models,
             workspace_load_project,
             workspace_list_projects,
+            anf_vault_bridge::workspace_related_notes,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,
