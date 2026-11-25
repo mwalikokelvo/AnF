@@ -25,6 +25,7 @@ AnF keeps your documents, notes, books and audio on your own devices. There is n
 Kevo is AnF's voice assistant, formerly called JARVIS. Say "Kevo" or "Hey Kevo", or type a request in its box.
 
 - **Instant commands:** the time and date, sums, timers and reminders ("remind me in 10 minutes to call Mum"), play music, what's playing, today in history, random advice, take a note, search your notes, open apps and places, search the web, "say that again", "stop".
+- **New lookups:** current weather for any city (Open-Meteo), top Hacker News headlines, and live cryptocurrency prices (CoinGecko).
 - **Questions:** anything else goes to the unified offline local model on your PC. The answer is shown and spoken sentence by sentence as it is written, and a Stop button ends it.
 - **Voice pack:** 13 voices ship with every build, including Kevo's own gentle bass voice. Pick one from the voice list in Kevo's panel and press "Hear this voice" to play its recording. Kevo's replies are spoken by the Windows voice that best matches the chosen voice's accent and gender; the recordings are not a speech engine. The first second of the chosen recording is the chime Kevo plays when it hears its name.
 - **Offline Hearing & Speech:** Kevo's hearing engine runs fully offline on your PC using sherpa-onnx streaming wake-word and speech-to-text models in native Rust, with zero audio sent over the network.

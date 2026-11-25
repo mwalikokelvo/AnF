@@ -44,6 +44,10 @@ import { currencyCode, convertCurrency, formatConversion } from './kevo-currency
 import { formatWhatsPlaying } from './kevo-whats-playing';
 import { todayInHistory } from './kevo-history';
 import { randomAdvice } from './kevo-advice';
+import { getWeather } from './kevo-weather';
+import { getTopNews } from './kevo-news';
+import { getCryptoPrice } from './kevo-crypto';
+
 import { fetchInvidiousTranscript, formatTranscriptMarkdown } from '../../invidious-service';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
@@ -1723,6 +1727,70 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
       };
     },
+
+  {
+    name: 'get_weather',
+    description: 'Gets the current weather for a city or location using Open-Meteo.',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'City or place name, e.g. "London" or "New York"' },
+      },
+      required: ['location'],
+    },
+    execute: async (args: { location: string }) => {
+      const reply = await getWeather(args?.location);
+      return {
+        handled: true,
+        actionName: 'get_weather',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'top_news',
+    description: 'Reads the current top stories from Hacker News.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'How many headlines to read (default 5)' },
+      },
+    },
+    execute: async (args: { limit?: number }) => {
+      const reply = await getTopNews(args?.limit ?? 5);
+      return {
+        handled: true,
+        actionName: 'top_news',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'crypto_price',
+    description: 'Looks up the current price of a cryptocurrency using CoinGecko.',
+    parameters: {
+      type: 'object',
+      properties: {
+        coin: { type: 'string', description: 'Coin name or ticker, e.g. "bitcoin", "eth", "solana"' },
+        currency: { type: 'string', description: 'Fiat currency code, default usd' },
+      },
+      required: ['coin'],
+    },
+    execute: async (args: { coin: string; currency?: string }) => {
+      const reply = await getCryptoPrice(args?.coin, args?.currency || 'usd');
+      return {
+        handled: true,
+        actionName: 'crypto_price',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
   },
 ];
 
