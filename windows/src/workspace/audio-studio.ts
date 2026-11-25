@@ -1,3 +1,4 @@
+import {invoke} from '@tauri-apps/api/core';
 import {h} from '../views/dom';
 
 import {peaks,level,wav,durationText,slicePcmAudio} from './audio-data';
@@ -137,6 +138,23 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
  const cleanButton=action('Clean speech',async()=>{report('Processing on this device…');cleaned=await render(true);if(cleanedUrl)URL.revokeObjectURL(cleanedUrl);cleanedUrl=URL.createObjectURL(waveBlob(cleaned));const before=level(Array.from({length:input!.numberOfChannels},(_,i)=>input!.getChannelData(i))),after=level(Array.from({length:cleaned.numberOfChannels},(_,i)=>cleaned!.getChannelData(i)));matchGain=after.rms?Math.min(1,before.rms/after.rms):1;originalGain=before.rms?Math.min(1,after.rms/before.rms):1;mode.value='cleaned';swap();report('Cleaned comparison ready. Playback level is matched by attenuation; compare speech quality before exporting.');});
 
  const exportButton=action('Export WAV',async()=>{const b=await render(false),blob=waveBlob(b),name=(title.value.trim()||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-'+mode.value+'.wav';if(exportAudio){await exportAudio(name,blob);report('Choose a destination to save the WAV.');}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);report('WAV export prepared.');}});
+
+ const trimSilenceButton=action('Trim silence',async()=>{
+  report('Detecting leading and trailing silence…');
+  const b=await decode();
+  const raw=b.getChannelData(0);
+  const stride=Math.max(1,Math.ceil(raw.length/1_500_000));
+  const samples=stride===1?Array.from(raw):Array.from({length:Math.ceil(raw.length/stride)},(_,i)=>raw[i*stride]);
+  const plan=await invoke<{keepStartSec:number;keepEndSec:number;trimmedSec:number;allSilent:boolean}>('audio_detect_silence',{samples,sampleRate:Math.max(1,Math.round(b.sampleRate/stride))});
+  if(plan.allSilent||plan.trimmedSec<0.05){report('No leading or trailing silence to trim.');return;}
+  const chs=Array.from({length:b.numberOfChannels},(_,i)=>b.getChannelData(i));
+  const trimmed=slicePcmAudio(chs,b.sampleRate,plan.keepStartSec,plan.keepEndSec-plan.keepStartSec);
+  if(!trimmed.length)throw Error('Trimmed region is empty.');
+  const blob=new Blob([wav(trimmed,b.sampleRate)],{type:'audio/wav'});
+  const name=(title.value.trim()||track?.title||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-trimmed.wav';
+  if(exportAudio){await exportAudio(name,blob);}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+  report(`Trimmed ${plan.trimmedSec.toFixed(2)}s of silence (${plan.keepStartSec.toFixed(2)}s–${plan.keepEndSec.toFixed(2)}s).`);
+ });
 
  const clipDuration=h('select',{'aria-label':'Clip length',class:'audio-clip-duration'},...[15,30,45,60,90,120].map(s=>h('option',{value:String(s),text:s+'s clip'}))) as HTMLSelectElement;
  clipDuration.value='30';
@@ -333,7 +351,7 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
      h('h3', { text: 'Restore speech & export' }),
      h('p', { text: 'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.' }),
      h('div', { class: 'audio-controls' }, h('label', {}, profile, 'Use noise profile'), h('label', {}, 'Start (seconds) ', noiseStart), noiseLength, action('Use current position', () => { noiseStart.value = audio.currentTime.toFixed(1); })),
-     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, clipDuration, clipButton, transcribeButton)
+     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, clipDuration, clipButton, transcribeButton)
    )
  );
 

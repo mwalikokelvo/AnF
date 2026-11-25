@@ -1,4 +1,5 @@
 //! Bounded, local-only FFmpeg jobs. User paths and encoder arguments never enter a shell.
+use serde::Serialize;
 use std::{path::{Path,PathBuf},sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},process::{Command,Stdio},time::{Duration,Instant}};
 use tauri::State;
 #[cfg(not(target_os="linux"))]
@@ -48,6 +49,84 @@ fn executable(app:&tauri::AppHandle)->Result<PathBuf,String>{
  Err("The native converter is missing. Install the full updated Windows package.".into())
  }
 }
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SilenceTrimPlan {
+    pub keep_start_sec: f64,
+    pub keep_end_sec: f64,
+    pub trimmed_sec: f64,
+    pub original_sec: f64,
+    pub threshold_db: f32,
+    pub all_silent: bool,
+}
+
+/// Detect leading and trailing silence in mono PCM samples without dropping short pauses or all-silent clips.
+pub fn detect_silence_regions(
+    samples: &[f32],
+    sample_rate: u32,
+    threshold_db: f32,
+    min_silence_sec: f32,
+) -> Result<SilenceTrimPlan, String> {
+    if samples.is_empty() || sample_rate == 0 {
+        return Err("Provide non-empty audio samples and a valid sample rate.".into());
+    }
+    let db = threshold_db.clamp(-90.0, -5.0);
+    let threshold = 10.0_f32.powf(db / 20.0);
+    let min_samples = ((min_silence_sec.max(0.05) * sample_rate as f32) as usize).min(samples.len());
+    let original_sec = samples.len() as f64 / sample_rate as f64;
+    let first_loud = samples.iter().position(|&s| s.abs() >= threshold);
+    let last_loud = samples.iter().rposition(|&s| s.abs() >= threshold);
+    let (Some(start_idx), Some(end_idx)) = (first_loud, last_loud) else {
+        return Ok(SilenceTrimPlan {
+            keep_start_sec: 0.0,
+            keep_end_sec: original_sec,
+            trimmed_sec: 0.0,
+            original_sec,
+            threshold_db: db,
+            all_silent: true,
+        });
+    };
+    let keep_start = if start_idx >= min_samples {
+        start_idx
+    } else {
+        0
+    };
+    let trailing = samples.len().saturating_sub(end_idx + 1);
+    let keep_end = if trailing >= min_samples {
+        end_idx + 1
+    } else {
+        samples.len()
+    };
+    let keep_start_sec = keep_start as f64 / sample_rate as f64;
+    let keep_end_sec = keep_end as f64 / sample_rate as f64;
+    Ok(SilenceTrimPlan {
+        keep_start_sec,
+        keep_end_sec,
+        trimmed_sec: (original_sec - (keep_end_sec - keep_start_sec)).max(0.0),
+        original_sec,
+        threshold_db: db,
+        all_silent: false,
+    })
+}
+
+#[tauri::command]
+pub fn audio_detect_silence(
+    samples: Vec<f32>,
+    sample_rate: u32,
+    threshold_db: Option<f32>,
+    min_silence_sec: Option<f32>,
+) -> Result<SilenceTrimPlan, String> {
+    if samples.len() > 2_000_000 {
+        return Err("Silence analysis input exceeds 2,000,000 samples.".into());
+    }
+    detect_silence_regions(
+        &samples,
+        sample_rate,
+        threshold_db.unwrap_or(-42.0),
+        min_silence_sec.unwrap_or(0.25),
+    )
+}
+
 #[tauri::command]pub fn audio_conversion_cancel(jobs:State<AudioJobs>,id:String){if let Ok(guard)=jobs.0.lock(){if let Some((active,cancel))=guard.as_ref(){if active==&id{cancel.store(true,Ordering::Relaxed);}}}}
 #[tauri::command]pub async fn audio_convert(app:tauri::AppHandle,jobs:State<'_,AudioJobs>,id:String,bytes:Vec<u8>,format:String,preset:String)->Result<String,String>{
  if id.len()>64||id.is_empty()||!id.bytes().all(|b|b.is_ascii_alphanumeric()||b==b'-'){return Err("Invalid audio job.".into());}
@@ -60,5 +139,20 @@ fn executable(app:&tauri::AppHandle)->Result<PathBuf,String>{
 #[cfg(test)]mod tests{
  use super::*;
  #[test]fn presets_are_allowlisted(){assert!(encoder("../mp3","quality").is_err());assert!(encoder("mp3","-y").is_err());assert!(encoder("opus","compact").unwrap().contains(&"32k"));assert!(encoder("mp3","voice").unwrap().contains(&"16000"));for format in ["mp3","m4a","opus","ogg","flac","wav"]{assert!(encoder(format,"quality").is_ok());}}
+ #[test]fn silence_detection_trims_edges_and_preserves_all_silent(){
+  let mut pcm=vec![0.0_f32;8000];
+  pcm.extend(vec![0.4_f32;8000]);
+  pcm.extend(vec![0.0_f32;8000]);
+  let plan=detect_silence_regions(&pcm,16000,-40.0,0.25).unwrap();
+  assert!(!plan.all_silent);
+  assert!((plan.keep_start_sec-0.5).abs()<0.01);
+  assert!((plan.keep_end_sec-1.0).abs()<0.01);
+  assert!((plan.trimmed_sec-1.0).abs()<0.01);
+  let silent=vec![0.0_f32;16000];
+  let preserved=detect_silence_regions(&silent,16000,-40.0,0.25).unwrap();
+  assert!(preserved.all_silent);
+  assert_eq!(preserved.trimmed_sec,0.0);
+  assert!(detect_silence_regions(&[],16000,-40.0,0.25).is_err());
+ }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
