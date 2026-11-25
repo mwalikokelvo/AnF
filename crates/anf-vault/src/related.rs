@@ -21,6 +21,38 @@ pub struct RelatedNote {
     pub score: f64,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultHealthSummary {
+    pub total_notes: usize,
+    pub total_words: usize,
+    pub empty_notes: usize,
+    pub distinct_terms: usize,
+}
+
+/// Summarize note corpus health on-device (counts, word totals, empty notes, distinct vocabulary).
+pub fn summarize_vault_notes(notes: &[NoteInput]) -> VaultHealthSummary {
+    let mut total_words = 0usize;
+    let mut empty_notes = 0usize;
+    let mut vocab = std::collections::HashSet::new();
+    for note in notes {
+        let wc = note.text.split_whitespace().count();
+        total_words += wc;
+        if wc == 0 && note.title.trim().is_empty() {
+            empty_notes += 1;
+        }
+        for term in note_terms(&format!("{} {}", note.title, note.text)) {
+            vocab.insert(term);
+        }
+    }
+    VaultHealthSummary {
+        total_notes: notes.len(),
+        total_words,
+        empty_notes,
+        distinct_terms: vocab.len(),
+    }
+}
+
 const STOP: &[&str] = &[
     "the", "and", "for", "with", "that", "this", "from", "are", "was", "were", "have", "has",
     "had", "you", "your", "our", "but", "not", "into", "its", "it", "of", "to", "in", "on", "at",
@@ -189,5 +221,18 @@ mod tests {
         let found = related_notes(&note("a", "hello", "world"), &notes, 5);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].id, "b");
+    }
+
+    #[test]
+    fn summarizes_vault_health_counts() {
+        let notes = vec![
+            note("1", "Alpha", "rust audio engine"),
+            note("2", "", ""),
+        ];
+        let summary = summarize_vault_notes(&notes);
+        assert_eq!(summary.total_notes, 2);
+        assert_eq!(summary.total_words, 3);
+        assert_eq!(summary.empty_notes, 1);
+        assert!(summary.distinct_terms >= 4);
     }
 }

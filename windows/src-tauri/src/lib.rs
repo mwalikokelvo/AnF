@@ -586,6 +586,7 @@ pub fn run() {
             workspace_load_project,
             workspace_list_projects,
             anf_vault_bridge::workspace_related_notes,
+            anf_vault_bridge::workspace_vault_health,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,

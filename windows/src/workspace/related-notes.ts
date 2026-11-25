@@ -13,6 +13,17 @@ export type RelatedNote = {
   score: number;
 };
 
+export type VaultHealthSummary = {
+  totalNotes: number;
+  totalWords: number;
+  emptyNotes: number;
+  distinctTerms: number;
+};
+
+export async function fetchVaultHealth(notes: RelatedNoteInput[]): Promise<VaultHealthSummary> {
+  return invoke<VaultHealthSummary>('workspace_vault_health', { notes });
+}
+
 /**
  * Queries the Rust `workspace_related_notes` Tauri command (`anf_vault::related`)
  * to rank related notes on-device via IDF-weighted cosine similarity.
