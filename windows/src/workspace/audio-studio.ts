@@ -467,5 +467,24 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
 
 }
 
+export type WaveformEnvelope = {
+ bucketCount: number;
+ peaks: number[];
+ rms: number[];
+ durationMs: number;
+};
+
+export async function computeWaveformEnvelope(
+ samples: number[],
+ sampleRate: number,
+ targetBuckets = 128,
+): Promise<WaveformEnvelope> {
+ return invoke<WaveformEnvelope>('audio_waveform_envelope', {
+  samples,
+  sampleRate,
+  targetBuckets,
+ });
+}
+
 
 

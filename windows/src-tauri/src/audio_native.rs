@@ -375,6 +375,68 @@ pub fn audio_audit_clipping(samples: Vec<f32>, clip_threshold: Option<f32>) -> R
     audit_clipping(&samples, clip_threshold.unwrap_or(0.999))
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WaveformEnvelope {
+    pub bucket_count: usize,
+    pub peaks: Vec<f32>,
+    pub rms: Vec<f32>,
+    pub duration_ms: u64,
+}
+
+pub fn compute_waveform_envelope(
+    samples: &[f32],
+    sample_rate: u32,
+    target_buckets: usize,
+) -> Result<WaveformEnvelope, String> {
+    if samples.is_empty() {
+        return Err("Cannot compute waveform envelope for empty audio.".into());
+    }
+    if sample_rate == 0 {
+        return Err("Sample rate must be greater than zero.".into());
+    }
+    let buckets = target_buckets.clamp(1, 4096).min(samples.len());
+    let mut peaks = Vec::with_capacity(buckets);
+    let mut rms = Vec::with_capacity(buckets);
+    let len = samples.len();
+    for b in 0..buckets {
+        let start = (b * len) / buckets;
+        let end = (((b + 1) * len) / buckets).max(start + 1).min(len);
+        let slice = &samples[start..end];
+        let mut peak = 0.0_f32;
+        let mut sum_sq = 0.0_f64;
+        for &s in slice {
+            let clean = if s.is_finite() { s.clamp(-1.0, 1.0) } else { 0.0 };
+            let abs = clean.abs();
+            if abs > peak {
+                peak = abs;
+            }
+            sum_sq += (clean as f64) * (clean as f64);
+        }
+        peaks.push(peak);
+        rms.push((sum_sq / (slice.len() as f64)).sqrt() as f32);
+    }
+    let duration_ms = ((len as f64) / (sample_rate as f64) * 1000.0).round() as u64;
+    Ok(WaveformEnvelope {
+        bucket_count: buckets,
+        peaks,
+        rms,
+        duration_ms,
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn audio_waveform_envelope(
+    samples: Vec<f32>,
+    sample_rate: u32,
+    target_buckets: Option<usize>,
+) -> Result<WaveformEnvelope, String> {
+    if samples.len() > 2_000_000 {
+        return Err("Waveform envelope input exceeds 2,000,000 samples.".into());
+    }
+    compute_waveform_envelope(&samples, sample_rate, target_buckets.unwrap_or(128))
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -720,6 +782,18 @@ pub fn audio_detect_silence(
   assert_eq!(rep.clipped_samples,3);
   assert_eq!(rep.max_clip_run,3);
   assert!(audit_clipping(&[],0.999).is_err());
+ }
+ #[test]fn waveform_envelope_downsamples_and_sanitizes_non_finite(){
+  let mut pcm=vec![0.5_f32;100];
+  pcm[5]=f32::NAN;pcm[60]=2.5;
+  let env=compute_waveform_envelope(&pcm,1000,10).unwrap();
+  assert_eq!(env.bucket_count,10);
+  assert_eq!(env.peaks.len(),10);
+  assert_eq!(env.rms.len(),10);
+  assert_eq!(env.duration_ms,100);
+  assert!((env.peaks[6]-1.0).abs()<1e-5);
+  assert!(compute_waveform_envelope(&[],1000,10).is_err());
+  assert!(compute_waveform_envelope(&pcm,0,10).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
