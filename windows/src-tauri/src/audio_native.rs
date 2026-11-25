@@ -266,6 +266,52 @@ pub fn audio_validate_batch_job(
     encoder(&format, &preset).map(|_| ())
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GaplessTransitionPlan {
+    pub should_preload: bool,
+    pub ms_until_preload: u64,
+    pub ms_until_transition: u64,
+    pub crossfade_sec: f64,
+}
+
+pub fn plan_gapless_transition(
+    duration_sec: f64,
+    position_sec: f64,
+    preload_lead_sec: f64,
+    crossfade_sec: f64,
+) -> Result<GaplessTransitionPlan, String> {
+    if !duration_sec.is_finite() || duration_sec <= 0.0 || !position_sec.is_finite() || position_sec < 0.0 {
+        return Err("Invalid track duration or position.".into());
+    }
+    let remaining = (duration_sec - position_sec).max(0.0);
+    let fade = crossfade_sec.clamp(0.0, 12.0).min(duration_sec * 0.4);
+    let lead = preload_lead_sec.clamp(0.5, 30.0).max(fade);
+    let until_preload = (remaining - lead).max(0.0);
+    let until_transition = (remaining - fade).max(0.0);
+    Ok(GaplessTransitionPlan {
+        should_preload: remaining <= lead,
+        ms_until_preload: (until_preload * 1000.0).round() as u64,
+        ms_until_transition: (until_transition * 1000.0).round() as u64,
+        crossfade_sec: fade,
+    })
+}
+
+#[tauri::command]
+pub fn audio_plan_gapless(
+    duration_sec: f64,
+    position_sec: f64,
+    preload_lead_sec: Option<f64>,
+    crossfade_sec: Option<f64>,
+) -> Result<GaplessTransitionPlan, String> {
+    plan_gapless_transition(
+        duration_sec,
+        position_sec,
+        preload_lead_sec.unwrap_or(4.0),
+        crossfade_sec.unwrap_or(1.5),
+    )
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -586,6 +632,15 @@ pub fn audio_detect_silence(
   assert!(audio_validate_batch_job(5,1024,"opus".into(),"voice".into()).is_ok());
   assert!(audio_validate_batch_job(0,1024,"opus".into(),"voice".into()).is_err());
   assert!(audio_validate_batch_job(5,1024,"exe".into(),"voice".into()).is_err());
+ }
+ #[test]fn gapless_transition_planner_computes_preload_and_clamps_crossfade(){
+  let early=plan_gapless_transition(60.0,10.0,5.0,2.0).unwrap();
+  assert!(!early.should_preload);
+  assert_eq!(early.ms_until_preload,45_000);
+  let near_end=plan_gapless_transition(10.0,8.0,4.0,8.0).unwrap();
+  assert!(near_end.should_preload);
+  assert_eq!(near_end.crossfade_sec,4.0);
+  assert!(plan_gapless_transition(0.0,0.0,4.0,1.0).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
