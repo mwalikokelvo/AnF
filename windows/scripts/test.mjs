@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const testsDir = path.join(root, 'tests');
 const dirFiles = await readdir(testsDir);
-const testFiles = dirFiles.filter(f => f.endsWith('.test.ts'));
+const filter = process.argv[2];
+const testFiles = dirFiles.filter(f => f.endsWith('.test.ts') && (!filter || f.includes(filter)));
 const outFiles = [];
 
 try {

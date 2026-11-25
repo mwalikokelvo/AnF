@@ -151,7 +151,7 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     });
 
     listener.start();
-    await wait(10);
+    await listener.whenStarted();
 
     emitEvent('kevo-ears-wake', 'HEY_KEVO');
     assert.equal(wakeWord, 'HEY_KEVO');

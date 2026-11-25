@@ -197,6 +197,8 @@ export class KevoEarsListener {
 
   private async bindEvents(): Promise<void> {
     this.unbindEvents();
+    const run = this.runId;
+    if (!this.isRunning) return;
 
     const listenFn = this.eventSource?.onEvent ?? onEvent;
 
@@ -208,18 +210,32 @@ export class KevoEarsListener {
       this.keepAwake();
       this.onWakeWord?.(wakeWord || 'kevo');
     });
+    if (run !== this.runId || !this.isRunning) {
+      if (typeof uWake === 'function') uWake();
+      return;
+    }
     this.unlistenWake = typeof uWake === 'function' ? uWake : undefined;
 
     const uDownload = await listenFn<unknown>('kevo-ears-download-progress', () => {
       if (!this.isRunning || this.reported) return;
       this.onStatus?.('Kevo is downloading its hearing models (first use only, about 80 MB)…');
     });
+    if (run !== this.runId || !this.isRunning) {
+      this.unbindEvents();
+      if (typeof uDownload === 'function') uDownload();
+      return;
+    }
     this.unlistenDownload = typeof uDownload === 'function' ? uDownload : undefined;
 
     const uBargeIn = await listenFn<void>('kevo-ears-barge-in', () => {
       if (!this.isRunning) return;
       this.onBargeIn?.();
     });
+    if (run !== this.runId || !this.isRunning) {
+      this.unbindEvents();
+      if (typeof uBargeIn === 'function') uBargeIn();
+      return;
+    }
     this.unlistenBargeIn = typeof uBargeIn === 'function' ? uBargeIn : undefined;
 
     const uPartial = await listenFn<string>('kevo-ears-partial', (transcript) => {
@@ -233,6 +249,11 @@ export class KevoEarsListener {
       clearTimeout(this.interimTimer);
       this.interimTimer = setTimeout(() => this.promoteInterim(), this.settleMs + 1400);
     });
+    if (run !== this.runId || !this.isRunning) {
+      this.unbindEvents();
+      if (typeof uPartial === 'function') uPartial();
+      return;
+    }
     this.unlistenPartial = typeof uPartial === 'function' ? uPartial : undefined;
 
     const uFinal = await listenFn<string>('kevo-ears-final', (transcript) => {
@@ -248,12 +269,22 @@ export class KevoEarsListener {
         this.settle();
       }
     });
+    if (run !== this.runId || !this.isRunning) {
+      this.unbindEvents();
+      if (typeof uFinal === 'function') uFinal();
+      return;
+    }
     this.unlistenFinal = typeof uFinal === 'function' ? uFinal : undefined;
 
     const uErr = await listenFn<string>('kevo-ears-error', (err) => {
       if (!this.isRunning) return;
       this.onError?.(err);
     });
+    if (run !== this.runId || !this.isRunning) {
+      this.unbindEvents();
+      if (typeof uErr === 'function') uErr();
+      return;
+    }
     this.unlistenError = typeof uErr === 'function' ? uErr : undefined;
   }
 
