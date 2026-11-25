@@ -147,6 +147,88 @@ pub fn audio_get_item_speed(state: State<'_, AudioQueueState>, id: String) -> Re
     Ok(guard.get_speed(&id))
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaSessionState {
+    pub title: String,
+    pub artist: String,
+    pub duration_sec: f64,
+    pub position_sec: f64,
+    pub playback_rate: f64,
+    pub playing: bool,
+}
+
+impl Default for MediaSessionState {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            artist: String::new(),
+            duration_sec: 0.0,
+            position_sec: 0.0,
+            playback_rate: 1.0,
+            playing: false,
+        }
+    }
+}
+
+impl MediaSessionState {
+    pub fn apply_key(&mut self, key: &str) -> Result<(), String> {
+        match key {
+            "play" => self.playing = true,
+            "pause" => self.playing = false,
+            "toggle" => self.playing = !self.playing,
+            "seek_forward" => {
+                let max_pos = if self.duration_sec > 0.0 { self.duration_sec } else { f64::MAX };
+                self.position_sec = (self.position_sec + 15.0).min(max_pos);
+            }
+            "seek_backward" => {
+                self.position_sec = (self.position_sec - 15.0).max(0.0);
+            }
+            "next" | "previous" => {
+                self.position_sec = 0.0;
+            }
+            _ => return Err("Unknown media key.".into()),
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct AudioMediaSession(Mutex<MediaSessionState>);
+
+#[tauri::command]
+pub fn audio_media_session_update(
+    state: State<'_, AudioMediaSession>,
+    session: MediaSessionState,
+) -> Result<MediaSessionState, String> {
+    let mut guard = state.0.lock().map_err(|_| "Media session lock unavailable.")?;
+    *guard = MediaSessionState {
+        title: session.title.chars().take(200).collect(),
+        artist: session.artist.chars().take(200).collect(),
+        duration_sec: session.duration_sec.max(0.0),
+        position_sec: session.position_sec.max(0.0),
+        playback_rate: if session.playback_rate.is_finite() { session.playback_rate.clamp(0.5, 3.0) } else { 1.0 },
+        playing: session.playing,
+    };
+    Ok(guard.clone())
+}
+
+#[tauri::command]
+pub fn audio_media_session_state(state: State<'_, AudioMediaSession>) -> Result<MediaSessionState, String> {
+    let guard = state.0.lock().map_err(|_| "Media session lock unavailable.")?;
+    Ok(guard.clone())
+}
+
+#[tauri::command]
+pub fn audio_media_key_dispatch(
+    state: State<'_, AudioMediaSession>,
+    key: String,
+) -> Result<MediaSessionState, String> {
+    let mut guard = state.0.lock().map_err(|_| "Media session lock unavailable.")?;
+    guard.apply_key(&key)?;
+    Ok(guard.clone())
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -450,6 +532,16 @@ pub fn audio_detect_silence(
   assert_eq!(q.set_speed("t1".into(),4.5),3.0);
   assert_eq!(q.get_speed("t1"),3.0);
   assert_eq!(q.get_speed("missing"),1.0);
+ }
+ #[test]fn media_session_handles_transport_keys_and_bounds(){
+  let mut ms=MediaSessionState{title:"Track".into(),artist:"Artist".into(),duration_sec:60.0,position_sec:50.0,playback_rate:1.0,playing:false};
+  ms.apply_key("play").unwrap();
+  assert!(ms.playing);
+  ms.apply_key("seek_forward").unwrap();
+  assert_eq!(ms.position_sec,60.0);
+  ms.apply_key("seek_backward").unwrap();
+  assert_eq!(ms.position_sec,45.0);
+  assert!(ms.apply_key("invalid_key").is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
