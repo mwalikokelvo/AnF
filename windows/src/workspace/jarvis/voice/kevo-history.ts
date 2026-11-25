@@ -32,13 +32,15 @@ export async function todayInHistory(
   const mm = String(m).padStart(2, '0');
   const dd = String(d).padStart(2, '0');
   const res = await onlineGet(
-    `https://en.wikipedia.org/api/rest_v1/feed/onthisday/all/${mm}/${dd}`,
+    `https://en.wikipedia.org/api/rest_v1/feed/onthisday/selected/${mm}/${dd}`,
     'Wikipedia',
-    fetchFn
+    fetchFn,
+    undefined,
+    1200
   );
   if (!res.ok) throw new Error(`Wikipedia answered ${res.status}.`);
-  const data = (await res.json()) as { events?: Array<{ year?: number; text?: string }> };
-  const events = (data.events || []).filter((e) => e.year && e.text).slice(0, 2);
+  const data = (await res.json()) as { selected?: Array<{ year?: number; text?: string }>; events?: Array<{ year?: number; text?: string }> };
+  const events = (data.selected ?? data.events ?? []).filter((e) => e.year && e.text).slice(0, 2);
   if (!events.length) return null;
   const spoken = events.map((e) => `In ${e.year}, ${e.text!.replace(/\s+/g, ' ').trim()}`).join('. ');
   const result = spoken.endsWith('.') ? spoken : spoken + '.';
