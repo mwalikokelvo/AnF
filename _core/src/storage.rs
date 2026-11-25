@@ -446,10 +446,20 @@ mod tests {
             created_at: 1,
         }
     }
+    fn random_test_password() -> String {
+        crate::document_hash(crate::new_salt())
+    }
     #[test]
     fn encrypted_snapshot_preserves_fts_and_rejects_tampering() {
         let salt = crate::new_salt();
-        let vault = VaultSession::new("test-password".into(), salt.clone()).unwrap();
+        let pass = random_test_password();
+        let wrong = loop {
+            let candidate = random_test_password();
+            if candidate != pass {
+                break candidate;
+            }
+        };
+        let vault = VaultSession::new(pass.clone(), salt.clone()).unwrap();
         let library = LibrarySession::new(vault).unwrap();
         library.upsert_book(book()).unwrap();
         library
@@ -501,7 +511,7 @@ mod tests {
         library.lock().unwrap();
         assert!(library.books().is_err());
         let restored = LibrarySession::from_snapshot(
-            VaultSession::new("test-password".into(), salt.clone()).unwrap(),
+            VaultSession::new(pass.clone(), salt.clone()).unwrap(),
             snapshot.clone(),
         )
         .unwrap();
@@ -522,12 +532,12 @@ mod tests {
         let mut corrupt = snapshot.clone();
         corrupt[20] ^= 1;
         assert!(LibrarySession::from_snapshot(
-            VaultSession::new("test-password".into(), salt.clone()).unwrap(),
+            VaultSession::new(pass, salt.clone()).unwrap(),
             corrupt
         )
         .is_err());
         assert!(LibrarySession::from_snapshot(
-            VaultSession::new("wrong-password".into(), salt).unwrap(),
+            VaultSession::new(wrong, salt).unwrap(),
             snapshot
         )
         .is_err());
@@ -535,7 +545,7 @@ mod tests {
     #[test]
     fn indexing_is_transactional_and_query_operators_are_literal() {
         let library = LibrarySession::new(
-            VaultSession::new("test-password".into(), crate::new_salt()).unwrap(),
+            VaultSession::new(random_test_password(), crate::new_salt()).unwrap(),
         )
         .unwrap();
         library.upsert_book(book()).unwrap();

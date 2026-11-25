@@ -25,7 +25,13 @@ jobs:
       # zip: advisories concern ZipArchive::extract(), which AnF never calls (it only reads
       # individual members). Remove once zip is on 9.x.
       # libsqlite3-sys: medium advisory on the bundled C SQLite; upgrade rusqlite when practical.
+      # glib (RUSTSEC-2024-0429): unsound Iterator impls for glib::VariantStrIter. AnF never calls
+      # it; glib 0.20 needs gtk-rs 0.20, which the tao/wry/gtk 0.18 stack Tauri 2.12 pins does not
+      # support yet. Revisit when Tauri moves to gtk-rs 0.20.
+      # zip 0545/0548: AES entries and ZipStreamReader. AnF builds zip without the `aes` feature
+      # and reads through ZipArchive/enclosed_name, so neither path exists here. Remove with zip 9.x.
       - run: >
           cargo audit --file windows/Cargo.lock
           --ignore RUSTSEC-2026-0367 --ignore RUSTSEC-2026-0368 --ignore RUSTSEC-2026-0369
           --ignore RUSTSEC-2026-0429 --ignore RUSTSEC-2026-0459
+          --ignore RUSTSEC-2024-0429 --ignore RUSTSEC-2026-0545 --ignore RUSTSEC-2026-0548

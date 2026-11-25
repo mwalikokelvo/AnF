@@ -13,6 +13,9 @@ import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
 import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
+import { isWhatsPlayingRequest, formatWhatsPlaying } from './kevo-whats-playing';
+import { isHistoryRequest, todayInHistory } from './kevo-history';
+import { isAdviceRequest, randomAdvice } from './kevo-advice';
 import {
   createReminder,
   listReminders,
@@ -22,6 +25,12 @@ import {
   getDailyBriefingSchedule,
   cancelDailyBriefingSchedule,
 } from './jarvis-schedule';
+import {
+  addToShoppingList,
+  listShoppingList,
+  clearShoppingList,
+  removeFromShoppingList,
+} from './kevo-shopping';
 import { kevoLinkBus } from '../kevo-link-bus';
 
 export type JarvisAskAiResult =
@@ -42,6 +51,8 @@ export interface JarvisActionContext {
   nextTrack?: () => void;
   /** Skips to the previous music track. */
   previousTrack?: () => void;
+  /** Returns the currently playing or loaded music track from Music Hub, or null if nothing is playing. */
+  getCurrentTrack?: () => { title: string; artist?: string; album?: string } | null;
   /** Changes the Music Hub volume and returns the new level, 0 to 100. */
   setMusicVolume?: (change: VolumeRequest) => number;
   searchMusic?: (query: string) => Promise<boolean>;
@@ -235,6 +246,16 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
 // "don't forget to tell me the time at noon") and "why don't you skip this song?" are not refusals: the model may act.
 const REFUSED_COMMAND = /\b(?:not|don'?t|never)\b[^.;!?]*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track)|tell me the (?:current )?time)\b/;
 const NOT_A_REFUSAL = /\b(?:remind|remember|forget)\b|\bwhy don'?t you\b/;
+// Questions about whether the user/assistant should/did skip a track ("Should I skip this song?", "Did you skip the song?").
+const NON_REQUEST_SKIP_QUESTION = /^(?:(?:should|can|could|may|might|must|do|did|will|would) (?:i|we)\b.*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track))|did you\b.*\bskip(?: (?:this|the|that))? (?:song|track))\b/;
+
+/** True when a sentence quotes a command after a lead-in like "did you say, ..." or "imagine I say, ...". */
+function isQuotedCommand(lower: string): boolean {
+  return (lower.match(/[^.;!?]+[.;!?]*/g) ?? []).some((sentence) => {
+    const parts = sentence.replace(/[.;!?]+$/, '').split(',').map((p) => p.trim());
+    return parts.slice(0, -1).some((part) => QUOTE_LEAD.test(part));
+  });
+}
 
 const COMMAND_START = /^(?:open|launch|start|play|stream|pause|resume|skip|set|cancel|search|google|look up|go to|show|take a note|note that|write this down|remember|keep in mind|forget|remind me)\b/i;
 
@@ -251,7 +272,7 @@ export function stripLeadIn(text: string): string {
 /** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
 export function splitRequests(text: string): string[] {
   return text
-    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock)\b)/i)
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock|what(?:'s| is) playing|what song is this|what are we listening to|(?:what happened )?(?:today in history|on this day)|(?:(?:tell|give) me (?:some |a piece of )?|random |some )?advice)\b)/i)
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3);
@@ -503,7 +524,7 @@ export class JarvisVoiceAgent {
    * An answer from an online service, behind the online lookups switch. `say` runs only when the answer is still
    * wanted: Stop pressed or a new conversation while it was on its way leaves nothing said or kept.
    */
-  private async online<T>(kind: 'translate' | 'trivia', what: string, ask: () => Promise<T>, say: (answer: T) => string): Promise<ActionResult> {
+  private async online<T>(kind: 'translate' | 'trivia' | 'today_in_history', what: string, ask: () => Promise<T>, say: (answer: T) => string): Promise<ActionResult> {
     if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: kind, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
     const asked = this.generation;
     try {
@@ -702,6 +723,61 @@ export class JarvisVoiceAgent {
       }
     }
 
+    // Fast path for shopping / grocery list
+    const shopText = text
+      .trim()
+      .replace(/[.!?]+$/, '')
+      .replace(/^(?:(?:can|could|would|will) you(?:\s+please)?|please)[\s,]+/i, '')
+      .replace(/[\s,]+please$/i, '')
+      .trim();
+    const addShopMatch = /^add\s+(.+?)\s+to\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(shopText);
+    if (addShopMatch) {
+      const item = addShopMatch[1].trim();
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'add_to_shopping_list', speechReply: `Added ${item} to your shopping list.`, status: 'success', verified: true };
+      }
+      const reply = addToShoppingList(item);
+      return { handled: true, actionName: 'add_to_shopping_list', speechReply: reply, status: 'success', verified: true };
+    }
+    const listShopMatch = /^(?:what(?:'s|\s+is)\s+on\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list|(?:list|read|show|check)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list)$/i.exec(shopText);
+    if (listShopMatch) {
+      const reply = listShoppingList();
+      return { handled: true, actionName: 'list_shopping_list', speechReply: reply, status: 'success', verified: true };
+    }
+    const clearShopMatch = /^(?:clear|empty)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(shopText);
+    if (clearShopMatch) {
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'clear_shopping_list', speechReply: 'Cleared your shopping list, sir.', status: 'success', verified: true };
+      }
+      this.setPendingApproval({
+        id: `clear-shopping-${Date.now()}`,
+        action: 'clear_shopping_list',
+        summary: 'Clear your entire shopping list',
+        answer: async (approved) => {
+          this.setPendingApproval(null);
+          if (approved) clearShoppingList();
+        },
+      });
+      return { handled: true, actionName: 'approval_requested', speechReply: 'Clear your entire shopping list? Say yes to confirm or no to cancel.', status: 'success', verified: true };
+    }
+    const removeShopMatch = /^(?:remove|delete)\s+(.+?)\s+from\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(shopText);
+    if (removeShopMatch) {
+      const item = removeShopMatch[1].trim();
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'remove_from_shopping_list', speechReply: `Removed ${item} from your shopping list.`, status: 'success', verified: true };
+      }
+      const reply = removeFromShoppingList(item);
+      const missing = /was not on your shopping list/i.test(reply);
+      return {
+        handled: !missing,
+        actionName: 'remove_from_shopping_list',
+        speechReply: reply,
+        status: missing ? 'failure' : 'success',
+        verified: !missing,
+        ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
+      };
+    }
+
     // Right after an app was not found, a short name on its own ("Brave browser") is the app to open.
     if (this.lastAction === 'open_app_failed' && text.split(/\s+/).length <= 3 && !COMMAND_START.test(text)) {
       text = `open ${text}`;
@@ -772,9 +848,22 @@ export class JarvisVoiceAgent {
     }
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
     if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
+    if (isAdviceRequest(lower)) {
+      const asked = this.generation;
+      const advice = await randomAdvice(this.context.onlineLookupsEnabled?.() ?? true);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: 'random_advice', speechReply: advice, status: 'success', verified: true };
+    }
 
-    // Online, behind the online lookups switch: trivia (Open Trivia DB). The old question goes first, so a failed or
-    // blocked request leaves nothing for the next reply to answer.
+    // Online, behind the online lookups switch: trivia (Open Trivia DB) and today in history (Wikipedia).
+    if (isHistoryRequest(lower)) {
+      return this.online(
+        'today_in_history',
+        'check today in history',
+        () => todayInHistory(),
+        (events) => (events ? `On this day in history: ${events}` : 'I could not find any recorded historical events for today, sir.')
+      );
+    }
     if (isTriviaRequest(lower)) {
       this.trivia = null;
       return this.online('trivia', 'get a trivia question', fetchTrivia, (question) => askTrivia((this.trivia = question)));
@@ -956,6 +1045,12 @@ export class JarvisVoiceAgent {
       return { handled: true, actionName: 'previous_track', speechReply: 'Going back to the previous track, sir.' };
     }
 
+    // "What's playing?", "what song is this", "what are we listening to"
+    if (isWhatsPlayingRequest(lower)) {
+      const track = this.context.getCurrentTrack ? this.context.getCurrentTrack() : null;
+      return { handled: true, actionName: 'whats_playing', speechReply: formatWhatsPlaying(track), status: 'success', verified: true };
+    }
+
     // 3. Places inside AnF. Exact names only, so "open Visual Studio Code" or "open ChatGPT" reach the apps below.
     const place = /^(?:open|go to|show)\s+(?:the\s+|my\s+)?(.+?)[.!?]*$/.exec(lower);
     const route = place && WORKSPACE_PLACES[place[1]];
@@ -1105,8 +1200,11 @@ export class JarvisVoiceAgent {
             release.forEach(onPart);
           });
         };
-        // Kevo already said no to the command it heard here: the model must not act on it either.
-        const answerOnly = REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower);
+        // Kevo already said no to the command (or quotation/question) it heard here: the model must not act on it either.
+        const answerOnly =
+          (REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower)) ||
+          isQuotedCommand(lower) ||
+          NON_REQUEST_SKIP_QUESTION.test(lower);
         let aiResult = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding(), answerOnly });
         let aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
         let aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';

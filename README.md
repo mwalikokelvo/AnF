@@ -24,10 +24,10 @@ AnF keeps your documents, notes, books and audio on your own devices. There is n
 
 Kevo is AnF's voice assistant, formerly called JARVIS. Say "Kevo" or "Hey Kevo", or type a request in its box.
 
-- **Instant commands:** the time and date, sums, timers and reminders ("remind me in 10 minutes to call Mum"), play music, take a note, search your notes, open apps and places, search the web, "say that again", "stop".
-- **Questions:** anything else goes to the offline model on your PC. The answer is shown and spoken sentence by sentence as it is written, and a Stop button ends it.
+- **Instant commands:** the time and date, sums, timers and reminders ("remind me in 10 minutes to call Mum"), play music, what's playing, today in history, random advice, take a note, search your notes, open apps and places, search the web, "say that again", "stop".
+- **Questions:** anything else goes to the unified offline local model on your PC. The answer is shown and spoken sentence by sentence as it is written, and a Stop button ends it.
 - **Voice pack:** 13 voices ship with every build, including Kevo's own gentle bass voice. Pick one from the voice list in Kevo's panel and press "Hear this voice" to play its recording. Kevo's replies are spoken by the Windows voice that best matches the chosen voice's accent and gender; the recordings are not a speech engine. The first second of the chosen recording is the chime Kevo plays when it hears its name.
-- For now Kevo listens through the speech recogniser built into the app's web view, which needs an internet connection. Everything else Kevo does works offline.
+- **Offline Hearing & Speech:** Kevo's hearing engine runs fully offline on your PC using sherpa-onnx streaming wake-word and speech-to-text models in native Rust, with zero audio sent over the network.
 
 ### Music Hub
 
@@ -43,13 +43,19 @@ Separate from the Music Hub, for working on recordings: import files or a folder
 
 ### Writing, reading and the vault
 
-- A Markdown editor for drafts and notes (up to 2 MB per draft), with an outline, quick capture, daily notes, a task list and board, and exports.
-- A reader for your documents and books, with read-aloud, and offline OCR for scanned PDF pages on Windows.
+- A Markdown editor for drafts and notes (up to 2 MB per draft), with an outline, quick capture, daily notes, a task list and board, academic research citations (APA/BibTeX), and exports.
+- A reader for your documents and books supporting EPUB, PDF (with offline OCR for scanned pages), CBZ comic books, FB2, MOBI/Kindle, DOCX, ODT, RTF, and WebDoc archives, featuring FSRS-4.5 spaced repetition review cards, bionic reading fixation, and read-aloud narration.
 - **Vault:** projects are stored in an encrypted SQLCipher (AES-256) database. Vault search returns the 100 best matches and stays under 50 ms (p95) on a vault of 2,000 projects, checked by an automated test.
 
-### AI chat
+### AI chat & local intelligence
 
-Chat about your documents with a bundled offline model (Qwen3 1.7B, no key or internet needed, the default), or with Anthropic, OpenAI or Gemini using your own API key. If a cloud provider fails, chat can fall back to the offline model, and every local reply is labelled. Answers from the small offline model are simpler than the cloud models'.
+- Chat about your documents with the unified high-performance local model (`DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-GGUF` with dual Vulkan GPU and CPU runtimes, downloaded and verified on first use), or with Anthropic, OpenAI or Gemini using your own API key.
+- Includes pure TypedArray Q4_0 and Q8_0 quantized tensor kernels, sub-millisecond intent routing, and local context compaction.
+
+### Device security & LocalSend P2P
+
+- **LocalSend P2P Transfer:** Fast multicast UDP discovery and binary chunk streaming (`0x4C534E44`) for secure, direct file transfer between PC, Android, and local devices with zero cloud relay.
+- **Built-in Security & Audit:** Continuous desktop security auditor scanning for secret leakage, CSP origins, AST patterns, dependency CVEs, and Model Context Protocol (MCP) tool poisoning protection.
 
 ### Your devices together
 

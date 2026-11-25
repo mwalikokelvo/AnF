@@ -185,13 +185,25 @@ export class EchoLyricsOrchestrator {
     return null;
   }
 
+  private stripXmlTags(input: string): string {
+    let out = '';
+    let inTag = false;
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i];
+      if (ch === '<') inTag = true;
+      else if (ch === '>') inTag = false;
+      else if (!inTag) out += ch;
+    }
+    return out;
+  }
+
   private ttmlToLrc(ttml: string): string {
     const pRegex = /<p[^>]*begin="([^"]+)"[^>]*>([\s\S]*?)<\/p>/gi;
     const lrcLines: string[] = [];
     let match: RegExpExecArray | null;
     while ((match = pRegex.exec(ttml)) !== null) {
       const begin = match[1];
-      const text = match[2].replace(/<[^>]+>/g, '').trim();
+      const text = this.stripXmlTags(match[2]).trim();
       // Format begin time mm:ss.xx
       lrcLines.push(`[${begin}] ${text}`);
     }

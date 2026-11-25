@@ -176,7 +176,7 @@ export function generateStoryboardFromText(text: string, title = 'Cinematic Stor
 export function storyboardToMarkdown(sb: Storyboard): string {
   const frontmatter = [
     '---',
-    `title: "${sb.title.replace(/"/g, '\\"')}"`,
+    `title: ${JSON.stringify(sb.title)}`,
     'type: storyboard',
     'generator: open-higgsfield-ai',
     `aspect_ratio: "${sb.aspectRatio}"`,

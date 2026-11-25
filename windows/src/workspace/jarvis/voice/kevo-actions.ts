@@ -28,8 +28,10 @@
  * - tell_time: report current time
  * - tell_date: report today's date
  * - audius_search: search music on Audius
+ * - whats_playing: report currently playing track
  * - convert_units: length, mass and temperature, offline
- * - wikipedia_summary, define_word, convert_currency: online lookups, on unless the owner turns them off
+ * - random_advice: life advice and tips (online/offline)
+ * - today_in_history, wikipedia_summary, define_word, convert_currency: online lookups, on unless the owner turns them off
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
@@ -39,6 +41,10 @@ import { ONLINE_LOOKUPS_OFF } from './kevo-online';
 import { wikipediaSummary } from './kevo-wikipedia';
 import { lookupWord, formatDefinition } from './kevo-dictionary';
 import { currencyCode, convertCurrency, formatConversion } from './kevo-currency';
+import { formatWhatsPlaying } from './kevo-whats-playing';
+import { todayInHistory } from './kevo-history';
+import { randomAdvice } from './kevo-advice';
+import { fetchInvidiousTranscript, formatTranscriptMarkdown } from '../../invidious-service';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
   createReminder,
@@ -48,6 +54,12 @@ import {
   cancelDailyBriefingSchedule,
   getDailyBriefingSchedule,
 } from './jarvis-schedule';
+import {
+  addToShoppingList,
+  listShoppingList,
+  clearShoppingList,
+  removeFromShoppingList,
+} from './kevo-shopping';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -555,6 +567,26 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
     },
   },
   {
+    name: 'whats_playing',
+    description: 'Reports the title, artist, and album of the currently playing music track.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      const track = ctx.getCurrentTrack ? ctx.getCurrentTrack() : null;
+      const speechReply = formatWhatsPlaying(track);
+      return {
+        handled: true,
+        actionName: 'whats_playing',
+        speechReply,
+        status: 'success',
+        verified: true,
+        verificationDetails: track ? `Track: ${track.title}` : 'Nothing playing',
+      };
+    },
+  },
+  {
     name: 'timer_set',
     description: 'Sets a countdown timer for a specified duration in seconds.',
     parameters: {
@@ -1005,6 +1037,109 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         return { handled: true, actionName: 'convert_currency', speechReply: formatConversion(conv), status: 'success', verified: true, data: conv };
       } catch (err: any) {
         return lookupFailed('convert_currency', `I could not get the exchange rate: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'today_in_history',
+    description: 'Looks up major historical events that happened on this day in history from Wikipedia (online, when online lookups are on).',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('today_in_history');
+      try {
+        const events = await todayInHistory();
+        if (!events) {
+          return {
+            handled: true,
+            actionName: 'today_in_history',
+            speechReply: 'I could not find any recorded historical events for today, sir.',
+            status: 'success',
+            verified: true,
+          };
+        }
+        return {
+          handled: true,
+          actionName: 'today_in_history',
+          speechReply: `On this day in history: ${events}`,
+          status: 'success',
+          verified: true,
+          data: { events },
+        };
+      } catch (err: any) {
+        return lookupFailed('today_in_history', `I could not check today in history: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'random_advice',
+    description: 'Shares a piece of life advice or a helpful tip, online or offline.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      const online = ctx.onlineLookupsEnabled?.() ?? true;
+      const advice = await randomAdvice(online);
+      return {
+        handled: true,
+        actionName: 'random_advice',
+        speechReply: advice,
+        status: 'success',
+        verified: true,
+        data: { advice },
+      };
+    },
+  },
+  {
+    name: 'transcribe_video',
+    description: 'Fetches the transcript of an educational or video link via privacy-friendly Invidious and creates a note from it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'YouTube or Invidious video URL or ID to transcribe' },
+        save_as_note: { type: 'boolean', description: 'Whether to save the transcript directly as a new note in the vault' },
+      },
+      required: ['url'],
+    },
+    execute: async (args: any, ctx: JarvisActionContext) => {
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('transcribe_video');
+      const url = typeof args?.url === 'string' ? args.url : '';
+      if (!url) {
+        return {
+          handled: true,
+          actionName: 'transcribe_video',
+          speechReply: 'Please provide a video URL or video ID to transcribe, sir.',
+          status: 'failure',
+          verified: false,
+        };
+      }
+      try {
+        const transcript = await fetchInvidiousTranscript(url);
+        const md = formatTranscriptMarkdown(transcript);
+        if (args.save_as_note && ctx.saveQuickNote) {
+          await ctx.saveQuickNote(md);
+          return {
+            handled: true,
+            actionName: 'transcribe_video',
+            speechReply: `I have transcribed "${transcript.title}" and saved it as a note in your vault, sir.`,
+            status: 'success',
+            verified: true,
+            data: { title: transcript.title, videoId: transcript.videoId, wordCount: transcript.fullText.split(/\s+/).length },
+          };
+        }
+        return {
+          handled: true,
+          actionName: 'transcribe_video',
+          speechReply: `Transcribed "${transcript.title}". It contains ${transcript.segments.length} captioned sections and about ${transcript.fullText.split(/\s+/).length} words, sir.`,
+          status: 'success',
+          verified: true,
+          data: { title: transcript.title, videoId: transcript.videoId, text: transcript.fullText.slice(0, 500) },
+        };
+      } catch (err: any) {
+        return lookupFailed('transcribe_video', `Could not transcribe this video: ${err?.message || String(err)}`);
       }
     },
   },
@@ -1480,6 +1615,113 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           reason: 'EXECUTION_FAILED',
         };
       }
+    },
+  },
+  {
+    name: 'add_to_shopping_list',
+    description: 'Adds an item to the shopping list or to-do list.',
+    parameters: {
+      type: 'object',
+      properties: {
+        item: { type: 'string', description: 'Item name to add (e.g. "milk", "eggs", "coffee")' },
+      },
+      required: ['item'],
+    },
+    execute: async (args: { item: string }, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'add_to_shopping_list',
+          speechReply: `Added ${String(args?.item || '').trim()} to your shopping list.`,
+          status: 'success',
+          verified: true,
+        };
+      }
+      const reply = addToShoppingList(args?.item);
+      return {
+        handled: true,
+        actionName: 'add_to_shopping_list',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'list_shopping_list',
+    description: 'Reads out the current shopping list items.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      const reply = listShoppingList();
+      return {
+        handled: true,
+        actionName: 'list_shopping_list',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'clear_shopping_list',
+    description: 'Clears all items from the shopping list.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: Record<string, never>, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'clear_shopping_list',
+          speechReply: 'Cleared your shopping list, sir.',
+          status: 'success',
+          verified: true,
+        };
+      }
+      const reply = clearShoppingList();
+      return {
+        handled: true,
+        actionName: 'clear_shopping_list',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'remove_from_shopping_list',
+    description: 'Removes a specific item from the shopping list.',
+    parameters: {
+      type: 'object',
+      properties: {
+        item: { type: 'string', description: 'Item name to remove' },
+      },
+      required: ['item'],
+    },
+    execute: async (args: { item: string }, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'remove_from_shopping_list',
+          speechReply: `Removed ${String(args?.item || '').trim()} from your shopping list.`,
+          status: 'success',
+          verified: true,
+        };
+      }
+      const reply = removeFromShoppingList(args?.item);
+      const missing = /was not on your shopping list/i.test(reply);
+      return {
+        handled: !missing,
+        actionName: 'remove_from_shopping_list',
+        speechReply: reply,
+        status: missing ? 'failure' : 'success',
+        verified: !missing,
+        ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
+      };
     },
   },
 ];

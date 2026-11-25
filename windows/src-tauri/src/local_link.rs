@@ -144,12 +144,16 @@ fn serve(mut stream:TcpStream,s:&Session,store:&projects::Store,app:Option<&taur
         assert_eq!(empty,"");assert_eq!(fast,"fast");
         assert!(phone_ask_context(&json!({"memory":"x".repeat(12_001)})).is_err());
     }
+    fn test_nonce(n: u32) -> [u8; 12] {
+        let bytes = n.to_le_bytes();
+        std::array::from_fn(|i| bytes.get(i).copied().unwrap_or(0))
+    }
     #[test]fn replay_window_forgets_old_nonces_instead_of_ending_the_session(){
         let mut seen=Nonces::default();
-        let first=[0;12];
+        let first=test_nonce(0);
         assert!(seen.remember(first));
         assert!(!seen.remember(first));
-        for n in 1..=10_000u32 { let mut nonce=[0;12]; nonce[..4].copy_from_slice(&n.to_le_bytes()); assert!(seen.remember(nonce)); }
+        for n in 1..=10_000u32 { assert!(seen.remember(test_nonce(n))); }
         assert!(seen.remember(first));
     }
     #[test]fn encryption_authenticates_direction_key_and_content(){let key=[7;32];let msg=seal(&key,"request",b"private notes").unwrap();assert_eq!(open(&key,"request",&msg).unwrap(),b"private notes");assert!(open(&key,"response",&msg).is_err());assert!(open(&[8;32],"request",&msg).is_err());let mut bad=msg.clone();bad[15]^=1;assert!(open(&key,"request",&bad).is_err());assert_ne!(seal(&key,"request",b"private notes").unwrap(),msg);}
