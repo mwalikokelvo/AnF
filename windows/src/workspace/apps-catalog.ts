@@ -242,3 +242,66 @@ export function appCatalogPanel(open:(url:string)=>Promise<unknown>, here:Platfo
     search,h('div',{class:'chips',role:'group','aria-label':'Category'},...chips.map(c=>c.b)),
     h('div',{class:'chips',role:'group','aria-label':'Platform'},...platformChips.map(c=>c.b)),notice,list);
 }
+
+/** Opens the Companion Apps & Integrations directory inside a dedicated modal drawer. */
+export function openIntegrationsDrawer(
+  open: (url: string) => Promise<unknown>,
+  here: Platform = 'Windows'
+): HTMLDialogElement {
+  const previous = (document.activeElement as HTMLElement | null) ?? null;
+  const dialog = h('dialog', {
+    class: 'integrations-drawer',
+    'aria-label': 'Integrations & Companion Apps',
+  }) as HTMLDialogElement;
+
+  const dismiss = () => {
+    if (typeof dialog.close === 'function' && dialog.open) {
+      dialog.close();
+    }
+    dialog.remove();
+    previous?.focus?.();
+  };
+
+  const closeBtn = h('button', {
+    type: 'button',
+    class: 'integrations-drawer-close',
+    text: 'Close',
+    'aria-label': 'Close integrations drawer',
+    onclick: dismiss,
+  });
+
+  const catalog = appCatalogPanel(open, here) as HTMLDetailsElement;
+  catalog.open = true;
+
+  dialog.append(
+    h(
+      'header',
+      { class: 'integrations-drawer-header' },
+      h(
+        'div',
+        {},
+        h('h2', { text: 'Integrations' }),
+        h('p', {
+          class: 'hint',
+          text: 'Third-party companion apps (Kiwix, Audacity, Anki, and more) and built-in workspace tools.',
+        })
+      ),
+      closeBtn
+    ),
+    h('div', { class: 'integrations-drawer-body' }, catalog)
+  );
+
+  dialog.addEventListener('cancel', (e) => {
+    e.preventDefault();
+    dismiss();
+  });
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) dismiss();
+  });
+
+  document.body.append(dialog);
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+  }
+  return dialog;
+}

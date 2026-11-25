@@ -26,7 +26,7 @@ import './anf-design.css';
 import './anf-color.css';
 import './anf-tonal.css';
 import {attachNavRail} from './nav-rail';
-import {appCatalogPanel} from './apps-catalog';
+import {openIntegrationsDrawer} from './apps-catalog';
 import {loadKoreaderSettings,saveKoreaderSettings} from './koreader-bridge';
 import {loadSubsonicSettings,saveSubsonicSettings,saveSubsonicPassword,testSubsonic,connectDemoSubsonic} from './subsonic';
 import {sectionIcon,wordmark} from './anf-brand';
@@ -627,12 +627,19 @@ lazySection('settings','Settings',panel=>{
   const extPanel=h('div',{class:'settings-panel-view',hidden:true},
     h('div',{class:'settings-card'},
       h('h3',{text:'Appearance Themes'}),
-      marketplacePanel(),
-      h('h3',{text:'Verified Companion Apps'}),
-      appCatalogPanel(url=>invoke('open_url',{url}))
+      marketplacePanel()
     )
   );
   settingsPanels.set('extensions',extPanel);
+
+  const integrationsPanel=h('div',{class:'settings-panel-view',hidden:true},
+    h('div',{class:'settings-card'},
+      h('h3',{text:'Companion Apps & Integrations'}),
+      h('p',{class:'hint',text:'Browse verified open-source companion applications (Kiwix, Audacity, Anki, and more) and built-in workspace tools.'}),
+      button('Open Integrations drawer',async()=>{openIntegrationsDrawer(url=>invoke('open_url',{url}));},'primary')
+    )
+  );
+  settingsPanels.set('integrations',integrationsPanel);
 
   const sysPanel=h('div',{class:'settings-panel-view',hidden:true},
     h('div',{class:'settings-card'},
@@ -669,6 +676,7 @@ lazySection('settings','Settings',panel=>{
     ['sync','Devices & Sync'],
     ['vault','Vault & Privacy'],
     ['extensions','Themes & Apps'],
+    ['integrations','Integrations'],
     ['system','System & Health']
   ] as const;
 
@@ -685,6 +693,7 @@ const studio=createStudio({list:()=>invoke<Entry[]>('workspace_list_projects',{q
  open:async id=>{await run(async()=>{await saveProject();const p=await invoke<Project>('workspace_load_project',{id});projectGeneration++;replyDraft.reset();projectId=p.id;projectRevision=p.revision;name.value=p.name;title.value=p.title;question.value=p.question;draft.value=p.draft;history=p.history;sources=p.sources;memory.value=p.memory;model.value='deepseek-v4-pro-qwen3.5-9b';lastSavedSignature=JSON.stringify(snapshot());renderSources();renderHistory();writing?.refresh(projectId);showView('writing');},'Opening note');},
  append:text=>{draft.value=appendDraft(draft.value,text);writing?.refresh(projectId);autosave();},commands:()=>{const open=(name:string)=>()=>document.dispatchEvent(new Event(name));return [
  {label:'Quick note',run:()=>quickNote.open()},
+ {label:'Integrations · companion apps',run:()=>{openIntegrationsDrawer(url=>invoke('open_url',{url}));}},
  {label:'Devices · connect another device',run:()=>{showView('settings');selectSettingsCategory('sync');if(linkPanelEl)linkPanelEl.open=true;}},
  {label:'Keys · keyboard shortcuts',run:()=>void import('./shortcuts-dialog').then(m=>m.openShortcutsDialog())},
  {label:'AppFlowy board',run:open('anf-open-appflowy')},
