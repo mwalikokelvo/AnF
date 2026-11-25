@@ -156,6 +156,24 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
   report(`Trimmed ${plan.trimmedSec.toFixed(2)}s of silence (${plan.keepStartSec.toFixed(2)}s–${plan.keepEndSec.toFixed(2)}s).`);
  });
 
+ const normalizeLufsButton=action('Normalize (-14 LUFS)',async()=>{
+  report('Analyzing integrated loudness (LUFS)…');
+  const b=await decode();
+  const raw=b.getChannelData(0);
+  const stride=Math.max(1,Math.ceil(raw.length/1_500_000));
+  const samples=stride===1?Array.from(raw):Array.from({length:Math.ceil(raw.length/stride)},(_,i)=>raw[i*stride]);
+  const info=await invoke<{integratedLufs:number;recommendedGain:number;gainDb:number}>('audio_analyze_loudness',{samples,targetLufs:-14});
+  const chs=Array.from({length:b.numberOfChannels},(_,i)=>{
+   const src=b.getChannelData(i),out=new Float32Array(src.length),g=info.recommendedGain;
+   for(let j=0;j<src.length;j++)out[j]=Math.max(-1,Math.min(1,src[j]*g));
+   return out;
+  });
+  const blob=new Blob([wav(chs,b.sampleRate)],{type:'audio/wav'});
+  const name=(title.value.trim()||track?.title||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-lufs14.wav';
+  if(exportAudio){await exportAudio(name,blob);}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+  report(`Normalized from ${info.integratedLufs.toFixed(1)} LUFS (${info.gainDb>=0?'+':''}${info.gainDb.toFixed(1)} dB).`);
+ });
+
  const clipDuration=h('select',{'aria-label':'Clip length',class:'audio-clip-duration'},...[15,30,45,60,90,120].map(s=>h('option',{value:String(s),text:s+'s clip'}))) as HTMLSelectElement;
  clipDuration.value='30';
  const clipButton=action('Export Clip',async()=>{
@@ -351,7 +369,7 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
      h('h3', { text: 'Restore speech & export' }),
      h('p', { text: 'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.' }),
      h('div', { class: 'audio-controls' }, h('label', {}, profile, 'Use noise profile'), h('label', {}, 'Start (seconds) ', noiseStart), noiseLength, action('Use current position', () => { noiseStart.value = audio.currentTime.toFixed(1); })),
-     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, clipDuration, clipButton, transcribeButton)
+     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, normalizeLufsButton, clipDuration, clipButton, transcribeButton)
    )
  );
 

@@ -109,6 +109,99 @@ pub fn detect_silence_regions(
     })
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LoudnessReport {
+    pub integrated_lufs: f64,
+    pub true_peak_db: f64,
+    pub target_lufs: f64,
+    pub recommended_gain: f64,
+    pub gain_db: f64,
+}
+
+/// Analyze integrated loudness (RMS-based LUFS) and compute a peak-safe normalization gain.
+pub fn compute_lufs_and_gain(samples: &[f32], target_lufs: f64) -> Result<LoudnessReport, String> {
+    if samples.is_empty() {
+        return Err("Provide non-empty audio samples for loudness analysis.".into());
+    }
+    let target = target_lufs.clamp(-36.0, -6.0);
+    let mut sum_sq = 0.0_f64;
+    let mut peak = 0.0_f64;
+    for &s in samples {
+        let v = (s as f64).abs();
+        if v.is_finite() {
+            sum_sq += v * v;
+            if v > peak {
+                peak = v;
+            }
+        }
+    }
+    let rms = (sum_sq / samples.len() as f64).sqrt();
+    if rms <= 1e-7 || peak <= 1e-7 {
+        return Ok(LoudnessReport {
+            integrated_lufs: -70.0,
+            true_peak_db: -70.0,
+            target_lufs: target,
+            recommended_gain: 1.0,
+            gain_db: 0.0,
+        });
+    }
+    let integrated_lufs = 20.0 * rms.log10() - 0.691;
+    let true_peak_db = 20.0 * peak.log10();
+    let desired_db = target - integrated_lufs;
+    // Prevent clipping by capping gain so peak stays <= -0.5 dBFS.
+    let max_safe_db = -0.5 - true_peak_db;
+    let applied_db = desired_db.min(max_safe_db).clamp(-24.0, 24.0);
+    let recommended_gain = 10.0_f64.powf(applied_db / 20.0);
+    Ok(LoudnessReport {
+        integrated_lufs,
+        true_peak_db,
+        target_lufs: target,
+        recommended_gain,
+        gain_db: applied_db,
+    })
+}
+
+/// Generate a normalized crossfade gain curve [(fade_out, fade_in), ...] across `steps` points.
+pub fn compute_crossfade_gains(curve: &str, steps: usize) -> Result<Vec<(f32, f32)>, String> {
+    if steps < 2 || steps > 1024 {
+        return Err("Crossfade steps must be between 2 and 1024.".into());
+    }
+    if !matches!(curve, "equal-power" | "linear" | "s-curve") {
+        return Err("Unknown crossfade curve. Use equal-power, linear, or s-curve.".into());
+    }
+    let mut out = Vec::with_capacity(steps);
+    for i in 0..steps {
+        let t = i as f32 / (steps - 1) as f32;
+        let (fade_out, fade_in) = match curve {
+            "linear" => (1.0 - t, t),
+            "s-curve" => {
+                let s = t * t * (3.0 - 2.0 * t);
+                (1.0 - s, s)
+            }
+            _ => {
+                let angle = t * std::f32::consts::FRAC_PI_2;
+                (angle.cos(), angle.sin())
+            }
+        };
+        out.push((fade_out, fade_in));
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn audio_analyze_loudness(samples: Vec<f32>, target_lufs: Option<f64>) -> Result<LoudnessReport, String> {
+    if samples.len() > 2_000_000 {
+        return Err("Loudness analysis input exceeds 2,000,000 samples.".into());
+    }
+    compute_lufs_and_gain(&samples, target_lufs.unwrap_or(-14.0))
+}
+
+#[tauri::command]
+pub fn audio_crossfade_curve(curve: String, steps: Option<usize>) -> Result<Vec<(f32, f32)>, String> {
+    compute_crossfade_gains(&curve, steps.unwrap_or(32))
+}
+
 #[tauri::command]
 pub fn audio_detect_silence(
     samples: Vec<f32>,
@@ -153,6 +246,17 @@ pub fn audio_detect_silence(
   assert!(preserved.all_silent);
   assert_eq!(preserved.trimmed_sec,0.0);
   assert!(detect_silence_regions(&[],16000,-40.0,0.25).is_err());
+ }
+ #[test]fn loudness_and_crossfade_curves_are_peak_safe(){
+  let tone=vec![0.05_f32;16000];
+  let report=compute_lufs_and_gain(&tone,-14.0).unwrap();
+  assert!(report.recommended_gain>1.0);
+  assert!(report.true_peak_db+report.gain_db<=-0.49);
+  assert!(compute_lufs_and_gain(&[],-14.0).is_err());
+  let ep=compute_crossfade_gains("equal-power",17).unwrap();
+  assert_eq!(ep.len(),17);
+  for (out_g,in_g) in &ep{assert!(((out_g*out_g+in_g*in_g)-1.0).abs()<1e-4);}
+  assert!(compute_crossfade_gains("unknown",16).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
