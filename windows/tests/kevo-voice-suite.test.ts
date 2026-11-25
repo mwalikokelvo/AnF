@@ -153,5 +153,7 @@ describe('Kevo Voice Agent Integration for New Capabilities', () => {
     const sleepResult = await agent.processVoiceInput('kevo set sleep timer for 20 minutes');
     assert.equal(sleepResult.actionName, 'set_sleep_timer');
     assert.match(sleepResult.speechReply, /Sleep timer set for 20 minutes/);
+    // The timer is real: without this the runner waits 20 minutes for it before exiting.
+    cancelSleepTimer();
   });
 });
