@@ -4,9 +4,20 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-24 by Grok (overnight shift, Kevo command palette + REA matrix).
+Last updated: 2026-11-25 by OpenCode (0.1.67: Kevo voice suite + command palette released).
 
-## 2026-11-24 — Overnight shift: Kevo command palette wired, REA competitive matrix drafted (Grok)
+## 2026-11-25 - 0.1.67 release: both Kevo branches landed (OpenCode)
+
+- `main` already carried the 30-commit vault/audio/Kevo stack (PR #301, `74f97489`) and shipped as **0.1.66**. Two Kevo branches were still unmerged, so 0.1.67 folds them into one release instead of rewriting the published tag.
+- Branch `release/0.1.67-kevo-extras`, merged in this order:
+  - `grok/kevo-voice-suite-2026` (`2f5695f6`): coin flip, number pick, spelling and sleep-timer voice actions (`kevo-randomizer.ts`, `kevo-spelling.ts`, `kevo-sleep-timer.ts`) plus the `flip_coin` / `pick_number` / `spell_word` tool handlers in `jarvis-voice-agent.ts`.
+  - `grok/adversarial-kevo-palette` (`38ab930b`): `kevo-commands.ts` puts music and view commands in the Ctrl/Cmd+K palette, running through the same `JarvisActionContext` the voice agent uses, so typed and spoken commands share one path; new `docs/REA-COMPETITIVE-MATRIX.md` and `windows/tests/kevo-command-palette.test.ts`.
+- Conflict resolutions kept both sides: `jarvis-voice-agent.ts` keeps main's today-in-history block and adds the branch handlers (the branch's duplicate sleep-timer block was dropped because main handles sleep timers earlier in `quickAnswer()`); `HANDOFF.md` and `OVERNIGHT_NOTES.md` are unions of main's structure and the branch's reports.
+- Bug fixed while verifying: the voice-suite test set a real 20-minute sleep timer and left it running, so `node --test` never exited. The test now calls `cancelSleepTimer()`; the suite finishes in about a second.
+- Verified: `npx tsc --noEmit` clean; full suite **1,100 passed, 0 failed, 177 suites**; `check-release.mjs` (12 checks), `verify-contracts.mjs` and `check-styles.mjs` pass; `cargo metadata --locked --no-deps` reports `coucou`/`coucou-hook` 0.1.67.
+- Version bumped to **0.1.67** in `windows/Cargo.toml`, `windows/package.json`, `windows/src-tauri/tauri.conf.json` and `windows/Cargo.lock`. Releasing as another preview with the same unsigned-installer warning as 0.1.66 (Defender flags the unsigned setup as `Trojan:Win32/Watacat!ml`); general publishing stays paused until signing.
+
+## 2026-11-24 - Overnight shift: Kevo command palette wired, REA competitive matrix drafted (Grok)
 
 - Branch `grok/ui-command-palette-kevo` (created from locked `main`): new `windows/src/workspace/kevo-commands.ts` exports `kevoCommands(ctx)` — a Kevo group for the global Ctrl/Cmd+K palette, routed through the same `JarvisActionContext` the voice agent uses, so typed and spoken commands share one execution path. Includes play/pause/next/previous music and "open Music Hub" / "open Kevo desk" view commands; view commands no-op safely when the context is absent.
 - Verified before commit: `npx tsc --noEmit` clean; full suite `npm test` **940/940 pass**; `npm run build` green (prebuild coucou-hook compiled, vite build ok, only pre-existing chunk-size warnings); `node scripts/check-release.mjs` pass. Ponytail review: verdict **Ship**.
