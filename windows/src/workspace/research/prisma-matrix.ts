@@ -89,7 +89,7 @@ export class PrismaMatrixEngine {
 
     const header = '| Study / Citation | Research Question | Methodology | Core Findings | Limitations |\n| :--- | :--- | :--- | :--- | :--- |';
     const rows = this.studies.map(s => {
-      const clean = (str: string) => str.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+      const clean = (str: string) => str.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
       return `| **${clean(s.citation)}** | ${clean(s.researchQuestion)} | ${clean(s.methodology)} | ${clean(s.findings)} | ${clean(s.limitations)} |`;
     });
 

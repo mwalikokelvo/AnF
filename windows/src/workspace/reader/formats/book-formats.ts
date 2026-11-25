@@ -28,6 +28,27 @@ export interface ParsedBookResult {
   metadata?: Record<string, unknown>;
 }
 
+function stripHtmlTags(input: string, replacement = ''): string {
+  let prev: string;
+  let curr = input;
+  do {
+    prev = curr;
+    curr = curr.replace(/<[^>]+>/g, replacement);
+  } while (curr !== prev);
+  return curr;
+}
+
+function stripHtmlBlock(html: string, tag: string): string {
+  const re = new RegExp(`<${tag}\\b[\\s\\S]*?<\\/${tag}[^>]*>`, 'gi');
+  let prev: string;
+  let curr = html;
+  do {
+    prev = curr;
+    curr = curr.replace(re, '');
+  } while (curr !== prev);
+  return curr;
+}
+
 /**
  * 1. RTF (Rich Text Format) Parser
  */
@@ -124,7 +145,7 @@ export function parseFb2(fb2Xml: string | Uint8Array): ParsedBookResult {
     const paragraphs: string[] = [];
     const pMatches = secHtml.matchAll(/<p>([\s\S]*?)<\/p>/gi);
     for (const p of pMatches) {
-      const cleanP = p[1].replace(/<[^>]+>/g, '').trim();
+      const cleanP = stripHtmlTags(p[1]).trim();
       if (cleanP) paragraphs.push(cleanP);
     }
 
@@ -136,7 +157,7 @@ export function parseFb2(fb2Xml: string | Uint8Array): ParsedBookResult {
   }
 
   if (sections.length === 0) {
-    const rawClean = bodyContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const rawClean = stripHtmlTags(bodyContent, ' ').replace(/\s+/g, ' ').trim();
     sections.push({ title: 'Main', content: rawClean });
     totalText = rawClean;
   }
@@ -250,7 +271,7 @@ export function parseOdtContentXml(contentXml: string): ParsedBookResult {
 
   for (const p of pMatches) {
     const pHtml = p[0];
-    const clean = pHtml.replace(/<[^>]+>/g, '').trim();
+    const clean = stripHtmlTags(pHtml).trim();
     if (clean) paragraphs.push(clean);
   }
 
@@ -273,12 +294,12 @@ export function parseMobiRecordText(rawHtmlOrText: string): ParsedBookResult {
   const titleMatch = rawHtmlOrText.match(/<title>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : 'Kindle Book';
 
-  const clean = rawHtmlOrText
-    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
-    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]+>/g, ' ')
+  const clean = stripHtmlTags(
+    stripHtmlBlock(stripHtmlBlock(rawHtmlOrText, 'style'), 'script')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n'),
+    ' '
+  )
     .replace(/[ \t]+/g, ' ')
     .trim();
 
@@ -298,15 +319,16 @@ export function parseWebDocHtml(html: string): ParsedBookResult {
   const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : 'Archived Web Page';
 
-  const clean = html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
-    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
-    .replace(/<header\b[\s\S]*?<\/header>/gi, '')
-    .replace(/<footer\b[\s\S]*?<\/footer>/gi, '')
-    .replace(/<nav\b[\s\S]*?<\/nav>/gi, '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]+>/g, ' ')
+  let strippedHtml = html;
+  for (const tag of ['script', 'style', 'header', 'footer', 'nav']) {
+    strippedHtml = stripHtmlBlock(strippedHtml, tag);
+  }
+  const clean = stripHtmlTags(
+    strippedHtml
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n'),
+    ' '
+  )
     .replace(/[ \t]+/g, ' ')
     .trim();
 

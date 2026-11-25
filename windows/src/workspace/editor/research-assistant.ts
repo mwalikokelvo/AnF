@@ -95,7 +95,7 @@ export function buildSyntopicalTable(topic: string, items: SyntopicalComparisonI
   md += `| Source | Author | Perspective / Stance | Key Evidence / Passage |\n`;
   md += `| :--- | :--- | :--- | :--- |\n`;
   for (const item of items) {
-    const cleanPassage = item.keyPassage.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const cleanPassage = item.keyPassage.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
     md += `| **${item.sourceTitle}** | ${item.author} | ${item.perspective} | "${cleanPassage}" |\n`;
   }
   return md + '\n';

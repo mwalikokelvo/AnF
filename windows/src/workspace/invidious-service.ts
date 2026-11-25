@@ -63,7 +63,13 @@ export function cleanVttTranscript(vttContent: string): { fullText: string; segm
 
   function flushBuffer() {
     if (textBuffer.length > 0 && currentStart !== null) {
-      const raw = textBuffer.join(' ').replace(/<[^>]+>/g, '').trim();
+      let raw = textBuffer.join(' ');
+      let prev: string;
+      do {
+        prev = raw;
+        raw = raw.replace(/<[^>]+>/g, '');
+      } while (raw !== prev);
+      raw = raw.trim();
       if (raw && raw !== lastAppendedText) {
         segments.push({ start: currentStart, duration: currentDuration, text: raw });
         lastAppendedText = raw;
