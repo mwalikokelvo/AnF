@@ -543,6 +543,7 @@ pub fn run() {
             kevo_memory::kevo_barge_in_epoch,
             kevo_memory::kevo_resolve_routine,
             kevo_memory::kevo_resolve_anaphora,
+            kevo_memory::kevo_match_intent,
             kevo_schedule::kevo_schedule_create_reminder,
             kevo_schedule::kevo_schedule_list_reminders,
             kevo_schedule::kevo_schedule_cancel_reminder,

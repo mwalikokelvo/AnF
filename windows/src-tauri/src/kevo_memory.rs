@@ -55,6 +55,99 @@ pub struct KevoRoutinePlan {
     pub resolved_utterance: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoIntentMatch {
+    pub intent: String,
+    pub entity: Option<String>,
+    pub confidence: f64,
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut curr = vec![0; b_chars.len() + 1];
+    for (i, &ca) in a_chars.iter().enumerate() {
+        curr[0] = i + 1;
+        for (j, &cb) in b_chars.iter().enumerate() {
+            let cost = usize::from(ca != cb);
+            curr[j + 1] = (prev[j + 1] + 1).min(curr[j] + 1).min(prev[j] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[b_chars.len()]
+}
+
+/// Fuzzy-match a query against candidate entity names (case-insensitive, substring + Levenshtein).
+pub fn fuzzy_match_entity(query: &str, candidates: &[String]) -> Option<(String, f64)> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || candidates.is_empty() {
+        return None;
+    }
+    let mut best: Option<(String, f64)> = None;
+    for cand in candidates {
+        let c = cand.trim();
+        if c.is_empty() {
+            continue;
+        }
+        let cl = c.to_lowercase();
+        let score = if cl == q {
+            1.0
+        } else if cl.contains(&q) || q.contains(&cl) {
+            0.88
+        } else {
+            let max_len = q.chars().count().max(cl.chars().count()).max(1);
+            let dist = levenshtein(&q, &cl);
+            1.0 - (dist as f64 / max_len as f64)
+        };
+        if score >= 0.52 && best.as_ref().is_none_or(|(_, b)| score > *b) {
+            best = Some((c.to_string(), score));
+        }
+    }
+    best
+}
+
+/// Deterministically classify offline voice intents with fuzzy entity resolution.
+pub fn match_offline_intent(utterance: &str, candidates: &[String]) -> Option<KevoIntentMatch> {
+    let lower = utterance.trim().to_lowercase();
+    if lower.is_empty() {
+        return None;
+    }
+    if lower.contains("pause") || lower.contains("paws") || lower.contains("stop music") {
+        return Some(KevoIntentMatch { intent: "pause_music".into(), entity: None, confidence: 0.95 });
+    }
+    if lower.contains("next track") || lower.contains("next trak") || lower.contains("skip song") {
+        return Some(KevoIntentMatch { intent: "next_track".into(), entity: None, confidence: 0.94 });
+    }
+    if lower.contains("previous track") || lower.contains("previous song") || lower.contains("go back a song") {
+        return Some(KevoIntentMatch { intent: "previous_track".into(), entity: None, confidence: 0.94 });
+    }
+    if lower.contains("trim silence") {
+        return Some(KevoIntentMatch { intent: "trim_silence".into(), entity: None, confidence: 0.93 });
+    }
+    if lower.contains("normalize") && (lower.contains("audio") || lower.contains("lufs")) {
+        return Some(KevoIntentMatch { intent: "normalize_audio".into(), entity: None, confidence: 0.92 });
+    }
+    if let Some(rest) = lower.strip_prefix("open ").or_else(|| lower.strip_prefix("load ")) {
+        let matched = fuzzy_match_entity(rest, candidates);
+        let (entity, conf) = match matched {
+            Some((name, score)) => (Some(name), score),
+            None => (Some(rest.trim().to_string()), 0.7),
+        };
+        return Some(KevoIntentMatch { intent: "open_entity".into(), entity, confidence: conf });
+    }
+    if let Some((name, score)) = fuzzy_match_entity(&lower, candidates) {
+        return Some(KevoIntentMatch { intent: "open_entity".into(), entity: Some(name), confidence: score });
+    }
+    None
+}
+
+#[tauri::command]
+pub fn kevo_match_intent(utterance: String, candidates: Vec<String>) -> Option<KevoIntentMatch> {
+    match_offline_intent(&utterance, &candidates)
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -487,5 +580,16 @@ mod tests {
         let before = kevo_barge_in_epoch();
         let after = kevo_barge_in_interrupt();
         assert_eq!(after, before + 1);
+    }
+
+    #[test]
+    fn matches_offline_intents_and_fuzzy_entities() {
+        let cands = vec!["Rust Audio Notes".to_string(), "Weekly Review".to_string()];
+        let open = match_offline_intent("open rust audio note", &cands).unwrap();
+        assert_eq!(open.intent, "open_entity");
+        assert_eq!(open.entity.as_deref(), Some("Rust Audio Notes"));
+        let pause = match_offline_intent("paws the music", &cands).unwrap();
+        assert_eq!(pause.intent, "pause_music");
+        assert!(match_offline_intent("   ", &cands).is_none());
     }
 }

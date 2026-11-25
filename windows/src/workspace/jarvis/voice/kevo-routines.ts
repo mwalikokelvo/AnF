@@ -12,6 +12,22 @@ export type KevoRoutinePlan = {
   resolvedUtterance: string;
 };
 
+export type KevoIntentMatch = {
+  intent: string;
+  entity: string | null;
+  confidence: number;
+};
+
+export async function matchKevoIntent(
+  utterance: string,
+  candidates: string[] = [],
+): Promise<KevoIntentMatch | null> {
+  return invoke<KevoIntentMatch | null>('kevo_match_intent', {
+    utterance,
+    candidates,
+  });
+}
+
 /** Atomically bumps the Rust barge-in epoch to cancel any in-flight Kevo speech/stream. */
 export async function bargeInInterrupt(): Promise<number> {
   return invoke<number>('kevo_barge_in_interrupt');
