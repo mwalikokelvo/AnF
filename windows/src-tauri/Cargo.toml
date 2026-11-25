@@ -42,7 +42,7 @@ md-5 = "0.10"
 ring = "0.17"
 # Exact pin: its build script downloads the matching prebuilt static libraries
 # from github.com/k2-fsa/sherpa-onnx/releases (see src/kevo_ears.rs).
-sherpa-onnx = { version = "=2.0.1", optional = true }
+sherpa-onnx = { version = "=2.0.2", optional = true }
 cpal = { version = "0.15", optional = true }
 
 [dev-dependencies]
