@@ -255,12 +255,14 @@ export function openIntegrationsDrawer(
   }) as HTMLDialogElement;
 
   const dismiss = () => {
+    document.removeEventListener('anf-switch-view', dismiss);
     if (typeof dialog.close === 'function' && dialog.open) {
       dialog.close();
     }
     dialog.remove();
     previous?.focus?.();
   };
+  document.addEventListener('anf-switch-view', dismiss);
 
   const closeBtn = h('button', {
     type: 'button',
@@ -299,7 +301,8 @@ export function openIntegrationsDrawer(
     if (e.target === dialog) dismiss();
   });
 
-  document.body.append(dialog);
+  const host = document.getElementById?.('workspace-root') ?? document.body;
+  host.append(dialog);
   if (typeof dialog.showModal === 'function') {
     dialog.showModal();
   }

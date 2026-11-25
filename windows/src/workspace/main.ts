@@ -632,11 +632,13 @@ lazySection('settings','Settings',panel=>{
   );
   settingsPanels.set('extensions',extPanel);
 
+  const openIntegrationsBtn=button('Open Integrations drawer',async()=>{openIntegrationsDrawer(url=>invoke('open_url',{url}));},'Opening Integrations');
+  openIntegrationsBtn.classList.add('primary');
   const integrationsPanel=h('div',{class:'settings-panel-view',hidden:true},
     h('div',{class:'settings-card'},
       h('h3',{text:'Companion Apps & Integrations'}),
       h('p',{class:'hint',text:'Browse verified open-source companion applications (Kiwix, Audacity, Anki, and more) and built-in workspace tools.'}),
-      button('Open Integrations drawer',async()=>{openIntegrationsDrawer(url=>invoke('open_url',{url}));},'primary')
+      openIntegrationsBtn
     )
   );
   settingsPanels.set('integrations',integrationsPanel);
