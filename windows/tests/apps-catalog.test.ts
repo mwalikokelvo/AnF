@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOG } from '../src/workspace/apps-catalog.js';
+import { CATALOG, openIntegrationsDrawer } from '../src/workspace/apps-catalog.js';
+import { setupTestEnvironment, MockElement } from './e2e/test-env.js';
 
 test('Open-source Companion Apps Catalog', async (t) => {
   await t.test('catalog contains verified companion apps', () => {
@@ -51,5 +52,54 @@ test('Open-source Companion Apps Catalog', async (t) => {
     assert.ok(ids.has('rimusic'), 'Must include RiMusic');
     assert.ok(ids.has('koreader'), 'Must include KOReader');
     assert.ok(ids.has('kiwix-desktop'), 'Must include Kiwix');
+  });
+
+  await t.test('openIntegrationsDrawer opens a dialog with companion apps and closes cleanly (#258)', () => {
+    setupTestEnvironment();
+
+    let modalOpened = false;
+    let modalClosed = false;
+    (MockElement.prototype as any).showModal = function () {
+      modalOpened = true;
+      this.open = true;
+    };
+    (MockElement.prototype as any).close = function () {
+      modalClosed = true;
+      this.open = false;
+    };
+    (MockElement.prototype as any).remove = function () {
+      if (this.parentElement) {
+        const idx = this.parentElement.children.indexOf(this);
+        if (idx >= 0) this.parentElement.children.splice(idx, 1);
+        this.parentElement = null;
+      }
+    };
+    (MockElement.prototype as any).click = function () {
+      this.dispatchEvent({
+        type: 'click',
+        preventDefault() {},
+        stopPropagation() {},
+        target: this,
+        currentTarget: this,
+      });
+    };
+
+    const dialog = openIntegrationsDrawer(async () => {});
+    assert.equal(modalOpened, true);
+    assert.equal(dialog.className, 'integrations-drawer');
+    assert.ok(document.body.children.includes(dialog as any));
+
+    const catalog = dialog.querySelector('.app-catalog') as any;
+    assert.equal(catalog.open, true);
+
+    const titles = dialog.querySelectorAll('strong').map((el) => el.textContent);
+    for (const appName of ['Kiwix', 'Audacity', 'Anki']) {
+      assert.ok(titles.includes(appName), `Expected ${appName} in Integrations drawer`);
+    }
+
+    const closeBtn = dialog.querySelector('.integrations-drawer-close') as any;
+    closeBtn.click();
+    assert.equal(modalClosed, true);
+    assert.equal(document.body.children.includes(dialog as any), false);
   });
 });

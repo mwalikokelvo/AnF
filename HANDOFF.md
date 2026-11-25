@@ -23,6 +23,15 @@ Last updated: 2026-11-24 by Antigravity (Grok shopping list additions on agy/gro
      - `windows/tests/kevo-shopping.test.ts`: 3 test suites covering direct operations, `executeKevoAction` tool executions, and voice intent processing (all pass).
      - `npx tsc --noEmit`: 0 errors.
 
+## 2026-11-22 — Grok additions: What's playing, Today in History, and Random Advice (Antigravity)
+
+- Cleanly rebuilt and integrated Grok features from `grok/kevo-whats-playing`, `grok/kevo-today-in-history`, and `grok/kevo-random-advice`:
+  1. **"What's playing?"** (`kevo-whats-playing.ts`): Queries active track (`title`, `artist`, `album`) from Music Hub; returns "Now playing {title} by {artist} from {album}, sir." or "Nothing is playing right now, sir.". Exposed in `music-hub.ts`, `main.ts`, `jarvis-command-desk.ts`, `jarvis-voice-agent.ts`, and tool action `whats_playing` in `kevo-actions.ts`.
+  2. **"Today in history"** (`kevo-history.ts`): Queries Wikipedia's free On This Day REST API feed for historical events on the current date; gated behind `onlineLookupsEnabled()`; formats 1-2 major events concisely. Exposed in `jarvis-voice-agent.ts` and tool action `today_in_history` in `kevo-actions.ts`.
+  3. **"Random advice"** (`kevo-advice.ts`): Queries free Advice Slip API when online lookups are enabled, with immediate fallback to a curated positive offline tips list when offline or disabled. Exposed in `jarvis-voice-agent.ts` and tool action `random_advice` in `kevo-actions.ts`.
+  4. Added `https://api.adviceslip.com` to `connect-src` in `windows/src-tauri/tauri.conf.json` (CSP and devCsp).
+- Automated tests: Comprehensive unit tests in `windows/tests/kevo-whats-playing.test.ts`, `windows/tests/kevo-history.test.ts`, and `windows/tests/kevo-advice.test.ts` (all 34 tests passing with mocked networks, zero network calls in tests).
+
 ## 2026-11-22 — HANDOVER: Antigravity takes over ALL of Claude's duties and roles (Claude)
 
 Owner's order (22 Nov 2026, their words): "Tell Antigravity to do all your duties and roles in the meantime. Plus implementing Grok's insights." Claude is out of usage and its Kevo autopilot is paused. **Antigravity, until Claude says it is back, you hold every role Claude held:**
@@ -2138,3 +2147,11 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
 - Deduplication: extracted the 25-line data gathering block across `btnBriefing` and `getBriefing` in `jarvis-command-desk.ts` into a single shared helper `collectWorkspaceBriefingData`.
 - Checks: `npx tsc --noEmit` clean, `tests/kevo-executive.test.ts` (7/7 pass), `tests/jarvis-executive.test.ts` (10/10 pass), `check-release.mjs` (12 pass), contracts and styles clean.
+
+## 2026-11-23: Dependency audit fix, branch `fix/dependency-audit` (Claude, PR #293)
+- Weekly audit red on `main` (run 45216651102, 2026-11-23, head 6e0148df): 7 vulnerabilities in `windows/Cargo.lock`.
+- Bumped to patched versions within existing semver ranges: cookie 0.18.3 (RUSTSEC-2026-0594), quinn-proto 0.11.19 (RUSTSEC-2026-0523/0524), quinn-udp 0.5.16 (RUSTSEC-2026-0538), url 2.5.9 (RUSTSEC-2026-0592), rustix 1.1.6 (RUSTSEC-2026-0486), async-executor 1.14.1 (yanked), yoke/yoke-derive 0.8.4 (yanked).
+- Added `--ignore` for the two advisories with unreachable paths: glib RUSTSEC-2024-0429 (GTK 0.18 stack pinned by Tauri 2.12; `VariantStrIter` never called), zip RUSTSEC-2026-0545/0548 (AES off, no `ZipStreamReader`).
+- Checks: local `cargo audit --file windows/Cargo.lock` exit 0 (0 vulnerabilities, 10 allowed warnings); `cargo metadata --locked` OK; `npm audit --prefix windows` 0 vulnerabilities; `node scripts/check-release.mjs` 12/12. No Rust source or manifest change.
+- PR #293 open against `main` from `fix/dependency-audit`; owner to review/merge.
+
