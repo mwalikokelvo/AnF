@@ -1,3 +1,4 @@
+import {invoke} from '@tauri-apps/api/core';
 import {h} from '../views/dom';
 
 import {peaks,level,wav,durationText,slicePcmAudio} from './audio-data';
@@ -137,6 +138,56 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
  const cleanButton=action('Clean speech',async()=>{report('Processing on this device…');cleaned=await render(true);if(cleanedUrl)URL.revokeObjectURL(cleanedUrl);cleanedUrl=URL.createObjectURL(waveBlob(cleaned));const before=level(Array.from({length:input!.numberOfChannels},(_,i)=>input!.getChannelData(i))),after=level(Array.from({length:cleaned.numberOfChannels},(_,i)=>cleaned!.getChannelData(i)));matchGain=after.rms?Math.min(1,before.rms/after.rms):1;originalGain=before.rms?Math.min(1,after.rms/before.rms):1;mode.value='cleaned';swap();report('Cleaned comparison ready. Playback level is matched by attenuation; compare speech quality before exporting.');});
 
  const exportButton=action('Export WAV',async()=>{const b=await render(false),blob=waveBlob(b),name=(title.value.trim()||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-'+mode.value+'.wav';if(exportAudio){await exportAudio(name,blob);report('Choose a destination to save the WAV.');}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);report('WAV export prepared.');}});
+
+ const trimSilenceButton=action('Trim silence',async()=>{
+  report('Detecting leading and trailing silence…');
+  const b=await decode();
+  const raw=b.getChannelData(0);
+  const stride=Math.max(1,Math.ceil(raw.length/1_500_000));
+  const samples=stride===1?Array.from(raw):Array.from({length:Math.ceil(raw.length/stride)},(_,i)=>raw[i*stride]);
+  const plan=await invoke<{keepStartSec:number;keepEndSec:number;trimmedSec:number;allSilent:boolean}>('audio_detect_silence',{samples,sampleRate:Math.max(1,Math.round(b.sampleRate/stride))});
+  if(plan.allSilent||plan.trimmedSec<0.05){report('No leading or trailing silence to trim.');return;}
+  await invoke('audio_region_apply',{region:{kind:'trim',startSec:plan.keepStartSec,endSec:plan.keepEndSec,gain:1}}).catch(()=>{});
+  const chs=Array.from({length:b.numberOfChannels},(_,i)=>b.getChannelData(i));
+  const trimmed=slicePcmAudio(chs,b.sampleRate,plan.keepStartSec,plan.keepEndSec-plan.keepStartSec);
+  if(!trimmed.length)throw Error('Trimmed region is empty.');
+  const blob=new Blob([wav(trimmed,b.sampleRate)],{type:'audio/wav'});
+  const name=(title.value.trim()||track?.title||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-trimmed.wav';
+  if(exportAudio){await exportAudio(name,blob);}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+  report(`Trimmed ${plan.trimmedSec.toFixed(2)}s of silence (${plan.keepStartSec.toFixed(2)}s–${plan.keepEndSec.toFixed(2)}s).`);
+ });
+
+ const normalizeLufsButton=action('Normalize (-14 LUFS)',async()=>{
+  report('Analyzing integrated loudness (LUFS)…');
+  const b=await decode();
+  const raw=b.getChannelData(0);
+  const stride=Math.max(1,Math.ceil(raw.length/1_500_000));
+  const samples=stride===1?Array.from(raw):Array.from({length:Math.ceil(raw.length/stride)},(_,i)=>raw[i*stride]);
+  const info=await invoke<{integratedLufs:number;recommendedGain:number;gainDb:number}>('audio_analyze_loudness',{samples,targetLufs:-14});
+  const chs=Array.from({length:b.numberOfChannels},(_,i)=>{
+   const src=b.getChannelData(i),out=new Float32Array(src.length),g=info.recommendedGain;
+   for(let j=0;j<src.length;j++)out[j]=Math.max(-1,Math.min(1,src[j]*g));
+   return out;
+  });
+  const blob=new Blob([wav(chs,b.sampleRate)],{type:'audio/wav'});
+  const name=(title.value.trim()||track?.title||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-lufs14.wav';
+  if(exportAudio){await exportAudio(name,blob);}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+  report(`Normalized from ${info.integratedLufs.toFixed(1)} LUFS (${info.gainDb>=0?'+':''}${info.gainDb.toFixed(1)} dB).`);
+ });
+
+ const undoEditButton=action('Undo edit',async()=>{
+  const regions=await invoke<Array<{kind:string}>>('audio_region_undo');
+  report(`Undid edit (${regions.length} active region${regions.length===1?'':'s'}).`);
+ });
+ const redoEditButton=action('Redo edit',async()=>{
+  const regions=await invoke<Array<{kind:string}>>('audio_region_redo');
+  report(`Redid edit (${regions.length} active region${regions.length===1?'':'s'}).`);
+ });
+ const rememberSpeedButton=action('Save item speed',async()=>{
+  if(!track)throw Error('Open a track first.');
+  const saved=await invoke<number>('audio_set_item_speed',{id:track.id,speed:audio.playbackRate||1});
+  report(`Saved ${saved.toFixed(2)}x playback speed for ${track.title}.`);
+ });
 
  const clipDuration=h('select',{'aria-label':'Clip length',class:'audio-clip-duration'},...[15,30,45,60,90,120].map(s=>h('option',{value:String(s),text:s+'s clip'}))) as HTMLSelectElement;
  clipDuration.value='30';
@@ -333,7 +384,7 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
      h('h3', { text: 'Restore speech & export' }),
      h('p', { text: 'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.' }),
      h('div', { class: 'audio-controls' }, h('label', {}, profile, 'Use noise profile'), h('label', {}, 'Start (seconds) ', noiseStart), noiseLength, action('Use current position', () => { noiseStart.value = audio.currentTime.toFixed(1); })),
-     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, clipDuration, clipButton, transcribeButton)
+     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, normalizeLufsButton, undoEditButton, redoEditButton, rememberSpeedButton, clipDuration, clipButton, transcribeButton)
    )
  );
 
@@ -414,6 +465,95 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
 
  return {root,stop,tracks:()=>queueTracks(),repeat:()=>state.repeat,hideDock:()=>{dock.hidden=true;if('mediaSession' in navigator){navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';}}};
 
+}
+
+export type WaveformEnvelope = {
+ bucketCount: number;
+ peaks: number[];
+ rms: number[];
+ durationMs: number;
+};
+
+export async function computeWaveformEnvelope(
+ samples: number[],
+ sampleRate: number,
+ targetBuckets = 128,
+): Promise<WaveformEnvelope> {
+ return invoke<WaveformEnvelope>('audio_waveform_envelope', {
+  samples,
+  sampleRate,
+  targetBuckets,
+ });
+}
+
+export type BpmEstimate = {
+ bpm: number;
+ beatIntervalMs: number;
+ confidence: number;
+ tapCount: number;
+};
+
+export async function estimateBpmFromTaps(timestampsMs: number[]): Promise<BpmEstimate> {
+ return invoke<BpmEstimate>('audio_estimate_bpm', { timestampsMs });
+}
+
+export type DcOffsetReport = {
+ meanOffset: number;
+ maxDeviation: number;
+ needsCorrection: boolean;
+ sampleCount: number;
+};
+
+export async function analyzeAudioDcOffset(
+ samples: number[],
+ threshold = 0.005,
+): Promise<DcOffsetReport> {
+ return invoke<DcOffsetReport>('audio_analyze_dc_offset', { samples, threshold });
+}
+
+export type StereoBalanceReport = {
+ leftRms: number;
+ rightRms: number;
+ balance: number;
+ correlation: number;
+ monoCompatible: boolean;
+};
+
+export async function analyzeStereoBalance(
+ left: number[],
+ right: number[],
+): Promise<StereoBalanceReport> {
+ return invoke<StereoBalanceReport>('audio_analyze_stereo_balance', { left, right });
+}
+
+export async function previewAudioFadeEnvelope(
+ samples: number[],
+ sampleRate: number,
+ fadeInMs: number,
+ fadeOutMs: number,
+ curve: 'linear' | 'cosine' = 'cosine',
+): Promise<number[]> {
+ return invoke<number[]>('audio_preview_fade_envelope', {
+  samples,
+  sampleRate,
+  fadeInMs,
+  fadeOutMs,
+  curve,
+ });
+}
+
+export type PitchRateMapping = {
+ semitones: number;
+ cents: number;
+ playbackRate: number;
+ durationMultiplier: number;
+};
+
+export async function mapPitchToPlaybackRate(
+ semitones: number,
+ cents = 0,
+): Promise<PitchRateMapping> {
+ return invoke<PitchRateMapping>('audio_pitch_to_rate', { semitones, cents });
 }
 
 

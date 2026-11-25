@@ -1,0 +1,177 @@
+import { invoke } from '@tauri-apps/api/core';
+
+export type KevoRoutineStep = {
+  action: string;
+  target: string;
+  label: string;
+};
+
+export type KevoRoutinePlan = {
+  name: string;
+  steps: KevoRoutineStep[];
+  resolvedUtterance: string;
+};
+
+export type KevoIntentMatch = {
+  intent: string;
+  entity: string | null;
+  confidence: number;
+};
+
+export async function matchKevoIntent(
+  utterance: string,
+  candidates: string[] = [],
+): Promise<KevoIntentMatch | null> {
+  return invoke<KevoIntentMatch | null>('kevo_match_intent', {
+    utterance,
+    candidates,
+  });
+}
+
+export type KevoSelectionAction = {
+  action: string;
+  prompt: string;
+  selectionChars: number;
+  truncated: boolean;
+};
+
+export type VoiceLatencyStats = {
+  sampleCount: number;
+  p50TotalMs: number;
+  p95TotalMs: number;
+};
+
+export async function planSelectionAction(
+  utterance: string,
+  selection: string,
+): Promise<KevoSelectionAction> {
+  return invoke<KevoSelectionAction>('kevo_plan_selection_action', {
+    utterance,
+    selection,
+  });
+}
+
+export async function recordVoiceTiming(
+  sttMs: number,
+  intentMs: number,
+  ttsMs: number,
+): Promise<VoiceLatencyStats> {
+  return invoke<VoiceLatencyStats>('kevo_record_voice_timing', {
+    sttMs,
+    intentMs,
+    ttsMs,
+  });
+}
+
+export type KevoPaletteCommand = {
+  id: string;
+  title: string;
+  category: string;
+  shortcut: string;
+  keywords: string;
+};
+
+export async function searchKevoCommands(query = ''): Promise<KevoPaletteCommand[]> {
+  return invoke<KevoPaletteCommand[]>('kevo_search_commands', { query });
+}
+
+export async function pushKevoContextEntity(
+  kind: 'file' | 'note' | 'track' | 'book',
+  value: string,
+): Promise<void> {
+  return invoke('kevo_push_context_entity', { kind, value });
+}
+
+export async function resolveContextualUtterance(utterance: string): Promise<string> {
+  return invoke<string>('kevo_resolve_contextual_utterance', { utterance });
+}
+
+/** Atomically bumps the Rust barge-in epoch to cancel any in-flight Kevo speech/stream. */
+export async function bargeInInterrupt(): Promise<number> {
+  return invoke<number>('kevo_barge_in_interrupt');
+}
+
+export async function resolveKevoAnaphora(
+  utterance: string,
+  lastEntity?: string | null,
+): Promise<string> {
+  return invoke<string>('kevo_resolve_anaphora', {
+    utterance,
+    lastEntity: lastEntity ?? null,
+  });
+}
+
+export async function resolveKevoRoutine(
+  utterance: string,
+  lastEntity?: string | null,
+): Promise<KevoRoutinePlan | null> {
+  return invoke<KevoRoutinePlan | null>('kevo_resolve_routine', {
+    utterance,
+    lastEntity: lastEntity ?? null,
+  });
+}
+
+export type KevoReminder = {
+  id: string;
+  message: string;
+  trigger_at: number;
+  created_at: number;
+  fired: boolean;
+  recurring?: string;
+};
+
+export async function snoozeKevoReminder(
+  idOrQuery: string,
+  duration = '10 minutes',
+): Promise<KevoReminder | null> {
+  return invoke<KevoReminder | null>('kevo_schedule_snooze_reminder', {
+    id_or_query: idOrQuery,
+    duration,
+  });
+}
+
+export type CustomShortcutBinding = {
+  id: string;
+  title?: string;
+  shortcut: string;
+};
+
+export type ShortcutConflict = {
+  normalizedShortcut: string;
+  commandIds: string[];
+  titles: string[];
+};
+
+export async function detectShortcutConflicts(
+  customBindings: CustomShortcutBinding[] = [],
+): Promise<ShortcutConflict[]> {
+  return invoke<ShortcutConflict[]>('kevo_detect_shortcut_conflicts', {
+    customBindings,
+  });
+}
+
+export type KevoRecallMatch = {
+  kind: 'fact' | 'turn' | string;
+  id: string;
+  text: string;
+  categoryOrRole: string;
+  score: number;
+  at: number;
+};
+
+export async function recallKevoMemory(query: string, limit = 8): Promise<KevoRecallMatch[]> {
+  if (!query.trim()) return [];
+  return invoke<KevoRecallMatch[]>('kevo_memory_recall', { query, limit });
+}
+
+export type KevoRoutinePreset = {
+  id: string;
+  name: string;
+  triggerPhrase: string;
+  description: string;
+  stepCount: number;
+};
+
+export async function listKevoRoutinePresets(): Promise<KevoRoutinePreset[]> {
+  return invoke<KevoRoutinePreset[]>('kevo_list_routine_presets');
+}

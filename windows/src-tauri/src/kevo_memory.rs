@@ -4,6 +4,7 @@
 use crate::{platform, settings};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -36,6 +37,606 @@ pub struct KevoMemoryStore {
 }
 
 static MEMORY_LOCK: Mutex<()> = Mutex::new(());
+static BARGE_IN_EPOCH: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRoutineStep {
+    pub action: String,
+    pub target: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRoutinePlan {
+    pub name: String,
+    pub steps: Vec<KevoRoutineStep>,
+    pub resolved_utterance: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoIntentMatch {
+    pub intent: String,
+    pub entity: Option<String>,
+    pub confidence: f64,
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b_chars.len()).collect();
+    let mut curr = vec![0; b_chars.len() + 1];
+    for (i, &ca) in a_chars.iter().enumerate() {
+        curr[0] = i + 1;
+        for (j, &cb) in b_chars.iter().enumerate() {
+            let cost = usize::from(ca != cb);
+            curr[j + 1] = (prev[j + 1] + 1).min(curr[j] + 1).min(prev[j] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[b_chars.len()]
+}
+
+/// Fuzzy-match a query against candidate entity names (case-insensitive, substring + Levenshtein).
+pub fn fuzzy_match_entity(query: &str, candidates: &[String]) -> Option<(String, f64)> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || candidates.is_empty() {
+        return None;
+    }
+    let mut best: Option<(String, f64)> = None;
+    for cand in candidates {
+        let c = cand.trim();
+        if c.is_empty() {
+            continue;
+        }
+        let cl = c.to_lowercase();
+        let score = if cl == q {
+            1.0
+        } else if cl.contains(&q) || q.contains(&cl) {
+            0.88
+        } else {
+            let max_len = q.chars().count().max(cl.chars().count()).max(1);
+            let dist = levenshtein(&q, &cl);
+            1.0 - (dist as f64 / max_len as f64)
+        };
+        if score >= 0.52 && best.as_ref().is_none_or(|(_, b)| score > *b) {
+            best = Some((c.to_string(), score));
+        }
+    }
+    best
+}
+
+/// Deterministically classify offline voice intents with fuzzy entity resolution.
+pub fn match_offline_intent(utterance: &str, candidates: &[String]) -> Option<KevoIntentMatch> {
+    let lower = utterance.trim().to_lowercase();
+    if lower.is_empty() {
+        return None;
+    }
+    if lower.contains("pause") || lower.contains("paws") || lower.contains("stop music") {
+        return Some(KevoIntentMatch { intent: "pause_music".into(), entity: None, confidence: 0.95 });
+    }
+    if lower.contains("next track") || lower.contains("next trak") || lower.contains("skip song") {
+        return Some(KevoIntentMatch { intent: "next_track".into(), entity: None, confidence: 0.94 });
+    }
+    if lower.contains("previous track") || lower.contains("previous song") || lower.contains("go back a song") {
+        return Some(KevoIntentMatch { intent: "previous_track".into(), entity: None, confidence: 0.94 });
+    }
+    if lower.contains("trim silence") {
+        return Some(KevoIntentMatch { intent: "trim_silence".into(), entity: None, confidence: 0.93 });
+    }
+    if lower.contains("normalize") && (lower.contains("audio") || lower.contains("lufs")) {
+        return Some(KevoIntentMatch { intent: "normalize_audio".into(), entity: None, confidence: 0.92 });
+    }
+    if let Some(rest) = lower.strip_prefix("open ").or_else(|| lower.strip_prefix("load ")) {
+        let matched = fuzzy_match_entity(rest, candidates);
+        let (entity, conf) = match matched {
+            Some((name, score)) => (Some(name), score),
+            None => (Some(rest.trim().to_string()), 0.7),
+        };
+        return Some(KevoIntentMatch { intent: "open_entity".into(), entity, confidence: conf });
+    }
+    if let Some((name, score)) = fuzzy_match_entity(&lower, candidates) {
+        return Some(KevoIntentMatch { intent: "open_entity".into(), entity: Some(name), confidence: score });
+    }
+    None
+}
+
+#[tauri::command]
+pub fn kevo_match_intent(utterance: String, candidates: Vec<String>) -> Option<KevoIntentMatch> {
+    match_offline_intent(&utterance, &candidates)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoSelectionAction {
+    pub action: String,
+    pub prompt: String,
+    pub selection_chars: usize,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceTurnTiming {
+    pub stt_ms: u64,
+    pub intent_ms: u64,
+    pub tts_ms: u64,
+    pub total_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceLatencyStats {
+    pub sample_count: usize,
+    pub p50_total_ms: u64,
+    pub p95_total_ms: u64,
+}
+
+static VOICE_TIMINGS: Mutex<Vec<VoiceTurnTiming>> = Mutex::new(Vec::new());
+
+/// Plan a bounded clipboard/selection-aware voice action without leaking oversized buffers.
+pub fn plan_selection_action(utterance: &str, selection: &str) -> Result<KevoSelectionAction, String> {
+    let trimmed_sel = selection.trim();
+    if trimmed_sel.is_empty() {
+        return Err("Select or copy text first.".into());
+    }
+    let max_chars = 6000;
+    let total_chars = trimmed_sel.chars().count();
+    let truncated = total_chars > max_chars;
+    let bounded: String = trimmed_sel.chars().take(max_chars).collect();
+    let lower = utterance.trim().to_lowercase();
+    let (action, prefix) = if lower.contains("summarize") {
+        ("summarize", "Summarize concisely:")
+    } else if lower.contains("action item") || lower.contains("todo") {
+        ("extract_actions", "Extract concrete action items:")
+    } else if lower.contains("rewrite") || lower.contains("clarify") {
+        ("rewrite", "Rewrite clearly while preserving meaning:")
+    } else if lower.contains("read") && lower.contains("aloud") {
+        ("read_aloud", "")
+    } else {
+        ("explain", "Explain:")
+    };
+    let prompt = if prefix.is_empty() {
+        bounded
+    } else {
+        format!("{prefix}\n\n{bounded}")
+    };
+    Ok(KevoSelectionAction {
+        action: action.into(),
+        prompt,
+        selection_chars: total_chars,
+        truncated,
+    })
+}
+
+pub fn record_timing(stt_ms: u64, intent_ms: u64, tts_ms: u64) -> VoiceLatencyStats {
+    let total_ms = stt_ms.saturating_add(intent_ms).saturating_add(tts_ms);
+    let mut guard = VOICE_TIMINGS.lock().unwrap_or_else(|e| e.into_inner());
+    if guard.len() >= 200 {
+        guard.remove(0);
+    }
+    guard.push(VoiceTurnTiming { stt_ms, intent_ms, tts_ms, total_ms });
+    let mut totals: Vec<u64> = guard.iter().map(|t| t.total_ms).collect();
+    totals.sort_unstable();
+    let n = totals.len();
+    let p50_total_ms = totals[n / 2];
+    let p95_total_ms = totals[((n * 95) / 100).min(n - 1)];
+    VoiceLatencyStats { sample_count: n, p50_total_ms, p95_total_ms }
+}
+
+#[tauri::command]
+pub fn kevo_plan_selection_action(utterance: String, selection: String) -> Result<KevoSelectionAction, String> {
+    plan_selection_action(&utterance, &selection)
+}
+
+#[tauri::command]
+pub fn kevo_record_voice_timing(stt_ms: u64, intent_ms: u64, tts_ms: u64) -> VoiceLatencyStats {
+    record_timing(stt_ms, intent_ms, tts_ms)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoPaletteCommand {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub category: &'static str,
+    pub shortcut: &'static str,
+    pub keywords: &'static str,
+}
+
+const PALETTE_COMMANDS: &[KevoPaletteCommand] = &[
+    KevoPaletteCommand { id: "kevo.study_mode", title: "Activate Study Mode", category: "Voice", shortcut: "Ctrl+Shift+S", keywords: "focus timer pause music workspace" },
+    KevoPaletteCommand { id: "kevo.wrap_up", title: "Wrap Up Session", category: "Voice", shortcut: "", keywords: "save project stop reading reset" },
+    KevoPaletteCommand { id: "kevo.morning_briefing", title: "Morning Briefing", category: "Voice", shortcut: "", keywords: "reminders recap ambient" },
+    KevoPaletteCommand { id: "kevo.barge_in", title: "Interrupt Kevo (Barge-In)", category: "Voice", shortcut: "Esc", keywords: "stop cancel speech" },
+    KevoPaletteCommand { id: "audio.trim_silence", title: "Trim Leading/Trailing Silence", category: "Audio Studio", shortcut: "", keywords: "silence pcm wav" },
+    KevoPaletteCommand { id: "audio.normalize_lufs", title: "Normalize Audio (-14 LUFS)", category: "Audio Studio", shortcut: "", keywords: "loudness gain spotify" },
+    KevoPaletteCommand { id: "audio.undo_edit", title: "Undo Audio Region Edit", category: "Audio Studio", shortcut: "Ctrl+Z", keywords: "waveform undo" },
+    KevoPaletteCommand { id: "audio.redo_edit", title: "Redo Audio Region Edit", category: "Audio Studio", shortcut: "Ctrl+Y", keywords: "waveform redo" },
+    KevoPaletteCommand { id: "notes.related", title: "Find Related Notes", category: "Notes", shortcut: "", keywords: "similarity idf vault" },
+];
+
+pub fn search_palette_commands(query: &str) -> Vec<KevoPaletteCommand> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return PALETTE_COMMANDS.to_vec();
+    }
+    PALETTE_COMMANDS
+        .iter()
+        .filter(|c| {
+            c.title.to_lowercase().contains(&q)
+                || c.category.to_lowercase().contains(&q)
+                || c.keywords.contains(&q)
+        })
+        .cloned()
+        .collect()
+}
+
+#[tauri::command]
+pub fn kevo_search_commands(query: Option<String>) -> Vec<KevoPaletteCommand> {
+    search_palette_commands(query.as_deref().unwrap_or(""))
+}
+
+#[derive(Debug, Default)]
+pub struct KevoConversationContext {
+    pub last_file: Option<String>,
+    pub last_note: Option<String>,
+    pub last_track: Option<String>,
+    pub last_book: Option<String>,
+    pub last_any: Option<String>,
+}
+
+impl KevoConversationContext {
+    pub fn push_entity(&mut self, kind: &str, value: String) -> Result<(), String> {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            return Err("Entity value cannot be empty.".into());
+        }
+        match kind {
+            "file" => self.last_file = Some(trimmed.clone()),
+            "note" => self.last_note = Some(trimmed.clone()),
+            "track" => self.last_track = Some(trimmed.clone()),
+            "book" => self.last_book = Some(trimmed.clone()),
+            _ => return Err("Unknown entity kind. Use file, note, track, or book.".into()),
+        }
+        self.last_any = Some(trimmed);
+        Ok(())
+    }
+
+    pub fn resolve_utterance(&self, utterance: &str) -> String {
+        let lower = utterance.to_lowercase();
+        let target = if lower.contains("that file") {
+            self.last_file.as_deref()
+        } else if lower.contains("that note") {
+            self.last_note.as_deref()
+        } else if lower.contains("that track") || lower.contains("the previous one") {
+            self.last_track.as_deref()
+        } else if lower.contains("that book") {
+            self.last_book.as_deref()
+        } else {
+            self.last_any.as_deref()
+        };
+        resolve_anaphora(utterance, target.or(self.last_any.as_deref()))
+    }
+}
+
+static CONVO_CONTEXT: Mutex<KevoConversationContext> = Mutex::new(KevoConversationContext {
+    last_file: None,
+    last_note: None,
+    last_track: None,
+    last_book: None,
+    last_any: None,
+});
+
+#[tauri::command]
+pub fn kevo_push_context_entity(kind: String, value: String) -> Result<(), String> {
+    let mut guard = CONVO_CONTEXT.lock().map_err(|_| "Context lock unavailable.")?;
+    guard.push_entity(&kind, value)
+}
+
+#[tauri::command]
+pub fn kevo_resolve_contextual_utterance(utterance: String) -> Result<String, String> {
+    let guard = CONVO_CONTEXT.lock().map_err(|_| "Context lock unavailable.")?;
+    Ok(guard.resolve_utterance(&utterance))
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomShortcutBinding {
+    pub id: String,
+    pub title: Option<String>,
+    pub shortcut: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortcutConflict {
+    pub normalized_shortcut: String,
+    pub command_ids: Vec<String>,
+    pub titles: Vec<String>,
+}
+
+pub fn normalize_shortcut(raw: &str) -> String {
+    let parts: Vec<String> = raw
+        .split('+')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return String::new();
+    }
+    let mut mods = Vec::new();
+    let mut keys = Vec::new();
+    for p in parts {
+        match p.as_str() {
+            "ctrl" | "control" => mods.push("ctrl".to_string()),
+            "shift" => mods.push("shift".to_string()),
+            "alt" | "option" => mods.push("alt".to_string()),
+            "meta" | "cmd" | "super" | "win" => mods.push("meta".to_string()),
+            _ => keys.push(p),
+        }
+    }
+    mods.sort();
+    mods.dedup();
+    mods.extend(keys);
+    mods.join("+")
+}
+
+pub fn detect_shortcut_conflicts(custom_bindings: Vec<CustomShortcutBinding>) -> Vec<ShortcutConflict> {
+    let mut merged: Vec<(String, String, String)> = search_palette_commands("")
+        .into_iter()
+        .map(|c| (c.id.to_string(), c.title.to_string(), c.shortcut.to_string()))
+        .collect();
+    for custom in custom_bindings {
+        if let Some(existing) = merged.iter_mut().find(|(id, _, _)| *id == custom.id) {
+            existing.2 = custom.shortcut;
+            if let Some(t) = custom.title.filter(|s| !s.trim().is_empty()) {
+                existing.1 = t;
+            }
+        } else {
+            let title = custom.title.unwrap_or_else(|| custom.id.clone());
+            merged.push((custom.id, title, custom.shortcut));
+        }
+    }
+    let mut by_chord: std::collections::BTreeMap<String, Vec<(String, String)>> =
+        std::collections::BTreeMap::new();
+    for (id, title, shortcut) in merged {
+        let norm = normalize_shortcut(&shortcut);
+        if norm.is_empty() {
+            continue;
+        }
+        by_chord.entry(norm).or_default().push((id, title));
+    }
+    by_chord
+        .into_iter()
+        .filter(|(_, entries)| entries.len() > 1)
+        .map(|(normalized_shortcut, entries)| ShortcutConflict {
+            normalized_shortcut,
+            command_ids: entries.iter().map(|(id, _)| id.clone()).collect(),
+            titles: entries.iter().map(|(_, title)| title.clone()).collect(),
+        })
+        .collect()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn kevo_detect_shortcut_conflicts(
+    custom_bindings: Option<Vec<CustomShortcutBinding>>,
+) -> Vec<ShortcutConflict> {
+    detect_shortcut_conflicts(custom_bindings.unwrap_or_default())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRecallMatch {
+    pub kind: String,
+    pub id: String,
+    pub text: String,
+    pub category_or_role: String,
+    pub score: f64,
+    pub at: u64,
+}
+
+pub fn recall_memory_in(
+    path: &Path,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<KevoRecallMatch>, String> {
+    let _guard = MEMORY_LOCK.lock().map_err(|e| e.to_string())?;
+    let clean = query.trim().to_lowercase();
+    if clean.is_empty() {
+        return Ok(Vec::new());
+    }
+    let tokens: Vec<&str> = clean.split_whitespace().collect();
+    let store = load_store(path);
+    let mut matches = Vec::new();
+    let score_text = |text: &str| -> f64 {
+        let lower = text.to_lowercase();
+        if lower.contains(&clean) {
+            1.0
+        } else {
+            let hits = tokens.iter().filter(|t| lower.contains(**t)).count();
+            if hits == 0 {
+                0.0
+            } else {
+                (hits as f64) / (tokens.len().max(1) as f64) * 0.8
+            }
+        }
+    };
+    for fact in &store.facts {
+        let s = score_text(&fact.fact);
+        if s > 0.0 {
+            matches.push(KevoRecallMatch {
+                kind: "fact".into(),
+                id: fact.id.clone(),
+                text: fact.fact.clone(),
+                category_or_role: fact.category.clone(),
+                score: s + 0.1,
+                at: fact.created_at,
+            });
+        }
+    }
+    for turn in &store.turns {
+        let s = score_text(&turn.text);
+        if s > 0.0 {
+            matches.push(KevoRecallMatch {
+                kind: "turn".into(),
+                id: turn.id.clone(),
+                text: turn.text.clone(),
+                category_or_role: turn.role.clone(),
+                score: s,
+                at: turn.at,
+            });
+        }
+    }
+    matches.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.at.cmp(&a.at))
+    });
+    matches.truncate(limit.clamp(1, 50));
+    Ok(matches)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn kevo_memory_recall(query: String, limit: Option<usize>) -> Result<Vec<KevoRecallMatch>, String> {
+    recall_memory_in(&memory_file_path(), &query, limit.unwrap_or(8))
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRoutinePreset {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub trigger_phrase: &'static str,
+    pub description: &'static str,
+    pub step_count: usize,
+}
+
+const ROUTINE_PRESETS: &[KevoRoutinePreset] = &[
+    KevoRoutinePreset {
+        id: "study_mode",
+        name: "Study Mode",
+        trigger_phrase: "Activate study mode",
+        description: "Pause music, start a 25m focus timer, and open Workspace.",
+        step_count: 3,
+    },
+    KevoRoutinePreset {
+        id: "wrap_up_session",
+        name: "Wrap Up Session",
+        trigger_phrase: "Wrap up session",
+        description: "Save project state, stop reading aloud, and clear active timers.",
+        step_count: 3,
+    },
+    KevoRoutinePreset {
+        id: "morning_briefing",
+        name: "Morning Briefing",
+        trigger_phrase: "Morning briefing",
+        description: "Check due reminders, recap current book, and resume ambient audio.",
+        step_count: 3,
+    },
+];
+
+pub fn list_routine_presets() -> Vec<KevoRoutinePreset> {
+    ROUTINE_PRESETS.to_vec()
+}
+
+#[tauri::command]
+pub fn kevo_list_routine_presets() -> Vec<KevoRoutinePreset> {
+    list_routine_presets()
+}
+
+/// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
+pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
+    let trimmed = utterance.trim();
+    let Some(entity) = last_entity.map(str::trim).filter(|s| !s.is_empty()) else {
+        return trimmed.to_string();
+    };
+    let lower = trimmed.to_lowercase();
+    const REFS: &[&str] = &[
+        "the previous one",
+        "that file",
+        "that note",
+        "that track",
+        "that book",
+        "that",
+        " it",
+    ];
+    for ref_phrase in REFS {
+        if let Some(pos) = lower.find(ref_phrase) {
+            let prefix = if *ref_phrase == " it" { " " } else { "" };
+            let mut out = String::with_capacity(trimmed.len() + entity.len());
+            out.push_str(&trimmed[..pos]);
+            out.push_str(prefix);
+            out.push_str(entity);
+            out.push_str(&trimmed[pos + ref_phrase.len()..]);
+            return out;
+        }
+    }
+    trimmed.to_string()
+}
+
+/// Expand composable multi-step voice routines deterministically on-device.
+pub fn resolve_routine_plan(utterance: &str, last_entity: Option<&str>) -> Option<KevoRoutinePlan> {
+    let resolved_utterance = resolve_anaphora(utterance, last_entity);
+    let lower = resolved_utterance.to_lowercase();
+    if lower.contains("study mode") {
+        return Some(KevoRoutinePlan {
+            name: "Study Mode".into(),
+            steps: vec![
+                KevoRoutineStep { action: "pause_music".into(), target: String::new(), label: "Pause music".into() },
+                KevoRoutineStep { action: "focus_timer".into(), target: "25m".into(), label: "Start 25-minute focus timer".into() },
+                KevoRoutineStep { action: "open_view".into(), target: "workspace".into(), label: "Open workspace".into() },
+            ],
+            resolved_utterance,
+        });
+    }
+    if lower.contains("wrap up session") || lower.contains("end session") {
+        return Some(KevoRoutinePlan {
+            name: "Wrap Up Session".into(),
+            steps: vec![
+                KevoRoutineStep { action: "save_project".into(), target: String::new(), label: "Save active project".into() },
+                KevoRoutineStep { action: "stop_reading".into(), target: String::new(), label: "Stop narration".into() },
+                KevoRoutineStep { action: "barge_in_clear".into(), target: String::new(), label: "Reset voice state".into() },
+            ],
+            resolved_utterance,
+        });
+    }
+    if lower.contains("morning briefing") {
+        return Some(KevoRoutinePlan {
+            name: "Morning Briefing".into(),
+            steps: vec![
+                KevoRoutineStep { action: "list_reminders".into(), target: String::new(), label: "Read due reminders".into() },
+                KevoRoutineStep { action: "what_was_i_reading".into(), target: String::new(), label: "Recap last book".into() },
+                KevoRoutineStep { action: "play_music".into(), target: String::new(), label: "Resume ambient audio".into() },
+            ],
+            resolved_utterance,
+        });
+    }
+    None
+}
+
+#[tauri::command]
+pub fn kevo_barge_in_interrupt() -> u64 {
+    BARGE_IN_EPOCH.fetch_add(1, Ordering::SeqCst) + 1
+}
+
+#[tauri::command]
+pub fn kevo_barge_in_epoch() -> u64 {
+    BARGE_IN_EPOCH.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub fn kevo_resolve_routine(utterance: String, last_entity: Option<String>) -> Option<KevoRoutinePlan> {
+    resolve_routine_plan(&utterance, last_entity.as_deref())
+}
+
+#[tauri::command]
+pub fn kevo_resolve_anaphora(utterance: String, last_entity: Option<String>) -> String {
+    resolve_anaphora(&utterance, last_entity.as_deref())
+}
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -361,5 +962,115 @@ mod tests {
         assert!(!reloaded.facts.iter().any(|f| f.id == f1.id));
 
         cleanup(&path);
+    }
+
+    #[test]
+    fn resolves_anaphora_routines_and_barge_in_epoch() {
+        assert_eq!(
+            resolve_anaphora("convert that file to mp3", Some("lecture.wav")),
+            "convert lecture.wav to mp3"
+        );
+        assert_eq!(
+            resolve_anaphora("summarize it", Some("Chapter 4")),
+            "summarize Chapter 4"
+        );
+        let study = resolve_routine_plan("Activate study mode", None).unwrap();
+        assert_eq!(study.name, "Study Mode");
+        assert_eq!(study.steps.len(), 3);
+        let before = kevo_barge_in_epoch();
+        let after = kevo_barge_in_interrupt();
+        assert_eq!(after, before + 1);
+    }
+
+    #[test]
+    fn matches_offline_intents_and_fuzzy_entities() {
+        let cands = vec!["Rust Audio Notes".to_string(), "Weekly Review".to_string()];
+        let open = match_offline_intent("open rust audio note", &cands).unwrap();
+        assert_eq!(open.intent, "open_entity");
+        assert_eq!(open.entity.as_deref(), Some("Rust Audio Notes"));
+        let pause = match_offline_intent("paws the music", &cands).unwrap();
+        assert_eq!(pause.intent, "pause_music");
+        assert!(match_offline_intent("   ", &cands).is_none());
+    }
+
+    #[test]
+    fn plans_selection_actions_and_tracks_voice_latency() {
+        let plan = plan_selection_action("summarize this", "Long note text").unwrap();
+        assert_eq!(plan.action, "summarize");
+        assert!(!plan.truncated);
+        assert!(plan_selection_action("summarize", "   ").is_err());
+        let stats = record_timing(40, 5, 80);
+        assert!(stats.sample_count >= 1);
+        assert!(stats.p95_total_ms >= stats.p50_total_ms);
+    }
+
+    #[test]
+    fn palette_commands_have_unique_ids_and_filter_by_keyword() {
+        let all = search_palette_commands("");
+        let mut ids = std::collections::HashSet::new();
+        for cmd in &all {
+            assert!(ids.insert(cmd.id));
+            assert!(!cmd.title.is_empty());
+        }
+        let lufs = search_palette_commands("lufs");
+        assert_eq!(lufs.len(), 1);
+        assert_eq!(lufs[0].id, "audio.normalize_lufs");
+    }
+
+    #[test]
+    fn conversation_context_resolves_typed_entities() {
+        let mut ctx = KevoConversationContext::default();
+        ctx.push_entity("file", "lecture.wav".into()).unwrap();
+        ctx.push_entity("note", "Sprint Plan".into()).unwrap();
+        assert_eq!(ctx.resolve_utterance("convert that file to mp3"), "convert lecture.wav to mp3");
+        assert_eq!(ctx.resolve_utterance("open that note"), "open Sprint Plan");
+        assert!(ctx.push_entity("unknown", "x".into()).is_err());
+    }
+
+    #[test]
+    fn rapid_barge_in_and_oversized_selection_are_bounded() {
+        let start = kevo_barge_in_epoch();
+        for i in 1..=50 {
+            assert_eq!(kevo_barge_in_interrupt(), start + i);
+        }
+        let big = "a".repeat(8000);
+        let plan = plan_selection_action("rewrite this", &big).unwrap();
+        assert!(plan.truncated);
+        assert_eq!(plan.selection_chars, 8000);
+    }
+
+    #[test]
+    fn shortcut_conflict_detector_catches_reordered_modifiers() {
+        assert!(detect_shortcut_conflicts(Vec::new()).is_empty());
+        let conflicts = detect_shortcut_conflicts(vec![CustomShortcutBinding {
+            id: "audio.normalize_lufs".into(),
+            title: Some("Normalize Audio (-14 LUFS)".into()),
+            shortcut: "Shift + Ctrl + S".into(),
+        }]);
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].normalized_shortcut, "ctrl+shift+s");
+        assert!(conflicts[0].command_ids.contains(&"kevo.study_mode".to_string()));
+        assert!(conflicts[0].command_ids.contains(&"audio.normalize_lufs".to_string()));
+    }
+
+    #[test]
+    fn recall_memory_ranks_facts_and_turns_by_relevance() {
+        let path = test_file("recall");
+        let _ = std::fs::remove_file(&path);
+        remember_fact_in(&path, "Favorite mic is Shure SM7B".into(), Some("audio".into())).unwrap();
+        save_turn_in(&path, "user".into(), "Check microphone gain levels".into()).unwrap();
+        let hits = recall_memory_in(&path, "Shure SM7B", 5).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].kind, "fact");
+        assert!(hits[0].score > 1.0);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn list_routine_presets_returns_unique_catalog() {
+        let presets = list_routine_presets();
+        assert_eq!(presets.len(), 3);
+        let ids: std::collections::HashSet<&str> = presets.iter().map(|p| p.id).collect();
+        assert_eq!(ids.len(), 3);
     }
 }

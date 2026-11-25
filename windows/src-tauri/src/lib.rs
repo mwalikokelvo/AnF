@@ -6,6 +6,7 @@ mod screen_help;
 mod addons;
 mod updates;
 mod ai;
+mod anf_vault_bridge;
 mod audio_native;
 mod music_native;
 mod claude;
@@ -480,12 +481,15 @@ pub fn run() {
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
         .manage(audio_native::AudioJobs::default())
+        .manage(audio_native::AudioEditState::default())
+        .manage(audio_native::AudioQueueState::default())
+        .manage(audio_native::AudioMediaSession::default())
         .manage(model_download::Downloads::default())
         .invoke_handler(tauri::generate_handler![
             companion::companion_open,companion::companion_close,companion::companion_compact,companion::companion_key,companion::companion_expand,screen_help::screen_help_capture,screen_help::screen_help_ask,
             addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,updates::update_check,
             model_download::local_ai_models,model_download::local_ai_download,model_download::local_ai_download_cancel,
-            audio_native::audio_convert,audio_native::audio_conversion_cancel,
+            audio_native::audio_convert,audio_native::audio_conversion_cancel,audio_native::audio_detect_silence,audio_native::audio_analyze_loudness,audio_native::audio_crossfade_curve,audio_native::audio_region_apply,audio_native::audio_region_undo,audio_native::audio_region_redo,audio_native::audio_queue_push,audio_native::audio_queue_next,audio_native::audio_queue_prev,audio_native::audio_set_item_speed,audio_native::audio_get_item_speed,audio_native::audio_media_session_update,audio_native::audio_media_session_state,audio_native::audio_media_key_dispatch,audio_native::audio_list_presets,audio_native::audio_validate_batch_job,audio_native::audio_plan_gapless,audio_native::audio_audit_clipping,audio_native::audio_waveform_envelope,audio_native::audio_estimate_bpm,audio_native::audio_analyze_dc_offset,audio_native::audio_analyze_stereo_balance,audio_native::audio_preview_fade_envelope,audio_native::audio_pitch_to_rate,
             music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
             safe_fetch::command::safe_fetch_text,safe_fetch::command::safe_fetch_audio,safe_fetch::command::safe_fetch_image,safe_fetch::command::safe_fetch_document,
             koreader_sync::koreader_sync_request,
@@ -538,12 +542,26 @@ pub fn run() {
             kevo_memory::kevo_memory_load_history,
             kevo_memory::kevo_memory_save_turn,
             kevo_memory::kevo_memory_clear_history,
+            kevo_memory::kevo_barge_in_interrupt,
+            kevo_memory::kevo_barge_in_epoch,
+            kevo_memory::kevo_resolve_routine,
+            kevo_memory::kevo_resolve_anaphora,
+            kevo_memory::kevo_match_intent,
+            kevo_memory::kevo_plan_selection_action,
+            kevo_memory::kevo_record_voice_timing,
+            kevo_memory::kevo_search_commands,
+            kevo_memory::kevo_push_context_entity,
+            kevo_memory::kevo_resolve_contextual_utterance,
+            kevo_memory::kevo_detect_shortcut_conflicts,
+            kevo_memory::kevo_memory_recall,
+            kevo_memory::kevo_list_routine_presets,
             kevo_schedule::kevo_schedule_create_reminder,
             kevo_schedule::kevo_schedule_list_reminders,
             kevo_schedule::kevo_schedule_cancel_reminder,
             kevo_schedule::kevo_schedule_clear_reminders,
             kevo_schedule::kevo_schedule_check_due,
             kevo_schedule::kevo_schedule_trigger_alert,
+            kevo_schedule::kevo_schedule_snooze_reminder,
             log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,
@@ -574,6 +592,12 @@ pub fn run() {
             kevo_ears::kevo_ears_install_models,
             workspace_load_project,
             workspace_list_projects,
+            anf_vault_bridge::workspace_related_notes,
+            anf_vault_bridge::workspace_vault_health,
+            anf_vault_bridge::workspace_note_backlinks,
+            anf_vault_bridge::workspace_vault_tags,
+            anf_vault_bridge::workspace_broken_wiki_links,
+            anf_vault_bridge::workspace_note_reading_stats,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,
