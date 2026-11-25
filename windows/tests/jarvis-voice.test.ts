@@ -60,6 +60,21 @@ describe('JarvisVoiceAgent Intent & Action Processing', () => {
     assert.strictEqual(capturedNote, 'Buy new microphone tomorrow');
   });
 
+  it('handles voice second-brain socratic claim capture', async () => {
+    let capturedNote = '';
+    const agent = new JarvisVoiceAgent({
+      switchView: () => {},
+      saveQuickNote: async (text) => { capturedNote = text; },
+    });
+    const res = await agent.processVoiceInput('Kevo, capture claim: Distributed consensus requires quorum intersection');
+    assert.ok(res.handled);
+    assert.strictEqual(res.actionName, 'capture_socratic_claim');
+    assert.ok(capturedNote.includes('Socratic Capture'));
+    assert.ok(capturedNote.includes('Critical Inquiry'));
+    assert.ok(capturedNote.includes('Boundary Test'));
+    assert.ok(res.speechReply.includes('Socratic claim captured'));
+  });
+
   it('handles voice music search and play command', async () => {
     let queriedSong = '';
     const agent = new JarvisVoiceAgent({
