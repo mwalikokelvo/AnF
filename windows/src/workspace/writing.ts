@@ -364,6 +364,10 @@ export function createWritingEditor(draft:HTMLTextAreaElement,changed:()=>void,n
   };
   root.addEventListener('keydown',onKey);
   document.addEventListener('keydown',e=>{if(focused&&e.key==='Escape')onKey(e);});
+  document.addEventListener('anf-view-changed',()=>{
+    const panel=root.closest('.workspace-panel') as HTMLElement|null;
+    if(focused&&panel?.hidden)setFocus(false);
+  });
   return {root,refresh,setNoteProvider(provider:()=>Promise<{name:string}[]>){noteNames=provider;},reveal(offset:number){draft.focus();draft.setSelectionRange(offset,offset);live?.focusSelection();},setReadOnly(value:boolean){live?.setReadOnly(value);},offer(original:string,next:string,review:boolean){
     pending=review?undefined:{original,next};proposal.hidden=false;
     const close=h('button',{text:review?'Close review':'Keep original'});

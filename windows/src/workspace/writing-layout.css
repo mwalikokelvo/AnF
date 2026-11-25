@@ -43,8 +43,9 @@
 /* CodeMirror draws no focus indicator of its own (outline:none), so the Writing editor was invisible to keyboard focus. Same ring as the other controls (anf-design.css). */
 .live-markdown:focus-within{outline:3px solid var(--accent);outline-offset:3px}
 
-/* Writing toolbar: wrap instead of hiding the last tools behind a horizontal scroll (the bottom-bar layout keeps its scroll). */
-@media(min-width:768px){.writing-editor .editor-tools{flex-wrap:wrap;overflow:visible}}
+/* Writing toolbar: wrap instead of hiding tools behind a horizontal scroll, so the Tools dropdown is never clipped at any viewport width. */
+.writing-editor .editor-tools{flex-wrap:wrap;overflow:visible}
+@media(max-width:760px){.keyboard-visible .writing-tools-dropdown{top:auto;bottom:calc(100% + 6px)}}
 
 /* Secondary Tools dropdown (Issue #257) */
 .writing-tools-menu{position:relative;display:inline-flex;align-items:center}
