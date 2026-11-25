@@ -303,6 +303,62 @@ pub struct NoteReadingStats {
     pub link_count: usize,
 }
 
+/// A note with no incoming `[[wiki-link]]` references from any other note in the vault.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OrphanNote {
+    pub id: String,
+    pub title: String,
+    pub word_count: usize,
+}
+
+/// Return every note that is never `[[linked]]` from any other note.
+/// A note may still appear in `links_in_its_own_body`; orphan means *nobody else* links to it.
+pub fn find_orphan_notes(notes: &[NoteInput]) -> Vec<OrphanNote> {
+    // Build the set of titles that appear as wiki-link targets in *other* notes.
+    // We normalise to lowercase for case-insensitive matching.
+    let mut referenced: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for note in notes {
+        let mut rest = note.text.as_str();
+        while let Some(start) = rest.find("[[") {
+            let after = &rest[start + 2..];
+            if let Some(end) = after.find("]]") {
+                let raw = &after[..end];
+                // `[[Target|Alias]]` → use the part before `|`
+                let target = raw.split('|').next().unwrap_or(raw).trim();
+                if !target.is_empty() {
+                    referenced.insert(target.to_lowercase());
+                }
+                rest = &after[end + 2..];
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Build a set of note titles so we can test membership.
+    let titles: std::collections::HashMap<String, &NoteInput> = notes
+        .iter()
+        .map(|n| (n.title.to_lowercase(), n))
+        .collect();
+
+    // A note is an orphan if its title does not appear in `referenced`.
+    titles
+        .into_iter()
+        .filter_map(|(lower_title, note)| {
+            if referenced.contains(&lower_title) {
+                None
+            } else {
+                Some(OrphanNote {
+                    id: note.id.clone(),
+                    title: note.title.clone(),
+                    word_count: note.text.split_whitespace().count(),
+                })
+            }
+        })
+        .collect()
+}
+
 /// Compute word count, estimated reading minutes, Markdown heading count, and `[[wiki-link]]` count for a note.
 pub fn compute_note_reading_stats(note: &NoteInput, wpm: u32) -> NoteReadingStats {
     let rate = wpm.clamp(60, 1000) as usize;
@@ -412,6 +468,23 @@ mod tests {
         assert_eq!(summary.total_words, 3);
         assert_eq!(summary.empty_notes, 1);
         assert!(summary.distinct_terms >= 4);
+    }
+
+    #[test]
+    fn find_orphan_notes_excludes_linked_notes_and_includes_unlinked() {
+        let notes = vec![
+            note("n1", "Index", "See [[Rust Audio]] and [[DSP Notes]]"),
+            note("n2", "Rust Audio", "Details about silence trimming"),
+            note("n3", "DSP Notes", "Fourier transforms"),
+            note("n4", "Cooking Tips", "Tomato soup"),  // nobody links here
+        ];
+        let orphans = find_orphan_notes(&notes);
+        assert_eq!(orphans.len(), 2); // "Index" and "Cooking Tips" are orphans
+        let ids: Vec<_> = orphans.iter().map(|o| o.id.as_str()).collect();
+        assert!(ids.contains(&"n1"));
+        assert!(ids.contains(&"n4"));
+        assert!(!ids.contains(&"n2"));
+        assert!(!ids.contains(&"n3"));
     }
 
     #[test]
