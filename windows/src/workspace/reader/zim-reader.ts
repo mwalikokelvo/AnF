@@ -48,6 +48,21 @@ function decodeHtmlEntitiesOnce(input: string): string {
   return input.replace(/&(nbsp|amp|lt|gt|quot);/g, (full, name: string) => ZIM_ENTITIES[name] ?? full);
 }
 
+function findEndTag(lower: string, tag: string, from: number): number {
+  const prefix = `</${tag}`;
+  let pos = from;
+  while (pos < lower.length) {
+    const idx = lower.indexOf(prefix, pos);
+    if (idx === -1) return -1;
+    const after = idx + prefix.length;
+    if (after < lower.length && (lower[after] === '>' || /\s/.test(lower[after]))) {
+      return idx;
+    }
+    pos = after;
+  }
+  return -1;
+}
+
 function stripHtmlMarkup(html: string): string {
   const out: string[] = [];
   const lower = html.toLowerCase();
@@ -56,14 +71,14 @@ function stripHtmlMarkup(html: string): string {
     if (html[i] === '<') {
       const tagStart = i + 1;
       if (lower.startsWith('script', tagStart) && (tagStart + 6 >= html.length || /[\s>/]/.test(html[tagStart + 6]))) {
-        const endIdx = lower.indexOf('</script', tagStart + 6);
+        const endIdx = findEndTag(lower, 'script', tagStart + 6);
         if (endIdx === -1) break;
         const closeBracket = html.indexOf('>', endIdx + 8);
         i = closeBracket === -1 ? html.length : closeBracket + 1;
         continue;
       }
       if (lower.startsWith('style', tagStart) && (tagStart + 5 >= html.length || /[\s>/]/.test(html[tagStart + 5]))) {
-        const endIdx = lower.indexOf('</style', tagStart + 5);
+        const endIdx = findEndTag(lower, 'style', tagStart + 5);
         if (endIdx === -1) break;
         const closeBracket = html.indexOf('>', endIdx + 7);
         i = closeBracket === -1 ? html.length : closeBracket + 1;

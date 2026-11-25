@@ -60,15 +60,15 @@ async function idbGet<T>(db: IDBDatabase, key: string): Promise<T | undefined> {
   });
 }
 
-async function idbSet(db: IDBDatabase, key: string, value: unknown): Promise<void> {
+async function idbSet(db: IDBDatabase, key: string, value: unknown): Promise<boolean> {
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(IDB_STORE, 'readwrite');
       tx.objectStore(IDB_STORE).put(value, key);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => resolve();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
     } catch {
-      resolve();
+      resolve(false);
     }
   });
 }
@@ -78,14 +78,16 @@ async function getOrCreateVaultKey(db: IDBDatabase): Promise<CryptoKey | null> {
   const existing = await idbGet<CryptoKey>(db, IDB_KEY_ID);
   if (existing) return existing;
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-  await idbSet(db, IDB_KEY_ID, key);
-  return key;
+  const saved = await idbSet(db, IDB_KEY_ID, key);
+  return saved ? key : null;
 }
 
 export class CalDeskManager {
   private appointments: BookedAppointment[] = [];
   private listeners: (() => void)[] = [];
   private persistChain: Promise<void> = Promise.resolve();
+  private dirty = false;
+  private cancelledIds = new Set<string>();
 
   constructor() {
     this.appointments = this.defaultStarter();
@@ -118,7 +120,7 @@ export class CalDeskManager {
           const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(record.iv) }, key, record.cipher);
           const parsed = JSON.parse(new TextDecoder().decode(plain));
           if (Array.isArray(parsed)) {
-            this.appointments = parsed;
+            this.mergeHydrated(parsed);
             this.notify();
             return;
           }
@@ -129,15 +131,29 @@ export class CalDeskManager {
         const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
           if (Array.isArray(parsed)) {
-            this.appointments = parsed;
+            this.mergeHydrated(parsed);
             await this.persistEncrypted();
             this.notify();
           }
         }
       }
     } catch {}
+  }
+
+  private mergeHydrated(parsed: BookedAppointment[]): void {
+    if (!this.dirty) {
+      this.appointments = parsed;
+      return;
+    }
+    const existingIds = new Set(this.appointments.map(a => a.id));
+    const merged = [...this.appointments];
+    for (const item of parsed) {
+      if (!existingIds.has(item.id) && !this.cancelledIds.has(item.id)) {
+        merged.push(item);
+      }
+    }
+    this.appointments = merged;
   }
 
   private async persistEncrypted(): Promise<void> {
@@ -149,8 +165,8 @@ export class CalDeskManager {
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encoded = new TextEncoder().encode(JSON.stringify(this.appointments));
       const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
-      await idbSet(db, IDB_DATA_ID, { iv, cipher });
-      if (typeof localStorage !== 'undefined') {
+      const ok = await idbSet(db, IDB_DATA_ID, { iv, cipher });
+      if (ok && typeof localStorage !== 'undefined') {
         localStorage.removeItem(LEGACY_STORAGE_KEY);
       }
     } catch {}
@@ -209,6 +225,7 @@ export class CalDeskManager {
       id: 'cal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       createdAt: Date.now(),
     };
+    this.dirty = true;
     this.appointments.push(created);
     this.save();
     return { success: true, appointment: created };
@@ -217,6 +234,8 @@ export class CalDeskManager {
   cancelAppointment(id: string): boolean {
     const before = this.appointments.length;
     this.appointments = this.appointments.filter(a => a.id !== id);
+    this.cancelledIds.add(id);
+    this.dirty = true;
     if (this.appointments.length !== before) {
       this.save();
       return true;
