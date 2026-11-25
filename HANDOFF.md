@@ -4,7 +4,16 @@
 
 Every assistant (Claude, Gemini/Antigravity, Codex, others) MUST read this file before starting work and update it before stopping. Keep entries short and dated. Workers report the final release (download links, platforms, exact version) back to the primary AnF conversation; a worker's own chat is not enough.
 
-Last updated: 2026-11-22 by Claude (handover to Antigravity — see the first entry).
+Last updated: 2026-11-22 by Antigravity (Grok features: What's playing, Today in History, Random Advice).
+
+## 2026-11-22 — Grok additions: What's playing, Today in History, and Random Advice (Antigravity)
+
+- Cleanly rebuilt and integrated Grok features from `grok/kevo-whats-playing`, `grok/kevo-today-in-history`, and `grok/kevo-random-advice`:
+  1. **"What's playing?"** (`kevo-whats-playing.ts`): Queries active track (`title`, `artist`, `album`) from Music Hub; returns "Now playing {title} by {artist} from {album}, sir." or "Nothing is playing right now, sir.". Exposed in `music-hub.ts`, `main.ts`, `jarvis-command-desk.ts`, `jarvis-voice-agent.ts`, and tool action `whats_playing` in `kevo-actions.ts`.
+  2. **"Today in history"** (`kevo-history.ts`): Queries Wikipedia's free On This Day REST API feed for historical events on the current date; gated behind `onlineLookupsEnabled()`; formats 1-2 major events concisely. Exposed in `jarvis-voice-agent.ts` and tool action `today_in_history` in `kevo-actions.ts`.
+  3. **"Random advice"** (`kevo-advice.ts`): Queries free Advice Slip API when online lookups are enabled, with immediate fallback to a curated positive offline tips list when offline or disabled. Exposed in `jarvis-voice-agent.ts` and tool action `random_advice` in `kevo-actions.ts`.
+  4. Added `https://api.adviceslip.com` to `connect-src` in `windows/src-tauri/tauri.conf.json` (CSP and devCsp).
+- Automated tests: Comprehensive unit tests in `windows/tests/kevo-whats-playing.test.ts`, `windows/tests/kevo-history.test.ts`, and `windows/tests/kevo-advice.test.ts` (all 34 tests passing with mocked networks, zero network calls in tests).
 
 ## 2026-11-22 — HANDOVER: Antigravity takes over ALL of Claude's duties and roles (Claude)
 

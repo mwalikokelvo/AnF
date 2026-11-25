@@ -13,6 +13,9 @@ import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
 import { parseTimezoneRequest, placeName, timeInPlace } from './kevo-timezone';
 import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuestion } from './kevo-trivia';
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
+import { isWhatsPlayingRequest, formatWhatsPlaying } from './kevo-whats-playing';
+import { isHistoryRequest, todayInHistory } from './kevo-history';
+import { isAdviceRequest, randomAdvice } from './kevo-advice';
 import {
   createReminder,
   listReminders,
@@ -42,6 +45,8 @@ export interface JarvisActionContext {
   nextTrack?: () => void;
   /** Skips to the previous music track. */
   previousTrack?: () => void;
+  /** Returns the currently playing or loaded music track from Music Hub, or null if nothing is playing. */
+  getCurrentTrack?: () => { title: string; artist?: string; album?: string } | null;
   /** Changes the Music Hub volume and returns the new level, 0 to 100. */
   setMusicVolume?: (change: VolumeRequest) => number;
   searchMusic?: (query: string) => Promise<boolean>;
@@ -261,7 +266,7 @@ export function stripLeadIn(text: string): string {
 /** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
 export function splitRequests(text: string): string[] {
   return text
-    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock)\b)/i)
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock|what(?:'s| is) playing|what song is this|what are we listening to|(?:what happened )?(?:today in history|on this day)|(?:(?:tell|give) me (?:some |a piece of )?|random |some )?advice)\b)/i)
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3);
@@ -513,7 +518,7 @@ export class JarvisVoiceAgent {
    * An answer from an online service, behind the online lookups switch. `say` runs only when the answer is still
    * wanted: Stop pressed or a new conversation while it was on its way leaves nothing said or kept.
    */
-  private async online<T>(kind: 'translate' | 'trivia', what: string, ask: () => Promise<T>, say: (answer: T) => string): Promise<ActionResult> {
+  private async online<T>(kind: 'translate' | 'trivia' | 'today_in_history', what: string, ask: () => Promise<T>, say: (answer: T) => string): Promise<ActionResult> {
     if (!this.context.onlineLookupsEnabled?.()) return { handled: true, actionName: kind, speechReply: ONLINE_LOOKUPS_OFF, status: 'failure', verified: false, reason: 'ONLINE_LOOKUPS_OFF' };
     const asked = this.generation;
     try {
@@ -782,9 +787,22 @@ export class JarvisVoiceAgent {
     }
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
     if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
+    if (isAdviceRequest(lower)) {
+      const asked = this.generation;
+      const advice = await randomAdvice(this.context.onlineLookupsEnabled?.() ?? true);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: 'random_advice', speechReply: advice, status: 'success', verified: true };
+    }
 
-    // Online, behind the online lookups switch: trivia (Open Trivia DB). The old question goes first, so a failed or
-    // blocked request leaves nothing for the next reply to answer.
+    // Online, behind the online lookups switch: trivia (Open Trivia DB) and today in history (Wikipedia).
+    if (isHistoryRequest(lower)) {
+      return this.online(
+        'today_in_history',
+        'check today in history',
+        () => todayInHistory(),
+        (events) => (events ? `On this day in history: ${events}` : 'I could not find any recorded historical events for today, sir.')
+      );
+    }
     if (isTriviaRequest(lower)) {
       this.trivia = null;
       return this.online('trivia', 'get a trivia question', fetchTrivia, (question) => askTrivia((this.trivia = question)));
@@ -964,6 +982,12 @@ export class JarvisVoiceAgent {
     if (asksFor(lower, /\b(?:previous|prev|last|back(?: a| one)?) (?:song|track)/, /^(?:(?:go|jump|move|switch|play|put on|give me|skip)(?: back)?(?: to)? )?(?:the )?(?:previous|prev|last|a|one) (?:song|track)\b/)) {
       this.context.previousTrack?.();
       return { handled: true, actionName: 'previous_track', speechReply: 'Going back to the previous track, sir.' };
+    }
+
+    // "What's playing?", "what song is this", "what are we listening to"
+    if (isWhatsPlayingRequest(lower)) {
+      const track = this.context.getCurrentTrack ? this.context.getCurrentTrack() : null;
+      return { handled: true, actionName: 'whats_playing', speechReply: formatWhatsPlaying(track), status: 'success', verified: true };
     }
 
     // 3. Places inside AnF. Exact names only, so "open Visual Studio Code" or "open ChatGPT" reach the apps below.

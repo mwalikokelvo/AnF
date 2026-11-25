@@ -290,6 +290,7 @@ const jarvisActionContext: JarvisActionContext = {
     playMusic:()=>{void musicHub.play();},
     nextTrack:()=>{void musicHub.step(1);},
     previousTrack:()=>{void musicHub.step(-1);},
+    getCurrentTrack: () => musicHub.getCurrentTrack?.() ?? null,
     setMusicVolume:change=>musicHub.changeVolume(change),
     // Weather (Open-Meteo, sent the city) and online lookups (Wikipedia, dictionary, currency rates and the rest) are on
     // by default, the owner's choice of 22 Nov 2026. "turn off weather" / "turn off online lookups" stores '0' and stops them.
