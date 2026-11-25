@@ -2301,3 +2301,10 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Tests:
   - ThingsBook: 34 passed, 0 failed, 47 skipped (`node work/run-tests.cjs`).
   - AnF: 28 passed, 0 failed across `final-frontiers.test.ts`, `book-formats.test.ts`, `wave-a-engines.test.ts`, and `wave-b-engines.test.ts`.
+## 2026-11-23: Dependency audit fix, branch `fix/dependency-audit` (Claude, PR #293)
+- Weekly audit red on `main` (run 45216651102, 2026-11-23, head 6e0148df): 7 vulnerabilities in `windows/Cargo.lock`.
+- Bumped to patched versions within existing semver ranges: cookie 0.18.3 (RUSTSEC-2026-0594), quinn-proto 0.11.19 (RUSTSEC-2026-0523/0524), quinn-udp 0.5.16 (RUSTSEC-2026-0538), url 2.5.9 (RUSTSEC-2026-0592), rustix 1.1.6 (RUSTSEC-2026-0486), async-executor 1.14.1 (yanked), yoke/yoke-derive 0.8.4 (yanked).
+- Added `--ignore` for the two advisories with unreachable paths: glib RUSTSEC-2024-0429 (GTK 0.18 stack pinned by Tauri 2.12; `VariantStrIter` never called), zip RUSTSEC-2026-0545/0548 (AES off, no `ZipStreamReader`).
+- Checks: local `cargo audit --file windows/Cargo.lock` exit 0 (0 vulnerabilities, 10 allowed warnings); `cargo metadata --locked` OK; `npm audit --prefix windows` 0 vulnerabilities; `node scripts/check-release.mjs` 12/12. No Rust source or manifest change.
+- PR #293 open against `main` from `fix/dependency-audit`; owner to review/merge.
+

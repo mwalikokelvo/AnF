@@ -266,7 +266,7 @@ export function stripLeadIn(text: string): string {
 /** "open Brave and play YouTube" is two requests. Only split where a new command starts ("rock and roll" stays one). */
 export function splitRequests(text: string): string[] {
   return text
-    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock)\b)/i)
+    .split(/,?\s+(?:and(?: then)?|then)\s+(?=(?:open|launch|start|play|stream|pause|set|search|google|look up|go to|show|take a note|skip|turn (?:it|the|up|down)|mute|unmute|louder|quieter|softer|volume|(?:what'?s|what is|how'?s|how is|check|tell me) (?:the )?(?:weather|time|clock)|weather (?:in|for|today|tomorrow|now)|(?:the )?time|(?:the )?clock|what(?:'s| is) playing|what song is this|what are we listening to|(?:what happened )?(?:today in history|on this day)|(?:(?:tell|give) me (?:some |a piece of )?|random |some )?advice)\b)/i)
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3);
@@ -788,7 +788,9 @@ export class JarvisVoiceAgent {
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
     if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
     if (isAdviceRequest(lower)) {
+      const asked = this.generation;
       const advice = await randomAdvice(this.context.onlineLookupsEnabled?.() ?? true);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
       return { handled: true, actionName: 'random_advice', speechReply: advice, status: 'success', verified: true };
     }
 

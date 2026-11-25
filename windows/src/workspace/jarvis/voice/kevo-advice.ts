@@ -25,6 +25,8 @@ export function isAdviceRequest(lower: string): boolean {
   );
 }
 
+const UNSAFE_ADVICE = /\b(?:fuck|shit|bitch|asshole|damn|cunt|dick|cock|pussy|bastard|slut|whore|kill yourself|suicide|alcohol|drunk|weed|cocaine|heroin|porn|sex)\b/i;
+
 export async function randomAdvice(
   online: boolean,
   fetchFn?: LookupFetch
@@ -33,11 +35,11 @@ export async function randomAdvice(
     return LOCAL_ADVICE[Math.floor(Math.random() * LOCAL_ADVICE.length)];
   }
   try {
-    const res = await onlineGet('https://api.adviceslip.com/advice', 'Advice Slip', fetchFn);
+    const res = await onlineGet('https://api.adviceslip.com/advice', 'Advice Slip', fetchFn, undefined, 1200);
     if (!res.ok) throw new Error(`status ${res.status}`);
     const data = (await res.json()) as { slip?: { advice?: string } };
     const advice = data?.slip?.advice?.trim();
-    if (advice) return advice;
+    if (advice && !UNSAFE_ADVICE.test(advice)) return advice;
   } catch {
     // Fall back to offline advice
   }
