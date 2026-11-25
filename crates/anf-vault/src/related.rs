@@ -293,6 +293,52 @@ pub fn find_broken_wiki_links(notes: &[NoteInput]) -> Vec<BrokenWikiLink> {
     broken
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteReadingStats {
+    pub id: String,
+    pub word_count: usize,
+    pub reading_minutes: u32,
+    pub heading_count: usize,
+    pub link_count: usize,
+}
+
+/// Compute word count, estimated reading minutes, Markdown heading count, and `[[wiki-link]]` count for a note.
+pub fn compute_note_reading_stats(note: &NoteInput, wpm: u32) -> NoteReadingStats {
+    let rate = wpm.clamp(60, 1000) as usize;
+    let word_count = note.text.split_whitespace().count();
+    let reading_minutes = if word_count == 0 {
+        0
+    } else {
+        word_count.div_ceil(rate) as u32
+    };
+    let heading_count = note
+        .text
+        .lines()
+        .filter(|line| line.trim_start().starts_with('#'))
+        .count();
+    let mut link_count = 0usize;
+    let mut rest = note.text.as_str();
+    while let Some(start) = rest.find("[[") {
+        let after = &rest[start + 2..];
+        if let Some(end) = after.find("]]") {
+            if !after[..end].trim().is_empty() {
+                link_count += 1;
+            }
+            rest = &after[end + 2..];
+        } else {
+            break;
+        }
+    }
+    NoteReadingStats {
+        id: note.id.clone(),
+        word_count,
+        reading_minutes,
+        heading_count,
+        link_count,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,5 +450,15 @@ mod tests {
         assert_eq!(broken.len(), 1);
         assert_eq!(broken[0].source_id, "n1");
         assert_eq!(broken[0].target, "Missing Note");
+    }
+
+    #[test]
+    fn compute_note_reading_stats_counts_words_headings_and_links() {
+        let n = note("n1", "Title", "# Heading\nBody with [[Link One]] and [[Link Two]].");
+        let stats = compute_note_reading_stats(&n, 200);
+        assert_eq!(stats.word_count, 9);
+        assert_eq!(stats.reading_minutes, 1);
+        assert_eq!(stats.heading_count, 1);
+        assert_eq!(stats.link_count, 2);
     }
 }

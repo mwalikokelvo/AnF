@@ -2,9 +2,9 @@
 //! Host storage (SQLCipher) stays in `vault.rs`. Not ThingsBook / `_core`.
 use anf_vault::{
     related::{
-        extract_vault_tags, find_broken_wiki_links, find_note_backlinks, related_notes,
-        summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput, RelatedNote,
-        VaultHealthSummary, VaultTagCount,
+        compute_note_reading_stats, extract_vault_tags, find_broken_wiki_links,
+        find_note_backlinks, related_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink,
+        NoteInput, NoteReadingStats, RelatedNote, VaultHealthSummary, VaultTagCount,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -66,6 +66,12 @@ pub fn workspace_vault_tags(notes: Vec<NoteInput>) -> Vec<VaultTagCount> {
 #[tauri::command]
 pub fn workspace_broken_wiki_links(notes: Vec<NoteInput>) -> Vec<BrokenWikiLink> {
     find_broken_wiki_links(&notes)
+}
+
+/// Compute reading time, word count, heading count, and wiki-link count for a note.
+#[tauri::command(rename_all = "camelCase")]
+pub fn workspace_note_reading_stats(note: NoteInput, wpm: Option<u32>) -> NoteReadingStats {
+    compute_note_reading_stats(&note, wpm.unwrap_or(220))
 }
 
 #[cfg(test)]

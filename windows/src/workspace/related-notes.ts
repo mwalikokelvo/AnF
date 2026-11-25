@@ -65,6 +65,21 @@ export async function fetchBrokenWikiLinks(notes: RelatedNoteInput[]): Promise<B
   return invoke<BrokenWikiLink[]>('workspace_broken_wiki_links', { notes });
 }
 
+export type NoteReadingStats = {
+  id: string;
+  wordCount: number;
+  readingMinutes: number;
+  headingCount: number;
+  linkCount: number;
+};
+
+export async function fetchNoteReadingStats(
+  note: RelatedNoteInput,
+  wpm = 220,
+): Promise<NoteReadingStats> {
+  return invoke<NoteReadingStats>('workspace_note_reading_stats', { note, wpm });
+}
+
 /**
  * Queries the Rust `workspace_related_notes` Tauri command (`anf_vault::related`)
  * to rank related notes on-device via IDF-weighted cosine similarity.
