@@ -279,6 +279,69 @@ pub fn kevo_search_commands(query: Option<String>) -> Vec<KevoPaletteCommand> {
     search_palette_commands(query.as_deref().unwrap_or(""))
 }
 
+#[derive(Debug, Default)]
+pub struct KevoConversationContext {
+    pub last_file: Option<String>,
+    pub last_note: Option<String>,
+    pub last_track: Option<String>,
+    pub last_book: Option<String>,
+    pub last_any: Option<String>,
+}
+
+impl KevoConversationContext {
+    pub fn push_entity(&mut self, kind: &str, value: String) -> Result<(), String> {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            return Err("Entity value cannot be empty.".into());
+        }
+        match kind {
+            "file" => self.last_file = Some(trimmed.clone()),
+            "note" => self.last_note = Some(trimmed.clone()),
+            "track" => self.last_track = Some(trimmed.clone()),
+            "book" => self.last_book = Some(trimmed.clone()),
+            _ => return Err("Unknown entity kind. Use file, note, track, or book.".into()),
+        }
+        self.last_any = Some(trimmed);
+        Ok(())
+    }
+
+    pub fn resolve_utterance(&self, utterance: &str) -> String {
+        let lower = utterance.to_lowercase();
+        let target = if lower.contains("that file") {
+            self.last_file.as_deref()
+        } else if lower.contains("that note") {
+            self.last_note.as_deref()
+        } else if lower.contains("that track") || lower.contains("the previous one") {
+            self.last_track.as_deref()
+        } else if lower.contains("that book") {
+            self.last_book.as_deref()
+        } else {
+            self.last_any.as_deref()
+        };
+        resolve_anaphora(utterance, target.or(self.last_any.as_deref()))
+    }
+}
+
+static CONVO_CONTEXT: Mutex<KevoConversationContext> = Mutex::new(KevoConversationContext {
+    last_file: None,
+    last_note: None,
+    last_track: None,
+    last_book: None,
+    last_any: None,
+});
+
+#[tauri::command]
+pub fn kevo_push_context_entity(kind: String, value: String) -> Result<(), String> {
+    let mut guard = CONVO_CONTEXT.lock().map_err(|_| "Context lock unavailable.")?;
+    guard.push_entity(&kind, value)
+}
+
+#[tauri::command]
+pub fn kevo_resolve_contextual_utterance(utterance: String) -> Result<String, String> {
+    let guard = CONVO_CONTEXT.lock().map_err(|_| "Context lock unavailable.")?;
+    Ok(guard.resolve_utterance(&utterance))
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -746,5 +809,15 @@ mod tests {
         let lufs = search_palette_commands("lufs");
         assert_eq!(lufs.len(), 1);
         assert_eq!(lufs[0].id, "audio.normalize_lufs");
+    }
+
+    #[test]
+    fn conversation_context_resolves_typed_entities() {
+        let mut ctx = KevoConversationContext::default();
+        ctx.push_entity("file", "lecture.wav".into()).unwrap();
+        ctx.push_entity("note", "Sprint Plan".into()).unwrap();
+        assert_eq!(ctx.resolve_utterance("convert that file to mp3"), "convert lecture.wav to mp3");
+        assert_eq!(ctx.resolve_utterance("open that note"), "open Sprint Plan");
+        assert!(ctx.push_entity("unknown", "x".into()).is_err());
     }
 }

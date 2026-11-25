@@ -75,6 +75,17 @@ export async function searchKevoCommands(query = ''): Promise<KevoPaletteCommand
   return invoke<KevoPaletteCommand[]>('kevo_search_commands', { query });
 }
 
+export async function pushKevoContextEntity(
+  kind: 'file' | 'note' | 'track' | 'book',
+  value: string,
+): Promise<void> {
+  return invoke('kevo_push_context_entity', { kind, value });
+}
+
+export async function resolveContextualUtterance(utterance: string): Promise<string> {
+  return invoke<string>('kevo_resolve_contextual_utterance', { utterance });
+}
+
 /** Atomically bumps the Rust barge-in epoch to cancel any in-flight Kevo speech/stream. */
 export async function bargeInInterrupt(): Promise<number> {
   return invoke<number>('kevo_barge_in_interrupt');
