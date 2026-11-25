@@ -96,3 +96,47 @@
 ## Decision Log
 - **Prebuilt OpenSSL on Windows**: `AnF/windows/src-tauri` uses `rusqlite` with `bundled-sqlcipher-vendored-openssl`. Setting `OPENSSL_NO_VENDOR=1` + `OPENSSL_DIR` to the prebuilt `anf-main-build` OpenSSL install avoids needing Strawberry Perl during `cargo check`/`cargo test`.
 - **Full Vertical Slices**: Every new capability must span Rust (`crates/anf-vault` + `windows/src-tauri/src/` or `ThingsBook/core/src/`), IPC (`#[tauri::command]` or `core_bridge.rs` + `native-core.cjs`/`main.cjs`/`preload.cjs`), and frontend UI.
+
+### 2026-11-24 Evening — Initial Setup
+- **REA**: Connected and ready. Doctor reports healthy environment.
+- **Ponytail**: Activated at `full` level. Smallest complete change mandate in effect.
+- **Branch Strategy**: Continue on existing `grok/*` branches, create new thematic branches as needed. Never push to `main`.
+
+---
+
+## Active Tracks
+
+### Track 1: Deep Repo & Cross-Pollination
+- Scanning all `mwalikokelvo/*` repos for reusable patterns
+- Identifying shared Rust primitives between AnF and ThingsBook
+- Harvesting audio engines, TTS drivers, UI patterns
+
+### Track 2: Competitive & REA Analysis
+- Analyzing Siri, Google Assistant, Alexa, Copilot, Mycroft/OVOS
+- Studying ElevenReader, Spotify, Raycast, Readwise Reader, KOReader
+- Extracting state machines, triggers, shortcuts, edge-case rules
+
+### Track 3: AnF Full-Stack Execution
+- Rust core, Tauri IPC, glassmorphic UI/UX
+- Voice/TTS/audio pipelines, offline indexing
+- Windows/Android cross-platform parity
+
+### Track 4: ThingsBook Full-Stack Execution
+- Reading & narration domain
+- Library management, sync, cross-book search
+- Voice-activated features, smart shelves
+
+---
+
+## REA Findings
+*To be populated as analysis progresses*
+
+---
+
+## Adversarial QA Log
+*To be populated as stress tests run*
+
+---
+
+## Cross-Pollination Opportunities
+*To be populated as shared primitives are identified*
