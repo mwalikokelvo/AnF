@@ -231,3 +231,68 @@ export function vaultHealthToMarkdown(report: VaultHealthReport): string {
 
   return lines.join('\n');
 }
+
+export interface LinkRepairResult {
+  repairedNotes: KnowledgeNote[];
+  fixedLinksCount: number;
+  repairs: Array<{ sourceNoteId: string; from: string; to: string }>;
+}
+
+/**
+ * Self-healing link resolver (Multiplier 4):
+ * Automatically detects and repairs broken wikilinks by matching case/punctuation/slug
+ * variations to existing note names (e.g. [[distributed-consensus]] -> [[Distributed Consensus]]).
+ */
+export function repairVaultLinks(
+  notes: KnowledgeNote[],
+  manualAliasMap: Record<string, string> = {}
+): LinkRepairResult {
+  const noteNameMap = new Map<string, string>(); // normalizedKey -> realName
+  for (const n of notes) {
+    const real = n.name.trim();
+    noteNameMap.set(real.toLowerCase(), real);
+    // Also index normalized slug variations (hyphens/underscores to spaces)
+    const slugKey = real.toLowerCase().replace(/[-_]+/g, ' ').trim();
+    if (!noteNameMap.has(slugKey)) {
+      noteNameMap.set(slugKey, real);
+    }
+  }
+
+  let fixedLinksCount = 0;
+  const repairs: Array<{ sourceNoteId: string; from: string; to: string }> = [];
+
+  const repairedNotes = notes.map(n => {
+    let draft = n.draft || '';
+    if (!draft.includes('[[')) return n;
+
+    let modified = false;
+    draft = draft.replace(/\[\[([^\]\n]{1,160})\]\]/g, (match, target) => {
+      const clean = target.trim();
+      const lower = clean.toLowerCase();
+      const slugKey = lower.replace(/[-_]+/g, ' ').trim();
+
+      // Check explicit alias map
+      if (manualAliasMap[clean]) {
+        fixedLinksCount++;
+        modified = true;
+        repairs.push({ sourceNoteId: n.id, from: clean, to: manualAliasMap[clean] });
+        return `[[${manualAliasMap[clean]}]]`;
+      }
+
+      // Check auto-resolution to existing note name
+      const targetResolved = noteNameMap.get(lower) || noteNameMap.get(slugKey);
+      if (targetResolved && targetResolved !== clean) {
+        fixedLinksCount++;
+        modified = true;
+        repairs.push({ sourceNoteId: n.id, from: clean, to: targetResolved });
+        return `[[${targetResolved}]]`;
+      }
+
+      return match;
+    });
+
+    return modified ? { ...n, draft } : n;
+  });
+
+  return { repairedNotes, fixedLinksCount, repairs };
+}

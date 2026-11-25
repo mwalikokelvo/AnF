@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+# working output (crops, rendered decks) — regenerated, not source. deck.json is the durable
+# SPEC (the benchmark manifest points at it), so keep those tracked while ignoring build products:
+# a fresh clone can rebuild every benchmark deck's HTML/PPTX from its tracked spec. FULL-fidelity
+# regression additionally needs the source PDF re-run through prepare_source.py (ingest.json text
+# for number grounding, figure PNGs for rendering) — the PDFs are copyrighted and NOT in the repo,
+# so a fresh clone regresses build + parity + layout gates, while grounding/figure legs re-run at
+# reduced fidelity until prepare_source is re-run. figures.json (crop metadata incl. min_font_pt
+# for the QA legibility projection) and aesthetics_report.json (the render-review gate's input)
+# are likewise inputs to the regression, not build products.
+/out/*
+!/out/*/
+/out/*/*
+!/out/*/deck.json
+!/out/*/figures.json
+# chart *specs* are durable (values verbatim; make_chart.py rebuilds the PNG from them)
+!/out/*/figures/
+/out/*/figures/*
+!/out/*/figures/*.spec.json
+!/out/*/deck/
+/out/*/deck/*
+!/out/*/deck/aesthetics_report.json
+/tests/fixtures/*.pdf
+/tests/fixtures/*_source/
+.DS_Store
