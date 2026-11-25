@@ -54,6 +54,12 @@ import {
   cancelDailyBriefingSchedule,
   getDailyBriefingSchedule,
 } from './jarvis-schedule';
+import {
+  addToShoppingList,
+  listShoppingList,
+  clearShoppingList,
+  removeFromShoppingList,
+} from './kevo-shopping';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -1609,6 +1615,113 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
           reason: 'EXECUTION_FAILED',
         };
       }
+    },
+  },
+  {
+    name: 'add_to_shopping_list',
+    description: 'Adds an item to the shopping list or to-do list.',
+    parameters: {
+      type: 'object',
+      properties: {
+        item: { type: 'string', description: 'Item name to add (e.g. "milk", "eggs", "coffee")' },
+      },
+      required: ['item'],
+    },
+    execute: async (args: { item: string }, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'add_to_shopping_list',
+          speechReply: `Added ${String(args?.item || '').trim()} to your shopping list.`,
+          status: 'success',
+          verified: true,
+        };
+      }
+      const reply = addToShoppingList(args?.item);
+      return {
+        handled: true,
+        actionName: 'add_to_shopping_list',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'list_shopping_list',
+    description: 'Reads out the current shopping list items.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      const reply = listShoppingList();
+      return {
+        handled: true,
+        actionName: 'list_shopping_list',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'clear_shopping_list',
+    description: 'Clears all items from the shopping list.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: Record<string, never>, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'clear_shopping_list',
+          speechReply: 'Cleared your shopping list, sir.',
+          status: 'success',
+          verified: true,
+        };
+      }
+      const reply = clearShoppingList();
+      return {
+        handled: true,
+        actionName: 'clear_shopping_list',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'remove_from_shopping_list',
+    description: 'Removes a specific item from the shopping list.',
+    parameters: {
+      type: 'object',
+      properties: {
+        item: { type: 'string', description: 'Item name to remove' },
+      },
+      required: ['item'],
+    },
+    execute: async (args: { item: string }, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'remove_from_shopping_list',
+          speechReply: `Removed ${String(args?.item || '').trim()} from your shopping list.`,
+          status: 'success',
+          verified: true,
+        };
+      }
+      const reply = removeFromShoppingList(args?.item);
+      const missing = /was not on your shopping list/i.test(reply);
+      return {
+        handled: !missing,
+        actionName: 'remove_from_shopping_list',
+        speechReply: reply,
+        status: missing ? 'failure' : 'success',
+        verified: !missing,
+        ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
+      };
     },
   },
 ];
