@@ -129,3 +129,23 @@ export async function snoozeKevoReminder(
     duration,
   });
 }
+
+export type CustomShortcutBinding = {
+  id: string;
+  title?: string;
+  shortcut: string;
+};
+
+export type ShortcutConflict = {
+  normalizedShortcut: string;
+  commandIds: string[];
+  titles: string[];
+};
+
+export async function detectShortcutConflicts(
+  customBindings: CustomShortcutBinding[] = [],
+): Promise<ShortcutConflict[]> {
+  return invoke<ShortcutConflict[]>('kevo_detect_shortcut_conflicts', {
+    customBindings,
+  });
+}

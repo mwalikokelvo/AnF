@@ -342,6 +342,91 @@ pub fn kevo_resolve_contextual_utterance(utterance: String) -> Result<String, St
     Ok(guard.resolve_utterance(&utterance))
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomShortcutBinding {
+    pub id: String,
+    pub title: Option<String>,
+    pub shortcut: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortcutConflict {
+    pub normalized_shortcut: String,
+    pub command_ids: Vec<String>,
+    pub titles: Vec<String>,
+}
+
+pub fn normalize_shortcut(raw: &str) -> String {
+    let parts: Vec<String> = raw
+        .split('+')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return String::new();
+    }
+    let mut mods = Vec::new();
+    let mut keys = Vec::new();
+    for p in parts {
+        match p.as_str() {
+            "ctrl" | "control" => mods.push("ctrl".to_string()),
+            "shift" => mods.push("shift".to_string()),
+            "alt" | "option" => mods.push("alt".to_string()),
+            "meta" | "cmd" | "super" | "win" => mods.push("meta".to_string()),
+            _ => keys.push(p),
+        }
+    }
+    mods.sort();
+    mods.dedup();
+    mods.extend(keys);
+    mods.join("+")
+}
+
+pub fn detect_shortcut_conflicts(custom_bindings: Vec<CustomShortcutBinding>) -> Vec<ShortcutConflict> {
+    let mut merged: Vec<(String, String, String)> = search_palette_commands("")
+        .into_iter()
+        .map(|c| (c.id.to_string(), c.title.to_string(), c.shortcut.to_string()))
+        .collect();
+    for custom in custom_bindings {
+        if let Some(existing) = merged.iter_mut().find(|(id, _, _)| *id == custom.id) {
+            existing.2 = custom.shortcut;
+            if let Some(t) = custom.title.filter(|s| !s.trim().is_empty()) {
+                existing.1 = t;
+            }
+        } else {
+            let title = custom.title.unwrap_or_else(|| custom.id.clone());
+            merged.push((custom.id, title, custom.shortcut));
+        }
+    }
+    let mut by_chord: std::collections::BTreeMap<String, Vec<(String, String)>> =
+        std::collections::BTreeMap::new();
+    for (id, title, shortcut) in merged {
+        let norm = normalize_shortcut(&shortcut);
+        if norm.is_empty() {
+            continue;
+        }
+        by_chord.entry(norm).or_default().push((id, title));
+    }
+    by_chord
+        .into_iter()
+        .filter(|(_, entries)| entries.len() > 1)
+        .map(|(normalized_shortcut, entries)| ShortcutConflict {
+            normalized_shortcut,
+            command_ids: entries.iter().map(|(id, _)| id.clone()).collect(),
+            titles: entries.iter().map(|(_, title)| title.clone()).collect(),
+        })
+        .collect()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn kevo_detect_shortcut_conflicts(
+    custom_bindings: Option<Vec<CustomShortcutBinding>>,
+) -> Vec<ShortcutConflict> {
+    detect_shortcut_conflicts(custom_bindings.unwrap_or_default())
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -831,5 +916,19 @@ mod tests {
         let plan = plan_selection_action("rewrite this", &big).unwrap();
         assert!(plan.truncated);
         assert_eq!(plan.selection_chars, 8000);
+    }
+
+    #[test]
+    fn shortcut_conflict_detector_catches_reordered_modifiers() {
+        assert!(detect_shortcut_conflicts(Vec::new()).is_empty());
+        let conflicts = detect_shortcut_conflicts(vec![CustomShortcutBinding {
+            id: "audio.normalize_lufs".into(),
+            title: Some("Normalize Audio (-14 LUFS)".into()),
+            shortcut: "Shift + Ctrl + S".into(),
+        }]);
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].normalized_shortcut, "ctrl+shift+s");
+        assert!(conflicts[0].command_ids.contains(&"kevo.study_mode".to_string()));
+        assert!(conflicts[0].command_ids.contains(&"audio.normalize_lufs".to_string()));
     }
 }

@@ -10,6 +10,7 @@
 ### Branches Shipped (all local — nothing pushed to `main`)
 | Repo | Branch | Rust Modules + UI Views Added | Verification |
 |------|--------|-------------------------------|--------------|
+| AnF | `grok/rust-global-shortcut-conflicts` (stacked) | `windows/src-tauri/src/kevo_memory.rs` (`CustomShortcutBinding`, `ShortcutConflict`, `normalize_shortcut`, `detect_shortcut_conflicts`, `#[tauri::command] kevo_detect_shortcut_conflicts`), `lib.rs`, `kevo-routines.ts` (`detectShortcutConflicts`) | `cargo check` green; `src-tauri` `kevo_memory` 12/12 pass; `npm run build` (`tsc --noEmit && vite build`) green |
 | AnF | `grok/rust-kevo-reminder-snooze` (stacked) | `windows/src-tauri/src/kevo_schedule.rs` (`parse_snooze_duration_ms`, `snooze_reminder_in`, `#[tauri::command] kevo_schedule_snooze_reminder`), `lib.rs`, `kevo-routines.ts` (`KevoReminder`, `snoozeKevoReminder`) | `cargo check` green; `src-tauri` `kevo_schedule` 5/5 pass; `npm run build` (`tsc --noEmit && vite build`) green |
 | AnF | `grok/rust-audio-peak-clip-guard` (stacked) | `windows/src-tauri/src/audio_native.rs` (`ClipAuditReport`, `audit_clipping`, `#[tauri::command] audio_audit_clipping`), `lib.rs` | `cargo check` green; `src-tauri` `audio_native` 10/10 pass |
 | AnF | `grok/rust-kevo-stress-qa` (stacked) | `crates/anf-vault/tests/stress.rs` (1,000-note corpus <0.05s), `audio_native.rs` NaN/Inf/negative QA, `kevo_memory.rs` 50x rapid barge-in + truncation QA | `anf-vault` clippy + 15/15 pass; `audio_native` 9/9 pass; `kevo_memory` 11/11 pass; `npm run build` green |
