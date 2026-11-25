@@ -235,6 +235,8 @@ function asksFor(lower: string, phrase: RegExp, verb: RegExp): boolean {
 // "don't forget to tell me the time at noon") and "why don't you skip this song?" are not refusals: the model may act.
 const REFUSED_COMMAND = /\b(?:not|don'?t|never)\b[^.;!?]*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track)|tell me the (?:current )?time)\b/;
 const NOT_A_REFUSAL = /\b(?:remind|remember|forget)\b|\bwhy don'?t you\b/;
+// Questions about whether the user/assistant should/did skip a track ("Should I skip this song?", "Did you skip the song?").
+const NON_REQUEST_SKIP_QUESTION = /^(?:(?:should|can|could|may|might|must|do|did|will|would) (?:i|we)\b.*\b(?:skip(?: (?:this|the|that))? (?:song|track)|next (?:song|track))|did you\b.*\bskip(?: (?:this|the|that))? (?:song|track))\b/;
 
 /** True when a sentence quotes a command after a lead-in like "did you say, ..." or "imagine I say, ...". */
 function isQuotedCommand(lower: string): boolean {
@@ -1113,8 +1115,11 @@ export class JarvisVoiceAgent {
             release.forEach(onPart);
           });
         };
-        // Kevo already said no to the command (or quotation) it heard here: the model must not act on it either.
-        const answerOnly = (REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower)) || isQuotedCommand(lower);
+        // Kevo already said no to the command (or quotation/question) it heard here: the model must not act on it either.
+        const answerOnly =
+          (REFUSED_COMMAND.test(lower) && !NOT_A_REFUSAL.test(lower)) ||
+          isQuotedCommand(lower) ||
+          NON_REQUEST_SKIP_QUESTION.test(lower);
         let aiResult = await this.context.askAI(text, { history: getJarvisHistory(8), onPart: holding(), answerOnly });
         let aiAnswer = typeof aiResult === 'string' ? aiResult : (aiResult?.text ?? '');
         let aiAction = (typeof aiResult === 'object' && aiResult?.actionName) ? aiResult.actionName : 'ai_conversation';

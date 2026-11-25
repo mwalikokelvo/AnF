@@ -179,12 +179,17 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
       assert.strictEqual((await agent.processVoiceInput(said)).actionName, 'ai_conversation');
       assert.strictEqual(seen[said], true, said);
     }
-    // Quoted commands (issue-175) must also be answered in words only.
+    // Quoted commands (issue-175) and non-request skip questions must also be answered in words only.
     for (const said of [
       'Did you say, skip this song?',
       'Are you asking me to say, skip this song?',
       'Imagine I say, please, skip this song',
       'What happens if I say, tell me the time?',
+      'Should I skip this song?',
+      'Can I skip this song?',
+      'Could I skip this track?',
+      'Do I need to skip this song?',
+      'Did you skip the song?',
     ]) {
       assert.strictEqual((await agent.processVoiceInput(said)).actionName, 'ai_conversation');
       assert.strictEqual(seen[said], true, said);
