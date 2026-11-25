@@ -2,8 +2,9 @@
 //! Host storage (SQLCipher) stays in `vault.rs`. Not ThingsBook / `_core`.
 use anf_vault::{
     related::{
-        extract_vault_tags, find_note_backlinks, related_notes, summarize_vault_notes,
-        NoteBacklink, NoteInput, RelatedNote, VaultHealthSummary, VaultTagCount,
+        extract_vault_tags, find_broken_wiki_links, find_note_backlinks, related_notes,
+        summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput, RelatedNote,
+        VaultHealthSummary, VaultTagCount,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -59,6 +60,12 @@ pub fn workspace_note_backlinks(
 #[tauri::command]
 pub fn workspace_vault_tags(notes: Vec<NoteInput>) -> Vec<VaultTagCount> {
     extract_vault_tags(&notes)
+}
+
+/// Report unresolved `[[wiki-link]]` references across vault notes.
+#[tauri::command]
+pub fn workspace_broken_wiki_links(notes: Vec<NoteInput>) -> Vec<BrokenWikiLink> {
+    find_broken_wiki_links(&notes)
 }
 
 #[cfg(test)]

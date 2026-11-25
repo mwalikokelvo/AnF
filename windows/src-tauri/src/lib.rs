@@ -594,6 +594,7 @@ pub fn run() {
             anf_vault_bridge::workspace_vault_health,
             anf_vault_bridge::workspace_note_backlinks,
             anf_vault_bridge::workspace_vault_tags,
+            anf_vault_bridge::workspace_broken_wiki_links,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,

@@ -248,6 +248,51 @@ pub fn extract_vault_tags(notes: &[NoteInput]) -> Vec<VaultTagCount> {
     out
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokenWikiLink {
+    pub source_id: String,
+    pub source_title: String,
+    pub target: String,
+}
+
+/// Find `[[wiki-link]]` targets in notes that do not resolve to any existing note title or ID.
+pub fn find_broken_wiki_links(notes: &[NoteInput]) -> Vec<BrokenWikiLink> {
+    let mut known: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for note in notes {
+        let id = note.id.trim().to_lowercase();
+        if !id.is_empty() {
+            known.insert(id);
+        }
+        let title = note.title.trim().to_lowercase();
+        if !title.is_empty() {
+            known.insert(title);
+        }
+    }
+    let mut broken = Vec::new();
+    for note in notes {
+        let mut rest = note.text.as_str();
+        while let Some(start) = rest.find("[[") {
+            let after = &rest[start + 2..];
+            if let Some(end) = after.find("]]") {
+                let raw_target = after[..end].split('|').next().unwrap_or("").trim();
+                if !raw_target.is_empty() && !known.contains(&raw_target.to_lowercase()) {
+                    broken.push(BrokenWikiLink {
+                        source_id: note.id.clone(),
+                        source_title: note.title.clone(),
+                        target: raw_target.to_string(),
+                    });
+                }
+                rest = &after[end + 2..];
+            } else {
+                break;
+            }
+        }
+    }
+    broken.sort_by(|a, b| a.source_title.cmp(&b.source_title).then_with(|| a.target.cmp(&b.target)));
+    broken
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -347,5 +392,17 @@ mod tests {
         assert_eq!(tags[0].tag, "rust");
         assert_eq!(tags[0].count, 2);
         assert_eq!(tags[1].tag, "audio");
+    }
+
+    #[test]
+    fn find_broken_wiki_links_reports_unresolved_targets() {
+        let notes = vec![
+            note("n1", "Index", "See [[Existing]] and [[Missing Note|alias]]"),
+            note("n2", "Existing", "Valid target"),
+        ];
+        let broken = find_broken_wiki_links(&notes);
+        assert_eq!(broken.len(), 1);
+        assert_eq!(broken[0].source_id, "n1");
+        assert_eq!(broken[0].target, "Missing Note");
     }
 }

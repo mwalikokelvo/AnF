@@ -54,6 +54,17 @@ export async function fetchVaultTags(notes: RelatedNoteInput[]): Promise<VaultTa
   return invoke<VaultTagCount[]>('workspace_vault_tags', { notes });
 }
 
+export type BrokenWikiLink = {
+  sourceId: string;
+  sourceTitle: string;
+  target: string;
+};
+
+export async function fetchBrokenWikiLinks(notes: RelatedNoteInput[]): Promise<BrokenWikiLink[]> {
+  if (notes.length === 0) return [];
+  return invoke<BrokenWikiLink[]>('workspace_broken_wiki_links', { notes });
+}
+
 /**
  * Queries the Rust `workspace_related_notes` Tauri command (`anf_vault::related`)
  * to rank related notes on-device via IDF-weighted cosine similarity.
