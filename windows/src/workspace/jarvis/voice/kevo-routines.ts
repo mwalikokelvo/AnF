@@ -63,6 +63,18 @@ export async function recordVoiceTiming(
   });
 }
 
+export type KevoPaletteCommand = {
+  id: string;
+  title: string;
+  category: string;
+  shortcut: string;
+  keywords: string;
+};
+
+export async function searchKevoCommands(query = ''): Promise<KevoPaletteCommand[]> {
+  return invoke<KevoPaletteCommand[]>('kevo_search_commands', { query });
+}
+
 /** Atomically bumps the Rust barge-in epoch to cancel any in-flight Kevo speech/stream. */
 export async function bargeInInterrupt(): Promise<number> {
   return invoke<number>('kevo_barge_in_interrupt');

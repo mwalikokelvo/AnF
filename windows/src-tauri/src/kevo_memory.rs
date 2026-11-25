@@ -236,6 +236,49 @@ pub fn kevo_record_voice_timing(stt_ms: u64, intent_ms: u64, tts_ms: u64) -> Voi
     record_timing(stt_ms, intent_ms, tts_ms)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoPaletteCommand {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub category: &'static str,
+    pub shortcut: &'static str,
+    pub keywords: &'static str,
+}
+
+const PALETTE_COMMANDS: &[KevoPaletteCommand] = &[
+    KevoPaletteCommand { id: "kevo.study_mode", title: "Activate Study Mode", category: "Voice", shortcut: "Ctrl+Shift+S", keywords: "focus timer pause music workspace" },
+    KevoPaletteCommand { id: "kevo.wrap_up", title: "Wrap Up Session", category: "Voice", shortcut: "", keywords: "save project stop reading reset" },
+    KevoPaletteCommand { id: "kevo.morning_briefing", title: "Morning Briefing", category: "Voice", shortcut: "", keywords: "reminders recap ambient" },
+    KevoPaletteCommand { id: "kevo.barge_in", title: "Interrupt Kevo (Barge-In)", category: "Voice", shortcut: "Esc", keywords: "stop cancel speech" },
+    KevoPaletteCommand { id: "audio.trim_silence", title: "Trim Leading/Trailing Silence", category: "Audio Studio", shortcut: "", keywords: "silence pcm wav" },
+    KevoPaletteCommand { id: "audio.normalize_lufs", title: "Normalize Audio (-14 LUFS)", category: "Audio Studio", shortcut: "", keywords: "loudness gain spotify" },
+    KevoPaletteCommand { id: "audio.undo_edit", title: "Undo Audio Region Edit", category: "Audio Studio", shortcut: "Ctrl+Z", keywords: "waveform undo" },
+    KevoPaletteCommand { id: "audio.redo_edit", title: "Redo Audio Region Edit", category: "Audio Studio", shortcut: "Ctrl+Y", keywords: "waveform redo" },
+    KevoPaletteCommand { id: "notes.related", title: "Find Related Notes", category: "Notes", shortcut: "", keywords: "similarity idf vault" },
+];
+
+pub fn search_palette_commands(query: &str) -> Vec<KevoPaletteCommand> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return PALETTE_COMMANDS.to_vec();
+    }
+    PALETTE_COMMANDS
+        .iter()
+        .filter(|c| {
+            c.title.to_lowercase().contains(&q)
+                || c.category.to_lowercase().contains(&q)
+                || c.keywords.contains(&q)
+        })
+        .cloned()
+        .collect()
+}
+
+#[tauri::command]
+pub fn kevo_search_commands(query: Option<String>) -> Vec<KevoPaletteCommand> {
+    search_palette_commands(query.as_deref().unwrap_or(""))
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -690,5 +733,18 @@ mod tests {
         let stats = record_timing(40, 5, 80);
         assert!(stats.sample_count >= 1);
         assert!(stats.p95_total_ms >= stats.p50_total_ms);
+    }
+
+    #[test]
+    fn palette_commands_have_unique_ids_and_filter_by_keyword() {
+        let all = search_palette_commands("");
+        let mut ids = std::collections::HashSet::new();
+        for cmd in &all {
+            assert!(ids.insert(cmd.id));
+            assert!(!cmd.title.is_empty());
+        }
+        let lufs = search_palette_commands("lufs");
+        assert_eq!(lufs.len(), 1);
+        assert_eq!(lufs[0].id, "audio.normalize_lufs");
     }
 }
