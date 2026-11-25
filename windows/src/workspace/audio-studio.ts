@@ -147,6 +147,7 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
   const samples=stride===1?Array.from(raw):Array.from({length:Math.ceil(raw.length/stride)},(_,i)=>raw[i*stride]);
   const plan=await invoke<{keepStartSec:number;keepEndSec:number;trimmedSec:number;allSilent:boolean}>('audio_detect_silence',{samples,sampleRate:Math.max(1,Math.round(b.sampleRate/stride))});
   if(plan.allSilent||plan.trimmedSec<0.05){report('No leading or trailing silence to trim.');return;}
+  await invoke('audio_region_apply',{region:{kind:'trim',startSec:plan.keepStartSec,endSec:plan.keepEndSec,gain:1}}).catch(()=>{});
   const chs=Array.from({length:b.numberOfChannels},(_,i)=>b.getChannelData(i));
   const trimmed=slicePcmAudio(chs,b.sampleRate,plan.keepStartSec,plan.keepEndSec-plan.keepStartSec);
   if(!trimmed.length)throw Error('Trimmed region is empty.');
@@ -172,6 +173,15 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
   const name=(title.value.trim()||track?.title||'AnF-audio').replace(/[^\p{L}\p{N}._ -]/gu,'_')+'-lufs14.wav';
   if(exportAudio){await exportAudio(name,blob);}else{const url=URL.createObjectURL(blob);h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
   report(`Normalized from ${info.integratedLufs.toFixed(1)} LUFS (${info.gainDb>=0?'+':''}${info.gainDb.toFixed(1)} dB).`);
+ });
+
+ const undoEditButton=action('Undo edit',async()=>{
+  const regions=await invoke<Array<{kind:string}>>('audio_region_undo');
+  report(`Undid edit (${regions.length} active region${regions.length===1?'':'s'}).`);
+ });
+ const redoEditButton=action('Redo edit',async()=>{
+  const regions=await invoke<Array<{kind:string}>>('audio_region_redo');
+  report(`Redid edit (${regions.length} active region${regions.length===1?'':'s'}).`);
  });
 
  const clipDuration=h('select',{'aria-label':'Clip length',class:'audio-clip-duration'},...[15,30,45,60,90,120].map(s=>h('option',{value:String(s),text:s+'s clip'}))) as HTMLSelectElement;
@@ -369,7 +379,7 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
      h('h3', { text: 'Restore speech & export' }),
      h('p', { text: 'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.' }),
      h('div', { class: 'audio-controls' }, h('label', {}, profile, 'Use noise profile'), h('label', {}, 'Start (seconds) ', noiseStart), noiseLength, action('Use current position', () => { noiseStart.value = audio.currentTime.toFixed(1); })),
-     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, normalizeLufsButton, clipDuration, clipButton, transcribeButton)
+     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, normalizeLufsButton, undoEditButton, redoEditButton, clipDuration, clipButton, transcribeButton)
    )
  );
 

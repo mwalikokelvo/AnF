@@ -1,10 +1,89 @@
 //! Bounded, local-only FFmpeg jobs. User paths and encoder arguments never enter a shell.
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{path::{Path,PathBuf},sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},process::{Command,Stdio},time::{Duration,Instant}};
 use tauri::State;
 #[cfg(not(target_os="linux"))]
 use tauri::Manager;
 #[derive(Default)]pub struct AudioJobs(Mutex<Option<(String,Arc<AtomicBool>)>>);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEditRegion {
+    pub kind: String,
+    pub start_sec: f64,
+    pub end_sec: f64,
+    pub gain: f64,
+}
+
+#[derive(Debug, Default)]
+pub struct AudioEditHistory {
+    undo_stack: Vec<AudioEditRegion>,
+    redo_stack: Vec<AudioEditRegion>,
+}
+
+impl AudioEditHistory {
+    pub fn apply(&mut self, region: AudioEditRegion) -> Result<usize, String> {
+        if !matches!(region.kind.as_str(), "trim" | "gain" | "mute" | "normalize") {
+            return Err("Unknown audio edit kind.".into());
+        }
+        if !region.start_sec.is_finite()
+            || !region.end_sec.is_finite()
+            || region.start_sec < 0.0
+            || region.end_sec < region.start_sec
+        {
+            return Err("Invalid edit region bounds.".into());
+        }
+        if self.undo_stack.len() >= 100 {
+            self.undo_stack.remove(0);
+        }
+        self.undo_stack.push(region);
+        self.redo_stack.clear();
+        Ok(self.undo_stack.len())
+    }
+
+    pub fn undo(&mut self) -> Option<AudioEditRegion> {
+        let item = self.undo_stack.pop()?;
+        self.redo_stack.push(item.clone());
+        Some(item)
+    }
+
+    pub fn redo(&mut self) -> Option<AudioEditRegion> {
+        let item = self.redo_stack.pop()?;
+        self.undo_stack.push(item.clone());
+        Some(item)
+    }
+
+    pub fn active_regions(&self) -> Vec<AudioEditRegion> {
+        self.undo_stack.clone()
+    }
+}
+
+#[derive(Default)]
+pub struct AudioEditState(Mutex<AudioEditHistory>);
+
+#[tauri::command]
+pub fn audio_region_apply(
+    state: State<'_, AudioEditState>,
+    region: AudioEditRegion,
+) -> Result<Vec<AudioEditRegion>, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio edit state unavailable.")?;
+    guard.apply(region)?;
+    Ok(guard.active_regions())
+}
+
+#[tauri::command]
+pub fn audio_region_undo(state: State<'_, AudioEditState>) -> Result<Vec<AudioEditRegion>, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio edit state unavailable.")?;
+    guard.undo();
+    Ok(guard.active_regions())
+}
+
+#[tauri::command]
+pub fn audio_region_redo(state: State<'_, AudioEditState>) -> Result<Vec<AudioEditRegion>, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio edit state unavailable.")?;
+    guard.redo();
+    Ok(guard.active_regions())
+}
 pub fn encoder(format:&str,preset:&str)->Result<Vec<&'static str>,String>{
  if !["quality","voice","compact"].contains(&preset){return Err("Unknown audio preset.".into());}
  Ok(match format{
@@ -257,6 +336,22 @@ pub fn audio_detect_silence(
   assert_eq!(ep.len(),17);
   for (out_g,in_g) in &ep{assert!(((out_g*out_g+in_g*in_g)-1.0).abs()<1e-4);}
   assert!(compute_crossfade_gains("unknown",16).is_err());
+ }
+ #[test]fn region_history_supports_apply_undo_redo_and_clears_redo_on_new_edit(){
+  let mut hist=AudioEditHistory::default();
+  hist.apply(AudioEditRegion{kind:"trim".into(),start_sec:0.5,end_sec:10.0,gain:1.0}).unwrap();
+  hist.apply(AudioEditRegion{kind:"gain".into(),start_sec:1.0,end_sec:3.0,gain:0.8}).unwrap();
+  assert_eq!(hist.active_regions().len(),2);
+  let undone=hist.undo().unwrap();
+  assert_eq!(undone.kind,"gain");
+  assert_eq!(hist.active_regions().len(),1);
+  let redone=hist.redo().unwrap();
+  assert_eq!(redone.kind,"gain");
+  assert_eq!(hist.active_regions().len(),2);
+  hist.undo();
+  hist.apply(AudioEditRegion{kind:"mute".into(),start_sec:2.0,end_sec:4.0,gain:0.0}).unwrap();
+  assert!(hist.redo().is_none());
+  assert!(hist.apply(AudioEditRegion{kind:"bad".into(),start_sec:0.0,end_sec:1.0,gain:1.0}).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }

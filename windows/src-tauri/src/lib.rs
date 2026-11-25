@@ -481,12 +481,13 @@ pub fn run() {
         .manage(local_link::Host::default())
         .manage(actions::Plans::default())
         .manage(audio_native::AudioJobs::default())
+        .manage(audio_native::AudioEditState::default())
         .manage(model_download::Downloads::default())
         .invoke_handler(tauri::generate_handler![
             companion::companion_open,companion::companion_close,companion::companion_compact,companion::companion_key,companion::companion_expand,screen_help::screen_help_capture,screen_help::screen_help_ask,
             addons::addons_registry,addons::addons_install,addons::addons_list,addons::addons_read,addons::addons_remove,updates::update_check,
             model_download::local_ai_models,model_download::local_ai_download,model_download::local_ai_download_cancel,
-            audio_native::audio_convert,audio_native::audio_conversion_cancel,audio_native::audio_detect_silence,audio_native::audio_analyze_loudness,audio_native::audio_crossfade_curve,
+            audio_native::audio_convert,audio_native::audio_conversion_cancel,audio_native::audio_detect_silence,audio_native::audio_analyze_loudness,audio_native::audio_crossfade_curve,audio_native::audio_region_apply,audio_native::audio_region_undo,audio_native::audio_region_redo,
             music_native::music_available,music_native::music_open,music_native::music_hide,music_native::music_pause,music_native::music_control,
             safe_fetch::command::safe_fetch_text,safe_fetch::command::safe_fetch_audio,safe_fetch::command::safe_fetch_image,safe_fetch::command::safe_fetch_document,
             koreader_sync::koreader_sync_request,
