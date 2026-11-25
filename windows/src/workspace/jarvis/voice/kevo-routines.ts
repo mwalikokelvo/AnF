@@ -163,3 +163,15 @@ export async function recallKevoMemory(query: string, limit = 8): Promise<KevoRe
   if (!query.trim()) return [];
   return invoke<KevoRecallMatch[]>('kevo_memory_recall', { query, limit });
 }
+
+export type KevoRoutinePreset = {
+  id: string;
+  name: string;
+  triggerPhrase: string;
+  description: string;
+  stepCount: number;
+};
+
+export async function listKevoRoutinePresets(): Promise<KevoRoutinePreset[]> {
+  return invoke<KevoRoutinePreset[]>('kevo_list_routine_presets');
+}

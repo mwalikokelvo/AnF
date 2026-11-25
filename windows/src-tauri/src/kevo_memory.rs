@@ -505,6 +505,49 @@ pub fn kevo_memory_recall(query: String, limit: Option<usize>) -> Result<Vec<Kev
     recall_memory_in(&memory_file_path(), &query, limit.unwrap_or(8))
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRoutinePreset {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub trigger_phrase: &'static str,
+    pub description: &'static str,
+    pub step_count: usize,
+}
+
+const ROUTINE_PRESETS: &[KevoRoutinePreset] = &[
+    KevoRoutinePreset {
+        id: "study_mode",
+        name: "Study Mode",
+        trigger_phrase: "Activate study mode",
+        description: "Pause music, start a 25m focus timer, and open Workspace.",
+        step_count: 3,
+    },
+    KevoRoutinePreset {
+        id: "wrap_up_session",
+        name: "Wrap Up Session",
+        trigger_phrase: "Wrap up session",
+        description: "Save project state, stop reading aloud, and clear active timers.",
+        step_count: 3,
+    },
+    KevoRoutinePreset {
+        id: "morning_briefing",
+        name: "Morning Briefing",
+        trigger_phrase: "Morning briefing",
+        description: "Check due reminders, recap current book, and resume ambient audio.",
+        step_count: 3,
+    },
+];
+
+pub fn list_routine_presets() -> Vec<KevoRoutinePreset> {
+    ROUTINE_PRESETS.to_vec()
+}
+
+#[tauri::command]
+pub fn kevo_list_routine_presets() -> Vec<KevoRoutinePreset> {
+    list_routine_presets()
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -1021,5 +1064,13 @@ mod tests {
         assert_eq!(hits[0].kind, "fact");
         assert!(hits[0].score > 1.0);
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn list_routine_presets_returns_unique_catalog() {
+        let presets = list_routine_presets();
+        assert_eq!(presets.len(), 3);
+        let ids: std::collections::HashSet<&str> = presets.iter().map(|p| p.id).collect();
+        assert_eq!(ids.len(), 3);
     }
 }
