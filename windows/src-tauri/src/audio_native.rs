@@ -703,6 +703,36 @@ pub fn audio_preview_fade_envelope(
     Ok(samples)
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PitchRateMapping {
+    pub semitones: f64,
+    pub cents: f64,
+    pub playback_rate: f64,
+    pub duration_multiplier: f64,
+}
+
+pub fn semitones_to_playback_rate(semitones: f64, cents: f64) -> Result<PitchRateMapping, String> {
+    if !semitones.is_finite() || !cents.is_finite() {
+        return Err("Pitch shift semitones and cents must be finite numbers.".into());
+    }
+    let st = semitones.clamp(-24.0, 24.0);
+    let ct = cents.clamp(-100.0, 100.0);
+    let total_semitones = st + ct / 100.0;
+    let playback_rate = 2.0_f64.powf(total_semitones / 12.0);
+    Ok(PitchRateMapping {
+        semitones: st,
+        cents: ct,
+        playback_rate,
+        duration_multiplier: 1.0 / playback_rate,
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn audio_pitch_to_rate(semitones: f64, cents: Option<f64>) -> Result<PitchRateMapping, String> {
+    semitones_to_playback_rate(semitones, cents.unwrap_or(0.0))
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -1096,6 +1126,12 @@ pub fn audio_detect_silence(
   assert!(pcm[0].abs()<1e-5);
   assert!((pcm[50]-1.0).abs()<1e-5);
   assert!(pcm[99]<0.2);
+ }
+ #[test]fn pitch_rate_mapping_computes_octave_and_rejects_nan(){
+  let up=semitones_to_playback_rate(12.0,0.0).unwrap();
+  assert!((up.playback_rate-2.0).abs()<1e-6);
+  assert!((up.duration_multiplier-0.5).abs()<1e-6);
+  assert!(semitones_to_playback_rate(f64::NAN,0.0).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }

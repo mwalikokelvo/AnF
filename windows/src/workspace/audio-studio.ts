@@ -542,5 +542,19 @@ export async function previewAudioFadeEnvelope(
  });
 }
 
+export type PitchRateMapping = {
+ semitones: number;
+ cents: number;
+ playbackRate: number;
+ durationMultiplier: number;
+};
+
+export async function mapPitchToPlaybackRate(
+ semitones: number,
+ cents = 0,
+): Promise<PitchRateMapping> {
+ return invoke<PitchRateMapping>('audio_pitch_to_rate', { semitones, cents });
+}
+
 
 
