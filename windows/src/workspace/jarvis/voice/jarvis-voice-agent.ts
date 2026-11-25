@@ -1009,6 +1009,55 @@ export class JarvisVoiceAgent {
 
     // 4. Note taking & Quick Capture Commands
     if (
+      lower.startsWith('capture claim') ||
+      lower.startsWith('highlight that') ||
+      lower.startsWith('socratic note') ||
+      lower.startsWith('capture quote')
+    ) {
+      const claimText = text
+        .replace(/^(capture claim(:|\s+that)?|highlight that(:|\s+and challenge it)?|socratic note(:|\s+that)?|capture quote(:|\s+that)?)\s*/i, '')
+        .trim();
+      if (claimText && (this.context.saveQuickNote || this.context.dryRun)) {
+        try {
+          const firstSentence = claimText.split(/(?<=[.?!])\s+/)[0] || claimText;
+          const words = claimText.match(/\b[A-Za-z]{4,}\b/g) || [];
+          const freq: Record<string, number> = {};
+          for (const w of words) { const l = w.toLowerCase(); freq[l] = (freq[l] || 0) + 1; }
+          const topWords = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(e=>e[0]);
+          const topic = topWords.length ? topWords.join(', ') : 'this concept';
+          const inquiry = `What core principle connects "${firstSentence.slice(0, 100)}..." to ${topic}, and what would challenge it?`;
+          const boundary = `Under what boundary conditions would this assertion fail?`;
+          const check = `Self-explanation: In one sentence, state the direct consequence of ${topic}.`;
+
+          const socraticNote = `## Socratic Capture: ${topic}\n\n**Source Claim**:\n> ${claimText}\n\n**Critical Inquiry**:\n- ${inquiry}\n- **Boundary Test**: ${boundary}\n- **Recall Check**: ${check}\n\n*Captured via Kevo Voice Second Brain*`;
+
+          if (!this.context.dryRun) {
+            await this.context.saveQuickNote!(socraticNote);
+          }
+          return {
+            handled: true,
+            actionName: 'capture_socratic_claim',
+            speechReply: `Socratic claim captured on ${topic}.`,
+            status: 'success',
+            verified: true,
+            verificationDetails: `Saved Socratic note for topic: ${topic}`,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            handled: false,
+            actionName: 'capture_socratic_claim',
+            speechReply: `Could not capture claim: ${errMsg}`,
+            status: 'failure',
+            verified: false,
+            error: errMsg,
+            reason: 'EXECUTION_FAILED',
+          };
+        }
+      }
+    }
+
+    if (
       lower.startsWith('take a note') ||
       lower.startsWith('note that') ||
       lower.startsWith('write this down')

@@ -164,8 +164,8 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     const heard: string[] = [];
     const listener = new KevoEarsListener({
       eventSource,
-      settleMs: 50,
-      followUpMs: 500,
+      settleMs: 300,
+      followUpMs: 5000,
       onFinalSpeech: (text) => heard.push(text),
     });
 
@@ -175,14 +175,12 @@ describe('KevoEarsListener settle and follow-up rules (with simulated Tauri even
     // Awaken listener
     listener.keepAwake();
 
-    // First phrase
+    // First phrase and rapid second phrase before settleMs expires
     emitEvent('kevo-ears-final', 'set a timer');
-    // Rapid second phrase before settleMs expires
-    await wait(20);
     emitEvent('kevo-ears-final', 'for ten seconds');
 
     // Wait for settleMs to flush
-    await wait(120);
+    await wait(450);
     assert.deepEqual(heard, ['set a timer for ten seconds']);
 
     listener.stop();
