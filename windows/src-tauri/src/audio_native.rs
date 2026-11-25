@@ -312,6 +312,69 @@ pub fn audio_plan_gapless(
     )
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipAuditReport {
+    pub clipped_samples: usize,
+    pub max_clip_run: usize,
+    pub peak_db: f64,
+    pub crest_factor_db: f64,
+    pub has_clipping: bool,
+}
+
+pub fn audit_clipping(samples: &[f32], clip_threshold: f32) -> Result<ClipAuditReport, String> {
+    if samples.is_empty() {
+        return Err("Provide non-empty audio samples for clip audit.".into());
+    }
+    let thresh = clip_threshold.clamp(0.5, 1.0);
+    let mut clipped_samples = 0usize;
+    let mut current_run = 0usize;
+    let mut max_clip_run = 0usize;
+    let mut peak = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &s in samples {
+        let a = (s as f64).abs();
+        if !a.is_finite() {
+            continue;
+        }
+        if a > peak {
+            peak = a;
+        }
+        sum_sq += a * a;
+        if a >= thresh as f64 {
+            clipped_samples += 1;
+            current_run += 1;
+            if current_run > max_clip_run {
+                max_clip_run = current_run;
+            }
+        } else {
+            current_run = 0;
+        }
+    }
+    let rms = (sum_sq / samples.len() as f64).sqrt();
+    let peak_db = if peak > 1e-7 { 20.0 * peak.log10() } else { -70.0 };
+    let crest_factor_db = if rms > 1e-7 && peak > 1e-7 {
+        20.0 * (peak / rms).log10()
+    } else {
+        0.0
+    };
+    Ok(ClipAuditReport {
+        clipped_samples,
+        max_clip_run,
+        peak_db,
+        crest_factor_db,
+        has_clipping: clipped_samples > 0,
+    })
+}
+
+#[tauri::command]
+pub fn audio_audit_clipping(samples: Vec<f32>, clip_threshold: Option<f32>) -> Result<ClipAuditReport, String> {
+    if samples.len() > 2_000_000 {
+        return Err("Clip audit input exceeds 2,000,000 samples.".into());
+    }
+    audit_clipping(&samples, clip_threshold.unwrap_or(0.999))
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -648,6 +711,15 @@ pub fn audio_detect_silence(
   assert!(plan_gapless_transition(10.0,-1.0,4.0,1.0).is_err());
   let mut q=AudioQueueInner::default();
   assert_eq!(q.set_speed("x".into(),f64::NAN),1.0);
+ }
+ #[test]fn clip_audit_detects_clipped_runs_and_crest_factor(){
+  let mut pcm=vec![0.2_f32;100];
+  pcm[10]=1.0;pcm[11]=1.0;pcm[12]=1.0;
+  let rep=audit_clipping(&pcm,0.999).unwrap();
+  assert!(rep.has_clipping);
+  assert_eq!(rep.clipped_samples,3);
+  assert_eq!(rep.max_clip_run,3);
+  assert!(audit_clipping(&[],0.999).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
