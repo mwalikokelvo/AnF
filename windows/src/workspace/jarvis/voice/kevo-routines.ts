@@ -28,6 +28,41 @@ export async function matchKevoIntent(
   });
 }
 
+export type KevoSelectionAction = {
+  action: string;
+  prompt: string;
+  selectionChars: number;
+  truncated: boolean;
+};
+
+export type VoiceLatencyStats = {
+  sampleCount: number;
+  p50TotalMs: number;
+  p95TotalMs: number;
+};
+
+export async function planSelectionAction(
+  utterance: string,
+  selection: string,
+): Promise<KevoSelectionAction> {
+  return invoke<KevoSelectionAction>('kevo_plan_selection_action', {
+    utterance,
+    selection,
+  });
+}
+
+export async function recordVoiceTiming(
+  sttMs: number,
+  intentMs: number,
+  ttsMs: number,
+): Promise<VoiceLatencyStats> {
+  return invoke<VoiceLatencyStats>('kevo_record_voice_timing', {
+    sttMs,
+    intentMs,
+    ttsMs,
+  });
+}
+
 /** Atomically bumps the Rust barge-in epoch to cancel any in-flight Kevo speech/stream. */
 export async function bargeInInterrupt(): Promise<number> {
   return invoke<number>('kevo_barge_in_interrupt');

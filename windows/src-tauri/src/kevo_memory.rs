@@ -148,6 +148,94 @@ pub fn kevo_match_intent(utterance: String, candidates: Vec<String>) -> Option<K
     match_offline_intent(&utterance, &candidates)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoSelectionAction {
+    pub action: String,
+    pub prompt: String,
+    pub selection_chars: usize,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceTurnTiming {
+    pub stt_ms: u64,
+    pub intent_ms: u64,
+    pub tts_ms: u64,
+    pub total_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceLatencyStats {
+    pub sample_count: usize,
+    pub p50_total_ms: u64,
+    pub p95_total_ms: u64,
+}
+
+static VOICE_TIMINGS: Mutex<Vec<VoiceTurnTiming>> = Mutex::new(Vec::new());
+
+/// Plan a bounded clipboard/selection-aware voice action without leaking oversized buffers.
+pub fn plan_selection_action(utterance: &str, selection: &str) -> Result<KevoSelectionAction, String> {
+    let trimmed_sel = selection.trim();
+    if trimmed_sel.is_empty() {
+        return Err("Select or copy text first.".into());
+    }
+    let max_chars = 6000;
+    let total_chars = trimmed_sel.chars().count();
+    let truncated = total_chars > max_chars;
+    let bounded: String = trimmed_sel.chars().take(max_chars).collect();
+    let lower = utterance.trim().to_lowercase();
+    let (action, prefix) = if lower.contains("summarize") {
+        ("summarize", "Summarize concisely:")
+    } else if lower.contains("action item") || lower.contains("todo") {
+        ("extract_actions", "Extract concrete action items:")
+    } else if lower.contains("rewrite") || lower.contains("clarify") {
+        ("rewrite", "Rewrite clearly while preserving meaning:")
+    } else if lower.contains("read") && lower.contains("aloud") {
+        ("read_aloud", "")
+    } else {
+        ("explain", "Explain:")
+    };
+    let prompt = if prefix.is_empty() {
+        bounded
+    } else {
+        format!("{prefix}\n\n{bounded}")
+    };
+    Ok(KevoSelectionAction {
+        action: action.into(),
+        prompt,
+        selection_chars: total_chars,
+        truncated,
+    })
+}
+
+pub fn record_timing(stt_ms: u64, intent_ms: u64, tts_ms: u64) -> VoiceLatencyStats {
+    let total_ms = stt_ms.saturating_add(intent_ms).saturating_add(tts_ms);
+    let mut guard = VOICE_TIMINGS.lock().unwrap_or_else(|e| e.into_inner());
+    if guard.len() >= 200 {
+        guard.remove(0);
+    }
+    guard.push(VoiceTurnTiming { stt_ms, intent_ms, tts_ms, total_ms });
+    let mut totals: Vec<u64> = guard.iter().map(|t| t.total_ms).collect();
+    totals.sort_unstable();
+    let n = totals.len();
+    let p50_total_ms = totals[n / 2];
+    let p95_total_ms = totals[((n * 95) / 100).min(n - 1)];
+    VoiceLatencyStats { sample_count: n, p50_total_ms, p95_total_ms }
+}
+
+#[tauri::command]
+pub fn kevo_plan_selection_action(utterance: String, selection: String) -> Result<KevoSelectionAction, String> {
+    plan_selection_action(&utterance, &selection)
+}
+
+#[tauri::command]
+pub fn kevo_record_voice_timing(stt_ms: u64, intent_ms: u64, tts_ms: u64) -> VoiceLatencyStats {
+    record_timing(stt_ms, intent_ms, tts_ms)
+}
+
 /// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
 pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
     let trimmed = utterance.trim();
@@ -591,5 +679,16 @@ mod tests {
         let pause = match_offline_intent("paws the music", &cands).unwrap();
         assert_eq!(pause.intent, "pause_music");
         assert!(match_offline_intent("   ", &cands).is_none());
+    }
+
+    #[test]
+    fn plans_selection_actions_and_tracks_voice_latency() {
+        let plan = plan_selection_action("summarize this", "Long note text").unwrap();
+        assert_eq!(plan.action, "summarize");
+        assert!(!plan.truncated);
+        assert!(plan_selection_action("summarize", "   ").is_err());
+        let stats = record_timing(40, 5, 80);
+        assert!(stats.sample_count >= 1);
+        assert!(stats.p95_total_ms >= stats.p50_total_ms);
     }
 }
