@@ -497,5 +497,19 @@ export async function estimateBpmFromTaps(timestampsMs: number[]): Promise<BpmEs
  return invoke<BpmEstimate>('audio_estimate_bpm', { timestampsMs });
 }
 
+export type DcOffsetReport = {
+ meanOffset: number;
+ maxDeviation: number;
+ needsCorrection: boolean;
+ sampleCount: number;
+};
+
+export async function analyzeAudioDcOffset(
+ samples: number[],
+ threshold = 0.005,
+): Promise<DcOffsetReport> {
+ return invoke<DcOffsetReport>('audio_analyze_dc_offset', { samples, threshold });
+}
+
 
 

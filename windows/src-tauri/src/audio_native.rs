@@ -489,6 +489,84 @@ pub fn audio_estimate_bpm(timestamps_ms: Vec<u64>) -> Result<BpmEstimate, String
     estimate_bpm_from_taps(&timestamps_ms)
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DcOffsetReport {
+    pub mean_offset: f32,
+    pub max_deviation: f32,
+    pub needs_correction: bool,
+    pub sample_count: usize,
+}
+
+pub fn analyze_dc_offset(samples: &[f32], threshold: f32) -> Result<DcOffsetReport, String> {
+    if samples.is_empty() {
+        return Err("Cannot analyze DC offset on empty audio.".into());
+    }
+    let thresh = if threshold.is_finite() && threshold > 0.0 {
+        threshold
+    } else {
+        0.005
+    };
+    let mut sum = 0.0_f64;
+    let mut max_dev = 0.0_f32;
+    let mut finite_count = 0usize;
+    for &s in samples {
+        if s.is_finite() {
+            let clamped = s.clamp(-1.0, 1.0);
+            sum += clamped as f64;
+            let abs = clamped.abs();
+            if abs > max_dev {
+                max_dev = abs;
+            }
+            finite_count += 1;
+        }
+    }
+    if finite_count == 0 {
+        return Err("Audio buffer contains no finite samples.".into());
+    }
+    let mean = (sum / (finite_count as f64)) as f32;
+    Ok(DcOffsetReport {
+        mean_offset: mean,
+        max_deviation: max_dev,
+        needs_correction: mean.abs() >= thresh,
+        sample_count: samples.len(),
+    })
+}
+
+pub fn remove_dc_offset(samples: &mut [f32]) -> f32 {
+    let mut sum = 0.0_f64;
+    let mut count = 0usize;
+    for &s in samples.iter() {
+        if s.is_finite() {
+            sum += s as f64;
+            count += 1;
+        }
+    }
+    if count == 0 {
+        return 0.0;
+    }
+    let mean = (sum / (count as f64)) as f32;
+    for s in samples.iter_mut() {
+        if s.is_finite() {
+            *s = (*s - mean).clamp(-1.0, 1.0);
+        } else {
+            *s = 0.0;
+        }
+    }
+    mean
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn audio_analyze_dc_offset(
+    samples: Vec<f32>,
+    threshold: Option<f32>,
+) -> Result<DcOffsetReport, String> {
+    if samples.len() > 2_000_000 {
+        return Err("DC offset input exceeds 2,000,000 samples.".into());
+    }
+    analyze_dc_offset(&samples, threshold.unwrap_or(0.005))
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -853,6 +931,17 @@ pub fn audio_detect_silence(
   assert_eq!(est.beat_interval_ms,500);
   assert!((est.confidence-1.0).abs()<1e-6);
   assert!(estimate_bpm_from_taps(&[100]).is_err());
+ }
+ #[test]fn dc_offset_analyzer_detects_and_removes_bias(){
+  let mut pcm=vec![0.25_f32;64];
+  let rep=analyze_dc_offset(&pcm,0.005).unwrap();
+  assert!(rep.needs_correction);
+  assert!((rep.mean_offset-0.25).abs()<1e-5);
+  let removed=remove_dc_offset(&mut pcm);
+  assert!((removed-0.25).abs()<1e-5);
+  let after=analyze_dc_offset(&pcm,0.005).unwrap();
+  assert!(!after.needs_correction);
+  assert!(analyze_dc_offset(&[],0.005).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
