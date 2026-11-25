@@ -4,6 +4,7 @@
 use crate::{platform, settings};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -36,6 +37,113 @@ pub struct KevoMemoryStore {
 }
 
 static MEMORY_LOCK: Mutex<()> = Mutex::new(());
+static BARGE_IN_EPOCH: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRoutineStep {
+    pub action: String,
+    pub target: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KevoRoutinePlan {
+    pub name: String,
+    pub steps: Vec<KevoRoutineStep>,
+    pub resolved_utterance: String,
+}
+
+/// Resolve anaphoric references ("that file", "that note", "it", "the previous one") against the last active entity.
+pub fn resolve_anaphora(utterance: &str, last_entity: Option<&str>) -> String {
+    let trimmed = utterance.trim();
+    let Some(entity) = last_entity.map(str::trim).filter(|s| !s.is_empty()) else {
+        return trimmed.to_string();
+    };
+    let lower = trimmed.to_lowercase();
+    const REFS: &[&str] = &[
+        "the previous one",
+        "that file",
+        "that note",
+        "that track",
+        "that book",
+        "that",
+        " it",
+    ];
+    for ref_phrase in REFS {
+        if let Some(pos) = lower.find(ref_phrase) {
+            let prefix = if *ref_phrase == " it" { " " } else { "" };
+            let mut out = String::with_capacity(trimmed.len() + entity.len());
+            out.push_str(&trimmed[..pos]);
+            out.push_str(prefix);
+            out.push_str(entity);
+            out.push_str(&trimmed[pos + ref_phrase.len()..]);
+            return out;
+        }
+    }
+    trimmed.to_string()
+}
+
+/// Expand composable multi-step voice routines deterministically on-device.
+pub fn resolve_routine_plan(utterance: &str, last_entity: Option<&str>) -> Option<KevoRoutinePlan> {
+    let resolved_utterance = resolve_anaphora(utterance, last_entity);
+    let lower = resolved_utterance.to_lowercase();
+    if lower.contains("study mode") {
+        return Some(KevoRoutinePlan {
+            name: "Study Mode".into(),
+            steps: vec![
+                KevoRoutineStep { action: "pause_music".into(), target: String::new(), label: "Pause music".into() },
+                KevoRoutineStep { action: "focus_timer".into(), target: "25m".into(), label: "Start 25-minute focus timer".into() },
+                KevoRoutineStep { action: "open_view".into(), target: "workspace".into(), label: "Open workspace".into() },
+            ],
+            resolved_utterance,
+        });
+    }
+    if lower.contains("wrap up session") || lower.contains("end session") {
+        return Some(KevoRoutinePlan {
+            name: "Wrap Up Session".into(),
+            steps: vec![
+                KevoRoutineStep { action: "save_project".into(), target: String::new(), label: "Save active project".into() },
+                KevoRoutineStep { action: "stop_reading".into(), target: String::new(), label: "Stop narration".into() },
+                KevoRoutineStep { action: "barge_in_clear".into(), target: String::new(), label: "Reset voice state".into() },
+            ],
+            resolved_utterance,
+        });
+    }
+    if lower.contains("morning briefing") {
+        return Some(KevoRoutinePlan {
+            name: "Morning Briefing".into(),
+            steps: vec![
+                KevoRoutineStep { action: "list_reminders".into(), target: String::new(), label: "Read due reminders".into() },
+                KevoRoutineStep { action: "what_was_i_reading".into(), target: String::new(), label: "Recap last book".into() },
+                KevoRoutineStep { action: "play_music".into(), target: String::new(), label: "Resume ambient audio".into() },
+            ],
+            resolved_utterance,
+        });
+    }
+    None
+}
+
+#[tauri::command]
+pub fn kevo_barge_in_interrupt() -> u64 {
+    BARGE_IN_EPOCH.fetch_add(1, Ordering::SeqCst) + 1
+}
+
+#[tauri::command]
+pub fn kevo_barge_in_epoch() -> u64 {
+    BARGE_IN_EPOCH.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub fn kevo_resolve_routine(utterance: String, last_entity: Option<String>) -> Option<KevoRoutinePlan> {
+    resolve_routine_plan(&utterance, last_entity.as_deref())
+}
+
+#[tauri::command]
+pub fn kevo_resolve_anaphora(utterance: String, last_entity: Option<String>) -> String {
+    resolve_anaphora(&utterance, last_entity.as_deref())
+}
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -361,5 +469,23 @@ mod tests {
         assert!(!reloaded.facts.iter().any(|f| f.id == f1.id));
 
         cleanup(&path);
+    }
+
+    #[test]
+    fn resolves_anaphora_routines_and_barge_in_epoch() {
+        assert_eq!(
+            resolve_anaphora("convert that file to mp3", Some("lecture.wav")),
+            "convert lecture.wav to mp3"
+        );
+        assert_eq!(
+            resolve_anaphora("summarize it", Some("Chapter 4")),
+            "summarize Chapter 4"
+        );
+        let study = resolve_routine_plan("Activate study mode", None).unwrap();
+        assert_eq!(study.name, "Study Mode");
+        assert_eq!(study.steps.len(), 3);
+        let before = kevo_barge_in_epoch();
+        let after = kevo_barge_in_interrupt();
+        assert_eq!(after, before + 1);
     }
 }
