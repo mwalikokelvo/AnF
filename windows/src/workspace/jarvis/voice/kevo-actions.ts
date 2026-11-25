@@ -60,6 +60,9 @@ import {
   clearShoppingList,
   removeFromShoppingList,
 } from './kevo-shopping';
+import { getWeather } from './kevo-weather';
+import { getTopNews } from './kevo-news';
+import { recommendMusic } from './kevo-recommend';
 
 export interface JSONSchemaParameter {
   type: string;
@@ -1721,6 +1724,62 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         status: missing ? 'failure' : 'success',
         verified: !missing,
         ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
+      };
+    },
+  },
+  {
+    name: 'get_weather',
+    description: 'Gets the current weather and a short forecast for a city using the free Open-Meteo service. Defaults to London if no city is given.',
+    parameters: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'City name, e.g. London or New York' },
+      },
+    },
+    execute: async (args: { city?: string }) => {
+      const reply = await getWeather(args?.city);
+      return {
+        handled: true,
+        actionName: 'get_weather',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'get_news',
+    description: 'Reads the top world news headlines from a public BBC RSS feed.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const reply = await getTopNews();
+      return {
+        handled: true,
+        actionName: 'get_news',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'recommend_music',
+    description: 'Recommends tracks inspired by a song, artist or mood using the free Audius open catalog (Spotify-style related search).',
+    parameters: {
+      type: 'object',
+      properties: {
+        seed: { type: 'string', description: 'Song title, artist name or mood to base recommendations on' },
+      },
+      required: ['seed'],
+    },
+    execute: async (args: { seed: string }) => {
+      const reply = await recommendMusic(args?.seed);
+      return {
+        handled: true,
+        actionName: 'recommend_music',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
       };
     },
   },
