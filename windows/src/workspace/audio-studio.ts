@@ -511,5 +511,20 @@ export async function analyzeAudioDcOffset(
  return invoke<DcOffsetReport>('audio_analyze_dc_offset', { samples, threshold });
 }
 
+export type StereoBalanceReport = {
+ leftRms: number;
+ rightRms: number;
+ balance: number;
+ correlation: number;
+ monoCompatible: boolean;
+};
+
+export async function analyzeStereoBalance(
+ left: number[],
+ right: number[],
+): Promise<StereoBalanceReport> {
+ return invoke<StereoBalanceReport>('audio_analyze_stereo_balance', { left, right });
+}
+
 
 

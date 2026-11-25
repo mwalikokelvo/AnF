@@ -567,6 +567,65 @@ pub fn audio_analyze_dc_offset(
     analyze_dc_offset(&samples, threshold.unwrap_or(0.005))
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StereoBalanceReport {
+    pub left_rms: f32,
+    pub right_rms: f32,
+    pub balance: f32,
+    pub correlation: f32,
+    pub mono_compatible: bool,
+}
+
+pub fn analyze_stereo_balance(left: &[f32], right: &[f32]) -> Result<StereoBalanceReport, String> {
+    if left.is_empty() || left.len() != right.len() {
+        return Err("Left and right channels must be non-empty and equal length.".into());
+    }
+    let mut sum_l2 = 0.0_f64;
+    let mut sum_r2 = 0.0_f64;
+    let mut sum_lr = 0.0_f64;
+    for (&l_raw, &r_raw) in left.iter().zip(right.iter()) {
+        let l = if l_raw.is_finite() { l_raw.clamp(-1.0, 1.0) as f64 } else { 0.0 };
+        let r = if r_raw.is_finite() { r_raw.clamp(-1.0, 1.0) as f64 } else { 0.0 };
+        sum_l2 += l * l;
+        sum_r2 += r * r;
+        sum_lr += l * r;
+    }
+    let n = left.len() as f64;
+    let left_rms = (sum_l2 / n).sqrt() as f32;
+    let right_rms = (sum_r2 / n).sqrt() as f32;
+    let denom_rms = left_rms + right_rms;
+    let balance = if denom_rms <= 1e-7 {
+        0.0
+    } else {
+        ((right_rms - left_rms) / denom_rms).clamp(-1.0, 1.0)
+    };
+    let denom_corr = (sum_l2 * sum_r2).sqrt();
+    let correlation = if denom_corr <= 1e-12 {
+        1.0
+    } else {
+        (sum_lr / denom_corr).clamp(-1.0, 1.0) as f32
+    };
+    Ok(StereoBalanceReport {
+        left_rms,
+        right_rms,
+        balance,
+        correlation,
+        mono_compatible: correlation >= 0.0,
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn audio_analyze_stereo_balance(
+    left: Vec<f32>,
+    right: Vec<f32>,
+) -> Result<StereoBalanceReport, String> {
+    if left.len() > 1_000_000 || right.len() > 1_000_000 {
+        return Err("Stereo balance input exceeds 1,000,000 samples per channel.".into());
+    }
+    analyze_stereo_balance(&left, &right)
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -942,6 +1001,15 @@ pub fn audio_detect_silence(
   let after=analyze_dc_offset(&pcm,0.005).unwrap();
   assert!(!after.needs_correction);
   assert!(analyze_dc_offset(&[],0.005).is_err());
+ }
+ #[test]fn stereo_balance_detects_pan_and_phase_inversion(){
+  let l=vec![0.5_f32;32];
+  let r=vec![-0.5_f32;32];
+  let rep=analyze_stereo_balance(&l,&r).unwrap();
+  assert!(!rep.mono_compatible);
+  assert!((rep.correlation+1.0).abs()<1e-5);
+  assert!(rep.balance.abs()<1e-5);
+  assert!(analyze_stereo_balance(&[0.1],&[0.1,0.2]).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
