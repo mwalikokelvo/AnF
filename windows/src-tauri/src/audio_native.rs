@@ -437,6 +437,58 @@ pub fn audio_waveform_envelope(
     compute_waveform_envelope(&samples, sample_rate, target_buckets.unwrap_or(128))
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BpmEstimate {
+    pub bpm: f64,
+    pub beat_interval_ms: u64,
+    pub confidence: f64,
+    pub tap_count: usize,
+}
+
+pub fn estimate_bpm_from_taps(timestamps_ms: &[u64]) -> Result<BpmEstimate, String> {
+    if timestamps_ms.len() < 2 {
+        return Err("At least 2 tap timestamps are required to estimate BPM.".into());
+    }
+    let mut intervals = Vec::with_capacity(timestamps_ms.len() - 1);
+    for w in timestamps_ms.windows(2) {
+        if w[1] > w[0] {
+            let delta = w[1] - w[0];
+            if (150..=3000).contains(&delta) {
+                intervals.push(delta as f64);
+            }
+        }
+    }
+    if intervals.is_empty() {
+        return Err("No valid beat intervals (150ms–3000ms) found in taps.".into());
+    }
+    let mut sorted = intervals.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let median = sorted[sorted.len() / 2];
+    let mean = intervals.iter().sum::<f64>() / (intervals.len() as f64);
+    let var = intervals
+        .iter()
+        .map(|v| (v - mean).powi(2))
+        .sum::<f64>()
+        / (intervals.len() as f64);
+    let confidence = (1.0 - (var.sqrt() / mean.max(1.0))).clamp(0.0, 1.0);
+    let bpm = (60_000.0 / median * 10.0).round() / 10.0;
+    Ok(BpmEstimate {
+        bpm,
+        beat_interval_ms: median.round() as u64,
+        confidence,
+        tap_count: timestamps_ms.len(),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn audio_estimate_bpm(timestamps_ms: Vec<u64>) -> Result<BpmEstimate, String> {
+    if timestamps_ms.len() > 256 {
+        return Err("Tap buffer exceeds 256 entries.".into());
+    }
+    estimate_bpm_from_taps(&timestamps_ms)
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -794,6 +846,13 @@ pub fn audio_detect_silence(
   assert!((env.peaks[6]-1.0).abs()<1e-5);
   assert!(compute_waveform_envelope(&[],1000,10).is_err());
   assert!(compute_waveform_envelope(&pcm,0,10).is_err());
+ }
+ #[test]fn bpm_estimator_computes_tempo_and_confidence(){
+  let est=estimate_bpm_from_taps(&[0,500,1000,1500]).unwrap();
+  assert!((est.bpm-120.0).abs()<1e-6);
+  assert_eq!(est.beat_interval_ms,500);
+  assert!((est.confidence-1.0).abs()<1e-6);
+  assert!(estimate_bpm_from_taps(&[100]).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }

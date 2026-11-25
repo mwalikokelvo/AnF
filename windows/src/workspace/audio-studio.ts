@@ -486,5 +486,16 @@ export async function computeWaveformEnvelope(
  });
 }
 
+export type BpmEstimate = {
+ bpm: number;
+ beatIntervalMs: number;
+ confidence: number;
+ tapCount: number;
+};
+
+export async function estimateBpmFromTaps(timestampsMs: number[]): Promise<BpmEstimate> {
+ return invoke<BpmEstimate>('audio_estimate_bpm', { timestampsMs });
+}
+
 
 
