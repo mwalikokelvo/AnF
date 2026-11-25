@@ -179,6 +179,16 @@ describe('Kevo Fast Path (Step 2.4: Instant commands stay instant)', () => {
       assert.strictEqual((await agent.processVoiceInput(said)).actionName, 'ai_conversation');
       assert.strictEqual(seen[said], true, said);
     }
+    // Quoted commands (issue-175) must also be answered in words only.
+    for (const said of [
+      'Did you say, skip this song?',
+      'Are you asking me to say, skip this song?',
+      'Imagine I say, please, skip this song',
+      'What happens if I say, tell me the time?',
+    ]) {
+      assert.strictEqual((await agent.processVoiceInput(said)).actionName, 'ai_conversation');
+      assert.strictEqual(seen[said], true, said);
+    }
     // Not refusals: the model may still act on them.
     for (const said of ['why is the sky blue?', "Why don't you skip this song?", "Don't forget to tell me the time at noon"]) {
       await agent.processVoiceInput(said);
