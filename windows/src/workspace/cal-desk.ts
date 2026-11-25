@@ -23,26 +23,76 @@ export interface BookedAppointment {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'anf-calcom-bookings';
+const LEGACY_STORAGE_KEY = 'anf-calcom-bookings';
+const IDB_NAME = 'anf-calcom-vault';
+const IDB_STORE = 'vault';
+const IDB_KEY_ID = 'aes-key';
+const IDB_DATA_ID = 'appointments-enc';
+
+async function openVaultDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return null;
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+          req.result.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function idbGet<T>(db: IDBDatabase, key: string): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result as T | undefined);
+      req.onerror = () => resolve(undefined);
+    } catch {
+      resolve(undefined);
+    }
+  });
+}
+
+async function idbSet(db: IDBDatabase, key: string, value: unknown): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function getOrCreateVaultKey(db: IDBDatabase): Promise<CryptoKey | null> {
+  if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+  const existing = await idbGet<CryptoKey>(db, IDB_KEY_ID);
+  if (existing) return existing;
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  await idbSet(db, IDB_KEY_ID, key);
+  return key;
+}
 
 export class CalDeskManager {
   private appointments: BookedAppointment[] = [];
   private listeners: (() => void)[] = [];
+  private persistChain: Promise<void> = Promise.resolve();
 
   constructor() {
-    this.appointments = this.load();
+    this.appointments = this.defaultStarter();
+    void this.hydrate();
   }
 
-  private load(): BookedAppointment[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {}
-
-    // Default starter appointment
+  private defaultStarter(): BookedAppointment[] {
     return [
       {
         id: 'cal-' + Date.now(),
@@ -58,13 +108,63 @@ export class CalDeskManager {
     ];
   }
 
-  save(): void {
+  private async hydrate(): Promise<void> {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.appointments));
+      const db = await openVaultDb();
+      if (db) {
+        const key = await getOrCreateVaultKey(db);
+        const record = await idbGet<{ iv: Uint8Array; cipher: ArrayBuffer }>(db, IDB_DATA_ID);
+        if (key && record?.iv && record?.cipher) {
+          const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(record.iv) }, key, record.cipher);
+          const parsed = JSON.parse(new TextDecoder().decode(plain));
+          if (Array.isArray(parsed)) {
+            this.appointments = parsed;
+            this.notify();
+            return;
+          }
+        }
+      }
+      // One-time migration from legacy plaintext localStorage if present
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+          if (Array.isArray(parsed)) {
+            this.appointments = parsed;
+            await this.persistEncrypted();
+            this.notify();
+          }
+        }
+      }
     } catch {}
+  }
+
+  private async persistEncrypted(): Promise<void> {
+    try {
+      const db = await openVaultDb();
+      if (!db) return;
+      const key = await getOrCreateVaultKey(db);
+      if (!key) return;
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encoded = new TextEncoder().encode(JSON.stringify(this.appointments));
+      const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+      await idbSet(db, IDB_DATA_ID, { iv, cipher });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    } catch {}
+  }
+
+  private notify(): void {
     for (const l of this.listeners) {
       try { l(); } catch {}
     }
+  }
+
+  save(): void {
+    this.persistChain = this.persistChain.then(() => this.persistEncrypted());
+    this.notify();
   }
 
   subscribe(fn: () => void): () => void {

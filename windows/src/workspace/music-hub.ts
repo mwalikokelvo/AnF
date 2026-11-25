@@ -33,6 +33,16 @@ import {chapterEndAt,chapterSleepStep} from './sleep-timer';
 import {fetchOnlineLyrics} from './lyrics-provider';
 import {cssUrl,onlineLookupsEnabled,safeHttpsUrl,setOnlineLookups,ONLINE_LOOKUPS_OFF} from './online-lookups';
 import {hasSafeFetch,safeFetchImage} from './safe-fetch';
+
+function hasHost(rawUrl: string, domain: string): boolean {
+  try {
+    const normalized = rawUrl.includes('://') ? rawUrl : `https://${rawUrl}`;
+    const host = new URL(normalized).hostname.toLowerCase();
+    return host === domain || host.endsWith('.' + domain);
+  } catch {
+    return false;
+  }
+}
 import {resolveCoverSrc} from './cover-src';
 import {echoDna} from './echo-music-dna';
 import {handOffLockScreen,lockScreenPlan,nativeBridgeId} from './lock-screen';
@@ -1263,7 +1273,7 @@ export function createMusicHub(options:{exportPlaylist?:(text:string)=>void|Prom
    if(safe.includes('audius.co')&&safe.includes('/stream')){
     try{const probeRes=await fetch(safe,{method:'HEAD',redirect:'follow'});if(probeRes.ok&&probeRes.url&&probeRes.url!==safe){safe=probeRes.url;}}catch{}
    }
-   if(safe&&(needsRustFetch(safe)||safe.includes('audio-ssl.itunes.apple.com')||safe.includes('googlevideo.com'))){
+   if(safe&&(needsRustFetch(safe)||hasHost(safe,'audio-ssl.itunes.apple.com')||hasHost(safe,'googlevideo.com'))){
     try{
      report('Loading audio stream...');
      const fetchedBlob=await loadRemoteAudio(safe,track.format||'audio/mp4');
@@ -2226,7 +2236,7 @@ const optionsOpen=root.querySelector<HTMLDetailsElement>('.music-listening-optio
   if(tab==='subsonic'){
    const settings=loadSubsonicSettings();
    const ready=subsonicReady(settings);
-   const isDemo=settings.server.includes('demo.navidrome.org');
+   const isDemo=hasHost(settings.server,'demo.navidrome.org');
    const query=h('input',{type:'search','aria-label':'Search Subsonic server',placeholder:'Search your server by song, artist or album',value:subsonicQuery}) as HTMLInputElement;
    query.addEventListener('keydown',event=>{if(event.key==='Enter')void run(searchServer);});
    async function searchServer(){

@@ -50,7 +50,10 @@ pub fn connect(file: &Path, key: &str, create: bool) -> Result<Connection, Strin
             rusqlite::OpenFlags::empty()
         };
     let db = Connection::open_with_flags(file, flags).map_err(error)?;
-    db.execute_batch(&format!("PRAGMA key=\"x'{key}'\"; PRAGMA temp_store=MEMORY; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON; PRAGMA journal_mode=DELETE;")).map_err(|_|"Cannot unlock the encrypted vault. Check its key or restore a backup.".to_string())?;
+    db.pragma_update(None, "key", format!("x'{key}'"))
+        .map_err(|_| "Cannot unlock the encrypted vault. Check its key or restore a backup.".to_string())?;
+    db.execute_batch("PRAGMA temp_store=MEMORY; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON; PRAGMA journal_mode=DELETE;")
+        .map_err(|_| "Cannot unlock the encrypted vault. Check its key or restore a backup.".to_string())?;
     db.busy_timeout(std::time::Duration::from_secs(5))
         .map_err(error)?;
     let cipher: String = db

@@ -36,21 +36,58 @@ export function resolveZimProtocolUrl(url: string): { archiveName: string; entry
   };
 }
 
+const ZIM_ENTITIES: Record<string, string> = {
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+};
+
+function decodeHtmlEntitiesOnce(input: string): string {
+  return input.replace(/&(nbsp|amp|lt|gt|quot);/g, (full, name: string) => ZIM_ENTITIES[name] ?? full);
+}
+
+function stripHtmlMarkup(html: string): string {
+  const out: string[] = [];
+  const lower = html.toLowerCase();
+  let i = 0;
+  while (i < html.length) {
+    if (html[i] === '<') {
+      const tagStart = i + 1;
+      if (lower.startsWith('script', tagStart) && (tagStart + 6 >= html.length || /[\s>/]/.test(html[tagStart + 6]))) {
+        const endIdx = lower.indexOf('</script', tagStart + 6);
+        if (endIdx === -1) break;
+        const closeBracket = html.indexOf('>', endIdx + 8);
+        i = closeBracket === -1 ? html.length : closeBracket + 1;
+        continue;
+      }
+      if (lower.startsWith('style', tagStart) && (tagStart + 5 >= html.length || /[\s>/]/.test(html[tagStart + 5]))) {
+        const endIdx = lower.indexOf('</style', tagStart + 5);
+        if (endIdx === -1) break;
+        const closeBracket = html.indexOf('>', endIdx + 7);
+        i = closeBracket === -1 ? html.length : closeBracket + 1;
+        continue;
+      }
+      const closeBracket = html.indexOf('>', tagStart);
+      if (closeBracket === -1) break;
+      out.push(' ');
+      i = closeBracket + 1;
+      continue;
+    }
+    out.push(html[i]);
+    i++;
+  }
+  return out.join('');
+}
+
 /**
  * Extracts plain readable text from a ZIM article entry for knowledge indexing
  */
 export function extractZimArticleText(article: { mimeType: string; data: Uint8Array; title: string }): string {
   const raw = new TextDecoder('utf-8').decode(article.data);
   if (article.mimeType.includes('html')) {
-    return raw
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
+    return decodeHtmlEntitiesOnce(stripHtmlMarkup(raw))
       .replace(/\s+/g, ' ')
       .trim();
   }

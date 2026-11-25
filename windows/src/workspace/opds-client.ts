@@ -338,8 +338,8 @@ function atomBook(entry: XmlEl, base: string): OpdsBook | undefined {
   let image: string | undefined;
   const acquisition = pickAcquisitionLink(links);
   for (const link of links) {
-    if (!thumbnail && link.rels.includes(THUMB)) thumbnail = link.href;
-    if (!image && link.rels.includes(IMAGE)) image = link.href;
+    if (!thumbnail && link.rels.some((rel) => rel === THUMB)) thumbnail = link.href;
+    if (!image && link.rels.some((rel) => rel === IMAGE)) image = link.href;
   }
   if (!acquisition.url && !thumbnail && !image) return undefined;
   const title = directText(entry.children.find((child) => child.name === 'title'));
@@ -416,8 +416,8 @@ function coverFields(images: RawLink[]): { thumbnail?: string; image?: string } 
   let thumbnail: string | undefined;
   let image: string | undefined;
   for (const link of images) {
-    const thumb = link.rels.includes(THUMB);
-    const full = link.rels.includes(IMAGE) || link.rels.length === 0;
+    const thumb = link.rels.some((rel) => rel === THUMB);
+    const full = link.rels.some((rel) => rel === IMAGE) || link.rels.length === 0;
     if (!thumbnail && thumb) thumbnail = link.href;
     if (!image && full && !thumb) image = link.href;
   }

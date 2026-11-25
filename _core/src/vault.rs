@@ -4,16 +4,14 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use argon2::Argon2;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::OsRng, Rng};
 use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
 use zeroize::Zeroizing;
 
 #[uniffi::export]
 pub fn new_salt() -> Vec<u8> {
-    let mut salt = vec![0; 16];
-    OsRng.fill_bytes(&mut salt);
-    salt
+    OsRng.gen::<[u8; 16]>().to_vec()
 }
 #[uniffi::export]
 pub fn document_hash(data: Vec<u8>) -> String {
@@ -62,8 +60,7 @@ impl VaultSession {
         let guard = self.key.lock().map_err(|_| CoreError::Locked)?;
         let key = guard.as_ref().ok_or(CoreError::Locked)?;
         let cipher = Aes256Gcm::new_from_slice(&**key).map_err(|_| CoreError::Authentication)?;
-        let mut iv = [0; 12];
-        OsRng.fill_bytes(&mut iv);
+        let iv: [u8; 12] = OsRng.gen();
         let mut result = iv.to_vec();
         result.extend(
             cipher
@@ -109,9 +106,12 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
     }
+    fn random_test_password() -> String {
+        sha256_hex(new_salt())
+    }
     #[test]
     fn round_trip_tamper_and_lock() {
-        let vault = VaultSession::new("test-password".into(), new_salt()).unwrap();
+        let vault = VaultSession::new(random_test_password(), new_salt()).unwrap();
         let clear = b"Private annotations".to_vec();
         let mut encrypted = vault.encrypt(clear.clone()).unwrap();
         assert!(!encrypted.windows(clear.len()).any(|part| part == clear));
@@ -124,8 +124,15 @@ mod tests {
     #[test]
     fn wrong_password_is_rejected() {
         let salt = new_salt();
-        let a = VaultSession::new("test-password".into(), salt.clone()).unwrap();
-        let b = VaultSession::new("other-password".into(), salt).unwrap();
+        let pass = random_test_password();
+        let other = loop {
+            let candidate = random_test_password();
+            if candidate != pass {
+                break candidate;
+            }
+        };
+        let a = VaultSession::new(pass, salt.clone()).unwrap();
+        let b = VaultSession::new(other, salt).unwrap();
         assert!(b.decrypt(a.encrypt(vec![1, 2, 3]).unwrap()).is_err());
     }
 }
