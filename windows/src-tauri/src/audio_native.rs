@@ -626,6 +626,83 @@ pub fn audio_analyze_stereo_balance(
     analyze_stereo_balance(&left, &right)
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FadeEnvelopeResult {
+    pub applied_fade_in_samples: usize,
+    pub applied_fade_out_samples: usize,
+    pub peak_after: f32,
+}
+
+pub fn apply_fade_in_out(
+    samples: &mut [f32],
+    sample_rate: u32,
+    fade_in_ms: u32,
+    fade_out_ms: u32,
+    curve: &str,
+) -> Result<FadeEnvelopeResult, String> {
+    if samples.is_empty() || sample_rate == 0 {
+        return Err("Samples must be non-empty and sample rate must be > 0.".into());
+    }
+    let total = samples.len();
+    let mut in_len = ((sample_rate as u64) * (fade_in_ms as u64) / 1000) as usize;
+    let mut out_len = ((sample_rate as u64) * (fade_out_ms as u64) / 1000) as usize;
+    if in_len + out_len > total {
+        let half = total / 2;
+        in_len = in_len.min(half);
+        out_len = out_len.min(total - in_len);
+    }
+    let gain_at = |t: f32| -> f32 {
+        match curve.trim().to_lowercase().as_str() {
+            "cosine" | "equal-power" => (t * std::f32::consts::FRAC_PI_2).sin(),
+            _ => t,
+        }
+    };
+    for s in samples.iter_mut() {
+        if !s.is_finite() {
+            *s = 0.0;
+        }
+    }
+    for (i, s) in samples.iter_mut().take(in_len).enumerate() {
+        let t = (i as f32) / (in_len.max(1) as f32);
+        *s *= gain_at(t);
+    }
+    for i in 0..out_len {
+        let idx = total - out_len + i;
+        let t = ((out_len - i) as f32) / (out_len.max(1) as f32);
+        samples[idx] *= gain_at(t);
+    }
+    let peak_after = samples
+        .iter()
+        .fold(0.0_f32, |acc, &v| acc.max(v.abs()));
+    Ok(FadeEnvelopeResult {
+        applied_fade_in_samples: in_len,
+        applied_fade_out_samples: out_len,
+        peak_after,
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn audio_preview_fade_envelope(
+    mut samples: Vec<f32>,
+    sample_rate: u32,
+    fade_in_ms: u32,
+    fade_out_ms: u32,
+    curve: Option<String>,
+) -> Result<Vec<f32>, String> {
+    if samples.len() > 500_000 {
+        return Err("Fade preview input exceeds 500,000 samples.".into());
+    }
+    apply_fade_in_out(
+        &mut samples,
+        sample_rate,
+        fade_in_ms,
+        fade_out_ms,
+        curve.as_deref().unwrap_or("cosine"),
+    )?;
+    Ok(samples)
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -1010,6 +1087,15 @@ pub fn audio_detect_silence(
   assert!((rep.correlation+1.0).abs()<1e-5);
   assert!(rep.balance.abs()<1e-5);
   assert!(analyze_stereo_balance(&[0.1],&[0.1,0.2]).is_err());
+ }
+ #[test]fn fade_envelope_ramps_edges_without_nan(){
+  let mut pcm=vec![1.0_f32;100];
+  let res=apply_fade_in_out(&mut pcm,1000,20,20,"cosine").unwrap();
+  assert_eq!(res.applied_fade_in_samples,20);
+  assert_eq!(res.applied_fade_out_samples,20);
+  assert!(pcm[0].abs()<1e-5);
+  assert!((pcm[50]-1.0).abs()<1e-5);
+  assert!(pcm[99]<0.2);
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }

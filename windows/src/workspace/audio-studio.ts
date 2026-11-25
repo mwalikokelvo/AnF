@@ -526,5 +526,21 @@ export async function analyzeStereoBalance(
  return invoke<StereoBalanceReport>('audio_analyze_stereo_balance', { left, right });
 }
 
+export async function previewAudioFadeEnvelope(
+ samples: number[],
+ sampleRate: number,
+ fadeInMs: number,
+ fadeOutMs: number,
+ curve: 'linear' | 'cosine' = 'cosine',
+): Promise<number[]> {
+ return invoke<number[]>('audio_preview_fade_envelope', {
+  samples,
+  sampleRate,
+  fadeInMs,
+  fadeOutMs,
+  curve,
+ });
+}
+
 
 
