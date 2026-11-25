@@ -1,5 +1,6 @@
 //! Bounded, local-only FFmpeg jobs. User paths and encoder arguments never enter a shell.
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 use std::{path::{Path,PathBuf},sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}},process::{Command,Stdio},time::{Duration,Instant}};
 use tauri::State;
 #[cfg(not(target_os="linux"))]
@@ -60,6 +61,91 @@ impl AudioEditHistory {
 
 #[derive(Default)]
 pub struct AudioEditState(Mutex<AudioEditHistory>);
+
+#[derive(Debug, Default)]
+pub struct AudioQueueInner {
+    pub current: Option<String>,
+    pub up_next: VecDeque<String>,
+    pub history: Vec<String>,
+    pub speeds: HashMap<String, f64>,
+}
+
+impl AudioQueueInner {
+    pub fn push_up_next(&mut self, id: String) {
+        if !id.trim().is_empty() && self.up_next.len() < 500 {
+            self.up_next.push_back(id);
+        }
+    }
+
+    pub fn advance_next(&mut self) -> Option<String> {
+        let next = self.up_next.pop_front()?;
+        if let Some(prev) = self.current.replace(next.clone()) {
+            if self.history.len() >= 200 {
+                self.history.remove(0);
+            }
+            self.history.push(prev);
+        }
+        Some(next)
+    }
+
+    pub fn go_previous(&mut self) -> Option<String> {
+        let prev = self.history.pop()?;
+        if let Some(curr) = self.current.replace(prev.clone()) {
+            self.up_next.push_front(curr);
+        }
+        Some(prev)
+    }
+
+    pub fn set_speed(&mut self, id: String, speed: f64) -> f64 {
+        let clamped = if speed.is_finite() { speed.clamp(0.5, 3.0) } else { 1.0 };
+        if !id.trim().is_empty() {
+            self.speeds.insert(id, clamped);
+        }
+        clamped
+    }
+
+    pub fn get_speed(&self, id: &str) -> f64 {
+        self.speeds.get(id).copied().unwrap_or(1.0)
+    }
+}
+
+#[derive(Default)]
+pub struct AudioQueueState(Mutex<AudioQueueInner>);
+
+#[tauri::command]
+pub fn audio_queue_push(state: State<'_, AudioQueueState>, id: String) -> Result<usize, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio queue lock unavailable.")?;
+    guard.push_up_next(id);
+    Ok(guard.up_next.len())
+}
+
+#[tauri::command]
+pub fn audio_queue_next(state: State<'_, AudioQueueState>) -> Result<Option<String>, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio queue lock unavailable.")?;
+    Ok(guard.advance_next())
+}
+
+#[tauri::command]
+pub fn audio_queue_prev(state: State<'_, AudioQueueState>) -> Result<Option<String>, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio queue lock unavailable.")?;
+    Ok(guard.go_previous())
+}
+
+#[tauri::command]
+pub fn audio_set_item_speed(
+    state: State<'_, AudioQueueState>,
+    id: String,
+    speed: f64,
+) -> Result<f64, String> {
+    let mut guard = state.0.lock().map_err(|_| "Audio queue lock unavailable.")?;
+    Ok(guard.set_speed(id, speed))
+}
+
+#[tauri::command]
+pub fn audio_get_item_speed(state: State<'_, AudioQueueState>, id: String) -> Result<f64, String> {
+    let guard = state.0.lock().map_err(|_| "Audio queue lock unavailable.")?;
+    Ok(guard.get_speed(&id))
+}
 
 #[tauri::command]
 pub fn audio_region_apply(
@@ -352,6 +438,18 @@ pub fn audio_detect_silence(
   hist.apply(AudioEditRegion{kind:"mute".into(),start_sec:2.0,end_sec:4.0,gain:0.0}).unwrap();
   assert!(hist.redo().is_none());
   assert!(hist.apply(AudioEditRegion{kind:"bad".into(),start_sec:0.0,end_sec:1.0,gain:1.0}).is_err());
+ }
+ #[test]fn queue_history_and_per_item_speed_memory_work(){
+  let mut q=AudioQueueInner::default();
+  q.push_up_next("t1".into());
+  q.push_up_next("t2".into());
+  assert_eq!(q.advance_next().as_deref(),Some("t1"));
+  assert_eq!(q.advance_next().as_deref(),Some("t2"));
+  assert_eq!(q.go_previous().as_deref(),Some("t1"));
+  assert_eq!(q.advance_next().as_deref(),Some("t2"));
+  assert_eq!(q.set_speed("t1".into(),4.5),3.0);
+  assert_eq!(q.get_speed("t1"),3.0);
+  assert_eq!(q.get_speed("missing"),1.0);
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }

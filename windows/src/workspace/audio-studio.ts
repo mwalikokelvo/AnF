@@ -183,6 +183,11 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
   const regions=await invoke<Array<{kind:string}>>('audio_region_redo');
   report(`Redid edit (${regions.length} active region${regions.length===1?'':'s'}).`);
  });
+ const rememberSpeedButton=action('Save item speed',async()=>{
+  if(!track)throw Error('Open a track first.');
+  const saved=await invoke<number>('audio_set_item_speed',{id:track.id,speed:audio.playbackRate||1});
+  report(`Saved ${saved.toFixed(2)}x playback speed for ${track.title}.`);
+ });
 
  const clipDuration=h('select',{'aria-label':'Clip length',class:'audio-clip-duration'},...[15,30,45,60,90,120].map(s=>h('option',{value:String(s),text:s+'s clip'}))) as HTMLSelectElement;
  clipDuration.value='30';
@@ -379,7 +384,7 @@ export function createAudioStudio(notify:(s:string)=>void,exportAudio?:(name:str
      h('h3', { text: 'Restore speech & export' }),
      h('p', { text: 'Choose a noise-only section without speech. Gentle spectral subtraction reduces steady noise; strong or changing noise can leave artifacts.' }),
      h('div', { class: 'audio-controls' }, h('label', {}, profile, 'Use noise profile'), h('label', {}, 'Start (seconds) ', noiseStart), noiseLength, action('Use current position', () => { noiseStart.value = audio.currentTime.toFixed(1); })),
-     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, normalizeLufsButton, undoEditButton, redoEditButton, clipDuration, clipButton, transcribeButton)
+     h('div', { class: 'audio-controls' }, h('label', {}, 'Hum ', hum), h('label', {}, 'Sample rate ', rate), h('label', {}, 'Channels ', channels), action('Cache waveform', async () => { await decode(); report('Waveform cached for this track.'); }), cleanButton, exportButton, trimSilenceButton, normalizeLufsButton, undoEditButton, redoEditButton, rememberSpeedButton, clipDuration, clipButton, transcribeButton)
    )
  );
 
