@@ -54,6 +54,51 @@ import {
   cancelDailyBriefingSchedule,
   getDailyBriefingSchedule,
 } from './jarvis-schedule';
+
+// --- New discovery helpers (grok/kevo-book-music-discovery) ---
+async function searchOpenLibrary(query: string, limit = 3): Promise<string> {
+  if (!query.trim()) return 'Please tell me which book to look up.';
+  try {
+    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${limit}&fields=title,author_name,first_publish_year,key`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const docs = data.docs || [];
+    if (!docs.length) return `No books found for "${query}" on Open Library.`;
+    return docs.map((d: any, i: number) => `${i+1}. ${d.title} by ${(d.author_name || []).slice(0,2).join(', ') || 'Unknown'} (${d.first_publish_year || '?'})`).join('. ');
+  } catch (e) {
+    return `Could not reach Open Library: ${e}`;
+  }
+}
+
+async function searchItunesMusic(query: string, limit = 3): Promise<string> {
+  if (!query.trim()) return 'What music should I look up?';
+  try {
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=${limit}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const results = data.results || [];
+    if (!results.length) return `No tracks found for "${query}" on iTunes.`;
+    return results.map((r: any, i: number) => `${i+1}. ${r.trackName} by ${r.artistName} (${r.collectionName || ''})`).join('. ');
+  } catch (e) {
+    return `Could not reach iTunes Search: ${e}`;
+  }
+}
+
+async function searchRadioStations(query: string, limit = 3): Promise<string> {
+  if (!query.trim()) return 'Which radio station or genre?';
+  try {
+    const url = `https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(query)}&limit=${limit}&hidebroken=true`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const stations = await res.json();
+    if (!stations.length) return `No radio stations found matching "${query}".`;
+    return stations.slice(0, limit).map((s: any, i: number) => `${i+1}. ${s.name} (${s.country || '?'}, ${s.bitrate || '?'}kbps)`).join('. ');
+  } catch (e) {
+    return `Could not reach Radio Browser: ${e}`;
+  }
+}
 import {
   addToShoppingList,
   listShoppingList,
@@ -1723,6 +1768,70 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
       };
     },
+
+  {
+    name: 'search_open_library',
+    description: 'Searches Open Library for books by title, author or keyword (free public catalogue).',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Book title, author or search terms' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }) => {
+      const reply = await searchOpenLibrary(args?.query || '');
+      return {
+        handled: true,
+        actionName: 'search_open_library',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'search_itunes_music',
+    description: 'Searches the iTunes catalogue for songs, artists or albums (free metadata lookup, Spotify-style discovery).',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Track, artist or album to look up' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }) => {
+      const reply = await searchItunesMusic(args?.query || '');
+      return {
+        handled: true,
+        actionName: 'search_itunes_music',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
+  {
+    name: 'search_radio_stations',
+    description: 'Finds internet radio stations by name or genre using the free Radio Browser API.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Station name, genre or keyword' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }) => {
+      const reply = await searchRadioStations(args?.query || '');
+      return {
+        handled: true,
+        actionName: 'search_radio_stations',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
   },
 ];
 
