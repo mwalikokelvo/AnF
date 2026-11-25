@@ -161,6 +161,48 @@ pub fn related_notes(source: &NoteInput, notes: &[NoteInput], limit: usize) -> V
     found
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NoteBacklink {
+    pub id: String,
+    pub title: String,
+    pub snippet: String,
+}
+
+/// Find notes referencing `target_title` (or `[[target_title]]`) or `target_id` in their body, excluding self.
+pub fn find_note_backlinks(
+    target_id: &str,
+    target_title: &str,
+    notes: &[NoteInput],
+) -> Vec<NoteBacklink> {
+    let clean_title = target_title.trim();
+    let title_lower = clean_title.to_lowercase();
+    let wiki_lower = if clean_title.is_empty() {
+        String::new()
+    } else {
+        format!("[[{title_lower}]]")
+    };
+    let mut out = Vec::new();
+    for note in notes {
+        if note.id == target_id || note.id.trim().is_empty() {
+            continue;
+        }
+        let body_lower = note.text.to_lowercase();
+        let matched = (!wiki_lower.is_empty() && body_lower.contains(&wiki_lower))
+            || (title_lower.len() >= 3 && body_lower.contains(&title_lower))
+            || (!target_id.trim().is_empty() && note.text.contains(target_id));
+        if matched {
+            let snippet: String = note.text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(120).collect();
+            out.push(NoteBacklink {
+                id: note.id.clone(),
+                title: note.title.clone(),
+                snippet,
+            });
+        }
+    }
+    out.sort_by(|a, b| a.title.cmp(&b.title).then_with(|| a.id.cmp(&b.id)));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,5 +276,18 @@ mod tests {
         assert_eq!(summary.total_words, 3);
         assert_eq!(summary.empty_notes, 1);
         assert!(summary.distinct_terms >= 4);
+    }
+
+    #[test]
+    fn find_note_backlinks_matches_wiki_links_and_excludes_self() {
+        let notes = vec![
+            note("n1", "Rust Audio", "Self mention [[Rust Audio]]"),
+            note("n2", "DSP Notes", "See [[Rust Audio]] for LUFS details"),
+            note("n3", "Cooking", "Tomato soup recipe"),
+        ];
+        let links = find_note_backlinks("n1", "Rust Audio", &notes);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].id, "n2");
+        assert!(links[0].snippet.contains("LUFS"));
     }
 }

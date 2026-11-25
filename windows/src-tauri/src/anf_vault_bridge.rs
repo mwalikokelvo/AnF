@@ -1,7 +1,10 @@
 //! Thin bridge to the shared AnF vault domain crate.
 //! Host storage (SQLCipher) stays in `vault.rs`. Not ThingsBook / `_core`.
 use anf_vault::{
-    related::{related_notes, summarize_vault_notes, NoteInput, RelatedNote, VaultHealthSummary},
+    related::{
+        find_note_backlinks, related_notes, summarize_vault_notes, NoteBacklink, NoteInput,
+        RelatedNote, VaultHealthSummary,
+    },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
 
@@ -40,6 +43,16 @@ pub fn workspace_related_notes(
 #[tauri::command]
 pub fn workspace_vault_health(notes: Vec<NoteInput>) -> VaultHealthSummary {
     summarize_vault_notes(&notes)
+}
+
+/// Find backlinks referencing a target note by title, `[[wiki-link]]`, or ID.
+#[tauri::command(rename_all = "camelCase")]
+pub fn workspace_note_backlinks(
+    target_id: String,
+    target_title: String,
+    notes: Vec<NoteInput>,
+) -> Vec<NoteBacklink> {
+    find_note_backlinks(&target_id, &target_title, &notes)
 }
 
 #[cfg(test)]

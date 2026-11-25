@@ -24,6 +24,25 @@ export async function fetchVaultHealth(notes: RelatedNoteInput[]): Promise<Vault
   return invoke<VaultHealthSummary>('workspace_vault_health', { notes });
 }
 
+export type NoteBacklink = {
+  id: string;
+  title: string;
+  snippet: string;
+};
+
+export async function fetchNoteBacklinks(
+  targetId: string,
+  targetTitle: string,
+  notes: RelatedNoteInput[],
+): Promise<NoteBacklink[]> {
+  if (!targetId || notes.length === 0) return [];
+  return invoke<NoteBacklink[]>('workspace_note_backlinks', {
+    targetId,
+    targetTitle,
+    notes,
+  });
+}
+
 /**
  * Queries the Rust `workspace_related_notes` Tauri command (`anf_vault::related`)
  * to rank related notes on-device via IDF-weighted cosine similarity.
