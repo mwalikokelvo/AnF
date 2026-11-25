@@ -229,6 +229,43 @@ pub fn audio_media_key_dispatch(
     Ok(guard.clone())
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioPresetInfo {
+    pub format: &'static str,
+    pub preset: &'static str,
+    pub description: &'static str,
+}
+
+#[tauri::command]
+pub fn audio_list_presets() -> Vec<AudioPresetInfo> {
+    vec![
+        AudioPresetInfo { format: "mp3", preset: "quality", description: "MP3 320 kbps stereo" },
+        AudioPresetInfo { format: "mp3", preset: "voice", description: "MP3 128 kbps mono 16 kHz" },
+        AudioPresetInfo { format: "m4a", preset: "quality", description: "AAC 256 kbps faststart" },
+        AudioPresetInfo { format: "opus", preset: "voice", description: "Opus 64 kbps speech" },
+        AudioPresetInfo { format: "opus", preset: "compact", description: "Opus 32 kbps compact" },
+        AudioPresetInfo { format: "flac", preset: "quality", description: "FLAC lossless" },
+        AudioPresetInfo { format: "wav", preset: "quality", description: "WAV PCM 16-bit" },
+    ]
+}
+
+#[tauri::command]
+pub fn audio_validate_batch_job(
+    count: usize,
+    total_bytes: u64,
+    format: String,
+    preset: String,
+) -> Result<(), String> {
+    if count == 0 || count > 50 {
+        return Err("Batch size must be between 1 and 50 tracks.".into());
+    }
+    if total_bytes > 256 * 1024 * 1024 {
+        return Err("Batch total exceeds 256 MB limit.".into());
+    }
+    encoder(&format, &preset).map(|_| ())
+}
+
 #[tauri::command]
 pub fn audio_region_apply(
     state: State<'_, AudioEditState>,
@@ -542,6 +579,13 @@ pub fn audio_detect_silence(
   ms.apply_key("seek_backward").unwrap();
   assert_eq!(ms.position_sec,45.0);
   assert!(ms.apply_key("invalid_key").is_err());
+ }
+ #[test]fn batch_presets_and_validation_enforce_limits(){
+  let presets=audio_list_presets();
+  assert!(presets.iter().all(|p|encoder(p.format,p.preset).is_ok()));
+  assert!(audio_validate_batch_job(5,1024,"opus".into(),"voice".into()).is_ok());
+  assert!(audio_validate_batch_job(0,1024,"opus".into(),"voice".into()).is_err());
+  assert!(audio_validate_batch_job(5,1024,"exe".into(),"voice".into()).is_err());
  }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }
