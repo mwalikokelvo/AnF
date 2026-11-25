@@ -642,5 +642,12 @@ pub fn audio_detect_silence(
   assert_eq!(near_end.crossfade_sec,4.0);
   assert!(plan_gapless_transition(0.0,0.0,4.0,1.0).is_err());
  }
+ #[test]fn adversarial_nan_and_negative_audio_inputs_are_safe(){
+  assert!(compute_lufs_and_gain(&[f32::NAN,0.0,f32::INFINITY],-14.0).is_ok());
+  assert!(plan_gapless_transition(f64::NAN,0.0,4.0,1.0).is_err());
+  assert!(plan_gapless_transition(10.0,-1.0,4.0,1.0).is_err());
+  let mut q=AudioQueueInner::default();
+  assert_eq!(q.set_speed("x".into(),f64::NAN),1.0);
+ }
  #[test]#[ignore="Requires the downloaded Windows FFmpeg runtime"]fn converts_all_formats(){let base=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");let exe=base.join("work/coucou/windows/media/ffmpeg.exe");let input=std::fs::read(base.join("work/audio-fixtures/Quiet tone A.wav")).unwrap();let dir=base.join("work/audio-native-check");for format in ["mp3","m4a","opus","ogg","flac","wav"]{let path=execute(&exe,&input,format,"voice",&dir,&AtomicBool::new(false)).unwrap();assert!(path.metadata().unwrap().len()>100);}assert!(execute(&exe,&input,"opus","voice",&dir,&AtomicBool::new(true)).is_err());}
 }

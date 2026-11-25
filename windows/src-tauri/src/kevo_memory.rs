@@ -820,4 +820,16 @@ mod tests {
         assert_eq!(ctx.resolve_utterance("open that note"), "open Sprint Plan");
         assert!(ctx.push_entity("unknown", "x".into()).is_err());
     }
+
+    #[test]
+    fn rapid_barge_in_and_oversized_selection_are_bounded() {
+        let start = kevo_barge_in_epoch();
+        for i in 1..=50 {
+            assert_eq!(kevo_barge_in_interrupt(), start + i);
+        }
+        let big = "a".repeat(8000);
+        let plan = plan_selection_action("rewrite this", &big).unwrap();
+        assert!(plan.truncated);
+        assert_eq!(plan.selection_chars, 8000);
+    }
 }
