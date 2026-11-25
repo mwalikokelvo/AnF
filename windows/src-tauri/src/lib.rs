@@ -558,6 +558,7 @@ pub fn run() {
             kevo_schedule::kevo_schedule_clear_reminders,
             kevo_schedule::kevo_schedule_check_due,
             kevo_schedule::kevo_schedule_trigger_alert,
+            kevo_schedule::kevo_schedule_snooze_reminder,
             log::kevo_log_append,log::kevo_log_save,log::kevo_log_open_folder,
             workspace_begin,
             workspace_cancel,

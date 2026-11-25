@@ -110,3 +110,22 @@ export async function resolveKevoRoutine(
     lastEntity: lastEntity ?? null,
   });
 }
+
+export type KevoReminder = {
+  id: string;
+  message: string;
+  trigger_at: number;
+  created_at: number;
+  fired: boolean;
+  recurring?: string;
+};
+
+export async function snoozeKevoReminder(
+  idOrQuery: string,
+  duration = '10 minutes',
+): Promise<KevoReminder | null> {
+  return invoke<KevoReminder | null>('kevo_schedule_snooze_reminder', {
+    id_or_query: idOrQuery,
+    duration,
+  });
+}

@@ -171,6 +171,85 @@ pub fn clear_reminders_in(path: &Path) -> Result<bool, String> {
     Ok(had)
 }
 
+/// Parse natural snooze/reschedule duration strings such as `"10m"`, `"15 minutes"`,
+/// `"2 hours"`, `"30s"`, `"half an hour"`, or `"tomorrow"` into milliseconds.
+pub fn parse_snooze_duration_ms(phrase: &str) -> Result<u64, String> {
+    let clean = phrase.trim().to_lowercase();
+    if clean.is_empty() {
+        return Err("Snooze duration cannot be empty.".to_string());
+    }
+    if clean == "half an hour" || clean == "half hour" {
+        return Ok(30 * 60 * 1000);
+    }
+    if clean == "tomorrow" || clean == "1 day" || clean == "1d" {
+        return Ok(86_400_000);
+    }
+
+    let mut num_end = 0;
+    for (idx, ch) in clean.char_indices() {
+        if ch.is_ascii_digit() {
+            num_end = idx + ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    if num_end == 0 {
+        return Err(format!("Could not parse snooze duration '{phrase}'."));
+    }
+    let qty: u64 = clean[..num_end]
+        .parse()
+        .map_err(|_| format!("Invalid snooze number in '{phrase}'."))?;
+    if qty == 0 {
+        return Err("Snooze duration must be greater than zero.".to_string());
+    }
+    let unit = clean[num_end..].trim();
+    let unit_ms: u64 = match unit {
+        "s" | "sec" | "secs" | "second" | "seconds" => 1_000,
+        "" | "m" | "min" | "mins" | "minute" | "minutes" => 60_000,
+        "h" | "hr" | "hrs" | "hour" | "hours" => 3_600_000,
+        "d" | "day" | "days" => 86_400_000,
+        _ => return Err(format!("Unsupported snooze unit '{unit}'.")),
+    };
+    let max_ms = 365 * 86_400_000;
+    Ok(qty.saturating_mul(unit_ms).clamp(1_000, max_ms))
+}
+
+/// Reschedule/snooze a matching reminder (by exact ID or message substring) by `delay_ms`.
+pub fn snooze_reminder_in(
+    path: &Path,
+    id_or_query: &str,
+    delay_ms: u64,
+    now_ms: u64,
+) -> Result<Option<KevoReminder>, String> {
+    let _guard = SCHEDULE_LOCK.lock().map_err(|e| e.to_string())?;
+    let mut store = load_store(path);
+    let needle = id_or_query.trim();
+    if needle.is_empty() {
+        return Err("Reminder ID or query cannot be empty.".to_string());
+    }
+    let q = needle.to_lowercase();
+    let idx = store
+        .reminders
+        .iter()
+        .position(|r| r.id == needle)
+        .or_else(|| {
+            store
+                .reminders
+                .iter()
+                .rposition(|r| r.message.to_lowercase().contains(&q))
+        });
+
+    let Some(i) = idx else {
+        return Ok(None);
+    };
+    let new_trigger = now_ms.saturating_add(delay_ms.max(1_000));
+    store.reminders[i].trigger_at = new_trigger;
+    store.reminders[i].fired = false;
+    let updated = store.reminders[i].clone();
+    save_store(path, &store).map_err(|e| e.to_string())?;
+    Ok(Some(updated))
+}
+
 pub fn check_and_fire_due_reminders(path: &Path, now_ms: u64) -> Result<Vec<KevoReminder>, String> {
     let _guard = SCHEDULE_LOCK.lock().map_err(|e| e.to_string())?;
     let mut store = load_store(path);
@@ -301,6 +380,15 @@ pub fn kevo_schedule_check_due() -> Result<Vec<KevoReminder>, String> {
     check_and_fire_due_reminders(&schedule_file_path(), now_ms())
 }
 
+#[tauri::command(rename_all = "snake_case")]
+pub fn kevo_schedule_snooze_reminder(
+    id_or_query: String,
+    duration: String,
+) -> Result<Option<KevoReminder>, String> {
+    let delay_ms = parse_snooze_duration_ms(&duration)?;
+    snooze_reminder_in(&schedule_file_path(), &id_or_query, delay_ms, now_ms())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,6 +491,34 @@ mod tests {
         std::fs::write(&path, "not json content").unwrap();
         let recovered = load_store(&path);
         assert!(recovered.reminders.is_empty());
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn parses_snooze_durations_and_reschedules_fired_reminder() {
+        assert_eq!(parse_snooze_duration_ms("10m").unwrap(), 600_000);
+        assert_eq!(parse_snooze_duration_ms("2 hours").unwrap(), 7_200_000);
+        assert_eq!(parse_snooze_duration_ms("half an hour").unwrap(), 1_800_000);
+        assert!(parse_snooze_duration_ms("0m").is_err());
+
+        let path = test_file("snooze");
+        cleanup(&path);
+
+        let r = create_reminder_in(&path, "Stand up and stretch".to_string(), 1_000, None).unwrap();
+        let fired = check_and_fire_due_reminders(&path, 2_000).unwrap();
+        assert_eq!(fired.len(), 1);
+
+        let snoozed = snooze_reminder_in(&path, "stretch", 600_000, 3_000)
+            .unwrap()
+            .expect("reminder should be found");
+        assert_eq!(snoozed.id, r.id);
+        assert!(!snoozed.fired);
+        assert_eq!(snoozed.trigger_at, 603_000);
+
+        let active = list_reminders_in(&path, None).unwrap();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].trigger_at, 603_000);
 
         cleanup(&path);
     }
