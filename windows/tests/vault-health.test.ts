@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   auditVaultHealth,
   vaultHealthToMarkdown,
+  repairVaultLinks,
 } from '../src/workspace/vault-health.js';
 import type { KnowledgeNote } from '../src/workspace/knowledge-data.js';
 
@@ -64,5 +65,31 @@ test('Vault Health & Broken Link Analytics', async (t) => {
     assert.match(md, /Overall Health Score/);
     assert.match(md, /Missing Target Note/);
     assert.match(md, /Isolated Thoughts/);
+  });
+
+  await t.test('repairVaultLinks automatically resolves casing, slug mismatches, and manual aliases', () => {
+    const rawNotes: KnowledgeNote[] = [
+      {
+        id: 'n-1',
+        name: 'Distributed Consensus',
+        draft: 'Foundational concept.',
+        sources: [],
+      },
+      {
+        id: 'n-2',
+        name: 'Overview',
+        draft: 'See [[distributed-consensus]] and [[DISTRIBUTED CONSENSUS]] and [[Old Term]].',
+        sources: [],
+      },
+    ];
+
+    const result = repairVaultLinks(rawNotes, { 'Old Term': 'Distributed Consensus' });
+    assert.equal(result.fixedLinksCount, 3);
+    const overview = result.repairedNotes.find(n => n.id === 'n-2');
+    assert.ok(overview);
+    assert.ok(!overview.draft.includes('[[distributed-consensus]]'));
+    assert.ok(!overview.draft.includes('[[Old Term]]'));
+    // All 3 links are now healed to the real note name
+    assert.equal((overview.draft.match(/\[\[Distributed Consensus\]\]/g) || []).length, 3);
   });
 });
