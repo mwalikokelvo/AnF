@@ -118,13 +118,23 @@ describe('Kevo Action Verification Suite (Phase 5 Step 5.5)', () => {
       assert.strictEqual(res.reason, 'INVALID_ARGUMENT');
     });
 
+    const hasExpectedOrigin = (details: string | undefined, expectedOrigin: string): boolean => {
+      const m = details?.match(/https?:\/\/[^\s,)]+/);
+      if (!m) return false;
+      try {
+        return new URL(m[0]).origin === expectedOrigin;
+      } catch {
+        return false;
+      }
+    };
+
     it('open_site: succeeds and verifies valid URL', async () => {
       const ctx = createMockContext();
       const res = await executeKevoAction('open_site', { url: 'https://github.com' }, ctx);
       assert.strictEqual(res.status, 'success');
       assert.strictEqual(res.verified, true);
       assert.match(res.speechReply, /Opening https:\/\/github\.com/i);
-      assert.ok(res.verificationDetails?.includes('https://github.com'));
+      assert.ok(hasExpectedOrigin(res.verificationDetails, 'https://github.com'));
     });
 
     it('open_site: automatically prefixes scheme and succeeds', async () => {
@@ -132,7 +142,7 @@ describe('Kevo Action Verification Suite (Phase 5 Step 5.5)', () => {
       const res = await executeKevoAction('open_site', { url: 'news.ycombinator.com' }, ctx);
       assert.strictEqual(res.status, 'success');
       assert.strictEqual(res.verified, true);
-      assert.ok(res.verificationDetails?.includes('https://news.ycombinator.com'));
+      assert.ok(hasExpectedOrigin(res.verificationDetails, 'https://news.ycombinator.com'));
     });
 
     it('open_site: fails with EXECUTION_FAILED on invalid URL or launch error', async () => {

@@ -137,7 +137,14 @@ export function computeManifestDiff(local: BackupManifest, remote: BackupManifes
  */
 export function exportRcloneConfig(config: S3BackupConfig, remoteName = 'anf-backup'): string {
   const endpointHost = config.endpoint.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-  const isSpaces = config.provider === 'digitalocean-spaces' || endpointHost.includes('digitaloceanspaces.com');
+  let parsedHost = '';
+  try {
+    parsedHost = new URL('https://' + endpointHost).hostname.toLowerCase();
+  } catch {}
+  const isSpaces =
+    config.provider === 'digitalocean-spaces' ||
+    parsedHost === 'digitaloceanspaces.com' ||
+    parsedHost.endsWith('.digitaloceanspaces.com');
 
   const lines = [
     `[${remoteName}]`,

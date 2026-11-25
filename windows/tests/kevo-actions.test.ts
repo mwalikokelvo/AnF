@@ -550,7 +550,8 @@ describe('Kevo Actions (Step 2.1: One action list)', () => {
     const validSite = await executeKevoAction('open_site', { url: 'https://example.com' }, ctx);
     assert.strictEqual(validSite.status, 'success');
     assert.strictEqual(validSite.verified, true);
-    assert.ok(validSite.verificationDetails?.includes('https://example.com'));
+    const siteUrlMatch = validSite.verificationDetails?.match(/https?:\/\/[^\s,)]+/);
+    assert.strictEqual(siteUrlMatch ? new URL(siteUrlMatch[0]).origin : '', 'https://example.com');
 
     // 2. music_play NO_MATCH verification
     const musicFound = await executeKevoAction('music_play', { query: 'lofi beats' }, ctx);

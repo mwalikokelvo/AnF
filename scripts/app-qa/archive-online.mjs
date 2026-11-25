@@ -70,7 +70,14 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (/error|failed|archive/i.test(message.text())) console.log('CONSOLE', message.type(), message.text().slice(0, 200)); });
-  page.on('request', request => { if (request.url().includes('archive.org')) console.log('REQ', request.resourceType(), request.url().slice(0, 140)); });
+  page.on('request', request => {
+    try {
+      const host = new URL(request.url()).hostname.toLowerCase();
+      if (host === 'archive.org' || host.endsWith('.archive.org')) {
+        console.log('REQ', request.resourceType(), request.url().slice(0, 140));
+      }
+    } catch {}
+  });
   await page.goto('http://127.0.0.1:4182/workspace.html');
   await page.locator('[data-view="music"]').waitFor({ state: 'attached' });
   await go(page, 'music');
