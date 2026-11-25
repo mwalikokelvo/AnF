@@ -719,27 +719,58 @@ export class JarvisVoiceAgent {
     }
 
     // Fast path for shopping / grocery list
-    const addShopMatch = /^(?:please\s+)?(?:add\s+(.+?)\s+to\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list)$/i.exec(text.trim());
+    const shopText = text
+      .trim()
+      .replace(/[.!?]+$/, '')
+      .replace(/^(?:(?:can|could|would|will) you(?:\s+please)?|please)[\s,]+/i, '')
+      .replace(/[\s,]+please$/i, '')
+      .trim();
+    const addShopMatch = /^add\s+(.+?)\s+to\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(shopText);
     if (addShopMatch) {
       const item = addShopMatch[1].trim();
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'add_to_shopping_list', speechReply: `Added ${item} to your shopping list.`, status: 'success', verified: true };
+      }
       const reply = addToShoppingList(item);
       return { handled: true, actionName: 'add_to_shopping_list', speechReply: reply, status: 'success', verified: true };
     }
-    const listShopMatch = /^(?:please\s+)?(?:what(?:'s|\s+is)\s+on\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list|(?:list|read|show|check)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list)$/i.exec(text.trim());
+    const listShopMatch = /^(?:what(?:'s|\s+is)\s+on\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list|(?:list|read|show|check)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list)$/i.exec(shopText);
     if (listShopMatch) {
       const reply = listShoppingList();
       return { handled: true, actionName: 'list_shopping_list', speechReply: reply, status: 'success', verified: true };
     }
-    const clearShopMatch = /^(?:please\s+)?(?:clear|empty)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(text.trim());
+    const clearShopMatch = /^(?:clear|empty)\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(shopText);
     if (clearShopMatch) {
-      const reply = clearShoppingList();
-      return { handled: true, actionName: 'clear_shopping_list', speechReply: reply, status: 'success', verified: true };
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'clear_shopping_list', speechReply: 'Cleared your shopping list, sir.', status: 'success', verified: true };
+      }
+      this.setPendingApproval({
+        id: `clear-shopping-${Date.now()}`,
+        action: 'clear_shopping_list',
+        summary: 'Clear your entire shopping list',
+        answer: async (approved) => {
+          this.setPendingApproval(null);
+          if (approved) clearShoppingList();
+        },
+      });
+      return { handled: true, actionName: 'approval_requested', speechReply: 'Clear your entire shopping list? Say yes to confirm or no to cancel.', status: 'success', verified: true };
     }
-    const removeShopMatch = /^(?:please\s+)?(?:remove|delete)\s+(.+?)\s+from\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(text.trim());
+    const removeShopMatch = /^(?:remove|delete)\s+(.+?)\s+from\s+(?:the\s+|my\s+)?(?:shopping|grocery)\s+list$/i.exec(shopText);
     if (removeShopMatch) {
       const item = removeShopMatch[1].trim();
+      if (this.context.dryRun) {
+        return { handled: true, actionName: 'remove_from_shopping_list', speechReply: `Removed ${item} from your shopping list.`, status: 'success', verified: true };
+      }
       const reply = removeFromShoppingList(item);
-      return { handled: true, actionName: 'remove_from_shopping_list', speechReply: reply, status: 'success', verified: true };
+      const missing = /was not on your shopping list/i.test(reply);
+      return {
+        handled: !missing,
+        actionName: 'remove_from_shopping_list',
+        speechReply: reply,
+        status: missing ? 'failure' : 'success',
+        verified: !missing,
+        ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
+      };
     }
 
     // Right after an app was not found, a short name on its own ("Brave browser") is the app to open.

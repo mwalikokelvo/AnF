@@ -1498,7 +1498,16 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       },
       required: ['item'],
     },
-    execute: async (args: { item: string }) => {
+    execute: async (args: { item: string }, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'add_to_shopping_list',
+          speechReply: `Added ${String(args?.item || '').trim()} to your shopping list.`,
+          status: 'success',
+          verified: true,
+        };
+      }
       const reply = addToShoppingList(args?.item);
       return {
         handled: true,
@@ -1534,7 +1543,16 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       type: 'object',
       properties: {},
     },
-    execute: async () => {
+    execute: async (_args: Record<string, never>, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'clear_shopping_list',
+          speechReply: 'Cleared your shopping list, sir.',
+          status: 'success',
+          verified: true,
+        };
+      }
       const reply = clearShoppingList();
       return {
         handled: true,
@@ -1555,14 +1573,25 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       },
       required: ['item'],
     },
-    execute: async (args: { item: string }) => {
+    execute: async (args: { item: string }, ctx: JarvisActionContext) => {
+      if (ctx?.dryRun) {
+        return {
+          handled: true,
+          actionName: 'remove_from_shopping_list',
+          speechReply: `Removed ${String(args?.item || '').trim()} from your shopping list.`,
+          status: 'success',
+          verified: true,
+        };
+      }
       const reply = removeFromShoppingList(args?.item);
+      const missing = /was not on your shopping list/i.test(reply);
       return {
-        handled: true,
+        handled: !missing,
         actionName: 'remove_from_shopping_list',
         speechReply: reply,
-        status: 'success',
-        verified: true,
+        status: missing ? 'failure' : 'success',
+        verified: !missing,
+        ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
       };
     },
   },

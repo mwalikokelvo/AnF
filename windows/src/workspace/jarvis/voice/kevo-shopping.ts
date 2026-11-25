@@ -6,8 +6,10 @@
 const STORAGE_KEY = 'anf-kevo-shopping-list';
 
 let memoryList: string[] = [];
+let storageWriteFailed = false;
 
 function getStoredList(): string[] {
+  if (storageWriteFailed) return memoryList;
   try {
     if (typeof localStorage !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -25,8 +27,11 @@ function setStoredList(list: string[]): void {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      storageWriteFailed = false;
     }
-  } catch {}
+  } catch {
+    storageWriteFailed = true;
+  }
 }
 
 export function addToShoppingList(item: string): string {

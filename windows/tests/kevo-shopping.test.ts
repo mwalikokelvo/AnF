@@ -68,6 +68,8 @@ describe('Kevo shopping list capability', () => {
 
     const clearVoice = await agent.processVoiceInput('clear the shopping list');
     assert.equal(clearVoice.handled, true);
-    assert.equal(clearVoice.actionName, 'clear_shopping_list');
+    assert.equal(clearVoice.actionName, 'approval_requested');
+    await agent.processVoiceInput('yes');
+    assert.match(listShoppingList(), /empty/);
   });
 });
