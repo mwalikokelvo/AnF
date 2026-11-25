@@ -2252,6 +2252,16 @@ Issue #150 (taken over from Codex after it stalled). `.github/workflows/windows.
 - Upstream posts every search query, retrieved guide, OS, agent name and timing to Google Clearcut (`play.googleapis.com/log`) from a detached `watchdog` process. Removed: the watchdog, its client, and the logger (now a no-op); `install`/`update`/`uninstall` refuse to run so the tracking build cannot come back; `SKILL.md` runs the local copy with `node`, never `npx ...@latest`. Details and how to update: `PRIVACY-PATCH.md` in the skill folder.
 - Tested: `node .agents/skills/modern-web-guidance/check-no-telemetry.mjs` passes (runs search and retrieve with sockets, fetch and child processes blocked); the same check fails on the unmodified upstream copy at the point where it starts the uploader. No app code changed. Needs Node 22+.
 
+## 2026-11-24: Night shift — Kevo voice suite (branch `grok/kevo-voice-suite-2026`)
+
+- Added the Kevo voice suite: coin flip / number picker, spelling with NATO phonetic alphabet, and an audio
+  sleep timer, wired into `KEVO_ACTIONS` and `JarvisVoiceAgent`, with tests in `tests/kevo-voice-suite.test.ts`.
+- Two type fixes carried by the same commit: `ActionResult.data` and `ReturnType<typeof setTimeout>`.
+- Checks: `npx tsc --noEmit` clean; full suite `node scripts/test.mjs` 948/948 pass, 0 fail (153 suites).
+- Gateway: OmniRoute (`omniroute serve`) was down at session start, restarted; now healthy (v3.8.54). Web-search
+  routing verified through OmniRoute for research.
+- Branch pushed to origin as `grok/kevo-voice-suite-2026`; never pushed to `main`.
+
 ## 2026-11-18: Kevo 7.1 briefing deduplication and unverified data badges fix (Antigravity, branch `agy/kevo-7.1-briefing-unverified-data`, Refs #266)
 - Fix fabricated fallback metrics: when notes or system telemetry are absent, `Knowledge (Vault)` and `System & Audio` chunks now report "not available" with `verified: false` rather than defaulting to "0 notes", "operational", or "idle" with an honest "✓ Verified Local Data" badge. Summary reflects "not available" for unverified components.
 - Deduplication: extracted the 25-line data gathering block across `btnBriefing` and `getBriefing` in `jarvis-command-desk.ts` into a single shared helper `collectWorkspaceBriefingData`.
