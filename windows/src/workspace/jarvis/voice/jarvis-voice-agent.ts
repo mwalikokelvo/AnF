@@ -1,4 +1,7 @@
 /**
+import { fetchHeadlines, isNewsRequest } from "./kevo-news";
+import { startFocus, focusStatus, cancelFocus, isFocusStart } from "./kevo-focus";
+import { batteryStatus, isBatteryRequest } from "./kevo-battery";
  * Kevo Autonomous Action & Intent Dispatcher
  * Parses natural spoken voice instructions and executes corresponding actions across the entire workspace.
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
@@ -650,6 +653,34 @@ export class JarvisVoiceAgent {
 
     // "Tell me a joke": a fresh one from icanhazdadjoke.com, always on (the owner's choice, 22 Nov 2026), whatever the
     // online lookups switch says. When the service does not answer, the AI below tells one offline.
+    // News headlines from BBC RSS
+    if (isNewsRequest(lower)) {
+      const asked = this.generation;
+      const headlines = await fetchHeadlines().catch(() => null);
+      if (asked !== this.generation) return { handled: true, actionName: "abandoned", speechReply: "" };
+      if (headlines) return { handled: true, actionName: "news_headlines", speechReply: headlines, status: "success", verified: true };
+    }
+
+    // Focus / Pomodoro
+    const focusStart = isFocusStart(lower);
+    if (focusStart) {
+      const s = startFocus(focusStart.minutes, focusStart.label);
+      return { handled: true, actionName: "start_focus", speechReply: `Focus started for ${focusStart.minutes} minutes on ${focusStart.label}.`, status: "success", verified: true, data: s };
+    }
+    if (/^(?:focus status|how long left|time left on focus)$/.test(lower.trim())) {
+      return { handled: true, actionName: "focus_status", speechReply: focusStatus(), status: "success", verified: true };
+    }
+    if (/^(?:cancel focus|stop focus|end focus)$/.test(lower.trim())) {
+      cancelFocus();
+      return { handled: true, actionName: "cancel_focus", speechReply: "Focus cancelled.", status: "success", verified: true };
+    }
+
+    // Battery status
+    if (isBatteryRequest(lower)) {
+      const text = await batteryStatus();
+      return { handled: true, actionName: "battery_status", speechReply: text, status: "success", verified: true };
+    }
+
     if (isJokeRequest(lower)) {
       const asked = this.generation;
       const joke = await fetchJoke().catch(() => null);

@@ -1,4 +1,7 @@
 /**
+import { fetchHeadlines, isNewsRequest } from "./kevo-news";
+import { startFocus, focusStatus, cancelFocus, isFocusStart } from "./kevo-focus";
+import { batteryStatus, isBatteryRequest } from "./kevo-battery";
  * Kevo Actions: Single Source of Truth for Tool Calling and Instant Commands (Phase 2 Step 2.1).
  *
  * Defines every action once:
@@ -1855,6 +1858,67 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
       };
     },
+  {
+    name: "news_headlines",
+    description: "Get top 3 headlines from BBC News.",
+    parameters: { type: "object", properties: {} },
+    execute: async () => {
+      try {
+        const text = await fetchHeadlines();
+        return { handled: true, actionName: "news_headlines", speechReply: text, status: "success", verified: true };
+      } catch (err: any) {
+        return { handled: false, actionName: "news_headlines", speechReply: `I could not get the news: ${err?.message || err}`, status: "failure", verified: false };
+      }
+    },
+  },
+  {
+    name: "start_focus",
+    description: "Start a local focus/Pomodoro timer.",
+    parameters: {
+      type: "object",
+      properties: {
+        minutes: { type: "number", description: "Duration in minutes, default 25" },
+        label: { type: "string", description: "What to focus on" },
+      },
+    },
+    execute: async (args) => {
+      const minutes = Number(args?.minutes) || 25;
+      const label = String(args?.label || "focus");
+      const s = startFocus(minutes, label);
+      return { handled: true, actionName: "start_focus", speechReply: `Focus started for ${minutes} minutes on ${label}.`, status: "success", verified: true, data: s };
+    },
+  },
+  {
+    name: "focus_status",
+    description: "Report remaining time on the current focus session.",
+    parameters: { type: "object", properties: {} },
+    execute: async () => ({
+      handled: true,
+      actionName: "focus_status",
+      speechReply: focusStatus(),
+      status: "success",
+      verified: true,
+    }),
+  },
+  {
+    name: "cancel_focus",
+    description: "Cancel the current focus session.",
+    parameters: { type: "object", properties: {} },
+    execute: async () => {
+      cancelFocus();
+      return { handled: true, actionName: "cancel_focus", speechReply: "Focus cancelled.", status: "success", verified: true };
+    },
+  },
+  {
+    name: "battery_status",
+    description: "Report the device battery level and charging state.",
+    parameters: { type: "object", properties: {} },
+    execute: async () => {
+      const text = await batteryStatus();
+      return { handled: true, actionName: "battery_status", speechReply: text, status: "success", verified: true };
+    },
+  },
+
   },
 ];
 
