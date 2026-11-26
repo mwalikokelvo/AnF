@@ -35,6 +35,9 @@
  */
 
 import type { JarvisActionContext } from './jarvis-voice-agent';
+import { getBatteryStatus } from './kevo-battery';
+import { getTopNews } from './kevo-news';
+import { daysUntil } from './kevo-days-until';
 import { searchAudiusTracks, formatAudiusResults } from './audius-search';
 import { convertUnits } from './kevo-unit-convert';
 import { flipCoin, pickNumber } from './kevo-randomizer';
@@ -2069,7 +2072,39 @@ export async function executeKevoToolCalls(
 
 /** Parses raw OpenAI-compatible response into KevoAskReply, handling standard tool_calls and inline <tool_call> tags. */
 export function parseKevoAskResponse(response: any): KevoAskReply {
-  const toolCalls: KevoToolCall[] = [];
+  const toolCalls: KevoToolCall[] = [
+  {
+    name: 'battery_status',
+    description: 'Reports the local battery level and charging state.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const reply = await getBatteryStatus();
+      return { handled: true, actionName: 'battery_status', speechReply: reply, status: 'success', verified: true };
+    },
+  },
+  {
+    name: 'top_news',
+    description: 'Reads the top Hacker News headlines.',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const reply = await getTopNews();
+      return { handled: true, actionName: 'top_news', speechReply: reply, status: 'success', verified: true };
+    },
+  },
+  {
+    name: 'days_until',
+    description: 'Calculates days until a date.',
+    parameters: {
+      type: 'object',
+      properties: { date: { type: 'string', description: 'Date like 2026-12-25' } },
+      required: ['date'],
+    },
+    execute: async (args: { date: string }) => {
+      const reply = daysUntil(args.date || '');
+      return { handled: true, actionName: 'days_until', speechReply: reply, status: 'success', verified: true };
+    },
+  },
+];
   const choice = response?.choices?.[0]?.message;
   if (!choice) return { text: undefined, tool_calls: [] };
 
