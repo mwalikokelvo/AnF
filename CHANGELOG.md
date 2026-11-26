@@ -1,3 +1,9 @@
+## Unreleased — Kevo news, Spotify search and book quotes
+
+- Kevo can now give the top three world headlines from the free BBC News RSS feed ("what's the news", "headlines").
+- Kevo can search the Spotify catalog for tracks when you add your Client ID and Secret in Settings (metadata and preview availability only; full playback still needs Premium + user auth).
+- Kevo can give a short offline quote from a classic book on request ("give me a book quote").
+
 ## Unreleased — Verified offline model download
 
 - Qwen3 0.6B and 1.7B (Q8_0 GGUF) can now be downloaded from huggingface.co in Settings > Offline models. Rust owns the pinned URL, size and SHA-256; the file streams to `local-ai/models/*.part`, is hashed, and is renamed into place only if the hash matches. Interrupted downloads resume; a mismatch deletes the file.

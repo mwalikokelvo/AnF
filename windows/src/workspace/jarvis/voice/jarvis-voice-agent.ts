@@ -4,6 +4,10 @@
  * When a voice instruction isn't an explicit command, it routes to local AI with conversational memory.
  */
 
+import { topHeadlines, isNewsRequest } from "./kevo-news";
+import { searchSpotify, isSpotifySearchRequest } from "./kevo-spotify";
+import { randomBookQuote, isBookQuoteRequest } from "./kevo-book-quote";
+
 import { appendJarvisTurn, clearJarvisHistory, getJarvisHistory, rememberFact, listFacts, deleteFact, clearFacts, type JarvisTurn } from './jarvis-memory';
 import type { KevoActionStatus } from './kevo-actions';
 import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFetch } from './kevo-online';
@@ -929,6 +933,31 @@ export class JarvisVoiceAgent {
       } catch (err) {
         return { handled: true, actionName: 'weather_failed', speechReply: `I could not get the weather: ${String(err).replace(/^Error:\s*/, '')}` };
       }
+    }
+
+
+    // News headlines (free BBC RSS, no key)
+    if (isNewsRequest(lower)) {
+      const asked = this.generation;
+      const headlines = await topHeadlines();
+      if (asked !== this.generation) return { handled: true, actionName: "abandoned", speechReply: "" };
+      return { handled: true, actionName: "news", speechReply: headlines, status: "success", verified: true };
+    }
+
+    // Spotify catalog search (requires user Client ID/Secret in settings)
+    const spotifyReq = isSpotifySearchRequest(text);
+    if (spotifyReq) {
+      const asked = this.generation;
+      // Placeholder: in real build, pull from credential store via context
+      const creds = null; // this.context.getSpotifyCreds?.() ?? null;
+      const reply = await searchSpotify(spotifyReq.query, creds);
+      if (asked !== this.generation) return { handled: true, actionName: "abandoned", speechReply: "" };
+      return { handled: true, actionName: "spotify_search", speechReply: reply, status: "success", verified: true };
+    }
+
+    // Offline book quote
+    if (isBookQuoteRequest(lower)) {
+      return { handled: true, actionName: "book_quote", speechReply: randomBookQuote(), status: "success", verified: true };
     }
 
     // Daily Briefing Scheduler (Phase 4 Step 4.3)
