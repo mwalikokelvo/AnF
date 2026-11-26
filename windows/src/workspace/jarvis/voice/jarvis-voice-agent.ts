@@ -18,6 +18,9 @@ import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuest
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import { isWhatsPlayingRequest, formatWhatsPlaying } from './kevo-whats-playing';
 import { isHistoryRequest, todayInHistory } from './kevo-history';
+import { isNewsRequest, topHeadlines } from './kevo-news';
+import { parseHolidayRequest, upcomingHolidays } from './kevo-holidays';
+import { isBatteryRequest, isDiskRequest, getBatteryStatus, getDiskStatus } from './kevo-system';
 import { isAdviceRequest, randomAdvice } from './kevo-advice';
 import {
   createReminder,
@@ -885,6 +888,34 @@ export class JarvisVoiceAgent {
         () => todayInHistory(),
         (events) => (events ? `On this day in history: ${events}` : 'I could not find any recorded historical events for today, sir.')
       );
+    }
+
+    if (isNewsRequest(lower)) {
+      return this.online(
+        'news_headlines',
+        'fetch the news',
+        () => topHeadlines(),
+        (h) => (h ? `Here are the top headlines: ${h}` : 'No headlines available right now.')
+      );
+    }
+
+    const holidayReq = parseHolidayRequest(lower);
+    if (holidayReq) {
+      return this.online(
+        'upcoming_holidays',
+        'check holidays',
+        () => upcomingHolidays(holidayReq.country),
+        (h) => h || 'No holiday information.'
+      );
+    }
+
+    if (isBatteryRequest(lower)) {
+      const status = await getBatteryStatus();
+      return { handled: true, actionName: 'battery_status', speechReply: status, status: 'success', verified: false };
+    }
+    if (isDiskRequest(lower)) {
+      const status = await getDiskStatus();
+      return { handled: true, actionName: 'disk_status', speechReply: status, status: 'success', verified: false };
     }
 
     if (isCoinFlipRequest(lower)) {

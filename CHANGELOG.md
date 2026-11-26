@@ -1,3 +1,9 @@
+## Unreleased
+
+- Kevo: "what's the news" / "top headlines" reads the latest BBC World News headlines (free RSS, online lookups must be on).
+- Kevo: "what holidays" / "holidays in Kenya" lists upcoming public holidays via the free Nager.Date API.
+- Kevo: "how's the battery" and "how much disk space" are recognized (native live data to be wired next).
+
 ## Unreleased — Verified offline model download
 
 - Qwen3 0.6B and 1.7B (Q8_0 GGUF) can now be downloaded from huggingface.co in Settings > Offline models. Rust owns the pinned URL, size and SHA-256; the file streams to `local-ai/models/*.part`, is hashed, and is renamed into place only if the hash matches. Interrupted downloads resume; a mismatch deletes the file.

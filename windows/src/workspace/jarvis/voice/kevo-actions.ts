@@ -47,6 +47,9 @@ import { currencyCode, convertCurrency, formatConversion } from './kevo-currency
 import { formatWhatsPlaying } from './kevo-whats-playing';
 import { todayInHistory } from './kevo-history';
 import { randomAdvice } from './kevo-advice';
+import { topHeadlines } from './kevo-news';
+import { upcomingHolidays } from './kevo-holidays';
+import { getBatteryStatus, getDiskStatus } from './kevo-system';
 import { fetchInvidiousTranscript, formatTranscriptMarkdown } from '../../invidious-service';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
@@ -1223,6 +1226,61 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         verified: true,
         data: { advice },
       };
+    },
+  },
+  {
+    name: 'news_headlines',
+    description: 'Reads the latest world news headlines from the free BBC RSS feed (online lookups must be on).',
+    parameters: { type: 'object', properties: {} },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('news_headlines');
+      try {
+        const headlines = await topHeadlines();
+        if (!headlines) {
+          return { handled: true, actionName: 'news_headlines', speechReply: 'I could not find any headlines right now.', status: 'failure', verified: false };
+        }
+        return { handled: true, actionName: 'news_headlines', speechReply: `Here are the top headlines: ${headlines}`, status: 'success', verified: true, data: { headlines } };
+      } catch (err: any) {
+        return lookupFailed('news_headlines', `I could not fetch the news: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'upcoming_holidays',
+    description: 'Lists upcoming public holidays for a country (default US) from the free Nager.Date API.',
+    parameters: {
+      type: 'object',
+      properties: {
+        country: { type: 'string', description: 'Country code or name (US, UK, Kenya, etc.)' },
+      },
+    },
+    execute: async (args: any, ctx: JarvisActionContext) => {
+      if (!ctx.onlineLookupsEnabled?.()) return onlineOff('upcoming_holidays');
+      try {
+        const country = typeof args?.country === 'string' ? args.country.toUpperCase().slice(0, 2) : 'US';
+        const holidays = await upcomingHolidays(country);
+        return { handled: true, actionName: 'upcoming_holidays', speechReply: holidays || 'No holiday information available.', status: 'success', verified: true };
+      } catch (err: any) {
+        return lookupFailed('upcoming_holidays', `I could not check holidays: ${err?.message || String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'battery_status',
+    description: 'Reports the current battery level (native helper required for live data).',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const status = await getBatteryStatus();
+      return { handled: true, actionName: 'battery_status', speechReply: status, status: 'success', verified: false };
+    },
+  },
+  {
+    name: 'disk_status',
+    description: 'Reports free disk space (native helper required for live data).',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => {
+      const status = await getDiskStatus();
+      return { handled: true, actionName: 'disk_status', speechReply: status, status: 'success', verified: false };
     },
   },
   {
