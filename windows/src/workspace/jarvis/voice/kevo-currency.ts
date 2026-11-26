@@ -1,57 +1,23 @@
 /**
- * Kevo currency conversion using free Frankfurter API (https://frankfurter.dev).
- * No API key required. Rates from central banks.
- * Example: convert 100 USD to EUR.
+ * Currency conversion for Kevo using the free Frankfurter API (no key, ECB rates).
+ * https://www.frankfurter.app/
  */
 
-import type { LookupFetch } from './kevo-online';
-import { onlineGet } from './kevo-online';
-
-export interface CurrencyConversion {
-  amount: number;
-  from: string;
-  to: string;
-  result: number;
-  date?: string;
+export async function convertCurrency(amount: number, from: string, to: string, fetchFn = fetch): Promise<number | null> {
+  const url = `https://api.frankfurter.app/latest?amount=${amount}&from=${from.toUpperCase()}&to=${to.toUpperCase()}`;
+  try {
+    const res = await fetchFn(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.rates?.[to.toUpperCase()] ?? null;
+  } catch {
+    return null;
+  }
 }
 
-const CURRENCY_ALIASES: Record<string, string> = {
-  dollars: 'USD',
-  dollar: 'USD',
-  euros: 'EUR',
-  euro: 'EUR',
-  pounds: 'GBP',
-  pound: 'GBP',
-  yen: 'JPY',
-  francs: 'CHF',
-  franc: 'CHF',
-  shillings: 'KES',
-  shilling: 'KES',
-};
-
-/** "dollars", "usd" or "Kenyan shillings" to an ISO code, or null when it is not a currency word or code. */
-export function currencyCode(word: string): string | null {
-  const lower = word.toLowerCase().trim().replace(/^(?:us|american|kenyan|british|swiss|japanese)\s+/, '');
-  if (Object.hasOwn(CURRENCY_ALIASES, lower)) return CURRENCY_ALIASES[lower];
-  return /^[a-z]{3}$/.test(lower) ? lower.toUpperCase() : null;
-}
-
-/** Today's rate from Frankfurter times the amount, or null when Frankfurter has no rate for the pair. */
-export async function convertCurrency(amount: number, from: string, to: string, fetchFn?: LookupFetch): Promise<CurrencyConversion | null> {
-  const res = await onlineGet(`https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`, 'the currency service', fetchFn);
-  if (res.status === 404 || res.status === 422) return null;
-  if (!res.ok) throw new Error(`the currency service answered ${res.status}.`);
-  const data = (await res.json()) as { rate?: number; base?: string; quote?: string; date?: string };
-  if (typeof data.rate !== 'number') return null;
-  return {
-    amount,
-    from: data.base || from,
-    to: data.quote || to,
-    result: Math.round(amount * data.rate * 100) / 100,
-    date: data.date,
-  };
-}
-
-export function formatConversion(conv: CurrencyConversion): string {
-  return `${conv.amount} ${conv.from} is about ${conv.result} ${conv.to}${conv.date ? ` (as of ${conv.date})` : ''}.`;
+/** "convert 100 usd to eur", "how much is 50 pounds in dollars". */
+export function parseCurrencyRequest(lower: string): { amount: number; from: string; to: string } | null {
+  const m = /(?:convert|how much is|what is)?\s*([\d.]+)\s+([a-z]{3})\s+(?:to|in)\s+([a-z]{3})/.exec(lower);
+  if (!m) return null;
+  return { amount: Number(m[1]), from: m[2], to: m[3] };
 }
