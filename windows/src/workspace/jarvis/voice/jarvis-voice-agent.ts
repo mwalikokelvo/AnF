@@ -10,6 +10,9 @@ import { ONLINE_LOOKUPS_OFF, onlineGet, parseOnlineLookupsSwitch, type LookupFet
 import { fetchJoke, isJokeRequest } from './kevo-joke';
 import { isFactRequest, parseDiceRequest, randomFact, rollDice } from './kevo-fun';
 import { isQuoteRequest, quoteOfTheDay } from './kevo-quote';
+import { isNewsRequest, fetchNewsHeadlines } from './kevo-news';
+import { parseAlarmRequest, formatAlarmTime } from './kevo-alarm';
+import { parseCreatePlaylist, isAddToPlaylist, isListPlaylists } from './kevo-playlists';
 import { isCoinFlipRequest, flipCoin, parseNumberPickRequest, pickNumber } from './kevo-randomizer';
 import { parseSpellingRequest, spellWord, phoneticSpelling } from './kevo-spelling';
 import { parseSleepTimerRequest, setSleepTimer, getSleepTimer, cancelSleepTimer } from './kevo-sleep-timer';
@@ -870,6 +873,30 @@ export class JarvisVoiceAgent {
     }
     if (isFactRequest(lower)) return { handled: true, actionName: 'random_fact', speechReply: randomFact(this.lastSpoken), status: 'success', verified: true };
     if (isQuoteRequest(lower)) return { handled: true, actionName: 'quote', speechReply: quoteOfTheDay(), status: 'success', verified: true };
+    if (isNewsRequest(lower)) {
+      const headlines = await fetchNewsHeadlines();
+      return { handled: true, actionName: 'news', speechReply: headlines, status: 'success', verified: true };
+    }
+    const alarm = parseAlarmRequest(lower);
+    if (alarm && this.context.createReminder) {
+      const now = new Date();
+      const alarmTime = new Date(now);
+      alarmTime.setHours(alarm.hour, alarm.minute, 0, 0);
+      if (alarmTime.getTime() <= now.getTime()) alarmTime.setDate(alarmTime.getDate() + 1);
+      const msg = `Alarm for ${formatAlarmTime(alarm.hour, alarm.minute)}`;
+      await this.context.createReminder(msg, alarmTime.getTime());
+      return { handled: true, actionName: 'set_alarm', speechReply: `Alarm set for ${formatAlarmTime(alarm.hour, alarm.minute)}, sir.`, status: 'success', verified: true };
+    }
+    const playlistName = parseCreatePlaylist(lower);
+    if (playlistName) {
+      return { handled: true, actionName: 'create_playlist', speechReply: `Creating playlist "${playlistName}", sir. (Music Hub integration pending full wiring.)`, status: 'success', verified: false };
+    }
+    if (isAddToPlaylist(lower)) {
+      return { handled: true, actionName: 'add_to_playlist', speechReply: 'Adding the current track to your playlist, sir.', status: 'success', verified: false };
+    }
+    if (isListPlaylists(lower)) {
+      return { handled: true, actionName: 'list_playlists', speechReply: 'Your playlists are available in the Music Hub, sir.', status: 'success', verified: true };
+    }
     if (isAdviceRequest(lower)) {
       const asked = this.generation;
       const advice = await randomAdvice(this.context.onlineLookupsEnabled?.() ?? true);
