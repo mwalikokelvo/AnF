@@ -194,3 +194,19 @@ export async function fetchNotesByTag(
   if (!notes.length || !tag.trim()) return [];
   return invoke<TaggedNoteMatch[]>('workspace_notes_by_tag', { notes, tag });
 }
+
+export interface VaultTaskItem {
+  noteId: string;
+  title: string;
+  lineNumber: number;
+  completed: boolean;
+  text: string;
+}
+
+export async function fetchVaultTasks(
+  notes: RelatedNoteInput[],
+  includeCompleted = true,
+): Promise<VaultTaskItem[]> {
+  if (!notes.length) return [];
+  return invoke<VaultTaskItem[]>('workspace_vault_tasks', { notes, includeCompleted });
+}

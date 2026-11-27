@@ -601,6 +601,71 @@ pub fn find_notes_by_tag(notes: &[NoteInput], tag: &str) -> Vec<TaggedNoteMatch>
     matches
 }
 
+/// A Markdown task checklist item (`- [ ]` / `- [x]`) extracted from a vault note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultTaskItem {
+    pub note_id: String,
+    pub title: String,
+    pub line_number: usize,
+    pub completed: bool,
+    pub text: String,
+}
+
+/// Extract Markdown checklist tasks (`- [ ]` / `- [x]`) across vault notes, ignoring fenced code blocks.
+pub fn extract_vault_tasks(notes: &[NoteInput], include_completed: bool) -> Vec<VaultTaskItem> {
+    let mut tasks = Vec::new();
+    for note in notes {
+        let mut in_fence = false;
+        for (idx, raw_line) in note.text.lines().enumerate() {
+            let trimmed = raw_line.trim_start();
+            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                in_fence = !in_fence;
+                continue;
+            }
+            if in_fence {
+                continue;
+            }
+            let (completed, rest) = if let Some(r) = trimmed
+                .strip_prefix("- [ ] ")
+                .or_else(|| trimmed.strip_prefix("* [ ] "))
+            {
+                (false, r)
+            } else if let Some(r) = trimmed
+                .strip_prefix("- [x] ")
+                .or_else(|| trimmed.strip_prefix("- [X] "))
+                .or_else(|| trimmed.strip_prefix("* [x] "))
+                .or_else(|| trimmed.strip_prefix("* [X] "))
+            {
+                (true, r)
+            } else {
+                continue;
+            };
+            if completed && !include_completed {
+                continue;
+            }
+            let text = rest.trim();
+            if text.is_empty() {
+                continue;
+            }
+            tasks.push(VaultTaskItem {
+                note_id: note.id.clone(),
+                title: note.title.clone(),
+                line_number: idx + 1,
+                completed,
+                text: text.to_string(),
+            });
+        }
+    }
+    tasks.sort_by(|a, b| {
+        a.title
+            .cmp(&b.title)
+            .then_with(|| a.note_id.cmp(&b.note_id))
+            .then_with(|| a.line_number.cmp(&b.line_number))
+    });
+    tasks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -831,5 +896,33 @@ mod tests {
         assert_eq!(found.len(), 2);
         assert_eq!(found[0].id, "n2");
         assert_eq!(found[1].id, "n1");
+    }
+
+    #[test]
+    fn extracts_markdown_tasks_across_notes() {
+        let notes = vec![
+            NoteInput {
+                id: "n1".into(),
+                title: "Beta".into(),
+                text: "- [ ] Open task\n* [X] Done task\n```\n- [ ] Ignored code\n```\n- [ ]   \n".into(),
+            },
+            NoteInput {
+                id: "n2".into(),
+                title: "Alpha".into(),
+                text: "  * [ ] Indented task\n".into(),
+            },
+        ];
+        let all = extract_vault_tasks(&notes, true);
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0].note_id, "n2");
+        assert_eq!(all[0].text, "Indented task");
+        assert!(!all[0].completed);
+        assert_eq!(all[1].note_id, "n1");
+        assert_eq!(all[1].line_number, 1);
+        assert!(all[2].completed);
+
+        let open_only = extract_vault_tasks(&notes, false);
+        assert_eq!(open_only.len(), 2);
+        assert!(open_only.iter().all(|t| !t.completed));
     }
 }
