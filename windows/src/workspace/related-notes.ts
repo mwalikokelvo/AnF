@@ -241,3 +241,17 @@ export async function fetchVaultCodeBlocks(
   if (!notes.length) return [];
   return invoke<VaultCodeBlock[]>('workspace_vault_code_blocks', { notes, language });
 }
+
+export interface VaultQuestionItem {
+  noteId: string;
+  title: string;
+  lineNumber: number;
+  question: string;
+}
+
+export async function fetchVaultQuestions(
+  notes: RelatedNoteInput[],
+): Promise<VaultQuestionItem[]> {
+  if (!notes.length) return [];
+  return invoke<VaultQuestionItem[]>('workspace_vault_questions', { notes });
+}

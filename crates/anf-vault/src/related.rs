@@ -787,6 +787,52 @@ pub fn extract_vault_code_blocks(
     blocks
 }
 
+/// A question sentence/line ending in `?` extracted from a vault note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultQuestionItem {
+    pub note_id: String,
+    pub title: String,
+    pub line_number: usize,
+    pub question: String,
+}
+
+/// Extract lines ending with `?` across vault notes, ignoring fenced code blocks.
+pub fn extract_vault_questions(notes: &[NoteInput]) -> Vec<VaultQuestionItem> {
+    let mut items = Vec::new();
+    for note in notes {
+        let mut in_fence = false;
+        for (idx, raw_line) in note.text.lines().enumerate() {
+            let trimmed = raw_line.trim();
+            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                in_fence = !in_fence;
+                continue;
+            }
+            if in_fence || !trimmed.ends_with('?') {
+                continue;
+            }
+            let cleaned = trimmed
+                .trim_start_matches(['#', '>', '-', '*', ' '])
+                .trim();
+            if cleaned.len() > 1 && cleaned.ends_with('?') {
+                items.push(VaultQuestionItem {
+                    note_id: note.id.clone(),
+                    title: note.title.clone(),
+                    line_number: idx + 1,
+                    question: cleaned.to_string(),
+                });
+            }
+        }
+    }
+    items.sort_by(|a, b| {
+        a.title
+            .cmp(&b.title)
+            .then_with(|| a.note_id.cmp(&b.note_id))
+            .then_with(|| a.line_number.cmp(&b.line_number))
+    });
+    items
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1095,5 +1141,27 @@ mod tests {
         let rust_only = extract_vault_code_blocks(&notes, Some("rust"));
         assert_eq!(rust_only.len(), 2);
         assert!(rust_only.iter().all(|b| b.language == "rust"));
+    }
+
+    #[test]
+    fn extracts_vault_questions_ignoring_code_fences() {
+        let notes = vec![
+            NoteInput {
+                id: "n1".into(),
+                title: "Beta".into(),
+                text: "## Why does this work?\n```\nIs this ignored?\n```\n- Ready to ship?\n".into(),
+            },
+            NoteInput {
+                id: "n2".into(),
+                title: "Alpha".into(),
+                text: "> What is next?\nStatement.\n".into(),
+            },
+        ];
+        let questions = extract_vault_questions(&notes);
+        assert_eq!(questions.len(), 3);
+        assert_eq!(questions[0].note_id, "n2");
+        assert_eq!(questions[0].question, "What is next?");
+        assert_eq!(questions[1].question, "Why does this work?");
+        assert_eq!(questions[2].question, "Ready to ship?");
     }
 }
