@@ -134,3 +134,17 @@ export async function fetchNoteOutline(note: RelatedNoteInput): Promise<NoteOutl
   if (!note.text.trim()) return [];
   return invoke<NoteOutlineHeading[]>('workspace_note_outline', { note });
 }
+
+export type StubNoteEntry = {
+  id: string;
+  title: string;
+  wordCount: number;
+};
+
+export async function fetchStubNotes(
+  notes: RelatedNoteInput[],
+  minWords = 15,
+): Promise<StubNoteEntry[]> {
+  if (!notes.length) return [];
+  return invoke<StubNoteEntry[]>('workspace_stub_notes', { notes, minWords });
+}

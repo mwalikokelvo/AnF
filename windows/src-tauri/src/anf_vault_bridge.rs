@@ -3,9 +3,9 @@
 use anf_vault::{
     related::{
         compute_note_reading_stats, extract_note_outline, extract_vault_tags,
-        find_broken_wiki_links, find_note_backlinks, related_notes, summarize_vault_notes,
-        BrokenWikiLink, NoteBacklink, NoteInput, NoteOutlineHeading, NoteReadingStats,
-        RelatedNote, VaultHealthSummary, VaultTagCount,
+        find_broken_wiki_links, find_note_backlinks, find_stub_notes, related_notes,
+        summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput, NoteOutlineHeading,
+        NoteReadingStats, RelatedNote, StubNoteEntry, VaultHealthSummary, VaultTagCount,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -79,6 +79,12 @@ pub fn workspace_note_reading_stats(note: NoteInput, wpm: Option<u32>) -> NoteRe
 #[tauri::command]
 pub fn workspace_note_outline(note: NoteInput) -> Vec<NoteOutlineHeading> {
     extract_note_outline(&note)
+}
+
+/// Find stub or empty notes with fewer than `min_words` words on-device.
+#[tauri::command(rename_all = "camelCase")]
+pub fn workspace_stub_notes(notes: Vec<NoteInput>, min_words: Option<usize>) -> Vec<StubNoteEntry> {
+    find_stub_notes(&notes, min_words.unwrap_or(15))
 }
 
 #[cfg(test)]

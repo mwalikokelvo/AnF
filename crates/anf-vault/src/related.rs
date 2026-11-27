@@ -457,6 +457,37 @@ pub fn extract_note_outline(note: &NoteInput) -> Vec<NoteOutlineHeading> {
     headings
 }
 
+/// A note whose body has fewer words than the stub threshold.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StubNoteEntry {
+    pub id: String,
+    pub title: String,
+    pub word_count: usize,
+}
+
+/// Return notes with fewer than `min_words` whitespace-delimited words, shortest first.
+pub fn find_stub_notes(notes: &[NoteInput], min_words: usize) -> Vec<StubNoteEntry> {
+    let threshold = min_words.clamp(1, 500);
+    let mut stubs: Vec<StubNoteEntry> = notes
+        .iter()
+        .filter_map(|n| {
+            let wc = n.text.split_whitespace().count();
+            if wc < threshold {
+                Some(StubNoteEntry {
+                    id: n.id.clone(),
+                    title: n.title.clone(),
+                    word_count: wc,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    stubs.sort_by(|a, b| a.word_count.cmp(&b.word_count).then_with(|| a.title.cmp(&b.title)));
+    stubs
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -628,5 +659,20 @@ mod tests {
         assert_eq!(outline[1].level, 2);
         assert_eq!(outline[1].text, "Details");
         assert_eq!(outline[1].line, 5);
+    }
+
+    #[test]
+    fn find_stub_notes_filters_below_threshold_and_orders_shortest_first() {
+        let notes = vec![
+            note("n1", "Empty", ""),
+            note("n2", "Short", "just three words"),
+            note("n3", "Full", "one two three four five six"),
+        ];
+        let stubs = find_stub_notes(&notes, 5);
+        assert_eq!(stubs.len(), 2);
+        assert_eq!(stubs[0].id, "n1");
+        assert_eq!(stubs[0].word_count, 0);
+        assert_eq!(stubs[1].id, "n2");
+        assert_eq!(stubs[1].word_count, 3);
     }
 }
