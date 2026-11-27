@@ -2,10 +2,11 @@
 //! Host storage (SQLCipher) stays in `vault.rs`. Not ThingsBook / `_core`.
 use anf_vault::{
     related::{
-        compute_note_reading_stats, extract_note_outline, extract_vault_tags,
-        find_broken_wiki_links, find_note_backlinks, find_stub_notes, related_notes,
-        summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput, NoteOutlineHeading,
-        NoteReadingStats, RelatedNote, StubNoteEntry, VaultHealthSummary, VaultTagCount,
+        compute_note_reading_stats, evaluate_vault_word_goal, extract_note_outline,
+        extract_vault_tags, find_broken_wiki_links, find_note_backlinks, find_stub_notes,
+        related_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput,
+        NoteOutlineHeading, NoteReadingStats, RelatedNote, StubNoteEntry, VaultHealthSummary,
+        VaultTagCount, VaultWordGoalProgress,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -85,6 +86,15 @@ pub fn workspace_note_outline(note: NoteInput) -> Vec<NoteOutlineHeading> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn workspace_stub_notes(notes: Vec<NoteInput>, min_words: Option<usize>) -> Vec<StubNoteEntry> {
     find_stub_notes(&notes, min_words.unwrap_or(15))
+}
+
+/// Evaluate vault word count against a target word goal on-device.
+#[tauri::command(rename_all = "camelCase")]
+pub fn workspace_vault_word_goal(
+    notes: Vec<NoteInput>,
+    target_words: Option<usize>,
+) -> VaultWordGoalProgress {
+    evaluate_vault_word_goal(&notes, target_words.unwrap_or(1000))
 }
 
 #[cfg(test)]

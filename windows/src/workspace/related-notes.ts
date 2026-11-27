@@ -148,3 +148,18 @@ export async function fetchStubNotes(
   if (!notes.length) return [];
   return invoke<StubNoteEntry[]>('workspace_stub_notes', { notes, minWords });
 }
+
+export type VaultWordGoalProgress = {
+  totalWords: number;
+  targetWords: number;
+  remainingWords: number;
+  completionPct: number;
+  goalMet: boolean;
+};
+
+export async function fetchVaultWordGoal(
+  notes: RelatedNoteInput[],
+  targetWords = 1000,
+): Promise<VaultWordGoalProgress> {
+  return invoke<VaultWordGoalProgress>('workspace_vault_word_goal', { notes, targetWords });
+}

@@ -488,6 +488,32 @@ pub fn find_stub_notes(notes: &[NoteInput], min_words: usize) -> Vec<StubNoteEnt
     stubs
 }
 
+/// Progress toward a vault-wide word-count target.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultWordGoalProgress {
+    pub total_words: usize,
+    pub target_words: usize,
+    pub remaining_words: usize,
+    pub completion_pct: f64,
+    pub goal_met: bool,
+}
+
+/// Evaluate total vault word count against a target word goal.
+pub fn evaluate_vault_word_goal(notes: &[NoteInput], target_words: usize) -> VaultWordGoalProgress {
+    let target = target_words.max(1);
+    let total_words: usize = notes.iter().map(|n| n.text.split_whitespace().count()).sum();
+    let remaining_words = target.saturating_sub(total_words);
+    let completion_pct = (((total_words as f64) / (target as f64)) * 100.0).min(100.0);
+    VaultWordGoalProgress {
+        total_words,
+        target_words: target,
+        remaining_words,
+        completion_pct,
+        goal_met: total_words >= target,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -674,5 +700,22 @@ mod tests {
         assert_eq!(stubs[0].word_count, 0);
         assert_eq!(stubs[1].id, "n2");
         assert_eq!(stubs[1].word_count, 3);
+    }
+
+    #[test]
+    fn evaluate_vault_word_goal_tracks_completion_and_remaining() {
+        let notes = vec![
+            note("n1", "A", "one two three four"),
+            note("n2", "B", "five six"),
+        ];
+        let half = evaluate_vault_word_goal(&notes, 12);
+        assert_eq!(half.total_words, 6);
+        assert_eq!(half.remaining_words, 6);
+        assert!((half.completion_pct - 50.0).abs() < 1e-6);
+        assert!(!half.goal_met);
+        let met = evaluate_vault_word_goal(&notes, 5);
+        assert!(met.goal_met);
+        assert_eq!(met.remaining_words, 0);
+        assert!((met.completion_pct - 100.0).abs() < 1e-6);
     }
 }
