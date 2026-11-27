@@ -123,3 +123,14 @@ export function renderRelatedNotes(
     }),
   );
 }
+
+export type NoteOutlineHeading = {
+  level: number;
+  text: string;
+  line: number;
+};
+
+export async function fetchNoteOutline(note: RelatedNoteInput): Promise<NoteOutlineHeading[]> {
+  if (!note.text.trim()) return [];
+  return invoke<NoteOutlineHeading[]>('workspace_note_outline', { note });
+}

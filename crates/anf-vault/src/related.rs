@@ -417,6 +417,46 @@ pub fn compute_note_reading_stats(note: &NoteInput, wpm: u32) -> NoteReadingStat
     }
 }
 
+/// A Markdown heading entry in a note's outline.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteOutlineHeading {
+    pub level: u8,
+    pub text: String,
+    pub line: usize,
+}
+
+/// Extract `#`..`######` Markdown headings from `note.text`, skipping fenced code blocks.
+pub fn extract_note_outline(note: &NoteInput) -> Vec<NoteOutlineHeading> {
+    let mut headings = Vec::new();
+    let mut in_fence = false;
+    for (idx, raw_line) in note.text.lines().enumerate() {
+        let trimmed = raw_line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        let hashes = trimmed.bytes().take_while(|&b| b == b'#').count();
+        if (1..=6).contains(&hashes) {
+            let rest = &trimmed[hashes..];
+            if rest.starts_with(' ') || rest.starts_with('\t') {
+                let text = rest.trim().trim_end_matches('#').trim();
+                if !text.is_empty() {
+                    headings.push(NoteOutlineHeading {
+                        level: hashes as u8,
+                        text: text.to_string(),
+                        line: idx + 1,
+                    });
+                }
+            }
+        }
+    }
+    headings
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -571,5 +611,22 @@ mod tests {
         assert_eq!(stats.reading_minutes, 1);
         assert_eq!(stats.heading_count, 1);
         assert_eq!(stats.link_count, 2);
+    }
+
+    #[test]
+    fn extract_note_outline_parses_headings_and_skips_code_fences() {
+        let n = note(
+            "n1",
+            "Doc",
+            "# Intro\n```bash\n# Not a heading\n```\n## Details ##\n###Subnotspaced",
+        );
+        let outline = extract_note_outline(&n);
+        assert_eq!(outline.len(), 2);
+        assert_eq!(outline[0].level, 1);
+        assert_eq!(outline[0].text, "Intro");
+        assert_eq!(outline[0].line, 1);
+        assert_eq!(outline[1].level, 2);
+        assert_eq!(outline[1].text, "Details");
+        assert_eq!(outline[1].line, 5);
     }
 }

@@ -2,9 +2,10 @@
 //! Host storage (SQLCipher) stays in `vault.rs`. Not ThingsBook / `_core`.
 use anf_vault::{
     related::{
-        compute_note_reading_stats, extract_vault_tags, find_broken_wiki_links,
-        find_note_backlinks, related_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink,
-        NoteInput, NoteReadingStats, RelatedNote, VaultHealthSummary, VaultTagCount,
+        compute_note_reading_stats, extract_note_outline, extract_vault_tags,
+        find_broken_wiki_links, find_note_backlinks, related_notes, summarize_vault_notes,
+        BrokenWikiLink, NoteBacklink, NoteInput, NoteOutlineHeading, NoteReadingStats,
+        RelatedNote, VaultHealthSummary, VaultTagCount,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -72,6 +73,12 @@ pub fn workspace_broken_wiki_links(notes: Vec<NoteInput>) -> Vec<BrokenWikiLink>
 #[tauri::command(rename_all = "camelCase")]
 pub fn workspace_note_reading_stats(note: NoteInput, wpm: Option<u32>) -> NoteReadingStats {
     compute_note_reading_stats(&note, wpm.unwrap_or(220))
+}
+
+/// Extract Markdown heading outline for a single note on-device.
+#[tauri::command]
+pub fn workspace_note_outline(note: NoteInput) -> Vec<NoteOutlineHeading> {
+    extract_note_outline(&note)
 }
 
 #[cfg(test)]
