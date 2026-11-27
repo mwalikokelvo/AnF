@@ -1856,6 +1856,149 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       };
     },
   },
+  {
+    name: 'get_weather',
+    description: 'Reports the current weather for a city using the free Open-Meteo API (no key required).',
+    parameters: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'City name, e.g. London or New York' },
+      },
+      required: ['city'],
+    },
+    execute: async (args: { city: string }) => {
+      const city = (args?.city || '').trim();
+      if (!city) {
+        return {
+          handled: false,
+          actionName: 'get_weather',
+          speechReply: 'Which city would you like the weather for, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
+      }
+      try {
+        const { getWeather, formatWeather } = await import('./kevo-weather');
+        const w = await getWeather(city);
+        if (!w) {
+          return {
+            handled: false,
+            actionName: 'get_weather',
+            speechReply: `I could not find weather for ${city}, sir.`,
+            status: 'failure',
+            verified: false,
+            reason: 'NOT_FOUND',
+          };
+        }
+        return {
+          handled: true,
+          actionName: 'get_weather',
+          speechReply: formatWeather(w),
+          status: 'success',
+          verified: true,
+          data: w,
+        };
+      } catch (err: any) {
+        return {
+          handled: false,
+          actionName: 'get_weather',
+          speechReply: `Weather lookup failed: ${err?.message || err}`,
+          status: 'failure',
+          verified: false,
+          error: String(err),
+          reason: 'EXECUTION_FAILED',
+        };
+      }
+    },
+  },
+  {
+    name: 'set_volume',
+    description: 'Sets or adjusts the music volume (0-100, or relative up/down).',
+    parameters: {
+      type: 'object',
+      properties: {
+        level: { type: 'number', description: 'Absolute volume 0-100' },
+        change: { type: 'string', description: 'Relative: up, down, or a number like +10' },
+      },
+    },
+    execute: async (args: { level?: number; change?: string }, ctx: JarvisActionContext) => {
+      if (!ctx.setMusicVolume) {
+        return {
+          handled: false,
+          actionName: 'set_volume',
+          speechReply: 'Volume control is not available.',
+          status: 'failure',
+          verified: false,
+          reason: 'NOT_SUPPORTED',
+        };
+      }
+      let req: any = {};
+      if (typeof args?.level === 'number') req.absolute = Math.max(0, Math.min(100, args.level));
+      else if (args?.change) {
+        const c = args.change.toLowerCase();
+        if (c === 'up') req.delta = 10;
+        else if (c === 'down') req.delta = -10;
+        else {
+          const n = parseInt(c, 10);
+          if (!isNaN(n)) req.delta = n;
+        }
+      }
+      if (Object.keys(req).length === 0) {
+        return {
+          handled: false,
+          actionName: 'set_volume',
+          speechReply: 'How should I adjust the volume, sir?',
+          status: 'failure',
+          verified: false,
+          reason: 'INVALID_ARGUMENT',
+        };
+      }
+      try {
+        const newLevel = ctx.dryRun ? 50 : ctx.setMusicVolume(req);
+        return {
+          handled: true,
+          actionName: 'set_volume',
+          speechReply: `Volume set to ${newLevel}, sir.`,
+          status: 'success',
+          verified: true,
+          data: { volume: newLevel },
+        };
+      } catch (err: any) {
+        return {
+          handled: false,
+          actionName: 'set_volume',
+          speechReply: `Could not change volume: ${err?.message || err}`,
+          status: 'failure',
+          verified: false,
+          error: String(err),
+        };
+      }
+    },
+  },
+  {
+    name: 'seek_music',
+    description: 'Seeks the current track forward or backward by seconds (default 30).',
+    parameters: {
+      type: 'object',
+      properties: {
+        seconds: { type: 'number', description: 'Seconds to seek; positive forward, negative backward' },
+      },
+    },
+    execute: async (args: { seconds?: number }, ctx: JarvisActionContext) => {
+      // Placeholder: assumes future seekMusic on context; for now reports intent.
+      const secs = args?.seconds ?? 30;
+      const dir = secs >= 0 ? 'forward' : 'backward';
+      return {
+        handled: true,
+        actionName: 'seek_music',
+        speechReply: `Seeking ${Math.abs(secs)} seconds ${dir}, sir. (Player integration pending.)`,
+        status: 'success',
+        verified: false,
+        reason: 'PARTIAL',
+      };
+    },
+  },
 ];
 
 /** Map of action name to definition for O(1) lookup. */
