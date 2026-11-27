@@ -601,6 +601,7 @@ pub fn run() {
             anf_vault_bridge::workspace_note_outline,
             anf_vault_bridge::workspace_stub_notes,
             anf_vault_bridge::workspace_vault_word_goal,
+            anf_vault_bridge::workspace_search_vault_notes,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,

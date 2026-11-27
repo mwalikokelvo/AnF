@@ -163,3 +163,20 @@ export async function fetchVaultWordGoal(
 ): Promise<VaultWordGoalProgress> {
   return invoke<VaultWordGoalProgress>('workspace_vault_word_goal', { notes, targetWords });
 }
+
+export type VaultSearchHit = {
+  id: string;
+  title: string;
+  line: number;
+  snippet: string;
+  matchCount: number;
+};
+
+export async function searchVaultNotesNative(
+  notes: RelatedNoteInput[],
+  query: string,
+  limit = 20,
+): Promise<VaultSearchHit[]> {
+  if (!notes.length || !query.trim()) return [];
+  return invoke<VaultSearchHit[]>('workspace_search_vault_notes', { notes, query, limit });
+}

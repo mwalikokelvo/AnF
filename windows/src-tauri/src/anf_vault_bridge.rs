@@ -4,9 +4,9 @@ use anf_vault::{
     related::{
         compute_note_reading_stats, evaluate_vault_word_goal, extract_note_outline,
         extract_vault_tags, find_broken_wiki_links, find_note_backlinks, find_stub_notes,
-        related_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput,
-        NoteOutlineHeading, NoteReadingStats, RelatedNote, StubNoteEntry, VaultHealthSummary,
-        VaultTagCount, VaultWordGoalProgress,
+        related_notes, search_vault_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink,
+        NoteInput, NoteOutlineHeading, NoteReadingStats, RelatedNote, StubNoteEntry,
+        VaultHealthSummary, VaultSearchHit, VaultTagCount, VaultWordGoalProgress,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -95,6 +95,16 @@ pub fn workspace_vault_word_goal(
     target_words: Option<usize>,
 ) -> VaultWordGoalProgress {
     evaluate_vault_word_goal(&notes, target_words.unwrap_or(1000))
+}
+
+/// Search vault notes for multi-term queries on-device and return ranked snippets.
+#[tauri::command]
+pub fn workspace_search_vault_notes(
+    notes: Vec<NoteInput>,
+    query: String,
+    limit: Option<usize>,
+) -> Vec<VaultSearchHit> {
+    search_vault_notes(&notes, &query, limit.unwrap_or(20))
 }
 
 #[cfg(test)]

@@ -514,6 +514,61 @@ pub fn evaluate_vault_word_goal(notes: &[NoteInput], target_words: usize) -> Vau
     }
 }
 
+/// A ranked substring/multi-term search hit across vault notes.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultSearchHit {
+    pub id: String,
+    pub title: String,
+    pub line: usize,
+    pub snippet: String,
+    pub match_count: usize,
+}
+
+/// Search vault notes for all query terms (case-insensitive) and return ranked snippets.
+pub fn search_vault_notes(
+    notes: &[NoteInput],
+    query: &str,
+    limit: usize,
+) -> Vec<VaultSearchHit> {
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if terms.is_empty() {
+        return Vec::new();
+    }
+    let mut hits = Vec::new();
+    for note in notes {
+        let haystack = format!("{}\n{}", note.title, note.text).to_lowercase();
+        if !terms.iter().all(|t| haystack.contains(t.as_str())) {
+            continue;
+        }
+        let match_count: usize = terms.iter().map(|t| haystack.matches(t.as_str()).count()).sum();
+        let (line, snippet) = note
+            .text
+            .lines()
+            .enumerate()
+            .find(|(_, l)| {
+                let lower = l.to_lowercase();
+                terms.iter().any(|t| lower.contains(t.as_str()))
+            })
+            .map(|(i, l)| (i + 1, l.trim().chars().take(140).collect::<String>()))
+            .unwrap_or_else(|| (1, note.title.clone()));
+        hits.push(VaultSearchHit {
+            id: note.id.clone(),
+            title: note.title.clone(),
+            line,
+            snippet,
+            match_count,
+        });
+    }
+    hits.sort_by(|a, b| b.match_count.cmp(&a.match_count).then_with(|| a.title.cmp(&b.title)));
+    hits.truncate(limit.clamp(1, 100));
+    hits
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -717,5 +772,19 @@ mod tests {
         assert!(met.goal_met);
         assert_eq!(met.remaining_words, 0);
         assert!((met.completion_pct - 100.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn search_vault_notes_matches_multi_term_queries_and_ranks_by_hits() {
+        let notes = vec![
+            note("n1", "Rust DSP", "First line\nRust audio gain and rust dsp"),
+            note("n2", "Audio", "Only audio here"),
+            note("n3", "Other", "Rust only"),
+        ];
+        let hits = search_vault_notes(&notes, "rust audio", 10);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].id, "n1");
+        assert_eq!(hits[0].line, 2);
+        assert!(hits[0].match_count >= 3);
     }
 }
