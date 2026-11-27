@@ -3,11 +3,12 @@
 use anf_vault::{
     related::{
         compute_note_reading_stats, evaluate_vault_word_goal, extract_note_outline,
-        extract_vault_tags, extract_vault_tasks, find_broken_wiki_links, find_note_backlinks,
-        find_notes_by_tag, find_stub_notes, related_notes, search_vault_notes,
-        summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput, NoteOutlineHeading,
-        NoteReadingStats, RelatedNote, StubNoteEntry, TaggedNoteMatch, VaultHealthSummary,
-        VaultSearchHit, VaultTagCount, VaultTaskItem, VaultWordGoalProgress,
+        extract_vault_previews, extract_vault_tags, extract_vault_tasks, find_broken_wiki_links,
+        find_note_backlinks, find_notes_by_tag, find_stub_notes, related_notes,
+        search_vault_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput,
+        NoteOutlineHeading, NoteReadingStats, RelatedNote, StubNoteEntry, TaggedNoteMatch,
+        VaultHealthSummary, VaultNotePreview, VaultSearchHit, VaultTagCount, VaultTaskItem,
+        VaultWordGoalProgress,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -121,6 +122,15 @@ pub fn workspace_vault_tasks(
     include_completed: Option<bool>,
 ) -> Vec<VaultTaskItem> {
     extract_vault_tasks(&notes, include_completed.unwrap_or(true))
+}
+
+/// Build plain-text note previews across vault notes on-device.
+#[tauri::command]
+pub fn workspace_vault_previews(
+    notes: Vec<NoteInput>,
+    max_chars: Option<usize>,
+) -> Vec<VaultNotePreview> {
+    extract_vault_previews(&notes, max_chars.unwrap_or(160))
 }
 
 #[cfg(test)]

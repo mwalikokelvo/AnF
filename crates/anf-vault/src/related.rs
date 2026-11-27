@@ -666,6 +666,60 @@ pub fn extract_vault_tasks(notes: &[NoteInput], include_completed: bool) -> Vec<
     tasks
 }
 
+/// A compact plain-text preview card for a vault note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultNotePreview {
+    pub note_id: String,
+    pub title: String,
+    pub excerpt: String,
+    pub word_count: usize,
+}
+
+/// Build plain-text excerpts (stripping Markdown headings, blockquotes, and fenced code) for vault notes.
+pub fn extract_vault_previews(notes: &[NoteInput], max_chars: usize) -> Vec<VaultNotePreview> {
+    let cap = max_chars.clamp(24, 1000);
+    let mut previews = Vec::with_capacity(notes.len());
+    for note in notes {
+        let mut in_fence = false;
+        let mut plain_parts = Vec::new();
+        for raw_line in note.text.lines() {
+            let trimmed = raw_line.trim();
+            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                in_fence = !in_fence;
+                continue;
+            }
+            if in_fence || trimmed.is_empty() {
+                continue;
+            }
+            let cleaned = trimmed
+                .trim_start_matches('#')
+                .trim_start_matches('>')
+                .trim();
+            if !cleaned.is_empty() {
+                plain_parts.push(cleaned);
+            }
+        }
+        let joined = plain_parts.join(" ");
+        let word_count = joined.split_whitespace().count();
+        let excerpt = if joined.chars().count() <= cap {
+            joined
+        } else {
+            let truncated: String = joined.chars().take(cap.saturating_sub(1)).collect();
+            let trimmed = truncated.trim_end();
+            format!("{trimmed}…")
+        };
+        previews.push(VaultNotePreview {
+            note_id: note.id.clone(),
+            title: note.title.clone(),
+            excerpt,
+            word_count,
+        });
+    }
+    previews.sort_by(|a, b| a.title.cmp(&b.title).then_with(|| a.note_id.cmp(&b.note_id)));
+    previews
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -924,5 +978,30 @@ mod tests {
         let open_only = extract_vault_tasks(&notes, false);
         assert_eq!(open_only.len(), 2);
         assert!(open_only.iter().all(|t| !t.completed));
+    }
+
+    #[test]
+    fn extracts_vault_previews_stripping_fences_and_truncating() {
+        let notes = vec![
+            NoteInput {
+                id: "n1".into(),
+                title: "Beta".into(),
+                text: "# Heading\n> Quote line\n```\nlet hidden = 1;\n```\nBody words for preview testing.".into(),
+            },
+            NoteInput {
+                id: "n2".into(),
+                title: "Alpha".into(),
+                text: "Short note.".into(),
+            },
+        ];
+        let previews = extract_vault_previews(&notes, 30);
+        assert_eq!(previews.len(), 2);
+        assert_eq!(previews[0].note_id, "n2");
+        assert_eq!(previews[0].excerpt, "Short note.");
+        assert_eq!(previews[0].word_count, 2);
+        assert_eq!(previews[1].note_id, "n1");
+        assert!(!previews[1].excerpt.contains("hidden"));
+        assert!(previews[1].excerpt.ends_with('…'));
+        assert!(previews[1].excerpt.chars().count() <= 30);
     }
 }

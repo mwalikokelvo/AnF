@@ -210,3 +210,18 @@ export async function fetchVaultTasks(
   if (!notes.length) return [];
   return invoke<VaultTaskItem[]>('workspace_vault_tasks', { notes, includeCompleted });
 }
+
+export interface VaultNotePreview {
+  noteId: string;
+  title: string;
+  excerpt: string;
+  wordCount: number;
+}
+
+export async function fetchVaultPreviews(
+  notes: RelatedNoteInput[],
+  maxChars = 160,
+): Promise<VaultNotePreview[]> {
+  if (!notes.length) return [];
+  return invoke<VaultNotePreview[]>('workspace_vault_previews', { notes, maxChars });
+}

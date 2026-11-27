@@ -604,6 +604,7 @@ pub fn run() {
             anf_vault_bridge::workspace_search_vault_notes,
             anf_vault_bridge::workspace_notes_by_tag,
             anf_vault_bridge::workspace_vault_tasks,
+            anf_vault_bridge::workspace_vault_previews,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,
