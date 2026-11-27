@@ -18,6 +18,9 @@ import { answerTrivia, askTrivia, fetchTrivia, isTriviaRequest, type TriviaQuest
 import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import { isWhatsPlayingRequest, formatWhatsPlaying } from './kevo-whats-playing';
 import { isHistoryRequest, todayInHistory } from './kevo-history';
+import { isNewsRequest, topNews } from './kevo-news';
+import { isHolidayRequest, publicHolidays } from './kevo-holidays';
+import { isAdvancedCalcRequest, advancedCalc } from './kevo-advanced-calc';
 import { isAdviceRequest, randomAdvice } from './kevo-advice';
 import {
   createReminder,
@@ -885,6 +888,27 @@ export class JarvisVoiceAgent {
         () => todayInHistory(),
         (events) => (events ? `On this day in history: ${events}` : 'I could not find any recorded historical events for today, sir.')
       );
+    }
+    if (isNewsRequest(lower)) {
+      return this.online(
+        'top_news',
+        'fetch top news',
+        () => topNews(),
+        (news) => news || 'I could not retrieve the news right now, sir.'
+      );
+    }
+    const holiday = isHolidayRequest(lower);
+    if (holiday) {
+      return this.online(
+        'public_holidays',
+        `check holidays in ${holiday.country}`,
+        () => publicHolidays(holiday.country, holiday.year),
+        (msg) => msg || 'No holiday information available, sir.'
+      );
+    }
+    if (isAdvancedCalcRequest(lower)) {
+      const calc = advancedCalc(lower);
+      if (calc) return { speech: calc.speech, done: true };
     }
 
     if (isCoinFlipRequest(lower)) {
