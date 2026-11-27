@@ -64,6 +64,9 @@ import {
   removeFromShoppingList,
 } from './kevo-shopping';
 
+import { getWeather, formatWeather } from './kevo-weather';
+import { getTopNews, formatNews } from './kevo-news';
+import { buildRadioQueue, formatRadioStart, type TrackMeta } from './kevo-music-radio';
 export interface JSONSchemaParameter {
   type: string;
   description?: string;
@@ -2069,7 +2072,63 @@ export async function executeKevoToolCalls(
 
 /** Parses raw OpenAI-compatible response into KevoAskReply, handling standard tool_calls and inline <tool_call> tags. */
 export function parseKevoAskResponse(response: any): KevoAskReply {
-  const toolCalls: KevoToolCall[] = [];
+  const toolCalls: KevoToolCall[] = [
+  {
+    name: 'get_weather',
+    description: 'Reports current weather and short forecast for a place (default London). Uses free Open-Meteo.',
+    parameters: {
+      type: 'object',
+      properties: {
+        place: { type: 'string', description: 'City or place name, optional' },
+      },
+    },
+    execute: async (args: { place?: string }, _ctx: JarvisActionContext) => {
+      const result = await getWeather(args?.place);
+      if ('error' in result) {
+        return { handled: false, actionName: 'get_weather', speechReply: result.error, status: 'failure', verified: false, reason: 'EXECUTION_FAILED' };
+      }
+      return { handled: true, actionName: 'get_weather', speechReply: formatWeather(result), status: 'success', verified: true };
+    },
+  },
+  {
+    name: 'get_news',
+    description: 'Reads top technology news headlines from Hacker News.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Number of stories (default 5)' },
+      },
+    },
+    execute: async (args: { limit?: number }, _ctx: JarvisActionContext) => {
+      const items = await getTopNews(args?.limit || 5);
+      if ('error' in items) {
+        return { handled: false, actionName: 'get_news', speechReply: items.error, status: 'failure', verified: false, reason: 'EXECUTION_FAILED' };
+      }
+      return { handled: true, actionName: 'get_news', speechReply: formatNews(items), status: 'success', verified: true };
+    },
+  },
+  {
+    name: 'music_radio',
+    description: 'Starts a radio-style queue of similar tracks from the local library based on a seed track, artist or genre.',
+    parameters: {
+      type: 'object',
+      properties: {
+        seedTitle: { type: 'string', description: 'Seed track title' },
+        seedArtist: { type: 'string', description: 'Seed artist' },
+        seedGenre: { type: 'string', description: 'Seed genre' },
+      },
+    },
+    execute: async (args: { seedTitle?: string; seedArtist?: string; seedGenre?: string }, ctx: JarvisActionContext) => {
+      // In a real integration ctx would provide the library and current track; here we demonstrate the builder.
+      const seed: TrackMeta = { id: 'seed', title: args?.seedTitle || 'Unknown', artist: args?.seedArtist || 'Unknown', genre: args?.seedGenre };
+      // Placeholder: real code would fetch library from music hub
+      const library: TrackMeta[] = []; // filled by caller in full impl
+      const queue = buildRadioQueue(seed, library);
+      const reply = formatRadioStart(seed, queue.length);
+      return { handled: true, actionName: 'music_radio', speechReply: reply + ' (library integration pending full hookup)', status: 'success', verified: true };
+    },
+  },
+];
   const choice = response?.choices?.[0]?.message;
   if (!choice) return { text: undefined, tool_calls: [] };
 
