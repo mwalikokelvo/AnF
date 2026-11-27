@@ -180,3 +180,17 @@ export async function searchVaultNotesNative(
   if (!notes.length || !query.trim()) return [];
   return invoke<VaultSearchHit[]>('workspace_search_vault_notes', { notes, query, limit });
 }
+
+export type TaggedNoteMatch = {
+  id: string;
+  title: string;
+  wordCount: number;
+};
+
+export async function fetchNotesByTag(
+  notes: RelatedNoteInput[],
+  tag: string,
+): Promise<TaggedNoteMatch[]> {
+  if (!notes.length || !tag.trim()) return [];
+  return invoke<TaggedNoteMatch[]>('workspace_notes_by_tag', { notes, tag });
+}

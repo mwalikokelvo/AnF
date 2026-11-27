@@ -569,6 +569,38 @@ pub fn search_vault_notes(
     hits
 }
 
+/// A note matching a `#hashtag` filter.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaggedNoteMatch {
+    pub id: String,
+    pub title: String,
+    pub word_count: usize,
+}
+
+/// Return all notes containing `#<tag>` (case-insensitive), sorted by title.
+pub fn find_notes_by_tag(notes: &[NoteInput], tag: &str) -> Vec<TaggedNoteMatch> {
+    let needle = tag.trim().trim_start_matches('#').to_lowercase();
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    let mut matches: Vec<TaggedNoteMatch> = notes
+        .iter()
+        .filter(|n| {
+            extract_vault_tags(std::slice::from_ref(n))
+                .iter()
+                .any(|t| t.tag == needle)
+        })
+        .map(|n| TaggedNoteMatch {
+            id: n.id.clone(),
+            title: n.title.clone(),
+            word_count: n.text.split_whitespace().count(),
+        })
+        .collect();
+    matches.sort_by(|a, b| a.title.cmp(&b.title).then_with(|| a.id.cmp(&b.id)));
+    matches
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -786,5 +818,18 @@ mod tests {
         assert_eq!(hits[0].id, "n1");
         assert_eq!(hits[0].line, 2);
         assert!(hits[0].match_count >= 3);
+    }
+
+    #[test]
+    fn find_notes_by_tag_matches_case_insensitively() {
+        let notes = vec![
+            note("n1", "Beta", "Notes on #Rust and #Audio"),
+            note("n2", "Alpha", "More #RUST tips"),
+            note("n3", "Gamma", "Color #ff00aa only"),
+        ];
+        let found = find_notes_by_tag(&notes, "#rust");
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].id, "n2");
+        assert_eq!(found[1].id, "n1");
     }
 }
