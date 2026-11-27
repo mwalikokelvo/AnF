@@ -225,3 +225,19 @@ export async function fetchVaultPreviews(
   if (!notes.length) return [];
   return invoke<VaultNotePreview[]>('workspace_vault_previews', { notes, maxChars });
 }
+
+export interface VaultCodeBlock {
+  noteId: string;
+  title: string;
+  language: string;
+  lineNumber: number;
+  code: string;
+}
+
+export async function fetchVaultCodeBlocks(
+  notes: RelatedNoteInput[],
+  language?: string,
+): Promise<VaultCodeBlock[]> {
+  if (!notes.length) return [];
+  return invoke<VaultCodeBlock[]>('workspace_vault_code_blocks', { notes, language });
+}

@@ -720,6 +720,73 @@ pub fn extract_vault_previews(notes: &[NoteInput], max_chars: usize) -> Vec<Vaul
     previews
 }
 
+/// A fenced code block extracted from a vault note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultCodeBlock {
+    pub note_id: String,
+    pub title: String,
+    pub language: String,
+    pub line_number: usize,
+    pub code: String,
+}
+
+/// Extract fenced code blocks (` ``` ` or `~~~`) across vault notes, optionally filtered by language.
+pub fn extract_vault_code_blocks(
+    notes: &[NoteInput],
+    language_filter: Option<&str>,
+) -> Vec<VaultCodeBlock> {
+    let filter = language_filter
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty());
+    let mut blocks = Vec::new();
+    for note in notes {
+        let mut active_fence: Option<(&str, String, usize, Vec<String>)> = None;
+        for (idx, raw_line) in note.text.lines().enumerate() {
+            let trimmed = raw_line.trim_start();
+            if let Some((marker, lang, start_line, mut lines)) = active_fence.take() {
+                if trimmed.starts_with(marker) {
+                    let matches_filter = filter
+                        .as_deref()
+                        .is_none_or(|f| lang.eq_ignore_ascii_case(f));
+                    let code = lines.join("\n");
+                    if matches_filter && !code.trim().is_empty() {
+                        blocks.push(VaultCodeBlock {
+                            note_id: note.id.clone(),
+                            title: note.title.clone(),
+                            language: lang,
+                            line_number: start_line,
+                            code,
+                        });
+                    }
+                } else {
+                    lines.push(raw_line.to_string());
+                    active_fence = Some((marker, lang, start_line, lines));
+                }
+            } else if let Some(rest) = trimmed
+                .strip_prefix("```")
+                .map(|r| ("```", r))
+                .or_else(|| trimmed.strip_prefix("~~~").map(|r| ("~~~", r)))
+            {
+                let lang = rest
+                    .1
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_lowercase();
+                active_fence = Some((rest.0, lang, idx + 1, Vec::new()));
+            }
+        }
+    }
+    blocks.sort_by(|a, b| {
+        a.title
+            .cmp(&b.title)
+            .then_with(|| a.note_id.cmp(&b.note_id))
+            .then_with(|| a.line_number.cmp(&b.line_number))
+    });
+    blocks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1003,5 +1070,30 @@ mod tests {
         assert!(!previews[1].excerpt.contains("hidden"));
         assert!(previews[1].excerpt.ends_with('…'));
         assert!(previews[1].excerpt.chars().count() <= 30);
+    }
+
+    #[test]
+    fn extracts_vault_code_blocks_with_optional_language_filter() {
+        let notes = vec![
+            NoteInput {
+                id: "n1".into(),
+                title: "Beta".into(),
+                text: "Intro\n```rust\nfn main() {}\n```\n~~~\nplain\n~~~\n".into(),
+            },
+            NoteInput {
+                id: "n2".into(),
+                title: "Alpha".into(),
+                text: "```RUST\nlet x = 1;\n```\n".into(),
+            },
+        ];
+        let all = extract_vault_code_blocks(&notes, None);
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0].note_id, "n2");
+        assert_eq!(all[0].language, "rust");
+        assert_eq!(all[0].code, "let x = 1;");
+
+        let rust_only = extract_vault_code_blocks(&notes, Some("rust"));
+        assert_eq!(rust_only.len(), 2);
+        assert!(rust_only.iter().all(|b| b.language == "rust"));
     }
 }
