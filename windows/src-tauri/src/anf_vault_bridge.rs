@@ -3,13 +3,13 @@
 use anf_vault::{
     related::{
         compute_note_reading_stats, evaluate_vault_word_goal, extract_note_outline,
-        extract_vault_code_blocks, extract_vault_previews, extract_vault_questions,
-        extract_vault_tags, extract_vault_tasks, find_broken_wiki_links, find_note_backlinks,
-        find_notes_by_tag, find_stub_notes, related_notes, search_vault_notes,
-        summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput, NoteOutlineHeading,
-        NoteReadingStats, RelatedNote, StubNoteEntry, TaggedNoteMatch, VaultCodeBlock,
-        VaultHealthSummary, VaultNotePreview, VaultQuestionItem, VaultSearchHit, VaultTagCount,
-        VaultTaskItem, VaultWordGoalProgress,
+        extract_vault_code_blocks, extract_vault_external_links, extract_vault_previews,
+        extract_vault_questions, extract_vault_tags, extract_vault_tasks, find_broken_wiki_links,
+        find_note_backlinks, find_notes_by_tag, find_stub_notes, related_notes,
+        search_vault_notes, summarize_vault_notes, BrokenWikiLink, NoteBacklink, NoteInput,
+        NoteOutlineHeading, NoteReadingStats, RelatedNote, StubNoteEntry, TaggedNoteMatch,
+        VaultCodeBlock, VaultExternalLink, VaultHealthSummary, VaultNotePreview,
+        VaultQuestionItem, VaultSearchHit, VaultTagCount, VaultTaskItem, VaultWordGoalProgress,
     },
     MAX_VERSIONS_PER_PROJECT, SCHEMA_SQL, SCHEMA_VERSION,
 };
@@ -147,6 +147,12 @@ pub fn workspace_vault_code_blocks(
 #[tauri::command]
 pub fn workspace_vault_questions(notes: Vec<NoteInput>) -> Vec<VaultQuestionItem> {
     extract_vault_questions(&notes)
+}
+
+/// Extract external `http://` and `https://` links across vault notes on-device.
+#[tauri::command]
+pub fn workspace_vault_external_links(notes: Vec<NoteInput>) -> Vec<VaultExternalLink> {
+    extract_vault_external_links(&notes)
 }
 
 #[cfg(test)]

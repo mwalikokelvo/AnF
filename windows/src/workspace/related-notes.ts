@@ -255,3 +255,17 @@ export async function fetchVaultQuestions(
   if (!notes.length) return [];
   return invoke<VaultQuestionItem[]>('workspace_vault_questions', { notes });
 }
+
+export interface VaultExternalLink {
+  noteId: string;
+  title: string;
+  url: string;
+  host: string;
+}
+
+export async function fetchVaultExternalLinks(
+  notes: RelatedNoteInput[],
+): Promise<VaultExternalLink[]> {
+  if (!notes.length) return [];
+  return invoke<VaultExternalLink[]>('workspace_vault_external_links', { notes });
+}

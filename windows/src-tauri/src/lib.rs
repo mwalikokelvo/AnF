@@ -607,6 +607,7 @@ pub fn run() {
             anf_vault_bridge::workspace_vault_previews,
             anf_vault_bridge::workspace_vault_code_blocks,
             anf_vault_bridge::workspace_vault_questions,
+            anf_vault_bridge::workspace_vault_external_links,
             workspace_preview_action,
             workspace_apply_action,
             workspace_diagnostics,

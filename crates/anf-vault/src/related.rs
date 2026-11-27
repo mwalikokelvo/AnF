@@ -833,6 +833,73 @@ pub fn extract_vault_questions(notes: &[NoteInput]) -> Vec<VaultQuestionItem> {
     items
 }
 
+/// An external HTTP/HTTPS URL reference extracted from a vault note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultExternalLink {
+    pub note_id: String,
+    pub title: String,
+    pub url: String,
+    pub host: String,
+}
+
+/// Extract external `http://` and `https://` links across vault notes, ignoring fenced code blocks.
+pub fn extract_vault_external_links(notes: &[NoteInput]) -> Vec<VaultExternalLink> {
+    let mut links = Vec::new();
+    for note in notes {
+        let mut in_fence = false;
+        for raw_line in note.text.lines() {
+            let trimmed = raw_line.trim_start();
+            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                in_fence = !in_fence;
+                continue;
+            }
+            if in_fence {
+                continue;
+            }
+            let mut search_from = 0usize;
+            while let Some(rel) = raw_line[search_from..].find("http") {
+                let start = search_from + rel;
+                let rest = &raw_line[start..];
+                if !(rest.starts_with("https://") || rest.starts_with("http://")) {
+                    search_from = start + 4;
+                    continue;
+                }
+                let end_rel = rest
+                    .find(|c: char| c.is_whitespace() || matches!(c, ')' | ']' | '>' | '"' | '\''))
+                    .unwrap_or(rest.len());
+                let raw_url = &rest[..end_rel];
+                let url = raw_url.trim_end_matches(['.', ',', ';', ':', '!', '?']);
+                let scheme_len = if url.starts_with("https://") { 8 } else { 7 };
+                if url.len() > scheme_len {
+                    let after_scheme = &url[scheme_len..];
+                    let host = after_scheme
+                        .split(['/', '?', '#'])
+                        .next()
+                        .unwrap_or("")
+                        .to_lowercase();
+                    if !host.is_empty() {
+                        links.push(VaultExternalLink {
+                            note_id: note.id.clone(),
+                            title: note.title.clone(),
+                            url: url.to_string(),
+                            host,
+                        });
+                    }
+                }
+                search_from = start + end_rel.max(4);
+            }
+        }
+    }
+    links.sort_by(|a, b| {
+        a.host
+            .cmp(&b.host)
+            .then_with(|| a.url.cmp(&b.url))
+            .then_with(|| a.note_id.cmp(&b.note_id))
+    });
+    links
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1163,5 +1230,22 @@ mod tests {
         assert_eq!(questions[0].question, "What is next?");
         assert_eq!(questions[1].question, "Why does this work?");
         assert_eq!(questions[2].question, "Ready to ship?");
+    }
+
+    #[test]
+    fn extracts_vault_external_links_and_hosts_ignoring_code_fences() {
+        let notes = vec![
+            NoteInput {
+                id: "n1".into(),
+                title: "Refs".into(),
+                text: "See [docs](https://Example.COM/guide). Also http://rust-lang.org/learn,\n```\nhttps://ignored.local/test\n```\n".into(),
+            },
+        ];
+        let links = extract_vault_external_links(&notes);
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0].host, "example.com");
+        assert_eq!(links[0].url, "https://Example.COM/guide");
+        assert_eq!(links[1].host, "rust-lang.org");
+        assert_eq!(links[1].url, "http://rust-lang.org/learn");
     }
 }
