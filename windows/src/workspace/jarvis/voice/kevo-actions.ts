@@ -46,6 +46,10 @@ import { lookupWord, formatDefinition } from './kevo-dictionary';
 import { currencyCode, convertCurrency, formatConversion } from './kevo-currency';
 import { formatWhatsPlaying } from './kevo-whats-playing';
 import { todayInHistory } from './kevo-history';
+import { getWeather, formatWeather } from './kevo-weather';
+import { getTopNews, formatNews } from './kevo-news';
+import { getSystemStatus } from './kevo-system';
+
 import { randomAdvice } from './kevo-advice';
 import { fetchInvidiousTranscript, formatTranscriptMarkdown } from '../../invidious-service';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
@@ -1856,6 +1860,40 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       };
     },
   },
+  {
+    name: 'get_weather',
+    description: 'Reports current weather and short forecast for a city using free Open-Meteo.',
+    parameters: {
+      type: 'object',
+      properties: { city: { type: 'string', description: 'City name, e.g. London or New York' } },
+      required: ['city'],
+    },
+    execute: async (args: { city: string }) => {
+      const result = await getWeather(args?.city || '');
+      const speech = formatWeather(result);
+      return { handled: !result.error, actionName: 'get_weather', speechReply: speech, status: result.error ? 'failure' : 'success', verified: !result.error };
+    },
+  },
+  {
+    name: 'get_news',
+    description: 'Reads top world headlines from BBC RSS.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    execute: async () => {
+      const result = await getTopNews(5);
+      const speech = formatNews(result);
+      return { handled: !result.error, actionName: 'get_news', speechReply: speech, status: result.error ? 'failure' : 'success', verified: !result.error };
+    },
+  },
+  {
+    name: 'get_system_status',
+    description: 'Reports basic device status: online state and battery if available.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    execute: async () => {
+      const status = await getSystemStatus();
+      return { handled: true, actionName: 'get_system_status', speechReply: status.summary, status: 'success', verified: true };
+    },
+  },
+
 ];
 
 /** Map of action name to definition for O(1) lookup. */
