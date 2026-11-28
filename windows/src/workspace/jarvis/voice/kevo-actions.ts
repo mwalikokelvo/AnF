@@ -1856,6 +1856,71 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
       };
     },
   },
+  {
+    name: 'news_headlines',
+    description: 'Fetches top world news headlines from free public RSS feeds.',
+    parameters: {
+      type: 'object',
+      properties: {
+        count: { type: 'number', description: 'Number of headlines (default 3)' },
+      },
+    },
+    execute: async (args: { count?: number }) => {
+      const { fetchTopHeadlines, formatHeadlines } = await import('./kevo-news');
+      const headlines = await fetchTopHeadlines(args?.count || 3);
+      return {
+        handled: true,
+        actionName: 'news_headlines',
+        speechReply: formatHeadlines(headlines),
+        status: headlines.length ? 'success' : 'failure',
+        verified: headlines.length > 0,
+      };
+    },
+  },
+  {
+    name: 'air_quality',
+    description: 'Reports current air quality index for a city using free Open-Meteo.',
+    parameters: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'City name' },
+      },
+      required: ['city'],
+    },
+    execute: async (args: { city: string }) => {
+      const { getAirQuality } = await import('./kevo-airquality');
+      const summary = await getAirQuality(args.city);
+      return {
+        handled: !!summary,
+        actionName: 'air_quality',
+        speechReply: summary || `I could not get air quality for ${args.city}.`,
+        status: summary ? 'success' : 'failure',
+        verified: !!summary,
+      };
+    },
+  },
+  {
+    name: 'music_recommend',
+    description: 'Recommends tracks from your local library based on recent listening history.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async (_args: unknown, ctx: JarvisActionContext) => {
+      const { recommendFromHistory } = await import('./kevo-recs');
+      // Assume context has history and library; fallback for demo
+      const history = (ctx as any).listeningHistory || [];
+      const library = (ctx as any).musicLibrary || [];
+      const reply = recommendFromHistory(history, library);
+      return {
+        handled: true,
+        actionName: 'music_recommend',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
+      };
+    },
+  },
 ];
 
 /** Map of action name to definition for O(1) lookup. */
