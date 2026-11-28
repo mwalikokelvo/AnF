@@ -64,3 +64,9 @@
 - Windows build artifacts are now downloadable from a manual CI run — thanks @MysJofR
 - Any agent can talk to Mochi: tag a hook payload with `coucou_agent` (e.g. `nb-hook --agent my-agent`) and it gets its own pill in the island (#7, #9) — thanks @lacatu5
 - Gemini CLI and Antigravity (agy) hook support on macOS: install from Settings and their sessions show up in the island — thanks @corefusiion
+
+## Unreleased — Discovery features
+- News headlines from free BBC RSS (world or tech).
+- Cryptocurrency prices via free CoinGecko API.
+- Music artist recommendations via free MusicBrainz API (similar artists).
+

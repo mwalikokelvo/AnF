@@ -19,6 +19,9 @@ import { parseTranslateRequest, translateFromEnglish } from './kevo-translate';
 import { isWhatsPlayingRequest, formatWhatsPlaying } from './kevo-whats-playing';
 import { isHistoryRequest, todayInHistory } from './kevo-history';
 import { isAdviceRequest, randomAdvice } from './kevo-advice';
+import { isNewsRequest, fetchNewsHeadlines } from "./kevo-news";
+import { isCryptoRequest, getCryptoPrice } from "./kevo-crypto";
+import { isMusicRecommendRequest, findSimilarArtists } from "./kevo-music-recommend";
 import {
   createReminder,
   listReminders,
@@ -929,6 +932,29 @@ export class JarvisVoiceAgent {
       } catch (err) {
         return { handled: true, actionName: 'weather_failed', speechReply: `I could not get the weather: ${String(err).replace(/^Error:\s*/, '')}` };
       }
+    }
+
+    // New discovery features: news, crypto prices, music recommendations (free public APIs)
+    const newsTopic = isNewsRequest(lower);
+    if (newsTopic && (this.context.onlineLookupsEnabled?.() ?? true)) {
+      const asked = this.generation;
+      const reply = await fetchNewsHeadlines(newsTopic);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: 'news', speechReply: reply, status: 'success', verified: true };
+    }
+    const cryptoCoin = isCryptoRequest(lower);
+    if (cryptoCoin && (this.context.onlineLookupsEnabled?.() ?? true)) {
+      const asked = this.generation;
+      const reply = await getCryptoPrice(cryptoCoin);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: 'crypto_price', speechReply: reply, status: 'success', verified: true };
+    }
+    const similarArtist = isMusicRecommendRequest(lower);
+    if (similarArtist && (this.context.onlineLookupsEnabled?.() ?? true)) {
+      const asked = this.generation;
+      const reply = await findSimilarArtists(similarArtist);
+      if (asked !== this.generation) return { handled: true, actionName: 'abandoned', speechReply: '' };
+      return { handled: true, actionName: 'music_recommend', speechReply: reply, status: 'success', verified: true };
     }
 
     // Daily Briefing Scheduler (Phase 4 Step 4.3)
