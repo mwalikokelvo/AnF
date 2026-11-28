@@ -47,6 +47,9 @@ import { currencyCode, convertCurrency, formatConversion } from './kevo-currency
 import { formatWhatsPlaying } from './kevo-whats-playing';
 import { todayInHistory } from './kevo-history';
 import { randomAdvice } from './kevo-advice';
+import { getWeather, formatWeather } from './kevo-weather';
+import { recommendSimilar, formatRecommendations } from './kevo-discover';
+import { startFocus, getFocusStatus, cancelFocus } from './kevo-focus';
 import { fetchInvidiousTranscript, formatTranscriptMarkdown } from '../../invidious-service';
 import { rememberFact, listFacts, deleteFact, type KevoFact } from './jarvis-memory';
 import {
@@ -1853,6 +1856,72 @@ export const KEVO_ACTIONS: KevoActionDefinition[] = [
         status: missing ? 'failure' : 'success',
         verified: !missing,
         ...(missing ? { reason: 'NOT_FOUND' as const } : {}),
+      };
+    },
+  },
+  {
+    name: 'get_weather',
+    description: 'Get current weather and short forecast for a location or your area (Open-Meteo, free).',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'City or place name, optional' },
+      },
+    },
+    execute: async (args: { location?: string }, _ctx: JarvisActionContext) => {
+      const result = await getWeather(args?.location);
+      if ('error' in result) {
+        return { handled: true, actionName: 'get_weather', speechReply: result.error, status: 'failure', verified: false };
+      }
+      return {
+        handled: true,
+        actionName: 'get_weather',
+        speechReply: formatWeather(result),
+        status: 'success',
+        verified: true,
+        data: result,
+      };
+    },
+  },
+  {
+    name: 'discover_music',
+    description: 'Recommend similar music based on a genre, artist or your library (free sources).',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Genre, artist or mood' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: { query: string }, _ctx: JarvisActionContext) => {
+      const recs = await recommendSimilar(args.query);
+      return {
+        handled: true,
+        actionName: 'discover_music',
+        speechReply: formatRecommendations(recs),
+        status: 'success',
+        verified: true,
+        data: recs,
+      };
+    },
+  },
+  {
+    name: 'start_focus',
+    description: 'Start a Pomodoro-style focus session (default 25 minutes).',
+    parameters: {
+      type: 'object',
+      properties: {
+        minutes: { type: 'number', description: 'Duration in minutes' },
+      },
+    },
+    execute: async (args: { minutes?: number }, _ctx: JarvisActionContext) => {
+      const reply = startFocus(args?.minutes || 25);
+      return {
+        handled: true,
+        actionName: 'start_focus',
+        speechReply: reply,
+        status: 'success',
+        verified: true,
       };
     },
   },
