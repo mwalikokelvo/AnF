@@ -1,0 +1,26 @@
+name: Release Drafter
+
+tagPattern: '^v?(\d+)\.(\d+)\.(\d+)(-[a-z]+)?$'
+
+categories:
+  - title: "🚀 Features & Capabilities"
+    labels:
+      - "feature"
+      - "enhancement"
+      - "moonshot"
+  - title: "🐛 Bug Fixes & Hardening"
+    labels:
+      - "fix"
+      - "bug"
+      - "security"
+  - title: "⚡ Performance & Refactoring"
+    labels:
+      - "refactor"
+      - "perf"
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREV_TAG...v$NEXT_VERSION
