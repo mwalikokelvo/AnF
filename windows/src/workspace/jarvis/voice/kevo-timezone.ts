@@ -1,61 +1,22 @@
 /**
- * Offline "what time is it in Tokyo?" for Kevo.
- * Uses the browser's Intl with a small map of common places to IANA time zones.
- * Nothing is sent anywhere.
+ * Kevo Timezone — current time in a named city using Open-Meteo geocoding (free).
  */
+export interface TimeResult { place: string; localTime: string; timezone: string; speech: string; }
 
-import { bareRequest } from './kevo-fun';
+export async function getTimeIn(place: string): Promise<TimeResult | null> {
+  if (!place?.trim()) return null;
+  const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=en&format=json`;
+  const geoRes = await fetch(geoUrl);
+  if (!geoRes.ok) return null;
+  const geo = await geoRes.json();
+  const hit = geo.results?.[0];
+  if (!hit) return null;
+  const { latitude: lat, longitude: lon, name, country, timezone } = hit;
+  const fullPlace = country ? `${name}, ${country}` : name;
+  const tz = timezone || 'UTC';
 
-const CITIES: Record<string, string> = {
-  tokyo: 'Asia/Tokyo',
-  london: 'Europe/London',
-  'new york': 'America/New_York',
-  paris: 'Europe/Paris',
-  berlin: 'Europe/Berlin',
-  sydney: 'Australia/Sydney',
-  nairobi: 'Africa/Nairobi',
-  mumbai: 'Asia/Kolkata',
-  dubai: 'Asia/Dubai',
-  'los angeles': 'America/Los_Angeles',
-  chicago: 'America/Chicago',
-  singapore: 'Asia/Singapore',
-  hongkong: 'Asia/Hong_Kong',
-  'hong kong': 'Asia/Hong_Kong',
-  beijing: 'Asia/Shanghai',
-  moscow: 'Europe/Moscow',
-  cairo: 'Africa/Cairo',
-  johannesburg: 'Africa/Johannesburg',
-  rio: 'America/Sao_Paulo',
-  'sao paulo': 'America/Sao_Paulo',
-};
-
-/**
- * "what time is it in Tokyo (now)", "time in London", "what's the time in Paris": the place asked about, known or not,
- * so a place Kevo has no time zone for is never answered with the time here.
- */
-export function parseTimezoneRequest(lower: string): string | null {
-  const said = bareRequest(lower);
-  const m = /^(?:what(?:'s| is) the |whats the |what )?(?:current )?time(?: is it)?(?: right now| now)? in ([a-z ]+?)(?: right now| now)?$/.exec(said);
-  return m ? m[1].trim().replace(/\s+/g, ' ') : null;
-}
-
-export function timeInPlace(place: string, now: Date = new Date()): string | null {
-  const zone = CITIES[place.toLowerCase()];
-  if (!zone) return null;
-  try {
-    const formatted = new Intl.DateTimeFormat('en-GB', {
-      timeZone: zone,
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: false,
-    }).format(now);
-    return `It is ${formatted} in ${placeName(place)}.`;
-  } catch {
-    return null;
-  }
-}
-
-/** "new york" -> "New York". */
-export function placeName(place: string): string {
-  return place.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  const now = new Date();
+  const local = now.toLocaleString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+  const speech = `The current time in ${fullPlace} is ${local}.`;
+  return { place: fullPlace, localTime: local, timezone: tz, speech };
 }
